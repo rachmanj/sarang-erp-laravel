@@ -4,15 +4,21 @@ namespace App\Services\Accounting;
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Carbon;
+use App\Services\Accounting\PeriodCloseService;
 
 class PostingService
 {
+    public function __construct(private PeriodCloseService $periods) {}
     public function postJournal(array $payload): int
     {
         // Expected $payload keys: date, description, period_id|null, source_type, source_id, posted_by|null, lines[]
         // Each line: account_id, debit, credit, project_id|null, fund_id|null, dept_id|null, memo|null
         $this->validatePayload($payload);
         $this->assertBalanced($payload['lines']);
+
+        if ($this->periods->isDateClosed($payload['date'])) {
+            throw new \RuntimeException('Cannot post to a closed period');
+        }
 
         return DB::transaction(function () use ($payload) {
             $journalId = DB::table('journals')->insertGetId([

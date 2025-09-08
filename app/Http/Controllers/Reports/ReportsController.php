@@ -31,4 +31,23 @@ class ReportsController extends Controller
         }
         return view('reports.gl-detail');
     }
+
+    public function arAging(Request $request)
+    {
+        $data = $this->service->getArAging($request->query('as_of'));
+        return response()->json($data);
+    }
+
+    public function apAging(Request $request)
+    {
+        $data = $this->service->getApAging($request->query('as_of'));
+        return response()->json($data);
+    }
+
+    public function cashLedger(Request $request)
+    {
+        $filters = $request->only(['from', 'to']);
+        $data = $this->service->getCashLedger($filters);
+        return response()->json($data);
+    }
 }

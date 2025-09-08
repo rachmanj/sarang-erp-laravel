@@ -52,11 +52,13 @@ class RoleController extends Controller
         $this->authorize('roles.create');
         $data = $request->validate([
             'name' => ['required', 'string', 'max:100', 'unique:roles,name'],
-            'permissions' => ['array']
+            'permissions' => ['array'],
+            'permissions.*' => ['integer', 'exists:permissions,id']
         ]);
         $role = Role::create(['name' => $data['name']]);
         if (!empty($data['permissions'])) {
-            $role->syncPermissions($data['permissions']);
+            $perms = collect($data['permissions'])->map(fn($id) => (int) $id)->all();
+            $role->syncPermissions($perms);
         }
         return redirect()->route('admin.roles.index')->with('success', 'Role created');
     }
@@ -73,12 +75,14 @@ class RoleController extends Controller
         $this->authorize('roles.update');
         $data = $request->validate([
             'name' => ['required', 'string', 'max:100', 'unique:roles,name,' . $role->id],
-            'permissions' => ['array']
+            'permissions' => ['array'],
+            'permissions.*' => ['integer', 'exists:permissions,id']
         ]);
         $role->name = $data['name'];
         $role->save();
         if (isset($data['permissions'])) {
-            $role->syncPermissions($data['permissions']);
+            $perms = collect($data['permissions'])->map(fn($id) => (int) $id)->all();
+            $role->syncPermissions($perms);
         }
         return redirect()->route('admin.roles.index')->with('success', 'Role updated');
     }

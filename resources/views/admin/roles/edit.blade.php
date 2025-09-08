@@ -27,7 +27,7 @@
                         </div>
                         <form action="{{ route('admin.roles.update', $role) }}" method="POST">
                             @csrf
-                            @method('PUT')
+                            @method('PATCH')
                             <div class="card-body">
                                 <div class="form-group">
                                     <label for="name">Role Name <span class="text-danger">*</span></label>
