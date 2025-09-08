@@ -41,4 +41,31 @@ class ReportsTest extends TestCase
             $this->assertEquals($accountId, (int) DB::table('accounts')->where('code', $row['account_code'])->value('id'));
         }
     }
+
+    public function test_ar_aging_has_totals_and_names(): void
+    {
+        $response = $this->getJson('/reports/ar-aging');
+        $response->assertOk();
+        $data = $response->json();
+        $this->assertArrayHasKey('rows', $data);
+        $this->assertArrayHasKey('totals', $data);
+        // Rows may be empty, but structure must include keys
+        if (!empty($data['rows'])) {
+            $row = $data['rows'][0];
+            $this->assertArrayHasKey('customer_id', $row);
+            $this->assertArrayHasKey('total', $row);
+        }
+    }
+
+    public function test_cash_ledger_supports_opening_balance_and_account_filter(): void
+    {
+        $accountId = (int) DB::table('accounts')->where('code', '1.1.2.01')->value('id');
+        $from = now()->startOfMonth()->toDateString();
+        $to = now()->toDateString();
+        $response = $this->getJson('/reports/cash-ledger?account_id=' . $accountId . '&from=' . $from . '&to=' . $to);
+        $response->assertOk();
+        $data = $response->json();
+        $this->assertArrayHasKey('rows', $data);
+        $this->assertArrayHasKey('opening_balance', $data);
+    }
 }

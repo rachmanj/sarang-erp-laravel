@@ -8,6 +8,7 @@ use App\Models\Accounting\PurchaseInvoiceLine;
 use App\Services\Accounting\PostingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Yajra\DataTables\Facades\DataTables;
 
 class PurchaseInvoiceController extends Controller
 {
@@ -21,39 +22,7 @@ class PurchaseInvoiceController extends Controller
 
     public function index()
     {
-        $query = PurchaseInvoice::query();
-        if (request('status')) {
-            $query->where('status', request('status'));
-        }
-        if (request('from')) {
-            $query->whereDate('date', '>=', request('from'));
-        }
-        if (request('to')) {
-            $query->whereDate('date', '<=', request('to'));
-        }
-        if (request('q')) {
-            $q = request('q');
-            $query->where(function ($w) use ($q) {
-                $w->where('invoice_no', 'like', "%$q%")
-                    ->orWhere('description', 'like', "%$q%")
-                    ->orWhereIn('vendor_id', function ($sub) use ($q) {
-                        $sub->from('vendors')->select('id')->where('name', 'like', "%$q%");
-                    });
-            });
-        }
-
-        if (request('export') === 'csv') {
-            $rows = $query->orderByDesc('date')->orderByDesc('id')->get(['date', 'invoice_no', 'vendor_id', 'total_amount', 'status']);
-            $csv = "date,invoice_no,vendor,total,status\n";
-            foreach ($rows as $r) {
-                $name = \Illuminate\Support\Facades\DB::table('vendors')->where('id', $r->vendor_id)->value('name');
-                $csv .= sprintf("%s,%s,%s,%.2f,%s\n", $r->date, $r->invoice_no, str_replace(',', ' ', (string) $name), $r->total_amount, $r->status);
-            }
-            return response($csv, 200, ['Content-Type' => 'text/csv', 'Content-Disposition' => 'attachment; filename="purchase-invoices.csv"']);
-        }
-
-        $invoices = $query->orderByDesc('date')->orderByDesc('id')->paginate(20)->appends(request()->query());
-        return view('purchase_invoices.index', compact('invoices'));
+        return view('purchase_invoices.index');
     }
 
     public function create()
@@ -61,7 +30,10 @@ class PurchaseInvoiceController extends Controller
         $accounts = DB::table('accounts')->where('is_postable', 1)->orderBy('code')->get();
         $vendors = DB::table('vendors')->orderBy('name')->get();
         $taxCodes = DB::table('tax_codes')->orderBy('code')->get();
-        return view('purchase_invoices.create', compact('accounts', 'vendors', 'taxCodes'));
+        $projects = DB::table('projects')->orderBy('code')->get(['id', 'code', 'name']);
+        $funds = DB::table('funds')->orderBy('code')->get(['id', 'code', 'name']);
+        $departments = DB::table('departments')->orderBy('code')->get(['id', 'code', 'name']);
+        return view('purchase_invoices.create', compact('accounts', 'vendors', 'taxCodes', 'projects', 'funds', 'departments'));
     }
 
     public function store(Request $request)
@@ -81,7 +53,7 @@ class PurchaseInvoiceController extends Controller
             'lines.*.dept_id' => ['nullable', 'integer'],
         ]);
 
-        return DB::transaction(function () use ($data) {
+        return DB::transaction(function () use ($data, $request) {
             $invoice = PurchaseInvoice::create([
                 'invoice_no' => null,
                 'date' => $data['date'],
@@ -112,7 +84,9 @@ class PurchaseInvoiceController extends Controller
                 ]);
             }
 
-            $invoice->update(['total_amount' => $total]);
+            $termsDays = (int) ($request->input('terms_days') ?? 0);
+            $dueDate = $termsDays > 0 ? date('Y-m-d', strtotime($data['date'] . ' +' . $termsDays . ' days')) : null;
+            $invoice->update(['total_amount' => $total, 'terms_days' => $termsDays ?: null, 'due_date' => $dueDate]);
             return redirect()->route('purchase-invoices.show', $invoice->id)->with('success', 'Purchase invoice created');
         });
     }
@@ -215,5 +189,47 @@ class PurchaseInvoiceController extends Controller
         \App\Jobs\GeneratePdfJob::dispatch('purchase_invoices.print', ['invoice' => $invoice], $path);
         $url = \Illuminate\Support\Facades\Storage::url($path);
         return back()->with('success', 'PDF generation started')->with('pdf_url', $url);
+    }
+
+    public function data(Request $request)
+    {
+        $q = DB::table('purchase_invoices as pi')
+            ->leftJoin('vendors as v', 'v.id', '=', 'pi.vendor_id')
+            ->select('pi.id', 'pi.date', 'pi.invoice_no', 'pi.vendor_id', 'v.name as vendor_name', 'pi.total_amount', 'pi.status');
+
+        if ($request->filled('status')) {
+            $q->where('pi.status', $request->input('status'));
+        }
+        if ($request->filled('from')) {
+            $q->whereDate('pi.date', '>=', $request->input('from'));
+        }
+        if ($request->filled('to')) {
+            $q->whereDate('pi.date', '<=', $request->input('to'));
+        }
+        if ($request->filled('q')) {
+            $kw = $request->input('q');
+            $q->where(function ($w) use ($kw) {
+                $w->where('pi.invoice_no', 'like', '%' . $kw . '%')
+                    ->orWhere('pi.description', 'like', '%' . $kw . '%')
+                    ->orWhere('v.name', 'like', '%' . $kw . '%');
+            });
+        }
+
+        return DataTables::of($q)
+            ->editColumn('total_amount', function ($row) {
+                return number_format((float)$row->total_amount, 2);
+            })
+            ->editColumn('status', function ($row) {
+                return strtoupper($row->status);
+            })
+            ->addColumn('vendor', function ($row) {
+                return $row->vendor_name ?: ('#' . $row->vendor_id);
+            })
+            ->addColumn('actions', function ($row) {
+                $url = route('purchase-invoices.show', $row->id);
+                return '<a href="' . $url . '" class="btn btn-xs btn-info">View</a>';
+            })
+            ->rawColumns(['actions'])
+            ->toJson();
     }
 }

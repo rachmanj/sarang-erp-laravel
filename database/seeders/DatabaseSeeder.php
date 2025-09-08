@@ -24,6 +24,7 @@ class DatabaseSeeder extends Seeder
             FundProjectSeeder::class,
             RolePermissionSeeder::class,
             DemoJournalSeeder::class,
+            TermsSeeder::class,
         ]);
     }
 }

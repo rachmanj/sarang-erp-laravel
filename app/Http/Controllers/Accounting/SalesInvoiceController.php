@@ -8,6 +8,7 @@ use App\Models\Accounting\SalesInvoiceLine;
 use App\Services\Accounting\PostingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Yajra\DataTables\Facades\DataTables;
 
 class SalesInvoiceController extends Controller
 {
@@ -21,39 +22,7 @@ class SalesInvoiceController extends Controller
 
     public function index()
     {
-        $query = SalesInvoice::query();
-        if (request('status')) {
-            $query->where('status', request('status'));
-        }
-        if (request('from')) {
-            $query->whereDate('date', '>=', request('from'));
-        }
-        if (request('to')) {
-            $query->whereDate('date', '<=', request('to'));
-        }
-        if (request('q')) {
-            $q = request('q');
-            $query->where(function ($w) use ($q) {
-                $w->where('invoice_no', 'like', "%$q%")
-                    ->orWhere('description', 'like', "%$q%")
-                    ->orWhereIn('customer_id', function ($sub) use ($q) {
-                        $sub->from('customers')->select('id')->where('name', 'like', "%$q%");
-                    });
-            });
-        }
-
-        if (request('export') === 'csv') {
-            $rows = $query->orderByDesc('date')->orderByDesc('id')->get(['date', 'invoice_no', 'customer_id', 'total_amount', 'status']);
-            $csv = "date,invoice_no,customer,total,status\n";
-            foreach ($rows as $r) {
-                $name = \Illuminate\Support\Facades\DB::table('customers')->where('id', $r->customer_id)->value('name');
-                $csv .= sprintf("%s,%s,%s,%.2f,%s\n", $r->date, $r->invoice_no, str_replace(',', ' ', (string) $name), $r->total_amount, $r->status);
-            }
-            return response($csv, 200, ['Content-Type' => 'text/csv', 'Content-Disposition' => 'attachment; filename="sales-invoices.csv"']);
-        }
-
-        $invoices = $query->orderByDesc('date')->orderByDesc('id')->paginate(20)->appends(request()->query());
-        return view('sales_invoices.index', compact('invoices'));
+        return view('sales_invoices.index');
     }
 
     public function create()
@@ -61,7 +30,10 @@ class SalesInvoiceController extends Controller
         $accounts = DB::table('accounts')->where('is_postable', 1)->orderBy('code')->get();
         $customers = DB::table('customers')->orderBy('name')->get();
         $taxCodes = DB::table('tax_codes')->orderBy('code')->get();
-        return view('sales_invoices.create', compact('accounts', 'customers', 'taxCodes'));
+        $projects = DB::table('projects')->orderBy('code')->get(['id', 'code', 'name']);
+        $funds = DB::table('funds')->orderBy('code')->get(['id', 'code', 'name']);
+        $departments = DB::table('departments')->orderBy('code')->get(['id', 'code', 'name']);
+        return view('sales_invoices.create', compact('accounts', 'customers', 'taxCodes', 'projects', 'funds', 'departments'));
     }
 
     public function store(Request $request)
@@ -81,7 +53,7 @@ class SalesInvoiceController extends Controller
             'lines.*.dept_id' => ['nullable', 'integer'],
         ]);
 
-        return DB::transaction(function () use ($data) {
+        return DB::transaction(function () use ($data, $request) {
             $invoice = SalesInvoice::create([
                 'invoice_no' => null,
                 'date' => $data['date'],
@@ -113,7 +85,9 @@ class SalesInvoiceController extends Controller
                 ]);
             }
 
-            $invoice->update(['total_amount' => $total]);
+            $termsDays = (int) ($request->input('terms_days') ?? 0);
+            $dueDate = $termsDays > 0 ? date('Y-m-d', strtotime($data['date'] . ' +' . $termsDays . ' days')) : null;
+            $invoice->update(['total_amount' => $total, 'terms_days' => $termsDays ?: null, 'due_date' => $dueDate]);
             return redirect()->route('sales-invoices.show', $invoice->id)->with('success', 'Invoice created');
         });
     }
@@ -210,5 +184,47 @@ class SalesInvoiceController extends Controller
         });
 
         return back()->with('success', 'Invoice posted');
+    }
+
+    public function data(Request $request)
+    {
+        $q = DB::table('sales_invoices as si')
+            ->leftJoin('customers as c', 'c.id', '=', 'si.customer_id')
+            ->select('si.id', 'si.date', 'si.invoice_no', 'si.customer_id', 'c.name as customer_name', 'si.total_amount', 'si.status');
+
+        if ($request->filled('status')) {
+            $q->where('si.status', $request->input('status'));
+        }
+        if ($request->filled('from')) {
+            $q->whereDate('si.date', '>=', $request->input('from'));
+        }
+        if ($request->filled('to')) {
+            $q->whereDate('si.date', '<=', $request->input('to'));
+        }
+        if ($request->filled('q')) {
+            $kw = $request->input('q');
+            $q->where(function ($w) use ($kw) {
+                $w->where('si.invoice_no', 'like', '%' . $kw . '%')
+                    ->orWhere('si.description', 'like', '%' . $kw . '%')
+                    ->orWhere('c.name', 'like', '%' . $kw . '%');
+            });
+        }
+
+        return DataTables::of($q)
+            ->editColumn('total_amount', function ($row) {
+                return number_format((float)$row->total_amount, 2);
+            })
+            ->editColumn('status', function ($row) {
+                return strtoupper($row->status);
+            })
+            ->addColumn('customer', function ($row) {
+                return $row->customer_name ?: ('#' . $row->customer_id);
+            })
+            ->addColumn('actions', function ($row) {
+                $url = route('sales-invoices.show', $row->id);
+                return '<a href="' . $url . '" class="btn btn-xs btn-info">View</a>';
+            })
+            ->rawColumns(['actions'])
+            ->toJson();
     }
 }

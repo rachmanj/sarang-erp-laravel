@@ -26,35 +26,15 @@
                 <!-- Divider -->
                 <li class="nav-header">MAIN</li>
 
-                <!-- Accounting Group -->
-                @can('journals.view')
-                    @php
-                        $acctActive = request()->routeIs('journals.*');
-                    @endphp
-                    <li class="nav-item {{ $acctActive ? 'menu-is-opening menu-open' : '' }}">
-                        <a href="#" class="nav-link {{ $acctActive ? 'active' : '' }}">
-                            <i class="nav-icon fas fa-calculator"></i>
-                            <p>
-                                Accounting
-                                <i class="right fas fa-angle-left"></i>
-                            </p>
-                        </a>
-                        <ul class="nav nav-treeview">
-                            <li class="nav-item">
-                                <a href="{{ route('journals.index') }}"
-                                    class="nav-link {{ request()->routeIs('journals.*') ? 'active' : '' }}">
-                                    <i class="far fa-circle nav-icon"></i>
-                                    <p>Journals</p>
-                                </a>
-                            </li>
-                        </ul>
-                    </li>
-                @endcan
+
 
                 <!-- Sales Group -->
                 @canany(['ar.invoices.view', 'ar.receipts.view'])
                     @php
-                        $salesActive = request()->routeIs('sales-invoices.*') || request()->routeIs('sales-receipts.*');
+                        $salesActive =
+                            request()->routeIs('sales-invoices.*') ||
+                            request()->routeIs('sales-receipts.*') ||
+                            request()->routeIs('customers.*');
                     @endphp
                     <li class="nav-item {{ $salesActive ? 'menu-is-opening menu-open' : '' }}">
                         <a href="#" class="nav-link {{ $salesActive ? 'active' : '' }}">
@@ -65,6 +45,15 @@
                             </p>
                         </a>
                         <ul class="nav nav-treeview">
+                            @can('customers.view')
+                                <li class="nav-item">
+                                    <a href="{{ route('customers.index') }}"
+                                        class="nav-link {{ request()->routeIs('customers.*') ? 'active' : '' }}">
+                                        <i class="far fa-circle nav-icon"></i>
+                                        <p>Customers</p>
+                                    </a>
+                                </li>
+                            @endcan
                             @can('ar.invoices.view')
                                 <li class="nav-item">
                                     <a href="{{ route('sales-invoices.index') }}"
@@ -91,7 +80,9 @@
                 @canany(['ap.invoices.view', 'ap.payments.view'])
                     @php
                         $purchaseActive =
-                            request()->routeIs('purchase-invoices.*') || request()->routeIs('purchase-payments.*');
+                            request()->routeIs('purchase-invoices.*') ||
+                            request()->routeIs('purchase-payments.*') ||
+                            request()->routeIs('vendors.*');
                     @endphp
                     <li class="nav-item {{ $purchaseActive ? 'menu-is-opening menu-open' : '' }}">
                         <a href="#" class="nav-link {{ $purchaseActive ? 'active' : '' }}">
@@ -102,6 +93,15 @@
                             </p>
                         </a>
                         <ul class="nav nav-treeview">
+                            @can('vendors.view')
+                                <li class="nav-item">
+                                    <a href="{{ route('vendors.index') }}"
+                                        class="nav-link {{ request()->routeIs('vendors.*') ? 'active' : '' }}">
+                                        <i class="far fa-circle nav-icon"></i>
+                                        <p>Suppliers</p>
+                                    </a>
+                                </li>
+                            @endcan
                             @can('ap.invoices.view')
                                 <li class="nav-item">
                                     <a href="{{ route('purchase-invoices.index') }}"
@@ -123,14 +123,66 @@
                         </ul>
                     </li>
                 @endcanany
-                <!-- Reports Section -->
-                @can('view-settings')
-                    @include('layouts.partials.menu.reports')
-                @endcan
 
-                @can('view-master')
-                    @include('layouts.partials.menu.master')
+                <!-- Accounting Group (moved below Purchase) -->
+                @can('journals.view')
+                    @php
+                        $acctActive =
+                            request()->routeIs('journals.*') ||
+                            request()->routeIs('accounts.*') ||
+                            request()->routeIs('periods.*') ||
+                            request()->routeIs('cash-expenses.*');
+                    @endphp
+                    <li class="nav-item {{ $acctActive ? 'menu-is-opening menu-open' : '' }}">
+                        <a href="#" class="nav-link {{ $acctActive ? 'active' : '' }}">
+                            <i class="nav-icon fas fa-calculator"></i>
+                            <p>
+                                Accounting
+                                <i class="right fas fa-angle-left"></i>
+                            </p>
+                        </a>
+                        <ul class="nav nav-treeview">
+                            <li class="nav-item">
+                                <a href="{{ route('journals.index') }}"
+                                    class="nav-link {{ request()->routeIs('journals.*') ? 'active' : '' }}">
+                                    <i class="far fa-circle nav-icon"></i>
+                                    <p>Journals</p>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="{{ route('cash-expenses.index') }}"
+                                    class="nav-link {{ request()->routeIs('cash-expenses.*') ? 'active' : '' }}">
+                                    <i class="far fa-circle nav-icon"></i>
+                                    <p>Cash Expenses</p>
+                                </a>
+                            </li>
+                            @can('accounts.view')
+                                <li class="nav-item">
+                                    <a href="{{ route('accounts.index') }}"
+                                        class="nav-link {{ request()->routeIs('accounts.*') ? 'active' : '' }}">
+                                        <i class="far fa-circle nav-icon"></i>
+                                        <p>Accounts</p>
+                                    </a>
+                                </li>
+                            @endcan
+                            @can('periods.view')
+                                <li class="nav-item">
+                                    <a href="{{ route('periods.index') }}"
+                                        class="nav-link {{ request()->routeIs('periods.*') ? 'active' : '' }}">
+                                        <i class="far fa-circle nav-icon"></i>
+                                        <p>Periods</p>
+                                    </a>
+                                </li>
+                            @endcan
+                        </ul>
+                    </li>
                 @endcan
+                <!-- Reports Section -->
+                @include('layouts.partials.menu.reports')
+
+                @canany(['projects.view', 'funds.view', 'departments.view'])
+                    @include('layouts.partials.menu.master')
+                @endcanany
 
                 @can('view-admin')
                     @include('layouts.partials.menu.admin')

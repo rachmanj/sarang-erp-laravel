@@ -32,6 +32,9 @@
                         <th>Account</th>
                         <th>Debit</th>
                         <th>Credit</th>
+                        <th>Project</th>
+                        <th>Fund</th>
+                        <th>Dept</th>
                         <th>Memo</th>
                         <th></th>
                     </tr>
@@ -46,11 +49,24 @@
     </div>
     <script>
         const accounts = @json($accounts);
+        const projects = @json($projects);
+        const funds = @json($funds);
+        const departments = @json($departments);
 
         function accountSelectHtml(name) {
             let html = `<select name="${name}" class="form-control">`;
             accounts.forEach(a => {
                 html += `<option value="${a.id}">${a.code} - ${a.name}</option>`
+            });
+            html += `</select>`;
+            return html;
+        }
+
+        function dimSelectHtml(list, name, placeholder) {
+            let html = `<select name="${name}" class="form-control">`;
+            html += `<option value="">${placeholder}</option>`;
+            list.forEach(x => {
+                html += `<option value="${x.id}">${x.code} - ${x.name}</option>`
             });
             html += `</select>`;
             return html;
@@ -64,6 +80,9 @@
                 <td>${accountSelectHtml(`lines[${idx}][account_id]`)}</td>
                 <td><input type="number" step="0.01" min="0" name="lines[${idx}][debit]" class="form-control" /></td>
                 <td><input type="number" step="0.01" min="0" name="lines[${idx}][credit]" class="form-control" /></td>
+                <td>${dimSelectHtml(projects, `lines[${idx}][project_id]`, '-- project --')}</td>
+                <td>${dimSelectHtml(funds, `lines[${idx}][fund_id]`, '-- fund --')}</td>
+                <td>${dimSelectHtml(departments, `lines[${idx}][dept_id]`, '-- dept --')}</td>
                 <td><input type="text" name="lines[${idx}][memo]" class="form-control" /></td>
                 <td><button type="button" class="btn btn-sm btn-danger" onclick="this.closest('tr').remove(); recalc();">X</button></td>
             `;

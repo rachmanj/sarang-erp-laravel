@@ -42,6 +42,18 @@
                                     <input type="text" name="description" value="{{ old('description') }}"
                                         class="form-control">
                                 </div>
+                                <div class="form-row">
+                                    <div class="form-group col-md-6">
+                                        <label>Terms (days)</label>
+                                        <input type="number" min="0" name="terms_days"
+                                            value="{{ old('terms_days', 30) }}" class="form-control">
+                                    </div>
+                                    <div class="form-group col-md-6">
+                                        <label>Due Date (optional)</label>
+                                        <input type="date" name="due_date" value="{{ old('due_date') }}"
+                                            class="form-control">
+                                    </div>
+                                </div>
                                 <hr>
                                 <h5>Lines</h5>
                                 <div id="lines">
@@ -75,7 +87,38 @@
                                                 <option value="">-- none --</option>
                                                 @foreach ($taxCodes as $t)
                                                     <option value="{{ $t->id }}">{{ $t->code }}
-                                                        ({{ $t->rate }})</option>
+                                                        ({{ $t->rate }})
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                        <div class="col-md-2 mt-2">
+                                            <label>Project</label>
+                                            <select name="lines[0][project_id]" class="form-control">
+                                                <option value="">-- none --</option>
+                                                @foreach ($projects as $p)
+                                                    <option value="{{ $p->id }}">{{ $p->code }} -
+                                                        {{ $p->name }}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                        <div class="col-md-2 mt-2">
+                                            <label>Fund</label>
+                                            <select name="lines[0][fund_id]" class="form-control">
+                                                <option value="">-- none --</option>
+                                                @foreach ($funds as $f)
+                                                    <option value="{{ $f->id }}">{{ $f->code }} -
+                                                        {{ $f->name }}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                        <div class="col-md-2 mt-2">
+                                            <label>Department</label>
+                                            <select name="lines[0][dept_id]" class="form-control">
+                                                <option value="">-- none --</option>
+                                                @foreach ($departments as $d)
+                                                    <option value="{{ $d->id }}">{{ $d->code }} -
+                                                        {{ $d->name }}</option>
                                                 @endforeach
                                             </select>
                                         </div>
@@ -122,6 +165,24 @@
             <select name="lines[${idx}][tax_code_id]" class="form-control">
                 <option value="">-- none --</option>
                 ${@json($taxCodes).map(t => `<option value="${t.id}">${t.code} (${t.rate})</option>`).join('')}
+            </select>
+        </div>
+        <div class=\"col-md-2 mt-2\">
+            <select name=\"lines[${idx}][project_id]\" class=\"form-control\">
+                <option value=\"\">-- project --</option>
+                ${@json($projects).map(p => `<option value=\\\"${p.id}\\\">${p.code} - ${p.name}</option>`).join('')}
+            </select>
+        </div>
+        <div class=\"col-md-2 mt-2\">
+            <select name=\"lines[${idx}][fund_id]\" class=\"form-control\">
+                <option value=\"\">-- fund --</option>
+                ${@json($funds).map(f => `<option value=\\\"${f.id}\\\">${f.code} - ${f.name}</option>`).join('')}
+            </select>
+        </div>
+        <div class=\"col-md-2 mt-2\">
+            <select name=\"lines[${idx}][dept_id]\" class=\"form-control\">
+                <option value=\"\">-- department --</option>
+                ${@json($departments).map(d => `<option value=\\\"${d.id}\\\">${d.code} - ${d.name}</option>`).join('')}
             </select>
         </div>`;
             container.appendChild(row);

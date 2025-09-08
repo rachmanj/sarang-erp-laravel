@@ -69,6 +69,13 @@
                             </table>
                             <p class="text-right"><strong>Total: {{ number_format($invoice->total_amount, 2) }}</strong>
                             </p>
+                            @php
+                                $alloc = DB::table('sales_receipt_allocations')
+                                    ->where('invoice_id', $invoice->id)
+                                    ->sum('amount');
+                                $remaining = max(0, (float) $invoice->total_amount - (float) $alloc);
+                            @endphp
+                            <p>Allocated: {{ number_format($alloc, 2) }} | Remaining: {{ number_format($remaining, 2) }}</p>
                         </div>
                     </div>
                 </div>

@@ -68,6 +68,22 @@
                                 </div>
                                 <button type="button" class="btn btn-sm btn-secondary" onclick="addLine()">Add
                                     Line</button>
+                                <hr>
+                                <h5>Allocation Preview</h5>
+                                <div class="form-inline mb-2">
+                                    <button type="button" class="btn btn-sm btn-outline-info"
+                                        onclick="previewAlloc()">Preview Oldest-First Allocation</button>
+                                </div>
+                                <table class="table table-sm table-striped" id="alloc-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Invoice</th>
+                                            <th class="text-right">Remaining</th>
+                                            <th class="text-right">Allocate</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                </table>
                             </div>
                             <div class="card-footer">
                                 <button class="btn btn-primary" type="submit">Save</button>
@@ -102,6 +118,29 @@
         </div>`;
             container.appendChild(row);
             idx++;
+        }
+        async function previewAlloc() {
+            const amount = Array.from(document.querySelectorAll('input[name^="lines"][name$="[amount]"]'))
+                .reduce((s, el) => s + parseFloat(el.value || 0), 0);
+            const customerId = document.querySelector('select[name="customer_id"]').value;
+            if (!customerId || amount <= 0) {
+                toastr.warning('Select customer and enter amount');
+                return;
+            }
+            const params = new URLSearchParams({
+                customer_id: customerId,
+                amount: amount
+            });
+            const res = await fetch(`{{ route('sales-receipts.previewAllocation') }}?${params.toString()}`);
+            const data = await res.json();
+            const tbody = document.querySelector('#alloc-table tbody');
+            tbody.innerHTML = '';
+            data.rows.forEach(r => {
+                const tr = document.createElement('tr');
+                tr.innerHTML =
+                    `<td>${r.invoice_no}</td><td class="text-right">${Number(r.remaining_before).toFixed(2)}</td><td class="text-right">${Number(r.allocate).toFixed(2)}</td>`;
+                tbody.appendChild(tr);
+            });
         }
     </script>
 @endsection

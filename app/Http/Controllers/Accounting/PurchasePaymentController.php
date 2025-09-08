@@ -8,6 +8,7 @@ use App\Models\Accounting\PurchasePaymentLine;
 use App\Services\Accounting\PostingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Yajra\DataTables\Facades\DataTables;
 
 class PurchasePaymentController extends Controller
 {
@@ -21,39 +22,7 @@ class PurchasePaymentController extends Controller
 
     public function index()
     {
-        $query = PurchasePayment::query();
-        if (request('status')) {
-            $query->where('status', request('status'));
-        }
-        if (request('from')) {
-            $query->whereDate('date', '>=', request('from'));
-        }
-        if (request('to')) {
-            $query->whereDate('date', '<=', request('to'));
-        }
-        if (request('q')) {
-            $q = request('q');
-            $query->where(function ($w) use ($q) {
-                $w->where('payment_no', 'like', "%$q%")
-                    ->orWhere('description', 'like', "%$q%")
-                    ->orWhereIn('vendor_id', function ($sub) use ($q) {
-                        $sub->from('vendors')->select('id')->where('name', 'like', "%$q%");
-                    });
-            });
-        }
-
-        if (request('export') === 'csv') {
-            $rows = $query->orderByDesc('date')->orderByDesc('id')->get(['date', 'payment_no', 'vendor_id', 'total_amount', 'status']);
-            $csv = "date,payment_no,vendor,total,status\n";
-            foreach ($rows as $r) {
-                $name = \Illuminate\Support\Facades\DB::table('vendors')->where('id', $r->vendor_id)->value('name');
-                $csv .= sprintf("%s,%s,%s,%.2f,%s\n", $r->date, $r->payment_no, str_replace(',', ' ', (string) $name), $r->total_amount, $r->status);
-            }
-            return response($csv, 200, ['Content-Type' => 'text/csv', 'Content-Disposition' => 'attachment; filename="purchase-payments.csv"']);
-        }
-
-        $payments = $query->orderByDesc('date')->orderByDesc('id')->paginate(20)->appends(request()->query());
-        return view('purchase_payments.index', compact('payments'));
+        return view('purchase_payments.index');
     }
 
     public function create()
@@ -101,6 +70,33 @@ class PurchasePaymentController extends Controller
             }
 
             $payment->update(['total_amount' => $total]);
+            // Auto-allocate to oldest open vendor invoices
+            $remainingPool = $total;
+            if ($remainingPool > 0) {
+                $open = DB::table('purchase_invoices as pi')
+                    ->leftJoin('purchase_payment_allocations as ppa', 'ppa.invoice_id', '=', 'pi.id')
+                    ->select('pi.id', 'pi.total_amount', DB::raw('COALESCE(SUM(ppa.amount),0) as allocated'), DB::raw('COALESCE(pi.due_date, pi.date) as eff_date'))
+                    ->where('pi.vendor_id', $payment->vendor_id)
+                    ->where('pi.status', 'posted')
+                    ->groupBy('pi.id', 'pi.total_amount', 'eff_date')
+                    ->orderBy('eff_date')
+                    ->orderBy('pi.id')
+                    ->get();
+                foreach ($open as $inv) {
+                    $remainingInv = (float)$inv->total_amount - (float)$inv->allocated;
+                    if ($remainingInv <= 0) continue;
+                    if ($remainingPool <= 0) break;
+                    $alloc = min($remainingInv, $remainingPool);
+                    DB::table('purchase_payment_allocations')->insert([
+                        'payment_id' => $payment->id,
+                        'invoice_id' => $inv->id,
+                        'amount' => $alloc,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                    $remainingPool -= $alloc;
+                }
+            }
             return redirect()->route('purchase-payments.show', $payment->id)->with('success', 'Payment created');
         });
     }
@@ -178,5 +174,83 @@ class PurchasePaymentController extends Controller
         });
 
         return back()->with('success', 'Payment posted');
+    }
+
+    public function data(Request $request)
+    {
+        $q = DB::table('purchase_payments as pp')
+            ->leftJoin('vendors as v', 'v.id', '=', 'pp.vendor_id')
+            ->select('pp.id', 'pp.date', 'pp.payment_no', 'pp.vendor_id', 'v.name as vendor_name', 'pp.total_amount', 'pp.status');
+
+        if ($request->filled('status')) {
+            $q->where('pp.status', $request->input('status'));
+        }
+        if ($request->filled('from')) {
+            $q->whereDate('pp.date', '>=', $request->input('from'));
+        }
+        if ($request->filled('to')) {
+            $q->whereDate('pp.date', '<=', $request->input('to'));
+        }
+        if ($request->filled('q')) {
+            $kw = $request->input('q');
+            $q->where(function ($w) use ($kw) {
+                $w->where('pp.payment_no', 'like', '%' . $kw . '%')
+                    ->orWhere('pp.description', 'like', '%' . $kw + '%')
+                    ->orWhere('v.name', 'like', '%' . $kw + '%');
+            });
+        }
+
+        return DataTables::of($q)
+            ->editColumn('total_amount', function ($row) {
+                return number_format((float)$row->total_amount, 2);
+            })
+            ->editColumn('status', function ($row) {
+                return strtoupper($row->status);
+            })
+            ->addColumn('vendor', function ($row) {
+                return $row->vendor_name ?: ('#' . $row->vendor_id);
+            })
+            ->addColumn('actions', function ($row) {
+                $url = route('purchase-payments.show', $row->id);
+                return '<a href="' . $url . '" class="btn btn-xs btn-info">View</a>';
+            })
+            ->rawColumns(['actions'])
+            ->toJson();
+    }
+
+    public function previewAllocation(Request $request)
+    {
+        $request->validate([
+            'vendor_id' => ['required', 'integer'],
+            'amount' => ['required', 'numeric', 'min:0'],
+        ]);
+        $pool = (float)$request->input('amount');
+        $rows = [];
+        if ($pool > 0) {
+            $open = DB::table('purchase_invoices as pi')
+                ->leftJoin('purchase_payment_allocations as ppa', 'ppa.invoice_id', '=', 'pi.id')
+                ->leftJoin('vendors as v', 'v.id', '=', 'pi.vendor_id')
+                ->select('pi.id', 'pi.invoice_no', 'pi.total_amount', DB::raw('COALESCE(SUM(ppa.amount),0) as allocated'), DB::raw('COALESCE(pi.due_date, pi.date) as eff_date'))
+                ->where('pi.vendor_id', (int)$request->input('vendor_id'))
+                ->where('pi.status', 'posted')
+                ->groupBy('pi.id', 'pi.invoice_no', 'pi.total_amount', 'eff_date')
+                ->orderBy('eff_date')
+                ->orderBy('pi.id')
+                ->get();
+            foreach ($open as $inv) {
+                $remainingInv = (float)$inv->total_amount - (float)$inv->allocated;
+                if ($remainingInv <= 0) continue;
+                if ($pool <= 0) break;
+                $alloc = min($remainingInv, $pool);
+                $rows[] = [
+                    'invoice_id' => $inv->id,
+                    'invoice_no' => $inv->invoice_no,
+                    'remaining_before' => round($remainingInv, 2),
+                    'allocate' => round($alloc, 2),
+                ];
+                $pool -= $alloc;
+            }
+        }
+        return response()->json(['rows' => $rows]);
     }
 }

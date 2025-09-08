@@ -8,6 +8,7 @@ use App\Models\Accounting\SalesReceiptLine;
 use App\Services\Accounting\PostingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Yajra\DataTables\Facades\DataTables;
 
 class SalesReceiptController extends Controller
 {
@@ -21,39 +22,7 @@ class SalesReceiptController extends Controller
 
     public function index()
     {
-        $query = SalesReceipt::query();
-        if (request('status')) {
-            $query->where('status', request('status'));
-        }
-        if (request('from')) {
-            $query->whereDate('date', '>=', request('from'));
-        }
-        if (request('to')) {
-            $query->whereDate('date', '<=', request('to'));
-        }
-        if (request('q')) {
-            $q = request('q');
-            $query->where(function ($w) use ($q) {
-                $w->where('receipt_no', 'like', "%$q%")
-                    ->orWhere('description', 'like', "%$q%")
-                    ->orWhereIn('customer_id', function ($sub) use ($q) {
-                        $sub->from('customers')->select('id')->where('name', 'like', "%$q%");
-                    });
-            });
-        }
-
-        if (request('export') === 'csv') {
-            $rows = $query->orderByDesc('date')->orderByDesc('id')->get(['date', 'receipt_no', 'customer_id', 'total_amount', 'status']);
-            $csv = "date,receipt_no,customer,total,status\n";
-            foreach ($rows as $r) {
-                $name = \Illuminate\Support\Facades\DB::table('customers')->where('id', $r->customer_id)->value('name');
-                $csv .= sprintf("%s,%s,%s,%.2f,%s\n", $r->date, $r->receipt_no, str_replace(',', ' ', (string) $name), $r->total_amount, $r->status);
-            }
-            return response($csv, 200, ['Content-Type' => 'text/csv', 'Content-Disposition' => 'attachment; filename="sales-receipts.csv"']);
-        }
-
-        $receipts = $query->orderByDesc('date')->orderByDesc('id')->paginate(20)->appends(request()->query());
-        return view('sales_receipts.index', compact('receipts'));
+        return view('sales_receipts.index');
     }
 
     public function create()
@@ -100,6 +69,33 @@ class SalesReceiptController extends Controller
             }
 
             $receipt->update(['total_amount' => $total]);
+            // Auto-allocate to oldest open invoices
+            $remainingPool = $total;
+            if ($remainingPool > 0) {
+                $open = DB::table('sales_invoices as si')
+                    ->leftJoin('sales_receipt_allocations as sra', 'sra.invoice_id', '=', 'si.id')
+                    ->select('si.id', 'si.total_amount', DB::raw('COALESCE(SUM(sra.amount),0) as allocated'), DB::raw('COALESCE(si.due_date, si.date) as eff_date'))
+                    ->where('si.customer_id', $receipt->customer_id)
+                    ->where('si.status', 'posted')
+                    ->groupBy('si.id', 'si.total_amount', 'eff_date')
+                    ->orderBy('eff_date')
+                    ->orderBy('si.id')
+                    ->get();
+                foreach ($open as $inv) {
+                    $remainingInv = (float)$inv->total_amount - (float)$inv->allocated;
+                    if ($remainingInv <= 0) continue;
+                    if ($remainingPool <= 0) break;
+                    $alloc = min($remainingInv, $remainingPool);
+                    DB::table('sales_receipt_allocations')->insert([
+                        'receipt_id' => $receipt->id,
+                        'invoice_id' => $inv->id,
+                        'amount' => $alloc,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                    $remainingPool -= $alloc;
+                }
+            }
             return redirect()->route('sales-receipts.show', $receipt->id)->with('success', 'Receipt created');
         });
     }
@@ -177,5 +173,83 @@ class SalesReceiptController extends Controller
         });
 
         return back()->with('success', 'Receipt posted');
+    }
+
+    public function data(Request $request)
+    {
+        $q = DB::table('sales_receipts as sr')
+            ->leftJoin('customers as c', 'c.id', '=', 'sr.customer_id')
+            ->select('sr.id', 'sr.date', 'sr.receipt_no', 'sr.customer_id', 'c.name as customer_name', 'sr.total_amount', 'sr.status');
+
+        if ($request->filled('status')) {
+            $q->where('sr.status', $request->input('status'));
+        }
+        if ($request->filled('from')) {
+            $q->whereDate('sr.date', '>=', $request->input('from'));
+        }
+        if ($request->filled('to')) {
+            $q->whereDate('sr.date', '<=', $request->input('to'));
+        }
+        if ($request->filled('q')) {
+            $kw = $request->input('q');
+            $q->where(function ($w) use ($kw) {
+                $w->where('sr.receipt_no', 'like', '%' . $kw . '%')
+                    ->orWhere('sr.description', 'like', '%' . $kw + '%')
+                    ->orWhere('c.name', 'like', '%' . $kw . '%');
+            });
+        }
+
+        return DataTables::of($q)
+            ->editColumn('total_amount', function ($row) {
+                return number_format((float)$row->total_amount, 2);
+            })
+            ->editColumn('status', function ($row) {
+                return strtoupper($row->status);
+            })
+            ->addColumn('customer', function ($row) {
+                return $row->customer_name ?: ('#' . $row->customer_id);
+            })
+            ->addColumn('actions', function ($row) {
+                $url = route('sales-receipts.show', $row->id);
+                return '<a href="' . $url . '" class="btn btn-xs btn-info">View</a>';
+            })
+            ->rawColumns(['actions'])
+            ->toJson();
+    }
+
+    public function previewAllocation(Request $request)
+    {
+        $request->validate([
+            'customer_id' => ['required', 'integer'],
+            'amount' => ['required', 'numeric', 'min:0'],
+        ]);
+        $pool = (float)$request->input('amount');
+        $rows = [];
+        if ($pool > 0) {
+            $open = DB::table('sales_invoices as si')
+                ->leftJoin('sales_receipt_allocations as sra', 'sra.invoice_id', '=', 'si.id')
+                ->leftJoin('customers as c', 'c.id', '=', 'si.customer_id')
+                ->select('si.id', 'si.invoice_no', 'si.total_amount', DB::raw('COALESCE(SUM(sra.amount),0) as allocated'), DB::raw('COALESCE(si.due_date, si.date) as eff_date'))
+                ->where('si.customer_id', (int)$request->input('customer_id'))
+                ->where('si.status', 'posted')
+                ->groupBy('si.id', 'si.invoice_no', 'si.total_amount', 'eff_date')
+                ->orderBy('eff_date')
+                ->orderBy('si.id')
+                ->get();
+            foreach ($open as $inv) {
+                $remainingInv = (float)$inv->total_amount - (float)$inv->allocated;
+                if ($remainingInv <= 0) continue;
+                if ($pool <= 0) break;
+                $alloc = min($remainingInv, $pool);
+                $rows[] = [
+                    'invoice_id' => $inv->id,
+                    'invoice_no' => $inv->invoice_no,
+                    'remaining_before' => round($remainingInv, 2),
+                    'allocate' => round($alloc, 2),
+                ];
+                $pool -= $alloc;
+            }
+        }
+        return response()->json(['rows' => $rows]);
     }
 }

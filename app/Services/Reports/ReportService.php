@@ -86,107 +86,141 @@ class ReportService
         ];
     }
 
-    public function getArAging(?string $asOf = null): array
+    public function getArAging(?string $asOf = null, array $options = []): array
     {
         $asOfDate = $asOf ?: now()->toDateString();
-        $invoices = DB::table('sales_invoices')
+        $invoices = DB::table('sales_invoices as si')
+            ->leftJoin('customers as c', 'c.id', '=', 'si.customer_id')
             ->where('status', 'posted')
-            ->whereDate('date', '<=', $asOfDate)
-            ->select('customer_id', 'date', 'total_amount')
+            ->whereDate(DB::raw('COALESCE(si.due_date, si.date)'), '<=', $asOfDate)
+            ->leftJoin('sales_receipt_allocations as sra', 'sra.invoice_id', '=', 'si.id')
+            ->leftJoin('sales_receipts as sr', function ($join) {
+                $join->on('sr.id', '=', 'sra.receipt_id')->where('sr.status', '=', 'posted');
+            })
+            ->select('si.id', 'si.customer_id', DB::raw('COALESCE(si.due_date, si.date) as effective_date'), 'si.total_amount', DB::raw('COALESCE(SUM(sra.amount),0) as settled_amount'), 'c.name as customer_name')
+            ->groupBy('si.id', 'si.customer_id', 'effective_date', 'si.total_amount', 'c.name')
             ->get();
 
         $buckets = [];
         foreach ($invoices as $inv) {
-            $days = \Carbon\Carbon::parse($inv->date)->diffInDays(\Carbon\Carbon::parse($asOfDate));
+            $days = \Carbon\Carbon::parse($inv->effective_date)->diffInDays(\Carbon\Carbon::parse($asOfDate));
             $bucket = $this->bucketLabel($days);
             $key = (int) $inv->customer_id;
             if (!isset($buckets[$key])) {
-                $buckets[$key] = ['customer_id' => $key, 'current' => 0, 'd31_60' => 0, 'd61_90' => 0, 'd91_plus' => 0, 'total' => 0];
+                $buckets[$key] = ['customer_id' => $key, 'customer_name' => $inv->customer_name, 'current' => 0, 'd31_60' => 0, 'd61_90' => 0, 'd91_plus' => 0, 'total' => 0];
+            }
+            $net = max(0, (float)$inv->total_amount - (float)$inv->settled_amount);
+            if ($net <= 0) {
+                continue;
             }
             switch ($bucket) {
                 case 'current':
-                    $buckets[$key]['current'] += (float)$inv->total_amount;
+                    $buckets[$key]['current'] += $net;
                     break;
                 case '31-60':
-                    $buckets[$key]['d31_60'] += (float)$inv->total_amount;
+                    $buckets[$key]['d31_60'] += $net;
                     break;
                 case '61-90':
-                    $buckets[$key]['d61_90'] += (float)$inv->total_amount;
+                    $buckets[$key]['d61_90'] += $net;
                     break;
                 default:
-                    $buckets[$key]['d91_plus'] += (float)$inv->total_amount;
+                    $buckets[$key]['d91_plus'] += $net;
                     break;
             }
-            $buckets[$key]['total'] += (float)$inv->total_amount;
+            $buckets[$key]['total'] += $net;
+        }
+
+        $rows = array_values($buckets);
+        if (!empty($options['overdue_only'])) {
+            $rows = array_values(array_filter($rows, function ($r) {
+                return ($r['d31_60'] + $r['d61_90'] + $r['d91_plus']) > 0;
+            }));
         }
 
         return [
             'as_of' => $asOfDate,
-            'rows' => array_values($buckets),
+            'rows' => $rows,
             'totals' => [
-                'current' => array_sum(array_column($buckets, 'current')),
-                'd31_60' => array_sum(array_column($buckets, 'd31_60')),
-                'd61_90' => array_sum(array_column($buckets, 'd61_90')),
-                'd91_plus' => array_sum(array_column($buckets, 'd91_plus')),
-                'total' => array_sum(array_column($buckets, 'total')),
+                'current' => array_sum(array_column($rows, 'current')),
+                'd31_60' => array_sum(array_column($rows, 'd31_60')),
+                'd61_90' => array_sum(array_column($rows, 'd61_90')),
+                'd91_plus' => array_sum(array_column($rows, 'd91_plus')),
+                'total' => array_sum(array_column($rows, 'total')),
             ],
         ];
     }
 
-    public function getApAging(?string $asOf = null): array
+    public function getApAging(?string $asOf = null, array $options = []): array
     {
         $asOfDate = $asOf ?: now()->toDateString();
-        $invoices = DB::table('purchase_invoices')
+        $invoices = DB::table('purchase_invoices as pi')
+            ->leftJoin('vendors as v', 'v.id', '=', 'pi.vendor_id')
             ->where('status', 'posted')
-            ->whereDate('date', '<=', $asOfDate)
-            ->select('vendor_id', 'date', 'total_amount')
+            ->whereDate(DB::raw('COALESCE(pi.due_date, pi.date)'), '<=', $asOfDate)
+            ->leftJoin('purchase_payment_allocations as ppa', 'ppa.invoice_id', '=', 'pi.id')
+            ->leftJoin('purchase_payments as pp', function ($join) {
+                $join->on('pp.id', '=', 'ppa.payment_id')->where('pp.status', '=', 'posted');
+            })
+            ->select('pi.id', 'pi.vendor_id', DB::raw('COALESCE(pi.due_date, pi.date) as effective_date'), 'pi.total_amount', DB::raw('COALESCE(SUM(ppa.amount),0) as settled_amount'), 'v.name as vendor_name')
+            ->groupBy('pi.id', 'pi.vendor_id', 'effective_date', 'pi.total_amount', 'v.name')
             ->get();
 
         $buckets = [];
         foreach ($invoices as $inv) {
-            $days = \Carbon\Carbon::parse($inv->date)->diffInDays(\Carbon\Carbon::parse($asOfDate));
+            $days = \Carbon\Carbon::parse($inv->effective_date)->diffInDays(\Carbon\Carbon::parse($asOfDate));
             $bucket = $this->bucketLabel($days);
             $key = (int) $inv->vendor_id;
             if (!isset($buckets[$key])) {
-                $buckets[$key] = ['vendor_id' => $key, 'current' => 0, 'd31_60' => 0, 'd61_90' => 0, 'd91_plus' => 0, 'total' => 0];
+                $buckets[$key] = ['vendor_id' => $key, 'vendor_name' => $inv->vendor_name, 'current' => 0, 'd31_60' => 0, 'd61_90' => 0, 'd91_plus' => 0, 'total' => 0];
+            }
+            $net = max(0, (float)$inv->total_amount - (float)$inv->settled_amount);
+            if ($net <= 0) {
+                continue;
             }
             switch ($bucket) {
                 case 'current':
-                    $buckets[$key]['current'] += (float)$inv->total_amount;
+                    $buckets[$key]['current'] += $net;
                     break;
                 case '31-60':
-                    $buckets[$key]['d31_60'] += (float)$inv->total_amount;
+                    $buckets[$key]['d31_60'] += $net;
                     break;
                 case '61-90':
-                    $buckets[$key]['d61_90'] += (float)$inv->total_amount;
+                    $buckets[$key]['d61_90'] += $net;
                     break;
                 default:
-                    $buckets[$key]['d91_plus'] += (float)$inv->total_amount;
+                    $buckets[$key]['d91_plus'] += $net;
                     break;
             }
-            $buckets[$key]['total'] += (float)$inv->total_amount;
+            $buckets[$key]['total'] += $net;
+        }
+
+        $rows = array_values($buckets);
+        if (!empty($options['overdue_only'])) {
+            $rows = array_values(array_filter($rows, function ($r) {
+                return ($r['d31_60'] + $r['d61_90'] + $r['d91_plus']) > 0;
+            }));
         }
 
         return [
             'as_of' => $asOfDate,
-            'rows' => array_values($buckets),
+            'rows' => $rows,
             'totals' => [
-                'current' => array_sum(array_column($buckets, 'current')),
-                'd31_60' => array_sum(array_column($buckets, 'd31_60')),
-                'd61_90' => array_sum(array_column($buckets, 'd61_90')),
-                'd91_plus' => array_sum(array_column($buckets, 'd91_plus')),
-                'total' => array_sum(array_column($buckets, 'total')),
+                'current' => array_sum(array_column($rows, 'current')),
+                'd31_60' => array_sum(array_column($rows, 'd31_60')),
+                'd61_90' => array_sum(array_column($rows, 'd61_90')),
+                'd91_plus' => array_sum(array_column($rows, 'd91_plus')),
+                'total' => array_sum(array_column($rows, 'total')),
             ],
         ];
     }
 
     public function getCashLedger(array $filters = []): array
     {
-        $cashAccountId = (int) DB::table('accounts')->where('code', '1.1.2.01')->value('id');
+        $accountId = !empty($filters['account_id']) ? (int)$filters['account_id'] : (int) DB::table('accounts')->where('code', '1.1.2.01')->value('id');
         $q = DB::table('journal_lines as jl')
             ->join('journals as j', 'j.id', '=', 'jl.journal_id')
             ->select('j.date', 'j.description', 'jl.debit', 'jl.credit')
-            ->where('jl.account_id', $cashAccountId);
+            ->where('jl.account_id', $accountId);
         if (!empty($filters['from'])) {
             $q->whereDate('j.date', '>=', $filters['from']);
         }
@@ -194,8 +228,27 @@ class ReportService
             $q->whereDate('j.date', '<=', $filters['to']);
         }
         $rows = $q->orderBy('j.date')->orderBy('j.id')->get()->toArray();
-        $balance = 0.0;
+        $opening = 0.0;
+        if (!empty($filters['from'])) {
+            $openQ = DB::table('journal_lines as jl')
+                ->join('journals as j', 'j.id', '=', 'jl.journal_id')
+                ->where('jl.account_id', $accountId)
+                ->whereDate('j.date', '<', $filters['from'])
+                ->selectRaw('COALESCE(SUM(jl.debit - jl.credit),0) as bal')
+                ->value('bal');
+            $opening = (float) $openQ;
+        }
+        $balance = $opening;
         $out = [];
+        if ($opening !== 0.0) {
+            $out[] = [
+                'date' => $filters['from'] ?? '',
+                'description' => 'Opening Balance',
+                'debit' => 0.0,
+                'credit' => 0.0,
+                'balance' => round($opening, 2),
+            ];
+        }
         foreach ($rows as $r) {
             $balance += (float)$r->debit - (float)$r->credit;
             $out[] = [
@@ -206,7 +259,7 @@ class ReportService
                 'balance' => round($balance, 2),
             ];
         }
-        return ['rows' => $out, 'filters' => $filters];
+        return ['rows' => $out, 'filters' => $filters, 'account_id' => $accountId, 'opening_balance' => round($opening, 2)];
     }
 
     private function bucketLabel(int $days): string

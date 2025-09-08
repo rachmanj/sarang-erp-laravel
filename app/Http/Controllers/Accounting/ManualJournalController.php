@@ -18,7 +18,10 @@ class ManualJournalController extends Controller
     public function create()
     {
         $accounts = DB::table('accounts')->orderBy('code')->get(['id', 'code', 'name']);
-        return view('journals.manual.create', compact('accounts'));
+        $projects = DB::table('projects')->orderBy('code')->get(['id', 'code', 'name']);
+        $funds = DB::table('funds')->orderBy('code')->get(['id', 'code', 'name']);
+        $departments = DB::table('departments')->orderBy('code')->get(['id', 'code', 'name']);
+        return view('journals.manual.create', compact('accounts', 'projects', 'funds', 'departments'));
     }
 
     public function store(Request $request)

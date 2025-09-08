@@ -44,6 +44,34 @@
             }
         });
     }
+
+    // Simple queued PDF banner: checks for a session pdf_url and polls until available
+    document.addEventListener('DOMContentLoaded', () => {
+        const urlMeta = document.querySelector('meta[name="pdf_url"]');
+        const queuedUrl = urlMeta ? urlMeta.getAttribute('content') : null;
+        if (queuedUrl) {
+            toastr.info('Generating PDF... We\'ll open it when ready.');
+            const maxTries = 20;
+            let tries = 0;
+            const interval = setInterval(async () => {
+                tries++;
+                try {
+                    const res = await fetch(queuedUrl, {
+                        method: 'HEAD'
+                    });
+                    if (res.ok) {
+                        clearInterval(interval);
+                        toastr.success('PDF is ready. Opening now.');
+                        window.open(queuedUrl, '_blank');
+                    }
+                } catch (e) {}
+                if (tries >= maxTries) {
+                    clearInterval(interval);
+                    toastr.warning('Still generating. Check Downloads page later.');
+                }
+            }, 2000);
+        }
+    });
 </script>
 
 @yield('scripts')
