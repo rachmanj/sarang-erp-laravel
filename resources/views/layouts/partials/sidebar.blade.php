@@ -63,6 +63,13 @@
                                     </a>
                                 </li>
                             @endcan
+                            <li class="nav-item">
+                                <a href="{{ route('sales-orders.index') }}"
+                                    class="nav-link {{ request()->routeIs('sales-orders.*') ? 'active' : '' }}">
+                                    <i class="far fa-circle nav-icon"></i>
+                                    <p>Sales Orders</p>
+                                </a>
+                            </li>
                             @can('ar.receipts.view')
                                 <li class="nav-item">
                                     <a href="{{ route('sales-receipts.index') }}"
@@ -111,6 +118,20 @@
                                     </a>
                                 </li>
                             @endcan
+                            <li class="nav-item">
+                                <a href="{{ route('purchase-orders.index') }}"
+                                    class="nav-link {{ request()->routeIs('purchase-orders.*') ? 'active' : '' }}">
+                                    <i class="far fa-circle nav-icon"></i>
+                                    <p>Purchase Orders</p>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="{{ route('goods-receipts.index') }}"
+                                    class="nav-link {{ request()->routeIs('goods-receipts.*') ? 'active' : '' }}">
+                                    <i class="far fa-circle nav-icon"></i>
+                                    <p>Goods Receipts</p>
+                                </a>
+                            </li>
                             @can('ap.payments.view')
                                 <li class="nav-item">
                                     <a href="{{ route('purchase-payments.index') }}"

@@ -68,4 +68,21 @@ class ReportsTest extends TestCase
         $this->assertArrayHasKey('rows', $data);
         $this->assertArrayHasKey('opening_balance', $data);
     }
+
+    public function test_withholding_recap_structure_and_csv_pdf(): void
+    {
+        $resp = $this->getJson('/reports/withholding-recap');
+        $resp->assertOk();
+        $json = $resp->json();
+        $this->assertArrayHasKey('rows', $json);
+        $this->assertArrayHasKey('totals', $json);
+
+        $csv = $this->get('/reports/withholding-recap?export=csv');
+        $csv->assertOk();
+        $csv->assertHeader('Content-Type', 'text/csv');
+
+        $pdf = $this->get('/reports/withholding-recap?export=pdf');
+        $pdf->assertOk();
+        $pdf->assertHeader('Content-Type', 'application/pdf');
+    }
 }

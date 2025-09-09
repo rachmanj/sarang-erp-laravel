@@ -43,10 +43,31 @@
                 </a>
             </li>
             <li class="nav-item">
+                <a href="{{ route('reports.ar-balances') }}"
+                    class="nav-link {{ request()->routeIs('reports.ar-balances') ? 'active' : '' }}">
+                    <i class="far fa-circle nav-icon"></i>
+                    <p>AR Party Balances</p>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="{{ route('reports.ap-balances') }}"
+                    class="nav-link {{ request()->routeIs('reports.ap-balances') ? 'active' : '' }}">
+                    <i class="far fa-circle nav-icon"></i>
+                    <p>AP Party Balances</p>
+                </a>
+            </li>
+            <li class="nav-item">
                 <a href="{{ route('downloads.index') }}"
                     class="nav-link {{ request()->routeIs('downloads.*') ? 'active' : '' }}">
                     <i class="far fa-circle nav-icon"></i>
                     <p>Downloads</p>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="{{ route('reports.withholding-recap') }}"
+                    class="nav-link {{ request()->routeIs('reports.withholding-recap') ? 'active' : '' }}">
+                    <i class="far fa-circle nav-icon"></i>
+                    <p>Withholding Recap</p>
                 </a>
             </li>
         </ul>

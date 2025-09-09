@@ -13,6 +13,8 @@ class PurchaseInvoice extends Model
         'invoice_no',
         'date',
         'vendor_id',
+        'purchase_order_id',
+        'goods_receipt_id',
         'description',
         'total_amount',
         'status',

@@ -21,6 +21,11 @@ class ProfileController extends Controller
         ]);
     }
 
+    public function changePassword(): View
+    {
+        return view('profile.change-password');
+    }
+
     /**
      * Update the user's profile information.
      */

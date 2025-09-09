@@ -23,6 +23,9 @@
                         <form method="post" action="{{ route('sales-invoices.store') }}">
                             @csrf
                             <div class="card-body">
+                                @isset($sales_order_id)
+                                    <input type="hidden" name="sales_order_id" value="{{ $sales_order_id }}" />
+                                @endisset
                                 <div class="form-group">
                                     <label>Date</label>
                                     <input type="date" name="date" value="{{ old('date', now()->toDateString()) }}"

@@ -118,4 +118,65 @@ class ReportsController extends Controller
         }
         return view('reports.cash-ledger');
     }
+
+    public function withholdingRecap(Request $request)
+    {
+        $filters = $request->only(['from', 'to', 'vendor_id']);
+        $export = $request->query('export');
+        if ($export === 'csv') {
+            $data = $this->service->getWithholdingRecap($filters);
+            $csv = "vendor,withholding_total\n";
+            foreach ($data['rows'] as $r) {
+                $csv .= sprintf("%s,%.2f\n", str_replace(',', ' ', (string)($r['vendor_name'] ?? ('#' . $r['vendor_id']))), $r['withholding_total']);
+            }
+            return response($csv, 200, ['Content-Type' => 'text/csv', 'Content-Disposition' => 'attachment; filename="withholding-recap.csv"']);
+        }
+        if ($export === 'pdf') {
+            $data = $this->service->getWithholdingRecap($filters);
+            $pdf = app(\App\Services\PdfService::class)->renderViewToString('reports.pdf.withholding-recap', $data);
+            return response($pdf, 200, ['Content-Type' => 'application/pdf', 'Content-Disposition' => 'inline; filename="withholding-recap.pdf"']);
+        }
+        if ($request->wantsJson()) {
+            return response()->json($this->service->getWithholdingRecap($filters));
+        }
+        return view('reports.withholding-recap', $this->service->getWithholdingRecap($filters));
+    }
+
+    public function arBalances(Request $request)
+    {
+        $export = $request->query('export');
+        $data = $this->service->getArBalances();
+        if ($export === 'csv') {
+            $csv = "customer,invoices,receipts,balance\n";
+            foreach ($data['rows'] as $r) {
+                $csv .= sprintf("%s,%.2f,%.2f,%.2f\n", str_replace(',', ' ', (string)($r['customer_name'] ?? ('#' . $r['customer_id']))), $r['invoices'], $r['receipts'], $r['balance']);
+            }
+            return response($csv, 200, ['Content-Type' => 'text/csv', 'Content-Disposition' => 'attachment; filename="ar-balances.csv"']);
+        }
+        if ($export === 'pdf') {
+            $pdf = app(\App\Services\PdfService::class)->renderViewToString('reports.pdf.ar-balances', $data);
+            return response($pdf, 200, ['Content-Type' => 'application/pdf', 'Content-Disposition' => 'inline; filename="ar-balances.pdf"']);
+        }
+        if ($request->wantsJson()) return response()->json($data);
+        return view('reports.ar-balances', $data);
+    }
+
+    public function apBalances(Request $request)
+    {
+        $export = $request->query('export');
+        $data = $this->service->getApBalances();
+        if ($export === 'csv') {
+            $csv = "vendor,invoices,payments,balance\n";
+            foreach ($data['rows'] as $r) {
+                $csv .= sprintf("%s,%.2f,%.2f,%.2f\n", str_replace(',', ' ', (string)($r['vendor_name'] ?? ('#' . $r['vendor_id']))), $r['invoices'], $r['payments'], $r['balance']);
+            }
+            return response($csv, 200, ['Content-Type' => 'text/csv', 'Content-Disposition' => 'attachment; filename="ap-balances.csv"']);
+        }
+        if ($export === 'pdf') {
+            $pdf = app(\App\Services\PdfService::class)->renderViewToString('reports.pdf.ap-balances', $data);
+            return response($pdf, 200, ['Content-Type' => 'application/pdf', 'Content-Disposition' => 'inline; filename="ap-balances.pdf"']);
+        }
+        if ($request->wantsJson()) return response()->json($data);
+        return view('reports.ap-balances', $data);
+    }
 }

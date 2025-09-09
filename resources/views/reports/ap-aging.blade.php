@@ -1,88 +1,77 @@
 @extends('layouts.main')
 
-@section('title_page')
-    AP Aging
-@endsection
-
-@section('breadcrumb_title')
-    <li class="breadcrumb-item"><a href="/dashboard">Dashboard</a></li>
-    <li class="breadcrumb-item active">AP Aging</li>
-@endsection
+@section('title', 'AP Aging')
 
 @section('content')
-    <div class="container-fluid">
-        <h4 class="mb-3">Accounts Payable Aging</h4>
-        <form id="form" class="mb-3">
-            <label>As of <input type="date" name="as_of" value="{{ now()->toDateString() }}" /></label>
-            <label class="ml-2"><input type="checkbox" name="overdue" /> Overdue only</label>
-            <button class="btn btn-primary btn-sm" type="submit">Load</button>
-        </form>
-        <table class="table table-striped table-sm" id="tb">
-            <thead>
-                <tr>
-                    <th>Vendor</th>
-                    <th>Current</th>
-                    <th>31-60</th>
-                    <th>61-90</th>
-                    <th>91+</th>
-                    <th>Total</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-            <tfoot>
-                <tr>
-                    <th>Totals</th>
-                    <th id="tcur">0</th>
-                    <th id="t3160">0</th>
-                    <th id="t6190">0</th>
-                    <th id="t91">0</th>
-                    <th id="ttotal">0</th>
-                </tr>
-            </tfoot>
-        </table>
-    </div>
+    <section class="content">
+        <div class="container-fluid">
+            <div class="row">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h3 class="card-title">AP Aging</h3>
+                            <form method="get" class="form-inline">
+                                <input type="date" name="as_of" value="{{ request('as_of', now()->toDateString()) }}"
+                                    class="form-control form-control-sm mr-2">
+                                <label class="mr-2"><input type="checkbox" name="overdue" value="1"
+                                        {{ request('overdue') ? 'checked' : '' }}> Overdue only</label>
+                                <button class="btn btn-sm btn-secondary mr-2">Apply</button>
+                                <a class="btn btn-sm btn-outline-success mr-2"
+                                    href="{{ route('reports.ap-aging', array_merge(request()->query(), ['export' => 'csv'])) }}">CSV</a>
+                                <a class="btn btn-sm btn-outline-primary"
+                                    href="{{ route('reports.ap-aging', array_merge(request()->query(), ['export' => 'pdf'])) }}"
+                                    target="_blank">PDF</a>
+                            </form>
+                        </div>
+                        <div class="card-body p-0">
+                            <table class="table table-bordered table-striped table-sm mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Vendor</th>
+                                        <th class="text-right">Current</th>
+                                        <th class="text-right">31-60</th>
+                                        <th class="text-right">61-90</th>
+                                        <th class="text-right">91+</th>
+                                        <th class="text-right">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="rows"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+@endsection
+
+@push('scripts')
     <script>
-        const form = document.getElementById('form');
-        const tbody = document.querySelector('#tb tbody');
-        async function load() {
-            const as_of = form.as_of.value;
-            const overdue = form.overdue.checked ? '1' : '';
-            const res = await fetch(`/reports/ap-aging?as_of=${as_of}&overdue=${overdue}`, {
+        $(async function() {
+            const params = new URLSearchParams({
+                as_of: '{{ request('as_of', now()->toDateString()) }}',
+                overdue: '{{ request('overdue') ? 1 : 0 }}'
+            });
+            const res = await fetch(`{{ route('reports.ap-aging') }}?${params.toString()}`, {
                 headers: {
                     'Accept': 'application/json'
                 }
             });
             const data = await res.json();
+            const tbody = document.getElementById('rows');
             tbody.innerHTML = '';
-            let tcur = 0,
-                t3160 = 0,
-                t6190 = 0,
-                t91 = 0,
-                ttotal = 0;
             data.rows.forEach(r => {
-                tcur += r.current;
-                t3160 += r.d31_60;
-                t6190 += r.d61_90;
-                t91 += r.d91_plus;
-                ttotal += r.total;
-                const name = r.vendor_name ?? `#${r.vendor_id}`;
                 const tr = document.createElement('tr');
-                const link =
-                    `{{ route('purchase-invoices.index') }}?status=posted&q=${encodeURIComponent(name)}`;
-                tr.innerHTML =
-                    `<td><a href="${link}">${name}</a></td><td>${r.current.toFixed(2)}</td><td>${r.d31_60.toFixed(2)}</td><td>${r.d61_90.toFixed(2)}</td><td>${r.d91_plus.toFixed(2)}</td><td>${r.total.toFixed(2)}</td>`;
+                tr.innerHTML = `
+      <td>${(r.vendor_name||('#'+r.vendor_id))}</td>
+      <td class="text-right">${r.current.toFixed(2)}</td>
+      <td class="text-right">${r.d31_60.toFixed(2)}</td>
+      <td class="text-right">${r.d61_90.toFixed(2)}</td>
+      <td class="text-right">${r.d91_plus.toFixed(2)}</td>
+      <td class="text-right">${r.total.toFixed(2)}</td>
+    `;
                 tbody.appendChild(tr);
             });
-            document.getElementById('tcur').innerText = tcur.toFixed(2);
-            document.getElementById('t3160').innerText = t3160.toFixed(2);
-            document.getElementById('t6190').innerText = t6190.toFixed(2);
-            document.getElementById('t91').innerText = t91.toFixed(2);
-            document.getElementById('ttotal').innerText = ttotal.toFixed(2);
-        }
-        form.addEventListener('submit', (e) => {
-            e.preventDefault();
-            load();
         });
-        load();
     </script>
-@endsection
+@endpush

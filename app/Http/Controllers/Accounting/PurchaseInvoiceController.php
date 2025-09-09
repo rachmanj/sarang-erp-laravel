@@ -58,6 +58,8 @@ class PurchaseInvoiceController extends Controller
                 'invoice_no' => null,
                 'date' => $data['date'],
                 'vendor_id' => $data['vendor_id'],
+                'purchase_order_id' => $request->input('purchase_order_id'),
+                'goods_receipt_id' => $request->input('goods_receipt_id'),
                 'description' => $data['description'] ?? null,
                 'status' => 'draft',
                 'total_amount' => 0,
@@ -109,12 +111,21 @@ class PurchaseInvoiceController extends Controller
 
         $expenseTotal = 0.0;
         $ppnTotal = 0.0;
+        $withholdingTotal = 0.0;
         $lines = [];
         foreach ($invoice->lines as $l) {
             $expenseTotal += (float) $l->amount;
             if (!empty($l->tax_code_id)) {
-                $rate = (float) DB::table('tax_codes')->where('id', $l->tax_code_id)->value('rate');
-                $ppnTotal += round($l->amount * $rate, 2);
+                $tax = DB::table('tax_codes')->where('id', $l->tax_code_id)->first();
+                if ($tax) {
+                    $rate = (float) $tax->rate;
+                    if (str_contains(strtolower((string)$tax->name), 'ppn') || strtolower((string)$tax->type) === 'ppn_input') {
+                        $ppnTotal += round($l->amount * $rate, 2);
+                    }
+                    if (strtolower((string)$tax->type) === 'withholding') {
+                        $withholdingTotal += round($l->amount * $rate, 2);
+                    }
+                }
             }
             $lines[] = [
                 'account_id' => (int) $l->account_id,
@@ -139,10 +150,25 @@ class PurchaseInvoiceController extends Controller
             ];
         }
 
+        if ($withholdingTotal > 0) {
+            $withholdingPayableId = (int) DB::table('accounts')->where('code', '2.1.3')->value('id');
+            if ($withholdingPayableId) {
+                $lines[] = [
+                    'account_id' => $withholdingPayableId,
+                    'debit' => 0,
+                    'credit' => $withholdingTotal,
+                    'project_id' => null,
+                    'fund_id' => null,
+                    'dept_id' => null,
+                    'memo' => 'Withholding Tax Payable',
+                ];
+            }
+        }
+
         $lines[] = [
             'account_id' => $apAccountId,
             'debit' => 0,
-            'credit' => $expenseTotal + $ppnTotal,
+            'credit' => ($expenseTotal + $ppnTotal) - $withholdingTotal,
             'project_id' => null,
             'fund_id' => null,
             'dept_id' => null,

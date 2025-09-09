@@ -23,6 +23,12 @@
                         <form method="post" action="{{ route('purchase-invoices.store') }}">
                             @csrf
                             <div class="card-body">
+                                @isset($purchase_order_id)
+                                    <input type="hidden" name="purchase_order_id" value="{{ $purchase_order_id }}" />
+                                @endisset
+                                @isset($goods_receipt_id)
+                                    <input type="hidden" name="goods_receipt_id" value="{{ $goods_receipt_id }}" />
+                                @endisset
                                 <div class="form-group">
                                     <label>Date</label>
                                     <input type="date" name="date" value="{{ old('date', now()->toDateString()) }}"

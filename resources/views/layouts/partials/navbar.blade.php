@@ -41,7 +41,7 @@
                 <li class="user-body">
                     <div class="row">
                         <div class="col-6 text-center">
-                            <a href="{{ route('profile.edit') }}" class="btn btn-link btn-sm">
+                            <a href="{{ route('profile.change-password') }}" class="btn btn-link btn-sm">
                                 <i class="fas fa-key text-primary"></i><br>
                                 <small>Change Password</small>
                             </a>

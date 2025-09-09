@@ -13,6 +13,7 @@ class SalesInvoice extends Model
         'invoice_no',
         'date',
         'customer_id',
+        'sales_order_id',
         'description',
         'total_amount',
         'status',

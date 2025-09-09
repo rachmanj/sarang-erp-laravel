@@ -58,6 +58,7 @@ class SalesInvoiceController extends Controller
                 'invoice_no' => null,
                 'date' => $data['date'],
                 'customer_id' => $data['customer_id'],
+                'sales_order_id' => $request->input('sales_order_id'),
                 'description' => $data['description'] ?? null,
                 'status' => 'draft',
                 'total_amount' => 0,

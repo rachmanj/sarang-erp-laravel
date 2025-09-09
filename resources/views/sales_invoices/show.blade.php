@@ -44,6 +44,11 @@
                             <p>Date: {{ $invoice->date }}</p>
                             <p>Customer: {{ optional(DB::table('customers')->find($invoice->customer_id))->name }}</p>
                             <p>Description: {{ $invoice->description }}</p>
+                            @if (!empty($invoice->sales_order_id))
+                                <p><strong>Related:</strong> <a
+                                        href="{{ route('sales-orders.show', $invoice->sales_order_id) }}"
+                                        class="badge badge-info">SO #{{ $invoice->sales_order_id }}</a></p>
+                            @endif
                             <hr>
                             <table class="table table-striped">
                                 <thead>
@@ -75,7 +80,8 @@
                                     ->sum('amount');
                                 $remaining = max(0, (float) $invoice->total_amount - (float) $alloc);
                             @endphp
-                            <p>Allocated: {{ number_format($alloc, 2) }} | Remaining: {{ number_format($remaining, 2) }}</p>
+                            <p>Allocated: {{ number_format($alloc, 2) }} | Remaining: {{ number_format($remaining, 2) }}
+                            </p>
                         </div>
                     </div>
                 </div>

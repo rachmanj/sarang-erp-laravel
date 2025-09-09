@@ -23,6 +23,9 @@ class RolePermissionSeeder extends Seeder
             'journals.create',
             'journals.post',
             'journals.reverse',
+            // Periods
+            'periods.view',
+            'periods.close',
             'projects.view',
             'projects.manage',
             'funds.view',
@@ -51,7 +54,19 @@ class RolePermissionSeeder extends Seeder
             'permissions.update',
             'permissions.delete',
             'reports.view',
-            'period.close',
+            // AR/AP
+            'ar.invoices.view',
+            'ar.invoices.create',
+            'ar.invoices.post',
+            'ar.receipts.view',
+            'ar.receipts.create',
+            'ar.receipts.post',
+            'ap.invoices.view',
+            'ap.invoices.create',
+            'ap.invoices.post',
+            'ap.payments.view',
+            'ap.payments.create',
+            'ap.payments.post',
         ];
 
         foreach ($permissions as $perm) {
@@ -64,7 +79,6 @@ class RolePermissionSeeder extends Seeder
                 'accounts.view',
                 'journals.view',
                 'journals.create',
-                'journals.post',
                 'projects.view',
                 'funds.view',
                 'departments.view',
@@ -72,9 +86,32 @@ class RolePermissionSeeder extends Seeder
                 'vendors.view',
                 'taxcodes.view',
                 'reports.view',
+                // AR/AP create/view
+                'ar.invoices.view',
+                'ar.invoices.create',
+                'ap.invoices.view',
+                'ap.invoices.create',
+                'ar.receipts.view',
+                'ar.receipts.create',
+                'ap.payments.view',
+                'ap.payments.create',
             ],
-            'approver' => ['journals.post', 'reports.view'],
-            'cashier' => ['journals.create', 'reports.view'],
+            'approver' => [
+                'reports.view',
+                // Posting permissions
+                'journals.post',
+                'ar.invoices.post',
+                'ap.invoices.post',
+                'ar.receipts.post',
+                'ap.payments.post',
+            ],
+            'cashier' => [
+                'reports.view',
+                'journals.create',
+                // Frontline cash operations (optional)
+                'ar.receipts.create',
+                'ap.payments.create',
+            ],
             'auditor' => ['reports.view'],
         ];
 

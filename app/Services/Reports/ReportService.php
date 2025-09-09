@@ -269,4 +269,95 @@ class ReportService
         if ($days <= 90) return '61-90';
         return '91+';
     }
+
+    public function getArBalances(): array
+    {
+        $inv = DB::table('sales_invoices')->where('status', 'posted')
+            ->select('customer_id', DB::raw('SUM(total_amount) as total'))
+            ->groupBy('customer_id')->pluck('total', 'customer_id');
+        $rcp = DB::table('sales_receipts')->where('status', 'posted')
+            ->select('customer_id', DB::raw('SUM(total_amount) as total'))
+            ->groupBy('customer_id')->pluck('total', 'customer_id');
+        $rows = [];
+        $customerIds = array_unique(array_merge(array_keys($inv->toArray()), array_keys($rcp->toArray())));
+        foreach ($customerIds as $cid) {
+            $invt = (float) ($inv[$cid] ?? 0);
+            $rcpt = (float) ($rcp[$cid] ?? 0);
+            $name = DB::table('customers')->where('id', $cid)->value('name');
+            $rows[] = ['customer_id' => (int)$cid, 'customer_name' => $name, 'invoices' => $invt, 'receipts' => $rcpt, 'balance' => round($invt - $rcpt, 2)];
+        }
+        return ['rows' => $rows, 'totals' => [
+            'invoices' => array_sum(array_column($rows, 'invoices')),
+            'receipts' => array_sum(array_column($rows, 'receipts')),
+            'balance' => array_sum(array_column($rows, 'balance')),
+        ]];
+    }
+
+    public function getApBalances(): array
+    {
+        $inv = DB::table('purchase_invoices')->where('status', 'posted')
+            ->select('vendor_id', DB::raw('SUM(total_amount) as total'))
+            ->groupBy('vendor_id')->pluck('total', 'vendor_id');
+        $pay = DB::table('purchase_payments')->where('status', 'posted')
+            ->select('vendor_id', DB::raw('SUM(total_amount) as total'))
+            ->groupBy('vendor_id')->pluck('total', 'vendor_id');
+        $rows = [];
+        $vendorIds = array_unique(array_merge(array_keys($inv->toArray()), array_keys($pay->toArray())));
+        foreach ($vendorIds as $vid) {
+            $invt = (float) ($inv[$vid] ?? 0);
+            $payt = (float) ($pay[$vid] ?? 0);
+            $name = DB::table('vendors')->where('id', $vid)->value('name');
+            $rows[] = ['vendor_id' => (int)$vid, 'vendor_name' => $name, 'invoices' => $invt, 'payments' => $payt, 'balance' => round($invt - $payt, 2)];
+        }
+        return ['rows' => $rows, 'totals' => [
+            'invoices' => array_sum(array_column($rows, 'invoices')),
+            'payments' => array_sum(array_column($rows, 'payments')),
+            'balance' => array_sum(array_column($rows, 'balance')),
+        ]];
+    }
+
+    public function getWithholdingRecap(array $filters = []): array
+    {
+        // Per-invoice rounding: first compute each invoice's withholding, then sum by vendor
+        $invoiceQuery = DB::table('purchase_invoice_lines as pil')
+            ->join('purchase_invoices as pi', 'pi.id', '=', 'pil.invoice_id')
+            ->join('tax_codes as t', 't.id', '=', 'pil.tax_code_id')
+            ->where('pi.status', 'posted')
+            ->whereRaw('LOWER(t.type) = ?', ['withholding']);
+
+        if (!empty($filters['from'])) {
+            $invoiceQuery->whereDate('pi.date', '>=', $filters['from']);
+        }
+        if (!empty($filters['to'])) {
+            $invoiceQuery->whereDate('pi.date', '<=', $filters['to']);
+        }
+        if (!empty($filters['vendor_id'])) {
+            $invoiceQuery->where('pi.vendor_id', (int) $filters['vendor_id']);
+        }
+
+        $invoiceQuery = $invoiceQuery
+            ->select('pi.id as invoice_id', 'pi.vendor_id', DB::raw('ROUND(SUM(pil.amount * t.rate), 2) as inv_withholding'))
+            ->groupBy('pi.id', 'pi.vendor_id');
+
+        $q = DB::query()->fromSub($invoiceQuery, 'w')
+            ->leftJoin('vendors as v', 'v.id', '=', 'w.vendor_id')
+            ->select('w.vendor_id', 'v.name as vendor_name', DB::raw('SUM(w.inv_withholding) as withholding_total'))
+            ->groupBy('w.vendor_id', 'v.name');
+
+        $rows = $q->get()->map(function ($r) {
+            return [
+                'vendor_id' => (int) $r->vendor_id,
+                'vendor_name' => $r->vendor_name,
+                'withholding_total' => round((float) $r->withholding_total, 2),
+            ];
+        })->toArray();
+
+        return [
+            'filters' => $filters,
+            'rows' => $rows,
+            'totals' => [
+                'withholding_total' => array_sum(array_column($rows, 'withholding_total')),
+            ],
+        ];
+    }
 }

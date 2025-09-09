@@ -47,6 +47,25 @@
 
     // Simple queued PDF banner: checks for a session pdf_url and polls until available
     document.addEventListener('DOMContentLoaded', () => {
+        toastr.options = {
+            positionClass: 'toast-top-right',
+            closeButton: true,
+            progressBar: true,
+            newestOnTop: true,
+            timeOut: 4000,
+        };
+        @if (session('success'))
+            toastr.success(@json(session('success')));
+        @endif
+        @if (session('error'))
+            toastr.error(@json(session('error')));
+        @endif
+        @if (session('warning'))
+            toastr.warning(@json(session('warning')));
+        @endif
+        @if (session('info'))
+            toastr.info(@json(session('info')));
+        @endif
         const urlMeta = document.querySelector('meta[name="pdf_url"]');
         const queuedUrl = urlMeta ? urlMeta.getAttribute('content') : null;
         if (queuedUrl) {
