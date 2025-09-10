@@ -27,21 +27,47 @@ class RoleController extends Controller
     public function data(Request $request)
     {
         $this->authorize('roles.view');
-        $query = Role::query()->select(['id', 'name']);
+        $query = Role::query()->withCount('users')->select(['id', 'name']);
         return DataTables::of($query)
             ->addColumn('permissions', function (Role $role) {
-                return $role->permissions
-                    ->pluck('name')
-                    ->map(function ($name) {
-                        return '<span class="badge badge-secondary mr-1">' . e($name) . '</span>';
-                    })
-                    ->join(' ');
+                $permissions = $role->permissions->pluck('name');
+                if ($permissions->isEmpty()) {
+                    return '<span class="text-muted">No permissions</span>';
+                }
+
+                // Show first 3 permissions as badges
+                $displayPermissions = $permissions->take(3);
+                $html = $displayPermissions->map(function ($name) {
+                    return '<span class="badge badge-info mr-1 mb-1">' . e($name) . '</span>';
+                })->join('');
+
+                // Add "+X more" if there are more than 3 permissions
+                if ($permissions->count() > 3) {
+                    $remaining = $permissions->count() - 3;
+                    $html .= '<span class="badge badge-secondary">+' . $remaining . ' more</span>';
+                }
+
+                return $html;
+            })
+            ->addColumn('users_count', function (Role $role) {
+                return $role->users_count;
             })
             ->addColumn('actions', function (Role $role) {
+                $html = '';
+
+                // View button
+                $html .= '<button class="btn btn-sm btn-info mr-1 view-role" data-id="' . $role->id . '" title="View"><i class="fas fa-eye"></i></button>';
+
+                // Edit button
                 $editUrl = route('admin.roles.edit', $role);
-                $edit = '<a href="' . $editUrl . '" class="btn btn-xs btn-primary">Edit</a>';
-                $del = '<button type="button" class="btn btn-xs btn-danger delete-role" data-id="' . $role->id . '">Delete</button>';
-                return $edit . ' ' . $del;
+                $html .= '<a href="' . $editUrl . '" class="btn btn-sm btn-warning mr-1" title="Edit"><i class="fas fa-edit"></i></a>';
+
+                // Delete button (not for superadmin)
+                if ($role->name !== 'superadmin') {
+                    $html .= '<button type="button" class="btn btn-sm btn-danger delete-role" data-id="' . $role->id . '" title="Delete"><i class="fas fa-trash"></i></button>';
+                }
+
+                return $html;
             })
             ->rawColumns(['permissions', 'actions'])
             ->toJson();
@@ -90,8 +116,8 @@ class RoleController extends Controller
     public function destroy(Role $role)
     {
         $this->authorize('roles.delete');
-        if ($role->name === 'admin') {
-            return back()->with('error', 'Cannot delete admin role');
+        if ($role->name === 'superadmin') {
+            return back()->with('error', 'Cannot delete superadmin role');
         }
         $role->delete();
         return back()->with('success', 'Role deleted');

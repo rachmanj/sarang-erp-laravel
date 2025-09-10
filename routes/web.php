@@ -96,6 +96,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/data', [CashExpenseController::class, 'data'])->name('cash-expenses.data');
         Route::get('/create', [CashExpenseController::class, 'create'])->name('cash-expenses.create');
         Route::post('/', [CashExpenseController::class, 'store'])->name('cash-expenses.store');
+        Route::get('/{cashExpense}/print', [CashExpenseController::class, 'print'])->name('cash-expenses.print');
     });
     // Admin - Users, Roles, Permissions
     Route::prefix('admin')->middleware(['permission:view-admin'])->group(function () {

@@ -74,7 +74,7 @@ class RolePermissionSeeder extends Seeder
         }
 
         $roles = [
-            'admin' => $permissions,
+            'superadmin' => $permissions,
             'accountant' => [
                 'accounts.view',
                 'journals.view',
@@ -121,7 +121,7 @@ class RolePermissionSeeder extends Seeder
         }
 
         if ($admin = User::first()) {
-            $admin->assignRole('admin');
+            $admin->assignRole('superadmin');
         }
     }
 }
