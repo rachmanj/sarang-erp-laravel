@@ -201,7 +201,8 @@
                 <!-- Reports Section -->
                 @include('layouts.partials.menu.reports')
 
-                @canany(['projects.view', 'funds.view', 'departments.view'])
+                @canany(['projects.view', 'funds.view', 'departments.view', 'assets.view', 'asset_categories.view',
+                    'assets.depreciation.run'])
                     @include('layouts.partials.menu.master')
                 @endcanany
 

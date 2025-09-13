@@ -1,8 +1,8 @@
 <!-- Master Data -->
 <li
-    class="nav-item {{ request()->routeIs('projects.*') || request()->routeIs('funds.*') || request()->routeIs('departments.*') ? 'menu-open' : '' }}">
+    class="nav-item {{ request()->routeIs('projects.*') || request()->routeIs('funds.*') || request()->routeIs('departments.*') || request()->routeIs('assets.*') || request()->routeIs('asset-categories.*') || request()->routeIs('assets.disposals.*') || request()->routeIs('assets.movements.*') ? 'menu-open' : '' }}">
     <a href="#"
-        class="nav-link {{ request()->routeIs('projects.*') || request()->routeIs('funds.*') || request()->routeIs('departments.*') ? 'active' : '' }}">
+        class="nav-link {{ request()->routeIs('projects.*') || request()->routeIs('funds.*') || request()->routeIs('departments.*') || request()->routeIs('assets.*') || request()->routeIs('asset-categories.*') || request()->routeIs('assets.disposals.*') || request()->routeIs('assets.movements.*') ? 'active' : '' }}">
         <i class="nav-icon fas fa-database"></i>
         <p>
             Master Data
@@ -39,6 +39,60 @@
             </li>
         @endcan
 
+        <!-- Fixed Assets -->
+        @canany(['assets.view', 'asset_categories.view'])
+            <li class="nav-header">Fixed Assets</li>
+        @endcanany
+
+        @can('asset_categories.view')
+            <li class="nav-item">
+                <a href="{{ route('asset-categories.index') }}"
+                    class="nav-link {{ request()->routeIs('asset-categories.*') ? 'active' : '' }}">
+                    <i class="far fa-circle nav-icon"></i>
+                    <p>Asset Categories</p>
+                </a>
+            </li>
+        @endcan
+
+        @can('assets.view')
+            <li class="nav-item">
+                <a href="{{ route('assets.index') }}"
+                    class="nav-link {{ request()->routeIs('assets.*') && !request()->routeIs('assets.depreciation.*') ? 'active' : '' }}">
+                    <i class="far fa-circle nav-icon"></i>
+                    <p>Assets</p>
+                </a>
+            </li>
+        @endcan
+
+        @can('assets.depreciation.run')
+            <li class="nav-item">
+                <a href="{{ route('assets.depreciation.index') }}"
+                    class="nav-link {{ request()->routeIs('assets.depreciation.*') ? 'active' : '' }}">
+                    <i class="far fa-circle nav-icon"></i>
+                    <p>Depreciation Runs</p>
+                </a>
+            </li>
+        @endcan
+
+        @can('assets.disposal.view')
+            <li class="nav-item">
+                <a href="{{ route('assets.disposals.index') }}"
+                    class="nav-link {{ request()->routeIs('assets.disposals.*') ? 'active' : '' }}">
+                    <i class="far fa-circle nav-icon"></i>
+                    <p>Asset Disposals</p>
+                </a>
+            </li>
+        @endcan
+
+        @can('assets.movement.view')
+            <li class="nav-item">
+                <a href="{{ route('assets.movements.index') }}"
+                    class="nav-link {{ request()->routeIs('assets.movements.*') ? 'active' : '' }}">
+                    <i class="far fa-circle nav-icon"></i>
+                    <p>Asset Movements</p>
+                </a>
+            </li>
+        @endcan
 
     </ul>
 </li>

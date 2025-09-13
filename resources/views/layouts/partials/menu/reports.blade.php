@@ -70,6 +70,18 @@
                     <p>Withholding Recap</p>
                 </a>
             </li>
+
+            <!-- Asset Reports -->
+            @canany(['assets.view', 'assets.disposal.view', 'assets.movement.view'])
+                <li class="nav-header">ASSET REPORTS</li>
+                <li class="nav-item">
+                    <a href="{{ route('reports.assets.index') }}"
+                        class="nav-link {{ request()->routeIs('reports.assets.*') ? 'active' : '' }}">
+                        <i class="far fa-circle nav-icon"></i>
+                        <p>Asset Reports</p>
+                    </a>
+                </li>
+            @endcanany
         </ul>
     </li>
 @endcan

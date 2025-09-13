@@ -24,6 +24,11 @@ use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\SalesOrderController;
 use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\GoodsReceiptController;
+use App\Http\Controllers\AssetController;
+use App\Http\Controllers\AssetCategoryController;
+use App\Http\Controllers\AssetDepreciationController;
+use App\Http\Controllers\AssetDisposalController;
+use App\Http\Controllers\AssetMovementController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -151,6 +156,79 @@ Route::middleware('auth')->group(function () {
         Route::post('/', [DimDepartmentController::class, 'store'])->middleware('permission:departments.manage')->name('departments.store');
         Route::patch('/{id}', [DimDepartmentController::class, 'update'])->middleware('permission:departments.manage')->name('departments.update');
         Route::delete('/{id}', [DimDepartmentController::class, 'destroy'])->middleware('permission:departments.manage')->name('departments.destroy');
+    });
+
+    // Fixed Assets Management
+    Route::prefix('asset-categories')->middleware(['permission:asset_categories.view'])->group(function () {
+        Route::get('/', [AssetCategoryController::class, 'index'])->name('asset-categories.index');
+        Route::get('/data', [AssetCategoryController::class, 'data'])->name('asset-categories.data');
+        Route::get('/accounts', [AssetCategoryController::class, 'getAccounts'])->name('asset-categories.accounts');
+        Route::post('/', [AssetCategoryController::class, 'store'])->middleware('permission:asset_categories.manage')->name('asset-categories.store');
+        Route::patch('/{assetCategory}', [AssetCategoryController::class, 'update'])->middleware('permission:asset_categories.manage')->name('asset-categories.update');
+        Route::delete('/{assetCategory}', [AssetCategoryController::class, 'destroy'])->middleware('permission:asset_categories.manage')->name('asset-categories.destroy');
+    });
+
+    Route::prefix('assets')->middleware(['permission:assets.view'])->group(function () {
+        Route::get('/', [AssetController::class, 'index'])->name('assets.index');
+        Route::get('/data', [AssetController::class, 'data'])->name('assets.data');
+        Route::get('/create', [AssetController::class, 'create'])->middleware('permission:assets.create')->name('assets.create');
+        Route::post('/', [AssetController::class, 'store'])->middleware('permission:assets.create')->name('assets.store');
+        Route::get('/{asset}', [AssetController::class, 'show'])->name('assets.show');
+        Route::get('/{asset}/edit', [AssetController::class, 'edit'])->middleware('permission:assets.update')->name('assets.edit');
+        Route::patch('/{asset}', [AssetController::class, 'update'])->middleware('permission:assets.update')->name('assets.update');
+        Route::delete('/{asset}', [AssetController::class, 'destroy'])->middleware('permission:assets.delete')->name('assets.destroy');
+        Route::get('/categories', [AssetController::class, 'getCategories'])->name('assets.categories');
+        Route::get('/funds', [AssetController::class, 'getFunds'])->name('assets.funds');
+        Route::get('/projects', [AssetController::class, 'getProjects'])->name('assets.projects');
+        Route::get('/departments', [AssetController::class, 'getDepartments'])->name('assets.departments');
+        Route::get('/vendors', [AssetController::class, 'getVendors'])->name('assets.vendors');
+    });
+
+    // Fixed Assets Depreciation
+    Route::prefix('assets/depreciation')->middleware(['permission:assets.depreciation.run'])->group(function () {
+        Route::get('/', [AssetDepreciationController::class, 'index'])->name('assets.depreciation.index');
+        Route::get('/data', [AssetDepreciationController::class, 'data'])->name('assets.depreciation.data');
+        Route::get('/create', [AssetDepreciationController::class, 'create'])->name('assets.depreciation.create');
+        Route::post('/', [AssetDepreciationController::class, 'store'])->name('assets.depreciation.store');
+        Route::get('/{run}', [AssetDepreciationController::class, 'show'])->name('assets.depreciation.show');
+        Route::get('/{run}/calculate', [AssetDepreciationController::class, 'calculate'])->name('assets.depreciation.calculate');
+        Route::post('/{run}/entries', [AssetDepreciationController::class, 'createEntries'])->name('assets.depreciation.createEntries');
+        Route::post('/{run}/post', [AssetDepreciationController::class, 'post'])->name('assets.depreciation.post');
+        Route::post('/{run}/reverse', [AssetDepreciationController::class, 'reverse'])->name('assets.depreciation.reverse');
+        Route::get('/{run}/entries', [AssetDepreciationController::class, 'entries'])->name('assets.depreciation.entries');
+    });
+
+    // Asset depreciation schedule
+    Route::get('/assets/{asset}/schedule', [AssetDepreciationController::class, 'schedule'])->middleware(['permission:assets.view'])->name('assets.schedule');
+
+    // Asset Disposals
+    Route::prefix('assets/disposals')->middleware(['permission:assets.disposal.view'])->group(function () {
+        Route::get('/', [AssetDisposalController::class, 'index'])->name('assets.disposals.index');
+        Route::get('/data', [AssetDisposalController::class, 'data'])->name('assets.disposals.data');
+        Route::get('/create', [AssetDisposalController::class, 'create'])->middleware('permission:assets.disposal.create')->name('assets.disposals.create');
+        Route::post('/', [AssetDisposalController::class, 'store'])->middleware('permission:assets.disposal.create')->name('assets.disposals.store');
+        Route::get('/{disposal}', [AssetDisposalController::class, 'show'])->name('assets.disposals.show');
+        Route::get('/{disposal}/edit', [AssetDisposalController::class, 'edit'])->middleware('permission:assets.disposal.update')->name('assets.disposals.edit');
+        Route::patch('/{disposal}', [AssetDisposalController::class, 'update'])->middleware('permission:assets.disposal.update')->name('assets.disposals.update');
+        Route::delete('/{disposal}', [AssetDisposalController::class, 'destroy'])->middleware('permission:assets.disposal.delete')->name('assets.disposals.destroy');
+        Route::post('/{disposal}/post', [AssetDisposalController::class, 'post'])->middleware('permission:assets.disposal.post')->name('assets.disposals.post');
+        Route::post('/{disposal}/reverse', [AssetDisposalController::class, 'reverse'])->middleware('permission:assets.disposal.reverse')->name('assets.disposals.reverse');
+    });
+
+    // Asset Movements
+    Route::prefix('assets/movements')->middleware(['permission:assets.movement.view'])->group(function () {
+        Route::get('/', [AssetMovementController::class, 'index'])->name('assets.movements.index');
+        Route::get('/data', [AssetMovementController::class, 'data'])->name('assets.movements.data');
+        Route::get('/create', [AssetMovementController::class, 'create'])->middleware('permission:assets.movement.create')->name('assets.movements.create');
+        Route::post('/', [AssetMovementController::class, 'store'])->middleware('permission:assets.movement.create')->name('assets.movements.store');
+        Route::get('/{movement}', [AssetMovementController::class, 'show'])->name('assets.movements.show');
+        Route::get('/{movement}/edit', [AssetMovementController::class, 'edit'])->middleware('permission:assets.movement.update')->name('assets.movements.edit');
+        Route::patch('/{movement}', [AssetMovementController::class, 'update'])->middleware('permission:assets.movement.update')->name('assets.movements.update');
+        Route::delete('/{movement}', [AssetMovementController::class, 'destroy'])->middleware('permission:assets.movement.delete')->name('assets.movements.destroy');
+        Route::post('/{movement}/approve', [AssetMovementController::class, 'approve'])->middleware('permission:assets.movement.approve')->name('assets.movements.approve');
+        Route::post('/{movement}/complete', [AssetMovementController::class, 'complete'])->middleware('permission:assets.movement.update')->name('assets.movements.complete');
+        Route::post('/{movement}/cancel', [AssetMovementController::class, 'cancel'])->middleware('permission:assets.movement.update')->name('assets.movements.cancel');
+        Route::get('/asset/{asset}/history', [AssetMovementController::class, 'assetMovements'])->name('assets.movements.history');
     });
 });
 
