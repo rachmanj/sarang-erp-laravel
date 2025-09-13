@@ -16,6 +16,10 @@
                                 {{ $order->status !== 'approved' ? 'disabled' : '' }}>Close</button></form>
                         <a href="{{ route('purchase-orders.create-invoice', $order->id) }}" class="btn btn-sm btn-success"
                             aria-label="Create Invoice from Purchase Order">Create Invoice</a>
+                        @can('assets.create')
+                            <a href="{{ route('purchase-orders.create-assets', $order->id) }}" class="btn btn-sm btn-info"
+                                aria-label="Create Assets from Purchase Order">Create Assets</a>
+                        @endcan
                     </div>
                 </div>
                 <div class="card-body">

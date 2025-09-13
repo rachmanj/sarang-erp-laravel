@@ -125,7 +125,7 @@ class FixedAssetService
             // Calculate remaining depreciation
             $totalDepreciationToDate = $asset->getTotalDepreciationToDate();
             $depreciableCost = $asset->depreciable_cost;
-            
+
             if ($totalDepreciationToDate >= $depreciableCost) {
                 return 0;
             }
@@ -161,6 +161,10 @@ class FixedAssetService
 
     /**
      * Post depreciation run to GL
+     * 
+     * @param AssetDepreciationRun $run
+     * @param int $postedBy
+     * @return void
      */
     public function postDepreciationRun(AssetDepreciationRun $run, int $postedBy): void
     {
@@ -315,7 +319,7 @@ class FixedAssetService
                 'journal_id' => null,
                 'posted_by' => null,
                 'posted_at' => null,
-            });
+            ]);
 
             // Reverse asset accumulated depreciation
             $entries = AssetDepreciationEntry::where('period', $run->period)
@@ -350,7 +354,7 @@ class FixedAssetService
             $period = $periodDate->format('Y-m');
 
             $depreciation = $this->calculateAssetDepreciation($asset, $period);
-            
+
             if ($depreciation > 0) {
                 $schedule[] = [
                     'period' => $period,

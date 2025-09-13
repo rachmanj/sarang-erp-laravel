@@ -291,4 +291,184 @@ class AssetController extends Controller
         $vendors = Vendor::all(['id', 'code', 'name']);
         return response()->json($vendors);
     }
+
+    public function bulkUpdateIndex()
+    {
+        $this->authorize('update', Asset::class);
+
+        $funds = Fund::all(['id', 'code', 'name']);
+        $projects = Project::all(['id', 'code', 'name']);
+        $departments = Department::all(['id', 'code', 'name']);
+        $vendors = Vendor::all(['id', 'code', 'name']);
+
+        return view('assets.bulk-operations.index', compact('funds', 'projects', 'departments', 'vendors'));
+    }
+
+    public function bulkUpdate(Request $request)
+    {
+        $this->authorize('update', Asset::class);
+
+        $request->validate([
+            'asset_ids' => 'required|array|min:1',
+            'asset_ids.*' => 'exists:assets,id',
+            'updates' => 'required|array',
+            'updates.fund_id' => 'nullable|exists:funds,id',
+            'updates.project_id' => 'nullable|exists:projects,id',
+            'updates.department_id' => 'nullable|exists:departments,id',
+            'updates.vendor_id' => 'nullable|exists:vendors,id',
+            'updates.status' => 'nullable|in:active,retired,disposed',
+            'updates.description' => 'nullable|string|max:1000',
+            'updates.serial_number' => 'nullable|string|max:100',
+            'updates.salvage_value' => 'nullable|numeric|min:0',
+            'updates.method' => 'nullable|in:straight_line,declining_balance,double_declining_balance',
+            'updates.life_months' => 'nullable|integer|min:1|max:600',
+            'updates.placed_in_service_date' => 'nullable|date'
+        ]);
+
+        $assetIds = $request->get('asset_ids');
+        $updates = $request->get('updates');
+
+        // Remove null values
+        $updates = array_filter($updates, function ($value) {
+            return $value !== null && $value !== '';
+        });
+
+        if (empty($updates)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No valid updates provided'
+            ], 400);
+        }
+
+        try {
+            DB::beginTransaction();
+
+            $updatedCount = Asset::whereIn('id', $assetIds)->update($updates);
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => "Successfully updated {$updatedCount} assets",
+                'updated_count' => $updatedCount
+            ]);
+        } catch (\Exception $e) {
+            DB::rollback();
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Bulk update failed: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function bulkUpdateData(Request $request)
+    {
+        $this->authorize('view', Asset::class);
+
+        $query = Asset::with(['category', 'fund', 'project', 'department', 'vendor'])
+            ->select(['id', 'code', 'name', 'description', 'serial_number', 'category_id', 'fund_id', 'project_id', 'department_id', 'vendor_id', 'status', 'acquisition_cost', 'salvage_value', 'method', 'life_months', 'placed_in_service_date']);
+
+        // Apply filters
+        if ($request->filled('category_id')) {
+            $query->where('category_id', $request->category_id);
+        }
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        if ($request->filled('fund_id')) {
+            $query->where('fund_id', $request->fund_id);
+        }
+
+        if ($request->filled('project_id')) {
+            $query->where('project_id', $request->project_id);
+        }
+
+        if ($request->filled('department_id')) {
+            $query->where('department_id', $request->department_id);
+        }
+
+        if ($request->filled('vendor_id')) {
+            $query->where('vendor_id', $request->vendor_id);
+        }
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('code', 'like', "%{$search}%")
+                    ->orWhere('name', 'like', "%{$search}%")
+                    ->orWhere('description', 'like', "%{$search}%")
+                    ->orWhere('serial_number', 'like', "%{$search}%");
+            });
+        }
+
+        return DataTables::of($query)
+            ->addColumn('category_name', function ($asset) {
+                return $asset->category ? $asset->category->name : '-';
+            })
+            ->addColumn('fund_name', function ($asset) {
+                return $asset->fund ? $asset->fund->name : '-';
+            })
+            ->addColumn('project_name', function ($asset) {
+                return $asset->project ? $asset->project->name : '-';
+            })
+            ->addColumn('department_name', function ($asset) {
+                return $asset->department ? $asset->department->name : '-';
+            })
+            ->addColumn('vendor_name', function ($asset) {
+                return $asset->vendor ? $asset->vendor->name : '-';
+            })
+            ->editColumn('acquisition_cost', function ($asset) {
+                return 'Rp ' . number_format($asset->acquisition_cost, 0, ',', '.');
+            })
+            ->editColumn('placed_in_service_date', function ($asset) {
+                return $asset->placed_in_service_date ? $asset->placed_in_service_date->format('d/m/Y') : '-';
+            })
+            ->addColumn('checkbox', function ($asset) {
+                return '<input type="checkbox" class="asset-checkbox" value="' . $asset->id . '">';
+            })
+            ->rawColumns(['checkbox'])
+            ->toJson();
+    }
+
+    public function bulkUpdatePreview(Request $request)
+    {
+        $this->authorize('view', Asset::class);
+
+        $request->validate([
+            'asset_ids' => 'required|array|min:1',
+            'asset_ids.*' => 'exists:assets,id',
+            'updates' => 'required|array'
+        ]);
+
+        $assetIds = $request->get('asset_ids');
+        $updates = $request->get('updates');
+
+        $assets = Asset::whereIn('id', $assetIds)
+            ->with(['category', 'fund', 'project', 'department', 'vendor'])
+            ->get();
+
+        $preview = $assets->map(function ($asset) use ($updates) {
+            $previewData = [
+                'id' => $asset->id,
+                'code' => $asset->code,
+                'name' => $asset->name,
+                'current_values' => [],
+                'new_values' => []
+            ];
+
+            foreach ($updates as $field => $newValue) {
+                if ($newValue !== null && $newValue !== '') {
+                    $previewData['current_values'][$field] = $asset->$field;
+                    $previewData['new_values'][$field] = $newValue;
+                }
+            }
+
+            return $previewData;
+        });
+
+        return response()->json($preview);
+    }
 }

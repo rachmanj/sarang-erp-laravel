@@ -143,6 +143,9 @@ Route::prefix('purchase-orders')->group(function () {
     Route::post('/', [PurchaseOrderController::class, 'store'])->name('purchase-orders.store');
     Route::get('/{id}', [PurchaseOrderController::class, 'show'])->name('purchase-orders.show');
     Route::get('/{id}/create-invoice', [PurchaseOrderController::class, 'createInvoice'])->name('purchase-orders.create-invoice');
+    Route::get('/{id}/create-assets', [PurchaseOrderController::class, 'createAssets'])->name('purchase-orders.create-assets');
+    Route::post('/{id}/store-assets', [PurchaseOrderController::class, 'storeAssets'])->name('purchase-orders.store-assets');
+    Route::get('/asset-categories', [PurchaseOrderController::class, 'getAssetCategories'])->name('purchase-orders.asset-categories');
     Route::post('/{id}/approve', [PurchaseOrderController::class, 'approve'])->name('purchase-orders.approve');
     Route::post('/{id}/close', [PurchaseOrderController::class, 'close'])->name('purchase-orders.close');
 });

@@ -29,6 +29,8 @@ use App\Http\Controllers\AssetCategoryController;
 use App\Http\Controllers\AssetDepreciationController;
 use App\Http\Controllers\AssetDisposalController;
 use App\Http\Controllers\AssetMovementController;
+use App\Http\Controllers\AssetImportController;
+use App\Http\Controllers\AssetDataQualityController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -82,8 +84,12 @@ Route::middleware('auth')->group(function () {
         Route::get('/data', [VendorController::class, 'data'])->name('vendors.data');
         Route::get('/create', [VendorController::class, 'create'])->name('vendors.create');
         Route::post('/', [VendorController::class, 'store'])->name('vendors.store');
+        Route::get('/{vendor}', [VendorController::class, 'show'])->name('vendors.show');
         Route::get('/{vendor}/edit', [VendorController::class, 'edit'])->name('vendors.edit');
         Route::patch('/{vendor}', [VendorController::class, 'update'])->name('vendors.update');
+        Route::get('/{vendor}/assets', [VendorController::class, 'assets'])->name('vendors.assets');
+        Route::get('/{vendor}/purchase-orders', [VendorController::class, 'purchaseOrders'])->name('vendors.purchase-orders');
+        Route::get('/{vendor}/asset-acquisition-history', [VendorController::class, 'assetAcquisitionHistory'])->name('vendors.asset-acquisition-history');
     });
 
     // Accounts
@@ -182,6 +188,37 @@ Route::middleware('auth')->group(function () {
         Route::get('/projects', [AssetController::class, 'getProjects'])->name('assets.projects');
         Route::get('/departments', [AssetController::class, 'getDepartments'])->name('assets.departments');
         Route::get('/vendors', [AssetController::class, 'getVendors'])->name('assets.vendors');
+
+        // Asset Import Routes
+        Route::prefix('import')->middleware(['permission:assets.create'])->group(function () {
+            Route::get('/', [AssetImportController::class, 'index'])->name('assets.import.index');
+            Route::get('/template', [AssetImportController::class, 'template'])->name('assets.import.template');
+            Route::post('/validate', [AssetImportController::class, 'validate'])->name('assets.import.validate');
+            Route::post('/import', [AssetImportController::class, 'import'])->name('assets.import.import');
+            Route::get('/reference-data', [AssetImportController::class, 'getReferenceData'])->name('assets.import.reference-data');
+            Route::post('/bulk-update', [AssetImportController::class, 'bulkUpdate'])->middleware('permission:assets.update')->name('assets.import.bulk-update');
+        });
+
+        // Asset Data Quality Routes
+        Route::prefix('data-quality')->middleware(['permission:assets.view'])->group(function () {
+            Route::get('/', [AssetDataQualityController::class, 'index'])->name('assets.data-quality.index');
+            Route::get('/duplicates', [AssetDataQualityController::class, 'duplicates'])->name('assets.data-quality.duplicates');
+            Route::get('/incomplete', [AssetDataQualityController::class, 'incomplete'])->name('assets.data-quality.incomplete');
+            Route::get('/consistency', [AssetDataQualityController::class, 'consistency'])->name('assets.data-quality.consistency');
+            Route::get('/orphaned', [AssetDataQualityController::class, 'orphaned'])->name('assets.data-quality.orphaned');
+            Route::get('/export', [AssetDataQualityController::class, 'exportReport'])->name('assets.data-quality.export');
+            Route::get('/score', [AssetDataQualityController::class, 'getDataQualityScore'])->name('assets.data-quality.score');
+            Route::post('/duplicate-details', [AssetDataQualityController::class, 'getDuplicateDetails'])->name('assets.data-quality.duplicate-details');
+            Route::post('/assets-by-issue', [AssetDataQualityController::class, 'getAssetsByIssue'])->name('assets.data-quality.assets-by-issue');
+        });
+
+        // Asset Bulk Operations Routes
+        Route::prefix('bulk-operations')->middleware(['permission:assets.update'])->group(function () {
+            Route::get('/', [AssetController::class, 'bulkUpdateIndex'])->name('assets.bulk-operations.index');
+            Route::get('/data', [AssetController::class, 'bulkUpdateData'])->name('assets.bulk-update.data');
+            Route::post('/preview', [AssetController::class, 'bulkUpdatePreview'])->name('assets.bulk-update.preview');
+            Route::post('/update', [AssetController::class, 'bulkUpdate'])->name('assets.bulk-update');
+        });
     });
 
     // Fixed Assets Depreciation

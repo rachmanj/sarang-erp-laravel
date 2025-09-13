@@ -1,8 +1,8 @@
 <!-- Master Data -->
 <li
-    class="nav-item {{ request()->routeIs('projects.*') || request()->routeIs('funds.*') || request()->routeIs('departments.*') || request()->routeIs('assets.*') || request()->routeIs('asset-categories.*') || request()->routeIs('assets.disposals.*') || request()->routeIs('assets.movements.*') ? 'menu-open' : '' }}">
+    class="nav-item {{ request()->routeIs('projects.*') || request()->routeIs('funds.*') || request()->routeIs('departments.*') || request()->routeIs('assets.*') || request()->routeIs('asset-categories.*') || request()->routeIs('assets.disposals.*') || request()->routeIs('assets.movements.*') || request()->routeIs('assets.import.*') || request()->routeIs('assets.data-quality.*') || request()->routeIs('assets.bulk-operations.*') ? 'menu-open' : '' }}">
     <a href="#"
-        class="nav-link {{ request()->routeIs('projects.*') || request()->routeIs('funds.*') || request()->routeIs('departments.*') || request()->routeIs('assets.*') || request()->routeIs('asset-categories.*') || request()->routeIs('assets.disposals.*') || request()->routeIs('assets.movements.*') ? 'active' : '' }}">
+        class="nav-link {{ request()->routeIs('projects.*') || request()->routeIs('funds.*') || request()->routeIs('departments.*') || request()->routeIs('assets.*') || request()->routeIs('asset-categories.*') || request()->routeIs('assets.disposals.*') || request()->routeIs('assets.movements.*') || request()->routeIs('assets.import.*') || request()->routeIs('assets.data-quality.*') || request()->routeIs('assets.bulk-operations.*') ? 'active' : '' }}">
         <i class="nav-icon fas fa-database"></i>
         <p>
             Master Data
@@ -90,6 +90,36 @@
                     class="nav-link {{ request()->routeIs('assets.movements.*') ? 'active' : '' }}">
                     <i class="far fa-circle nav-icon"></i>
                     <p>Asset Movements</p>
+                </a>
+            </li>
+        @endcan
+
+        @can('assets.create')
+            <li class="nav-item">
+                <a href="{{ route('assets.import.index') }}"
+                    class="nav-link {{ request()->routeIs('assets.import.*') ? 'active' : '' }}">
+                    <i class="far fa-circle nav-icon"></i>
+                    <p>Asset Import</p>
+                </a>
+            </li>
+        @endcan
+
+        @can('assets.view')
+            <li class="nav-item">
+                <a href="{{ route('assets.data-quality.index') }}"
+                    class="nav-link {{ request()->routeIs('assets.data-quality.*') ? 'active' : '' }}">
+                    <i class="far fa-circle nav-icon"></i>
+                    <p>Data Quality</p>
+                </a>
+            </li>
+        @endcan
+
+        @can('assets.update')
+            <li class="nav-item">
+                <a href="{{ route('assets.bulk-operations.index') }}"
+                    class="nav-link {{ request()->routeIs('assets.bulk-operations.*') ? 'active' : '' }}">
+                    <i class="far fa-circle nav-icon"></i>
+                    <p>Bulk Operations</p>
                 </a>
             </li>
         @endcan
