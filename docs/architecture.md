@@ -1,5 +1,5 @@
 Purpose: Technical reference for understanding system design and development patterns
-Last Updated: 2025-01-15 (Updated with Phase 3 Indonesian tax compliance system completion)
+Last Updated: 2025-01-15 (Updated with Phase 4 Advanced Trading Features completion)
 
 ## Architecture Documentation Guidelines
 
@@ -128,7 +128,16 @@ Sarange ERP is a comprehensive Enterprise Resource Planning system built with La
 -   **Compliance Monitoring**: Overdue tracking, audit trail, and compliance status monitoring
 -   **Integration**: Automatic tax calculation with purchase/sales systems
 
-### 10. User Management & Security
+### 10. Advanced Trading Analytics System (Phase 4)
+
+-   **COGS Foundation**: Comprehensive Cost of Goods Sold tracking with multiple valuation methods (FIFO, LIFO, Weighted Average)
+-   **Cost Allocation**: Automatic cost allocation across products, customers, and suppliers with configurable methods
+-   **Margin Analysis**: Real-time profitability analysis with gross and net margin calculations
+-   **Supplier Analytics**: Performance tracking, cost optimization, risk assessment, and supplier ranking
+-   **Business Intelligence**: Advanced analytics with insights generation, recommendations engine, and KPI tracking
+-   **Unified Dashboard**: Integrated analytics platform combining all trading components for comprehensive decision making
+
+### 11. User Management & Security
 
 -   **Role-Based Access Control**: Granular permission system
 -   **User Management**: Complete user lifecycle management
@@ -137,7 +146,7 @@ Sarange ERP is a comprehensive Enterprise Resource Planning system built with La
 
 ## Database Schema
 
-### Core Tables (46 migrations total - consolidated from 51, plus Phase 3 tax compliance)
+### Core Tables (52 migrations total - consolidated from 51, plus Phase 3 tax compliance and Phase 4 advanced trading analytics)
 
 #### Financial Tables
 
@@ -194,6 +203,20 @@ Sarange ERP is a comprehensive Enterprise Resource Planning system built with La
 -   `tax_settings`: Configurable tax rates and company information
 -   `tax_compliance_logs`: Complete audit trail for tax operations
 
+#### Advanced Trading Analytics Tables (Phase 4)
+
+-   `cost_allocation_methods`: Configurable cost allocation methods (direct, percentage, activity-based)
+-   `cost_categories`: Cost categorization for better tracking and analysis
+-   `cost_allocations`: Cost allocation rules and configurations
+-   `cost_histories`: Historical cost tracking with transaction details
+-   `product_cost_summaries`: Aggregated product cost data with period-based summaries
+-   `customer_cost_allocations`: Customer-specific cost allocation tracking
+-   `margin_analyses`: Comprehensive margin analysis with profitability metrics
+-   `supplier_cost_analyses`: Supplier cost analysis and performance tracking
+-   `supplier_performances`: Supplier performance metrics and scoring
+-   `supplier_comparisons`: Supplier comparison data and benchmarking
+-   `business_intelligences`: Business intelligence reports and analytics data
+
 #### System Tables
 
 -   `users`: User management with role integration and username field
@@ -228,6 +251,10 @@ The database schema has been consolidated from 51 to 44 migration files for impr
 -   `/assets/*`: Fixed asset management
 -   `/inventory/*`: Inventory management with CRUD operations, stock management, reports
 -   `/tax/*`: Indonesian tax compliance management with transactions, periods, reports, settings
+-   `/cogs/*`: Cost of Goods Sold management with cost allocation, margin analysis, optimization
+-   `/supplier-analytics/*`: Supplier performance analytics with comparisons, optimization opportunities
+-   `/business-intelligence/*`: Business intelligence with reports, insights, KPI dashboard
+-   `/analytics/*`: Unified analytics dashboard integrating all trading components
 -   `/reports/*`: Comprehensive reporting suite
 -   `/admin/*`: User and role management
 
@@ -261,9 +288,10 @@ graph TD
 
 ### Permission System
 
--   **Granular Permissions**: 40+ specific permissions across all modules
+-   **Granular Permissions**: 50+ specific permissions across all modules including Phase 4 analytics
 -   **Role-Based Access**: Predefined roles (admin, manager, user) with custom roles
 -   **Module-Level Security**: Each module has view/create/update/delete permissions
+-   **Analytics Permissions**: COGS, supplier analytics, business intelligence, and unified analytics access control
 -   **Data-Level Security**: Dimension-based data access control
 
 ### Data Protection

@@ -33,6 +33,10 @@ use App\Http\Controllers\AssetImportController;
 use App\Http\Controllers\AssetDataQualityController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\TaxController;
+use App\Http\Controllers\COGSController;
+use App\Http\Controllers\SupplierAnalyticsController;
+use App\Http\Controllers\BusinessIntelligenceController;
+use App\Http\Controllers\AnalyticsController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -335,6 +339,83 @@ Route::middleware('auth')->group(function () {
 
         // Compliance Logs
         Route::get('/compliance-logs', [TaxController::class, 'complianceLogs'])->name('tax.compliance-logs');
+    });
+
+    // COGS Management
+    Route::prefix('cogs')->middleware(['permission:cogs.view'])->group(function () {
+        Route::get('/', [COGSController::class, 'index'])->name('cogs.index');
+
+        // Cost History
+        Route::get('/cost-history', [COGSController::class, 'costHistory'])->name('cogs.cost-history');
+
+        // Product Costs
+        Route::get('/product-costs', [COGSController::class, 'productCosts'])->name('cogs.product-costs');
+
+        // Margin Analysis
+        Route::get('/margin-analysis', [COGSController::class, 'marginAnalysis'])->name('cogs.margin-analysis');
+
+        // API Endpoints
+        Route::post('/calculate-product-cogs', [COGSController::class, 'calculateProductCOGS'])->middleware('permission:cogs.calculate')->name('cogs.calculate-product');
+        Route::post('/calculate-customer-profitability', [COGSController::class, 'calculateCustomerProfitability'])->middleware('permission:cogs.calculate')->name('cogs.calculate-customer');
+        Route::post('/generate-report', [COGSController::class, 'generateReport'])->middleware('permission:cogs.report')->name('cogs.generate-report');
+        Route::get('/product-cost-trends', [COGSController::class, 'getProductCostTrends'])->name('cogs.product-trends');
+        Route::post('/allocate-indirect-costs', [COGSController::class, 'allocateIndirectCosts'])->middleware('permission:cogs.allocate')->name('cogs.allocate');
+        Route::get('/optimization-opportunities', [COGSController::class, 'getOptimizationOpportunities'])->name('cogs.optimization');
+        Route::get('/export', [COGSController::class, 'export'])->middleware('permission:cogs.export')->name('cogs.export');
+    });
+
+    // Supplier Analytics Management
+    Route::prefix('supplier-analytics')->middleware(['permission:supplier_analytics.view'])->group(function () {
+        Route::get('/', [SupplierAnalyticsController::class, 'index'])->name('supplier-analytics.index');
+
+        // Performance Analysis
+        Route::get('/performance', [SupplierAnalyticsController::class, 'performance'])->name('supplier-analytics.performance');
+
+        // Supplier Comparisons
+        Route::get('/comparisons', [SupplierAnalyticsController::class, 'comparisons'])->name('supplier-analytics.comparisons');
+
+        // Optimization Opportunities
+        Route::get('/optimization', [SupplierAnalyticsController::class, 'optimization'])->name('supplier-analytics.optimization');
+
+        // API Endpoints
+        Route::post('/generate-analytics', [SupplierAnalyticsController::class, 'generateAnalytics'])->middleware('permission:supplier_analytics.generate')->name('supplier-analytics.generate');
+        Route::get('/supplier-ranking', [SupplierAnalyticsController::class, 'getSupplierRanking'])->name('supplier-analytics.ranking');
+        Route::post('/compare-suppliers', [SupplierAnalyticsController::class, 'compareSuppliers'])->middleware('permission:supplier_analytics.compare')->name('supplier-analytics.compare');
+        Route::get('/supplier-trends', [SupplierAnalyticsController::class, 'getSupplierTrends'])->name('supplier-analytics.trends');
+        Route::get('/supplier-risk', [SupplierAnalyticsController::class, 'calculateSupplierRisk'])->name('supplier-analytics.risk');
+        Route::get('/supplier-details', [SupplierAnalyticsController::class, 'getSupplierDetails'])->name('supplier-analytics.details');
+        Route::get('/export', [SupplierAnalyticsController::class, 'export'])->middleware('permission:supplier_analytics.export')->name('supplier-analytics.export');
+    });
+
+    // Business Intelligence Management
+    Route::prefix('business-intelligence')->middleware(['permission:business_intelligence.view'])->group(function () {
+        Route::get('/', [BusinessIntelligenceController::class, 'index'])->name('business-intelligence.index');
+
+        // Analytics Reports
+        Route::get('/reports', [BusinessIntelligenceController::class, 'reports'])->name('business-intelligence.reports');
+
+        // Insights and Recommendations
+        Route::get('/insights', [BusinessIntelligenceController::class, 'insights'])->name('business-intelligence.insights');
+
+        // KPI Dashboard
+        Route::get('/kpi-dashboard', [BusinessIntelligenceController::class, 'kpiDashboard'])->name('business-intelligence.kpi-dashboard');
+
+        // API Endpoints
+        Route::post('/generate-report', [BusinessIntelligenceController::class, 'generateReport'])->middleware('permission:business_intelligence.generate')->name('business-intelligence.generate');
+        Route::get('/report-details', [BusinessIntelligenceController::class, 'getReportDetails'])->name('business-intelligence.report-details');
+        Route::get('/insights-data', [BusinessIntelligenceController::class, 'getInsights'])->name('business-intelligence.insights-data');
+        Route::get('/trend-analysis', [BusinessIntelligenceController::class, 'getTrendAnalysis'])->name('business-intelligence.trend-analysis');
+        Route::get('/kpi-metrics', [BusinessIntelligenceController::class, 'getKpiMetrics'])->name('business-intelligence.kpi-metrics');
+        Route::get('/dashboard-summary', [BusinessIntelligenceController::class, 'getDashboardSummary'])->name('business-intelligence.dashboard-summary');
+        Route::get('/export-report', [BusinessIntelligenceController::class, 'exportReport'])->middleware('permission:business_intelligence.export')->name('business-intelligence.export');
+        Route::delete('/delete-report', [BusinessIntelligenceController::class, 'deleteReport'])->middleware('permission:business_intelligence.delete')->name('business-intelligence.delete');
+    });
+
+    // Unified Analytics Dashboard
+    Route::prefix('analytics')->middleware(['permission:analytics.view'])->group(function () {
+        Route::get('/unified-dashboard', [AnalyticsController::class, 'unifiedDashboard'])->name('analytics.unified-dashboard');
+        Route::get('/comprehensive-data', [AnalyticsController::class, 'getComprehensiveAnalytics'])->name('analytics.comprehensive-data');
+        Route::post('/generate-integrated-report', [AnalyticsController::class, 'generateIntegratedReport'])->middleware('permission:analytics.generate')->name('analytics.generate-integrated-report');
     });
 });
 

@@ -1,5 +1,5 @@
 **Purpose**: Record technical decisions and rationale for future reference
-**Last Updated**: 2025-01-15 (Added Phase 3 tax compliance implementation decision record)
+**Last Updated**: 2025-01-15 (Added Phase 4 Advanced Trading Features implementation decision records)
 
 # Technical Decision Records
 
@@ -284,3 +284,137 @@ Decision: [Title] - [YYYY-MM-DD]
 -   Implemented Indonesian tax types: PPN (11%), PPh 21 (5%), PPh 22 (1.5%), PPh 23 (2%), PPh 26 (20%), PPh 4(2) (0.5%)
 
 **Review Date**: 2025-06-15 (after Phase 4 completion)
+
+---
+
+### Decision: Phase 4 Advanced Trading Analytics Architecture - 2025-01-15
+
+**Context**: Trading companies require comprehensive analytics capabilities including COGS tracking, supplier performance analysis, business intelligence, and unified reporting for data-driven decision making.
+
+**Options Considered**:
+
+1. **Option A**: Basic reporting with simple analytics
+
+    - ✅ Pros: Simple implementation, minimal development effort
+    - ❌ Cons: Limited insights, basic functionality, insufficient for complex trading operations
+
+2. **Option B**: Comprehensive analytics platform with multiple specialized modules
+
+    - ✅ Pros: Advanced analytics capabilities, specialized modules, comprehensive insights, unified dashboard
+    - ❌ Cons: Complex implementation, extensive development effort, higher maintenance
+
+3. **Option C**: Third-party analytics integration
+    - ✅ Pros: Proven analytics solution, reduced development effort
+    - ❌ Cons: External dependency, ongoing costs, limited customization, integration complexity
+
+**Decision**: Comprehensive analytics platform with multiple specialized modules (Option B)
+
+**Rationale**:
+
+-   Trading operations require sophisticated analytics for profitability analysis
+-   COGS tracking is critical for accurate margin analysis and pricing decisions
+-   Supplier analytics enables optimization of procurement and vendor relationships
+-   Business intelligence provides strategic insights for growth and efficiency
+-   Unified dashboard offers single-pane-of-glass view for comprehensive decision making
+-   Better integration with existing trading operations and financial system
+-   Full control over analytics logic and reporting capabilities
+
+**Implementation**:
+
+-   Created comprehensive COGS system with 8 database tables for cost tracking and allocation
+-   Implemented COGSService with automatic cost calculation, multiple valuation methods, margin analysis
+-   Built SupplierAnalyticsService with performance metrics, cost optimization, risk assessment
+-   Created BusinessIntelligenceService with comprehensive analytics, insights generation, KPI tracking
+-   Developed unified AnalyticsController integrating all analytics components
+-   Built complete AdminLTE interfaces for all analytics modules
+-   Added analytics-specific permissions and security controls
+-   Implemented unified dashboard providing integrated view of all trading analytics
+
+**Review Date**: 2025-07-15 (after Phase 4 completion and user feedback)
+
+---
+
+### Decision: Advanced Analytics Database Schema Design - 2025-01-15
+
+**Context**: Advanced trading analytics require sophisticated database schema to support cost tracking, supplier performance, business intelligence, and comprehensive reporting.
+
+**Options Considered**:
+
+1. **Option A**: Extend existing tables with additional fields
+
+    - ✅ Pros: Minimal schema changes, faster implementation
+    - ❌ Cons: Table bloat, complex queries, limited scalability, poor performance
+
+2. **Option B**: Create specialized analytics tables with proper normalization
+
+    - ✅ Pros: Optimized for analytics queries, better performance, scalable design, clear data separation
+    - ❌ Cons: More complex schema, additional development effort
+
+3. **Option C**: Use data warehouse approach with denormalized tables
+    - ✅ Pros: Fast analytics queries, optimized for reporting
+    - ❌ Cons: Data duplication, complex ETL processes, maintenance overhead
+
+**Decision**: Create specialized analytics tables with proper normalization (Option B)
+
+**Rationale**:
+
+-   Analytics queries have different performance requirements than transactional queries
+-   Proper normalization ensures data integrity and consistency
+-   Specialized tables allow for optimized indexing and query performance
+-   Clear separation of concerns between transactional and analytical data
+-   Better scalability for future analytics requirements
+-   Easier maintenance and understanding of data relationships
+
+**Implementation**:
+
+-   Created 11 specialized analytics tables: cost_allocation_methods, cost_categories, cost_allocations, cost_histories, product_cost_summaries, customer_cost_allocations, margin_analyses, supplier_cost_analyses, supplier_performances, supplier_comparisons, business_intelligences
+-   Implemented proper foreign key relationships and indexing for performance
+-   Added JSON fields for flexible data storage (insights, recommendations, KPI metrics)
+-   Created comprehensive migration with proper constraint naming
+-   Established clear data flow between transactional and analytical tables
+
+**Review Date**: 2025-08-15 (after performance testing and optimization)
+
+---
+
+### Decision: Unified Analytics Dashboard Integration Strategy - 2025-01-15
+
+**Context**: Multiple analytics modules (COGS, Supplier Analytics, Business Intelligence) need to be integrated into a unified dashboard for comprehensive trading analytics.
+
+**Options Considered**:
+
+1. **Option A**: Separate dashboards for each analytics module
+
+    - ✅ Pros: Simple implementation, focused functionality, independent development
+    - ❌ Cons: User confusion, data silos, inefficient workflow, poor user experience
+
+2. **Option B**: Single unified dashboard integrating all analytics components
+
+    - ✅ Pros: Single-pane-of-glass view, integrated insights, better user experience, comprehensive analytics
+    - ❌ Cons: Complex implementation, integration challenges, higher development effort
+
+3. **Option C**: Hybrid approach with module-specific dashboards and unified overview
+    - ✅ Pros: Balance of focus and integration, flexible user experience
+    - ❌ Cons: Complex navigation, potential confusion, maintenance overhead
+
+**Decision**: Single unified dashboard integrating all analytics components (Option B)
+
+**Rationale**:
+
+-   Trading operations require comprehensive view of all analytics for effective decision making
+-   Integrated insights provide better understanding of business performance
+-   Single dashboard reduces user confusion and improves workflow efficiency
+-   Cross-module analytics enable identification of optimization opportunities
+-   Better user experience with consolidated view of all trading metrics
+-   Enables data-driven decision making with comprehensive analytics
+
+**Implementation**:
+
+-   Created AnalyticsController with unified dashboard functionality
+-   Integrated data from COGSService, SupplierAnalyticsService, and BusinessIntelligenceService
+-   Built comprehensive unified dashboard with integrated insights, performance metrics, optimization opportunities
+-   Implemented cross-module analytics and recommendations
+-   Created single AdminLTE interface providing comprehensive view of all trading analytics
+-   Added unified reporting capabilities combining all analytics components
+
+**Review Date**: 2025-09-15 (after user acceptance testing and feedback)
