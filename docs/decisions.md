@@ -418,3 +418,49 @@ Decision: [Title] - [YYYY-MM-DD]
 -   Added unified reporting capabilities combining all analytics components
 
 **Review Date**: 2025-09-15 (after user acceptance testing and feedback)
+
+---
+
+### Decision: Comprehensive Training Workshop Materials Strategy - 2025-01-15
+
+**Context**: Sarange ERP system requires comprehensive training materials to empower employees with hands-on knowledge through realistic business scenarios and practical exercises for successful system adoption.
+
+**Options Considered**:
+
+1. **Option A**: Basic documentation with simple user guides
+
+    - ✅ Pros: Simple implementation, minimal development effort
+    - ❌ Cons: Insufficient for complex ERP system, poor user adoption, limited practical knowledge
+
+2. **Option B**: Comprehensive training workshop package with story-based learning
+
+    - ✅ Pros: Effective knowledge transfer, hands-on learning, realistic scenarios, comprehensive coverage
+    - ❌ Cons: Extensive development effort, complex material creation, higher maintenance
+
+3. **Option C**: Third-party training integration
+    - ✅ Pros: Proven training methodology, reduced development effort
+    - ❌ Cons: External dependency, ongoing costs, limited customization, generic content
+
+**Decision**: Comprehensive training workshop package with story-based learning (Option B)
+
+**Rationale**:
+
+-   Complex ERP systems require comprehensive training for effective user adoption
+-   Story-based learning provides realistic context and practical application
+-   Hands-on exercises enable immediate skill development and confidence building
+-   Module-based structure allows targeted training for different user roles
+-   Indonesian business context ensures relevance and compliance understanding
+-   Comprehensive assessment framework ensures knowledge retention and certification
+-   Better long-term user adoption and system utilization
+
+**Implementation**:
+
+-   Created complete 3-day training workshop package with 9 comprehensive documents
+-   Developed 7 module-based training guides covering all major system components
+-   Implemented 35+ story-based scenarios with hands-on exercises
+-   Built comprehensive assessment framework with certification levels (Basic, Intermediate, Advanced, Expert)
+-   Tailored all materials for Indonesian trading company operations and PSAK compliance
+-   Created detailed delivery structure, success metrics, and post-training support guidelines
+-   Integrated realistic business scenarios covering tax compliance, inventory management, and analytics
+
+**Review Date**: 2025-10-15 (after training workshop delivery and user feedback)
