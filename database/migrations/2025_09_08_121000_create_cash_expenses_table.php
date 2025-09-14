@@ -15,6 +15,7 @@ return new class extends Migration
             $table->unsignedBigInteger('account_id'); // expense account
             $table->decimal('amount', 18, 2);
             $table->string('status')->default('draft');
+            $table->foreignId('created_by')->nullable()->constrained('users')->onDelete('set null');
             $table->timestamps();
         });
     }

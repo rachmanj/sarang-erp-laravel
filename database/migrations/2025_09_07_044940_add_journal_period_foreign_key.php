@@ -11,8 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('sales_invoices', function (Blueprint $table) {
-            $table->unsignedBigInteger('sales_order_id')->nullable()->after('customer_id');
+        Schema::table('journals', function (Blueprint $table) {
+            $table->foreign('period_id')->references('id')->on('periods')->nullOnDelete();
         });
     }
 
@@ -21,8 +21,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('sales_invoices', function (Blueprint $table) {
-            $table->dropColumn('sales_order_id');
+        Schema::table('journals', function (Blueprint $table) {
+            $table->dropForeign(['period_id']);
         });
     }
 };

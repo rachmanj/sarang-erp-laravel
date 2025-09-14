@@ -13,6 +13,7 @@ return new class extends Migration
     {
         Schema::create('journals', function (Blueprint $table) {
             $table->id();
+            $table->string('journal_no', 32)->nullable()->unique();
             $table->date('date');
             $table->string('description', 255)->nullable();
             $table->foreignId('period_id')->nullable();

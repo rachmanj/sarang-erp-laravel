@@ -5,13 +5,24 @@ namespace App\Http\Controllers;
 use App\Models\GoodsReceipt;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderLine;
+use App\Models\PurchaseOrderApproval;
+use App\Models\InventoryItem;
 use App\Models\Asset;
 use App\Models\AssetCategory;
+use App\Services\PurchaseService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
 
 class PurchaseOrderController extends Controller
 {
+    protected $purchaseService;
+
+    public function __construct(PurchaseService $purchaseService)
+    {
+        $this->purchaseService = $purchaseService;
+    }
+
     public function index()
     {
         return view('purchase_orders.index');
@@ -22,78 +33,57 @@ class PurchaseOrderController extends Controller
         $vendors = DB::table('vendors')->orderBy('name')->get();
         $accounts = DB::table('accounts')->where('is_postable', 1)->orderBy('code')->get();
         $taxCodes = DB::table('tax_codes')->orderBy('code')->get();
-        return view('purchase_orders.create', compact('vendors', 'accounts', 'taxCodes'));
+        $inventoryItems = InventoryItem::active()->orderBy('name')->get();
+
+        return view('purchase_orders.create', compact('vendors', 'accounts', 'taxCodes', 'inventoryItems'));
     }
 
     public function store(Request $request)
     {
         $data = $request->validate([
             'date' => ['required', 'date'],
+            'reference_no' => ['nullable', 'string', 'max:100'],
+            'expected_delivery_date' => ['nullable', 'date'],
             'vendor_id' => ['required', 'integer', 'exists:vendors,id'],
             'description' => ['nullable', 'string', 'max:255'],
+            'notes' => ['nullable', 'string'],
+            'terms_conditions' => ['nullable', 'string'],
+            'payment_terms' => ['nullable', 'string', 'max:100'],
+            'delivery_method' => ['nullable', 'string', 'max:100'],
+            'freight_cost' => ['nullable', 'numeric', 'min:0'],
+            'handling_cost' => ['nullable', 'numeric', 'min:0'],
+            'insurance_cost' => ['nullable', 'numeric', 'min:0'],
             'lines' => ['required', 'array', 'min:1'],
             'lines.*.account_id' => ['required', 'integer', 'exists:accounts,id'],
+            'lines.*.inventory_item_id' => ['nullable', 'integer', 'exists:inventory_items,id'],
+            'lines.*.item_code' => ['nullable', 'string', 'max:50'],
+            'lines.*.item_name' => ['nullable', 'string', 'max:255'],
+            'lines.*.unit_of_measure' => ['nullable', 'string', 'max:50'],
             'lines.*.description' => ['nullable', 'string', 'max:255'],
             'lines.*.qty' => ['required', 'numeric', 'min:0.01'],
             'lines.*.unit_price' => ['required', 'numeric', 'min:0'],
+            'lines.*.freight_cost' => ['nullable', 'numeric', 'min:0'],
+            'lines.*.handling_cost' => ['nullable', 'numeric', 'min:0'],
             'lines.*.tax_code_id' => ['nullable', 'integer', 'exists:tax_codes,id'],
+            'lines.*.notes' => ['nullable', 'string'],
         ]);
 
-        return DB::transaction(function () use ($data) {
-            $po = PurchaseOrder::create([
-                'order_no' => null,
-                'date' => $data['date'],
-                'vendor_id' => $data['vendor_id'],
-                'description' => $data['description'] ?? null,
-                'status' => 'draft',
-                'total_amount' => 0,
-            ]);
-            $ym = date('Ym', strtotime($data['date']));
-            $po->update(['order_no' => sprintf('PO-%s-%06d', $ym, $po->id)]);
-            $total = 0;
-            foreach ($data['lines'] as $l) {
-                $amount = (float)$l['qty'] * (float)$l['unit_price'];
-                $total += $amount;
-                PurchaseOrderLine::create([
-                    'order_id' => $po->id,
-                    'account_id' => $l['account_id'],
-                    'description' => $l['description'] ?? null,
-                    'qty' => (float)$l['qty'],
-                    'unit_price' => (float)$l['unit_price'],
-                    'amount' => $amount,
-                    'tax_code_id' => $l['tax_code_id'] ?? null,
-                ]);
-            }
-            $po->update(['total_amount' => $total]);
-            return redirect()->route('purchase-orders.show', $po->id)->with('success', 'Purchase Order created');
-        });
+        try {
+            $po = $this->purchaseService->createPurchaseOrder($data);
+            return redirect()->route('purchase-orders.show', $po->id)
+                ->with('success', 'Purchase Order created successfully');
+        } catch (\Exception $e) {
+            return back()->withInput()->with('error', 'Error creating purchase order: ' . $e->getMessage());
+        }
     }
 
     public function show(int $id)
     {
-        $order = PurchaseOrder::with('lines')->findOrFail($id);
+        $order = PurchaseOrder::with(['lines', 'vendor', 'approvals.user', 'approvedBy', 'createdBy'])
+            ->findOrFail($id);
         return view('purchase_orders.show', compact('order'));
     }
 
-    public function approve(int $id)
-    {
-        $order = PurchaseOrder::findOrFail($id);
-        if ($order->status !== 'draft') {
-            return back()->with('success', 'Already approved');
-        }
-        $order->update(['status' => 'approved']);
-        return back()->with('success', 'Purchase Order approved');
-    }
-
-    public function close(int $id)
-    {
-        $order = PurchaseOrder::findOrFail($id);
-        if ($order->status === 'closed') {
-            return back()->with('success', 'Already closed');
-        }
-        $order->update(['status' => 'closed']);
-        return back()->with('success', 'Purchase Order closed');
-    }
 
     public function createInvoice(int $id)
     {
@@ -221,5 +211,108 @@ class PurchaseOrderController extends Controller
                 ->orderBy('name')
                 ->get()
         );
+    }
+
+    public function approve(int $id, Request $request)
+    {
+        $request->validate([
+            'comments' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        try {
+            $this->purchaseService->approvePurchaseOrder($id, Auth::id(), $request->comments);
+            return back()->with('success', 'Purchase Order approved successfully');
+        } catch (\Exception $e) {
+            return back()->with('error', 'Error approving purchase order: ' . $e->getMessage());
+        }
+    }
+
+    public function reject(int $id, Request $request)
+    {
+        $request->validate([
+            'comments' => ['required', 'string', 'max:500'],
+        ]);
+
+        try {
+            $this->purchaseService->rejectPurchaseOrder($id, Auth::id(), $request->comments);
+            return back()->with('success', 'Purchase Order rejected');
+        } catch (\Exception $e) {
+            return back()->with('error', 'Error rejecting purchase order: ' . $e->getMessage());
+        }
+    }
+
+    public function receive(int $id)
+    {
+        $order = PurchaseOrder::with('lines')->findOrFail($id);
+        return view('purchase_orders.receive', compact('order'));
+    }
+
+    public function processReceive(int $id, Request $request)
+    {
+        $data = $request->validate([
+            'lines' => ['required', 'array', 'min:1'],
+            'lines.*.line_id' => ['required', 'integer', 'exists:purchase_order_lines,id'],
+            'lines.*.received_qty' => ['required', 'numeric', 'min:0'],
+            'notes' => ['nullable', 'string'],
+        ]);
+
+        try {
+            $this->purchaseService->receivePurchaseOrder($id, $data);
+            return redirect()->route('purchase-orders.show', $id)
+                ->with('success', 'Purchase Order received successfully');
+        } catch (\Exception $e) {
+            return back()->withInput()->with('error', 'Error receiving purchase order: ' . $e->getMessage());
+        }
+    }
+
+    public function close(int $id)
+    {
+        try {
+            $this->purchaseService->closePurchaseOrder($id);
+            return back()->with('success', 'Purchase Order closed successfully');
+        } catch (\Exception $e) {
+            return back()->with('error', 'Error closing purchase order: ' . $e->getMessage());
+        }
+    }
+
+    public function compareSuppliers(Request $request)
+    {
+        $request->validate([
+            'item_id' => ['required', 'integer', 'exists:inventory_items,id'],
+            'quantity' => ['required', 'numeric', 'min:1'],
+        ]);
+
+        try {
+            $suppliers = $this->purchaseService->compareSuppliers($request->item_id, $request->quantity);
+            return response()->json($suppliers);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 400);
+        }
+    }
+
+    public function getInventoryItems()
+    {
+        return response()->json(
+            InventoryItem::active()
+                ->select('id', 'code', 'name', 'unit_of_measure', 'purchase_price')
+                ->orderBy('name')
+                ->get()
+        );
+    }
+
+    public function getItemDetails(int $id)
+    {
+        $item = InventoryItem::findOrFail($id);
+
+        return response()->json([
+            'id' => $item->id,
+            'code' => $item->code,
+            'name' => $item->name,
+            'unit_of_measure' => $item->unit_of_measure,
+            'purchase_price' => $item->purchase_price,
+            'current_stock' => $item->current_stock,
+            'min_stock_level' => $item->min_stock_level,
+            'reorder_point' => $item->reorder_point,
+        ]);
     }
 }

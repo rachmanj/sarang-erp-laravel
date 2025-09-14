@@ -11,8 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('cash_expenses', function (Blueprint $table) {
-            $table->foreignId('created_by')->nullable()->after('status')->constrained('users')->onDelete('set null');
+        Schema::table('projects', function (Blueprint $table) {
+            $table->foreign('fund_id')->references('id')->on('funds')->nullOnDelete();
         });
     }
 
@@ -21,9 +21,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('cash_expenses', function (Blueprint $table) {
-            $table->dropForeign(['created_by']);
-            $table->dropColumn('created_by');
+        Schema::table('projects', function (Blueprint $table) {
+            $table->dropForeign(['fund_id']);
         });
     }
 };

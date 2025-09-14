@@ -7,7 +7,7 @@
         <!-- /.login-logo -->
         <div class="card card-primary">
             <div class="card-header text-center">
-                <a href="/" class="h1">Prasasta ERP</a>
+                <a href="/" class="h1">Sarange-ERP</a>
             </div>
             <div class="card-body">
                 @if (session('success'))

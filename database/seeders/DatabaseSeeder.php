@@ -19,8 +19,9 @@ class DatabaseSeeder extends Seeder
         );
 
         $this->call([
-            CoASeeder::class,
-            TaxCodeSeeder::class,
+            TradingCoASeeder::class,
+            TradingTaxCodeSeeder::class,
+            TradingSampleDataSeeder::class,
             FundProjectSeeder::class,
             RolePermissionSeeder::class,
             DemoJournalSeeder::class,

@@ -31,6 +31,8 @@ use App\Http\Controllers\AssetDisposalController;
 use App\Http\Controllers\AssetMovementController;
 use App\Http\Controllers\AssetImportController;
 use App\Http\Controllers\AssetDataQualityController;
+use App\Http\Controllers\InventoryController;
+use App\Http\Controllers\TaxController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -266,6 +268,73 @@ Route::middleware('auth')->group(function () {
         Route::post('/{movement}/complete', [AssetMovementController::class, 'complete'])->middleware('permission:assets.movement.update')->name('assets.movements.complete');
         Route::post('/{movement}/cancel', [AssetMovementController::class, 'cancel'])->middleware('permission:assets.movement.update')->name('assets.movements.cancel');
         Route::get('/asset/{asset}/history', [AssetMovementController::class, 'assetMovements'])->name('assets.movements.history');
+    });
+
+    // Inventory Management
+    Route::prefix('inventory')->middleware(['permission:inventory.view'])->group(function () {
+        Route::get('/', [InventoryController::class, 'index'])->name('inventory.index');
+        Route::get('/data', [InventoryController::class, 'data'])->name('inventory.data');
+        Route::get('/create', [InventoryController::class, 'create'])->middleware('permission:inventory.create')->name('inventory.create');
+        Route::post('/', [InventoryController::class, 'store'])->middleware('permission:inventory.create')->name('inventory.store');
+        Route::get('/{item}', [InventoryController::class, 'show'])->name('inventory.show');
+        Route::get('/{item}/edit', [InventoryController::class, 'edit'])->middleware('permission:inventory.update')->name('inventory.edit');
+        Route::patch('/{item}', [InventoryController::class, 'update'])->middleware('permission:inventory.update')->name('inventory.update');
+        Route::delete('/{item}', [InventoryController::class, 'destroy'])->middleware('permission:inventory.delete')->name('inventory.destroy');
+
+        // Stock Management
+        Route::post('/{item}/adjust-stock', [InventoryController::class, 'adjustStock'])->middleware('permission:inventory.adjust')->name('inventory.adjust-stock');
+        Route::post('/{item}/transfer-stock', [InventoryController::class, 'transferStock'])->middleware('permission:inventory.transfer')->name('inventory.transfer-stock');
+
+        // Reports and Analytics
+        Route::get('/low-stock', [InventoryController::class, 'lowStock'])->name('inventory.low-stock');
+        Route::get('/valuation-report', [InventoryController::class, 'valuationReport'])->name('inventory.valuation-report');
+
+        // API Endpoints
+        Route::get('/api/items', [InventoryController::class, 'getItems'])->name('inventory.get-items');
+        Route::get('/api/items/{id}', [InventoryController::class, 'getItemDetails'])->name('inventory.get-item-details');
+
+        // Export Functions
+        Route::get('/export', [InventoryController::class, 'export'])->name('inventory.export');
+        Route::get('/export-low-stock', [InventoryController::class, 'exportLowStock'])->name('inventory.export-low-stock');
+        Route::get('/export-valuation', [InventoryController::class, 'exportValuation'])->name('inventory.export-valuation');
+    });
+
+    // Tax Compliance Management
+    Route::prefix('tax')->middleware(['permission:tax.view'])->group(function () {
+        Route::get('/', [TaxController::class, 'index'])->name('tax.index');
+
+        // Tax Transactions
+        Route::get('/transactions', [TaxController::class, 'transactions'])->name('tax.transactions');
+        Route::get('/transactions/data', [TaxController::class, 'transactionsData'])->name('tax.transactions.data');
+        Route::get('/transactions/create', [TaxController::class, 'createTransaction'])->middleware('permission:tax.create')->name('tax.transactions.create');
+        Route::post('/transactions', [TaxController::class, 'storeTransaction'])->middleware('permission:tax.create')->name('tax.transactions.store');
+        Route::get('/transactions/{transaction}', [TaxController::class, 'showTransaction'])->name('tax.transactions.show');
+        Route::post('/transactions/{transaction}/mark-paid', [TaxController::class, 'markAsPaid'])->middleware('permission:tax.update')->name('tax.transactions.mark-paid');
+        Route::get('/transactions/export', [TaxController::class, 'exportTransactions'])->name('tax.transactions.export');
+
+        // Tax Periods
+        Route::get('/periods', [TaxController::class, 'periods'])->name('tax.periods');
+        Route::get('/periods/create', [TaxController::class, 'createPeriod'])->middleware('permission:tax.create')->name('tax.periods.create');
+        Route::post('/periods', [TaxController::class, 'storePeriod'])->middleware('permission:tax.create')->name('tax.periods.store');
+        Route::post('/periods/{period}/close', [TaxController::class, 'closePeriod'])->middleware('permission:tax.update')->name('tax.periods.close');
+
+        // Tax Reports
+        Route::get('/reports', [TaxController::class, 'reports'])->name('tax.reports');
+        Route::get('/reports/create', [TaxController::class, 'createReport'])->middleware('permission:tax.create')->name('tax.reports.create');
+        Route::post('/reports', [TaxController::class, 'storeReport'])->middleware('permission:tax.create')->name('tax.reports.store');
+        Route::get('/reports/{report}', [TaxController::class, 'showReport'])->name('tax.reports.show');
+        Route::post('/reports/{report}/submit', [TaxController::class, 'submitReport'])->middleware('permission:tax.update')->name('tax.reports.submit');
+        Route::post('/reports/{report}/approve', [TaxController::class, 'approveReport'])->middleware('permission:tax.approve')->name('tax.reports.approve');
+
+        // Tax Settings
+        Route::get('/settings', [TaxController::class, 'settings'])->name('tax.settings');
+        Route::post('/settings', [TaxController::class, 'updateSettings'])->middleware('permission:tax.settings')->name('tax.settings.update');
+
+        // Tax Calendar
+        Route::get('/calendar', [TaxController::class, 'calendar'])->name('tax.calendar');
+
+        // Compliance Logs
+        Route::get('/compliance-logs', [TaxController::class, 'complianceLogs'])->name('tax.compliance-logs');
     });
 });
 
