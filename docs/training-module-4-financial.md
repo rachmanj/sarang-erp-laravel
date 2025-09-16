@@ -36,309 +36,449 @@ By the end of this module, participants will be able to:
 
 ---
 
-## Story-Based Training Scenarios
+## Comprehensive Financial Testing Scenarios
 
-### Scenario 1: Understanding the Chart of Accounts
+### Scenario 1: Chart of Accounts Exploration and Setup
 
-**Business Context**: You're a new accounting staff member at PT Sarange Trading. You need to understand the company's Chart of Accounts structure and how it supports multi-dimensional accounting.
+**Business Context**: You're setting up the financial foundation for PT Sarange Trading's comprehensive accounting system. You need to understand the Chart of Accounts structure and verify it supports all business operations.
 
-**Story**: "PT Sarange Trading uses a sophisticated Chart of Accounts that supports project-based accounting, fund management, and departmental cost tracking. You need to explore the account structure and understand how different account types are used for various business transactions."
+**Story**: "PT Sarange Trading has a PSAK-compliant Chart of Accounts with 118 accounts covering all business operations. You need to explore the account structure, understand the multi-dimensional capabilities, and verify the system is ready for comprehensive financial transactions."
 
-#### Step-by-Step Exploration
+#### Step-by-Step Testing
 
 **Step 1: Access Chart of Accounts**
 
 -   Navigate to: `Finance > Chart of Accounts`
--   Observe the account structure with different account types
--   Notice the hierarchical organization of accounts
+-   Verify account count: Should show 118 accounts
+-   Observe hierarchical organization and account types
+-   Check account codes follow 4-digit structure
 
 **Step 2: Explore Account Categories**
 
--   **Assets**: Current Assets, Fixed Assets, Intangible Assets
--   **Liabilities**: Current Liabilities, Long-term Liabilities
--   **Equity**: Share Capital, Retained Earnings, Reserves
--   **Revenue**: Sales Revenue, Other Income
--   **Expenses**: Cost of Goods Sold, Operating Expenses
+-   **Assets (1000-1999)**:
+    -   Current Assets: Cash, Bank, Receivables, Inventory
+    -   Fixed Assets: Equipment, Furniture, Vehicles
+    -   Intangible Assets: Software, Licenses
+-   **Liabilities (2000-2999)**:
+    -   Current Liabilities: Payables, Accrued Expenses
+    -   Long-term Liabilities: Loans, Bonds
+-   **Equity (3000-3999)**:
+    -   Share Capital, Retained Earnings, Reserves
+-   **Revenue (4000-4999)**:
+    -   Sales Revenue, Service Revenue, Other Income
+-   **Expenses (5000-5999)**:
+    -   Cost of Goods Sold, Operating Expenses
 
-**Step 3: Understand Account Structure**
+**Step 3: Verify Key Trading Accounts**
 
--   **Account Code**: 4-digit hierarchical coding
--   **Account Name**: Descriptive account names
--   **Account Type**: Asset, Liability, Equity, Revenue, Expense
--   **Multi-Dimensional**: Supports project, fund, department tracking
+-   **Cash Accounts**:
+    -   1110 - Bank Account (Main)
+    -   1120 - Petty Cash
+-   **Inventory Accounts**:
+    -   1210 - Raw Materials Inventory
+    -   1220 - Finished Goods Inventory
+-   **Receivable/Payable Accounts**:
+    -   1310 - Trade Receivables
+    -   2110 - Trade Payables
+-   **Revenue Accounts**:
+    -   4110 - Sales Revenue
+    -   4120 - Service Revenue
+-   **Expense Accounts**:
+    -   5110 - Cost of Goods Sold
+    -   5210 - Operating Expenses
 
-**Step 4: Review Key Accounts**
+**Step 4: Test Account Management**
 
--   **Cash Accounts**: Bank accounts and petty cash
--   **Inventory Accounts**: Raw materials, finished goods
--   **Receivable Accounts**: Trade receivables, other receivables
--   **Payable Accounts**: Trade payables, accrued expenses
--   **Revenue Accounts**: Sales revenue by product category
--   **Expense Accounts**: Operating expenses by department
+-   Try to create a new account (if permissions allow)
+-   Verify account validation rules
+-   Check parent-child relationships
+-   Test account posting capabilities
 
-**Step 5: Understand Multi-Dimensional Features**
+#### Expected Results
 
--   **Project Tracking**: Each transaction can be tagged with project_id
--   **Fund Tracking**: Transactions can be allocated to specific funds
--   **Department Tracking**: Costs can be allocated to departments
--   **Combination**: All three dimensions can be used together
-
-#### Discussion Points
-
--   Why is a well-structured Chart of Accounts important?
--   How does multi-dimensional accounting benefit the business?
--   What are the advantages of PSAK compliance?
-
-#### Hands-On Exercise
-
-Explore different account categories, practice finding specific accounts, and understand the relationship between account types and business transactions.
+-   All 118 accounts visible and properly categorized
+-   Account codes follow hierarchical structure
+-   Multi-dimensional tracking enabled
+-   PSAK compliance maintained
 
 ---
 
-### Scenario 2: Journal Entry Processing
+### Scenario 2: Financial Period Management
 
-**Business Context**: You need to process a complex business transaction that involves multiple accounts and dimensions. This will demonstrate the power of multi-dimensional accounting.
+**Business Context**: You need to set up and manage financial periods for proper month-end closing and reporting. This is critical for accurate financial reporting and compliance.
 
-**Story**: "PT Sarange Trading has completed a major office renovation project. The project involved purchasing furniture (Rp 50,000,000), paying contractor fees (Rp 30,000,000), and allocating costs to the 'Office Renovation' project, 'Capital Fund', and 'Administration Department'. You need to create the journal entry for this transaction."
+**Story**: "PT Sarange Trading operates on monthly financial periods. You need to set up periods for the current year, manage period status (open/closed), and ensure proper period controls for journal entry posting."
 
-#### Step-by-Step Exploration
+#### Step-by-Step Testing
 
-**Step 1: Access Journal Entries**
+**Step 1: Access Period Management**
 
--   Navigate to: `Finance > Journal Entries`
--   Click "New Journal Entry"
--   Set up entry header information
+-   Navigate to: `Finance > Periods`
+-   Review current period status
+-   Check available periods for current year
 
-**Step 2: Create Entry Header**
+**Step 2: Set Up Current Year Periods**
 
--   **Entry Number**: JE-2024-001
--   **Entry Date**: Today's date
--   **Reference**: Office Renovation Project
--   **Description**: Office renovation completion
--   **Total Amount**: Rp 80,000,000
+-   **Current Year**: 2024
+-   **Periods to Set Up**: January through December 2024
+-   **Default Status**: All periods should be OPEN initially
+-   **Current Period**: Set current month as active
 
-**Step 3: Add Journal Lines**
+**Step 3: Test Period Operations**
 
--   **Line 1**:
-    -   Account: 1410 (Office Furniture - Fixed Assets)
-    -   Debit: Rp 50,000,000
-    -   Project: Office Renovation
+-   **Open Period**: Ensure current month is open for posting
+-   **Close Period**: Test closing previous month (if applicable)
+-   **Reopen Period**: Test reopening closed period (if needed)
+-   **Period Validation**: Verify period controls work
+
+**Step 4: Verify Period Controls**
+
+-   **Posting Control**: Confirm journals can only post to open periods
+-   **Date Validation**: Test posting to closed periods (should fail)
+-   **Period Status**: Verify period status affects system behavior
+
+#### Expected Results
+
+-   All 12 months of current year visible
+-   Current month shows as OPEN
+-   Previous months can be closed
+-   Period controls prevent posting to closed periods
+
+---
+
+### Scenario 3: Manual Journal Entry Processing
+
+**Business Context**: You need to process various types of manual journal entries to test the complete journal entry workflow and ensure data appears correctly in reports.
+
+**Story**: "PT Sarange Trading needs to process several types of manual journal entries: asset purchases, expense allocations, revenue recognition, and adjusting entries. Each entry must be properly balanced and include multi-dimensional tracking."
+
+#### Step-by-Step Testing
+
+**Step 1: Access Manual Journals**
+
+-   Navigate to: `Finance > Journals > Manual Journal`
+-   Review existing journal entries
+-   Check journal numbering system (JNL-YYYYMM-######)
+
+**Step 2: Create Asset Purchase Journal**
+
+-   **Entry Details**:
+    -   Date: Current date
+    -   Description: "Office Equipment Purchase"
+    -   Reference: "EQ-2024-001"
+-   **Journal Lines**:
+    -   Line 1: Debit Equipment Account (1420) - Rp 25,000,000
+    -   Line 2: Credit Bank Account (1110) - Rp 25,000,000
+-   **Dimensions**:
+    -   Project: Office Setup Project
     -   Fund: Capital Fund
     -   Department: Administration
--   **Line 2**:
-    -   Account: 1420 (Office Equipment - Fixed Assets)
-    -   Debit: Rp 30,000,000
-    -   Project: Office Renovation
-    -   Fund: Capital Fund
+
+**Step 3: Create Expense Allocation Journal**
+
+-   **Entry Details**:
+    -   Date: Current date
+    -   Description: "Monthly Rent Allocation"
+    -   Reference: "RENT-2024-001"
+-   **Journal Lines**:
+    -   Line 1: Debit Rent Expense (5210) - Rp 15,000,000
+    -   Line 2: Credit Accrued Rent (2120) - Rp 15,000,000
+-   **Dimensions**:
+    -   Project: General Operations
+    -   Fund: Operating Fund
+    -   Department: Administration (60%), Sales (40%)
+
+**Step 4: Create Revenue Recognition Journal**
+
+-   **Entry Details**:
+    -   Date: Current date
+    -   Description: "Service Revenue Recognition"
+    -   Reference: "REV-2024-001"
+-   **Journal Lines**:
+    -   Line 1: Debit Accounts Receivable (1310) - Rp 50,000,000
+    -   Line 2: Credit Service Revenue (4120) - Rp 50,000,000
+-   **Dimensions**:
+    -   Project: Service Delivery Project
+    -   Fund: Operating Fund
+    -   Department: Sales
+
+**Step 5: Create Multi-Line Adjusting Entry**
+
+-   **Entry Details**:
+    -   Date: Current date
+    -   Description: "Month-End Adjustments"
+    -   Reference: "ADJ-2024-001"
+-   **Journal Lines**:
+    -   Line 1: Debit Depreciation Expense (5230) - Rp 2,000,000
+    -   Line 2: Debit Office Supplies Expense (5240) - Rp 1,500,000
+    -   Line 3: Credit Accumulated Depreciation (1425) - Rp 2,000,000
+    -   Line 4: Credit Office Supplies Payable (2130) - Rp 1,500,000
+-   **Dimensions**: Various projects, funds, and departments
+
+**Step 6: Verify Journal Entry Balance**
+
+-   **Total Debits**: Must equal Total Credits
+-   **Entry Validation**: System should validate balance before posting
+-   **Posting Process**: Confirm successful posting to general ledger
+
+#### Expected Results
+
+-   All journal entries properly balanced
+-   Automatic journal numbering (JNL-YYYYMM-######)
+-   Multi-dimensional tracking applied
+-   Entries posted to general ledger successfully
+
+---
+
+### Scenario 4: Cash Expense Management (Cash Advance)
+
+**Business Context**: You need to process cash expenses and advances for various business operations. This tests the cash management functionality and ensures proper expense tracking.
+
+**Story**: "PT Sarange Trading employees frequently need cash advances for business expenses like travel, supplies, and client entertainment. You need to process these cash advances and track their settlement through expense reports."
+
+#### Step-by-Step Testing
+
+**Step 1: Access Cash Expenses**
+
+-   Navigate to: `Finance > Cash Expenses`
+-   Review existing cash expense entries
+-   Check cash expense numbering and status
+
+**Step 2: Create Employee Cash Advance**
+
+-   **Advance Details**:
+    -   Employee: Select from employee list
+    -   Amount: Rp 5,000,000
+    -   Purpose: "Business Travel Advance"
+    -   Date: Current date
+    -   Reference: "CA-2024-001"
+-   **Account Allocation**:
+    -   Debit: Employee Advance Account (1320)
+    -   Credit: Petty Cash Account (1120)
+-   **Dimensions**:
+    -   Project: Business Travel Project
+    -   Fund: Operating Fund
+    -   Department: Sales
+
+**Step 3: Create Office Supplies Cash Expense**
+
+-   **Expense Details**:
+    -   Employee: Office Manager
+    -   Amount: Rp 2,500,000
+    -   Purpose: "Office Supplies Purchase"
+    -   Date: Current date
+    -   Reference: "CE-2024-001"
+-   **Account Allocation**:
+    -   Debit: Office Supplies Expense (5240)
+    -   Credit: Petty Cash Account (1120)
+-   **Dimensions**:
+    -   Project: General Operations
+    -   Fund: Operating Fund
     -   Department: Administration
--   **Line 3**:
-    -   Account: 1110 (Bank Account - Current Assets)
-    -   Credit: Rp 80,000,000
-    -   Project: Office Renovation
-    -   Fund: Capital Fund
-    -   Department: Administration
 
-**Step 4: Verify Entry Balance**
+**Step 4: Create Client Entertainment Expense**
 
--   **Total Debits**: Rp 80,000,000
--   **Total Credits**: Rp 80,000,000
--   **Balance**: Rp 0 (Balanced)
--   **Dimensions**: All lines tagged with same project, fund, department
+-   **Expense Details**:
+    -   Employee: Sales Manager
+    -   Amount: Rp 3,000,000
+    -   Purpose: "Client Entertainment"
+    -   Date: Current date
+    -   Reference: "CE-2024-002"
+-   **Account Allocation**:
+    -   Debit: Entertainment Expense (5250)
+    -   Credit: Petty Cash Account (1120)
+-   **Dimensions**:
+    -   Project: Client Relationship Project
+    -   Fund: Operating Fund
+    -   Department: Sales
 
-**Step 5: Post Entry**
+**Step 5: Process Cash Advance Settlement**
 
--   Review entry details
--   Verify account codes and amounts
--   Post entry to general ledger
--   Generate entry confirmation
+-   **Settlement Details**:
+    -   Original Advance: Rp 5,000,000
+    -   Actual Expenses: Rp 4,200,000
+    -   Refund Required: Rp 800,000
+-   **Settlement Entry**:
+    -   Debit: Various Expense Accounts (4,200,000)
+    -   Debit: Petty Cash (800,000 refund)
+    -   Credit: Employee Advance Account (5,000,000)
 
-#### Discussion Points
+#### Expected Results
 
--   Why is it important to balance debits and credits?
--   How do dimensions help with cost tracking?
--   What controls ensure entry accuracy?
-
-#### Hands-On Exercise
-
-Create journal entries for different business scenarios: sales transactions, purchase transactions, expense allocations, and asset acquisitions. Practice with various account combinations and dimensions.
-
----
-
-### Scenario 3: Project-Based Accounting
-
-**Business Context**: You need to track costs for a specific project and understand how project accounting works in the system.
-
-**Story**: "PT Sarange Trading is managing the 'Jakarta Office Expansion' project. This project involves multiple departments (Sales, Administration, IT) and is funded by the 'Expansion Fund'. You need to track all project costs and generate project-specific financial reports."
-
-#### Step-by-Step Exploration
-
-**Step 1: Access Project Accounting**
-
--   Navigate to: `Finance > Project Accounting`
--   Select project: Jakarta Office Expansion
--   Review project setup and budget
-
-**Step 2: Review Project Setup**
-
--   **Project Code**: PROJ-001
--   **Project Name**: Jakarta Office Expansion
--   **Project Manager**: Bapak Ahmad
--   **Budget**: Rp 500,000,000
--   **Start Date**: 1 January 2024
--   **End Date**: 30 June 2024
-
-**Step 3: Track Project Costs**
-
--   **Sales Department Costs**: Rp 150,000,000
--   **Administration Costs**: Rp 100,000,000
--   **IT Department Costs**: Rp 200,000,000
--   **Total Costs**: Rp 450,000,000
--   **Remaining Budget**: Rp 50,000,000
-
-**Step 4: Analyze Cost Allocation**
-
--   **Direct Costs**: Equipment, furniture, construction
--   **Indirect Costs**: Salaries, utilities, overhead
--   **Fund Allocation**: All costs allocated to Expansion Fund
--   **Department Allocation**: Costs spread across multiple departments
-
-**Step 5: Generate Project Report**
-
--   **Project Profitability**: Budget vs. Actual
--   **Cost Breakdown**: By department and cost type
--   **Fund Utilization**: Expansion Fund usage
--   **Timeline Analysis**: Costs by month
-
-#### Discussion Points
-
--   How does project accounting help with cost control?
--   What information is needed for project reporting?
--   How do you handle project budget overruns?
-
-#### Hands-On Exercise
-
-Practice project cost tracking, budget monitoring, and project reporting. Learn to handle different project scenarios and cost allocation methods.
+-   Cash advances properly recorded
+-   Cash expenses tracked and allocated
+-   Settlement process working correctly
+-   All transactions visible in cash ledger
 
 ---
 
-### Scenario 4: Fund Management and Allocation
+### Scenario 5: Comprehensive Financial Reports Testing
 
-**Business Context**: You need to understand how fund management works and how funds are allocated across different projects and departments.
+**Business Context**: After processing various financial transactions, you need to verify that all data appears correctly in the key financial reports. This validates the complete financial data flow.
 
-**Story**: "PT Sarange Trading manages multiple funds: Operating Fund, Capital Fund, and Expansion Fund. You need to track fund utilization, ensure proper allocation, and generate fund-based financial reports."
+**Story**: "PT Sarange Trading has processed multiple transactions including journal entries, cash expenses, and period management. You need to generate and verify key financial reports to ensure data integrity and proper reporting functionality."
 
-#### Step-by-Step Exploration
+#### Step-by-Step Testing
 
-**Step 1: Access Fund Management**
+**Step 1: Generate Trial Balance Report**
 
--   Navigate to: `Finance > Fund Management`
--   Review fund structure and balances
--   Check fund allocation rules
+-   Navigate to: `Reports > Trial Balance`
+-   **Report Parameters**:
+    -   As of Date: Current date
+    -   Include Zero Balances: Yes
+-   **Verify Report Content**:
+    -   All accounts with activity appear
+    -   Debits equal Credits (balanced)
+    -   Account codes in proper order
+    -   Balances calculated correctly
+-   **Key Accounts to Verify**:
+    -   Bank Account (1110): Should show debit balance
+    -   Equipment (1420): Should show debit balance
+    -   Service Revenue (4120): Should show credit balance
+    -   Various Expense Accounts: Should show debit balances
 
-**Step 2: Review Fund Structure**
+**Step 2: Generate GL Detail Report**
 
--   **Operating Fund**: Rp 1,000,000,000 (Daily operations)
--   **Capital Fund**: Rp 500,000,000 (Asset purchases)
--   **Expansion Fund**: Rp 300,000,000 (Growth projects)
+-   Navigate to: `Reports > GL Detail`
+-   **Report Parameters**:
+    -   Account: Select specific account (e.g., Bank Account)
+    -   From Date: Beginning of month
+    -   To Date: Current date
+    -   Project: All or specific project
+    -   Fund: All or specific fund
+    -   Department: All or specific department
+-   **Verify Report Content**:
+    -   All journal lines for selected account
+    -   Proper debit/credit amounts
+    -   Multi-dimensional information displayed
+    -   Running balances calculated
+    -   Transaction references included
 
-**Step 3: Track Fund Utilization**
+**Step 3: Generate Cash Ledger Report**
 
--   **Operating Fund**:
-    -   Used: Rp 800,000,000
-    -   Available: Rp 200,000,000
-    -   Utilization: 80%
--   **Capital Fund**:
-    -   Used: Rp 450,000,000
-    -   Available: Rp 50,000,000
-    -   Utilization: 90%
--   **Expansion Fund**:
-    -   Used: Rp 250,000,000
-    -   Available: Rp 50,000,000
-    -   Utilization: 83%
+-   Navigate to: `Reports > Cash Ledger`
+-   **Report Parameters**:
+    -   Account: Bank Account or Petty Cash
+    -   From Date: Beginning of month
+    -   To Date: Current date
+-   **Verify Report Content**:
+    -   All cash transactions listed
+    -   Proper transaction descriptions
+    -   Running cash balance
+    -   Transaction references
+    -   Multi-dimensional tracking
 
-**Step 4: Analyze Fund Allocation**
+**Step 4: Generate AR Aging Report**
 
--   **Operating Fund**: Sales, administration, IT operations
--   **Capital Fund**: Equipment, furniture, vehicle purchases
--   **Expansion Fund**: New projects, market expansion
+-   Navigate to: `Reports > AR Aging`
+-   **Report Parameters**:
+    -   As of Date: Current date
+    -   Customer: All customers
+-   **Verify Report Content**:
+    -   Customer balances by aging buckets
+    -   Total receivables
+    -   Overdue amounts highlighted
+    -   Customer details included
 
-**Step 5: Generate Fund Reports**
+**Step 5: Generate AP Aging Report**
 
--   **Fund Balance Sheet**: Current fund positions
--   **Fund Utilization Report**: Usage by fund and period
--   **Fund Allocation Report**: Allocation by project and department
--   **Fund Performance**: Return on fund investment
+-   Navigate to: `Reports > AP Aging`
+-   **Report Parameters**:
+    -   As of Date: Current date
+    -   Vendor: All vendors
+-   **Verify Report Content**:
+    -   Vendor balances by aging buckets
+    -   Total payables
+    -   Overdue amounts highlighted
+    -   Vendor details included
 
-#### Discussion Points
+**Step 6: Test Report Export Functionality**
 
--   How do you ensure proper fund allocation?
--   What controls prevent fund misuse?
--   How do you plan for fund requirements?
+-   **Export Formats**: Test PDF and Excel export
+-   **Report Filters**: Verify all filter options work
+-   **Report Performance**: Check report generation speed
+-   **Data Accuracy**: Verify exported data matches screen data
 
-#### Hands-On Exercise
+#### Expected Results
 
-Practice fund allocation, track fund utilization, and generate fund-based reports. Learn to handle fund transfers and reallocations.
+-   Trial Balance shows balanced accounts
+-   GL Detail shows all transaction details
+-   Cash Ledger shows proper cash flow
+-   AR/AP Aging shows customer/vendor balances
+-   All reports export correctly
+-   Multi-dimensional data properly displayed
 
 ---
 
-### Scenario 5: Departmental Cost Allocation
+### Scenario 6: Multi-Dimensional Accounting Validation
 
-**Business Context**: You need to allocate costs to different departments and understand how departmental accounting supports management reporting.
+**Business Context**: You need to verify that the multi-dimensional accounting system properly tracks costs across projects, funds, and departments, and that this data appears correctly in reports.
 
-**Story**: "PT Sarange Trading has three main departments: Sales, Administration, and IT. You need to allocate shared costs (utilities, rent, insurance) to these departments and generate departmental profitability reports."
+**Story**: "PT Sarange Trading operates multiple projects funded by different sources and managed by various departments. You need to ensure that all transactions are properly tagged with dimensions and that reporting can filter and analyze data by these dimensions."
 
-#### Step-by-Step Exploration
+#### Step-by-Step Testing
 
-**Step 1: Access Departmental Accounting**
+**Step 1: Verify Dimension Setup**
 
--   Navigate to: `Finance > Departmental Accounting`
--   Review department structure and cost allocation rules
--   Check current department costs
+-   **Projects**: Check available projects
+    -   Office Setup Project
+    -   Service Delivery Project
+    -   Business Travel Project
+    -   Client Relationship Project
+-   **Funds**: Check available funds
+    -   Operating Fund
+    -   Capital Fund
+    -   Expansion Fund
+-   **Departments**: Check available departments
+    -   Administration
+    -   Sales
+    -   IT
 
-**Step 2: Review Department Structure**
+**Step 2: Test Project-Based Reporting**
 
--   **Sales Department**: 15 employees, revenue generating
--   **Administration Department**: 8 employees, support functions
--   **IT Department**: 5 employees, technology support
+-   Navigate to: `Reports > GL Detail`
+-   **Filter by Project**: Select "Office Setup Project"
+-   **Verify Results**: Only transactions tagged with this project appear
+-   **Check Totals**: Verify project-specific totals
+-   **Test Multiple Projects**: Select multiple projects
 
-**Step 3: Allocate Shared Costs**
+**Step 3: Test Fund-Based Reporting**
 
--   **Rent**: Rp 30,000,000 (allocated by floor space)
-    -   Sales: 60% (Rp 18,000,000)
-    -   Administration: 25% (Rp 7,500,000)
-    -   IT: 15% (Rp 4,500,000)
--   **Utilities**: Rp 15,000,000 (allocated by headcount)
-    -   Sales: 54% (Rp 8,100,000)
-    -   Administration: 29% (Rp 4,350,000)
-    -   IT: 17% (Rp 2,550,000)
--   **Insurance**: Rp 10,000,000 (allocated by department value)
-    -   Sales: 50% (Rp 5,000,000)
-    -   Administration: 30% (Rp 3,000,000)
-    -   IT: 20% (Rp 2,000,000)
+-   Navigate to: `Reports > GL Detail`
+-   **Filter by Fund**: Select "Capital Fund"
+-   **Verify Results**: Only capital-related transactions appear
+-   **Check Fund Utilization**: Verify fund usage tracking
+-   **Test Fund Performance**: Analyze fund efficiency
 
-**Step 4: Calculate Department Costs**
+**Step 4: Test Department-Based Reporting**
 
--   **Sales Department**: Rp 31,100,000
--   **Administration Department**: Rp 14,850,000
--   **IT Department**: Rp 9,050,000
--   **Total Allocated**: Rp 55,000,000
+-   Navigate to: `Reports > GL Detail`
+-   **Filter by Department**: Select "Sales Department"
+-   **Verify Results**: Only sales-related transactions appear
+-   **Check Department Costs**: Verify cost allocation
+-   **Test Department Performance**: Analyze department efficiency
 
-**Step 5: Generate Departmental Reports**
+**Step 5: Test Cross-Dimensional Analysis**
 
--   **Department Profitability**: Revenue vs. costs by department
--   **Cost Allocation Report**: Shared cost allocation details
--   **Department Performance**: Cost efficiency by department
--   **Budget vs. Actual**: Department cost analysis
+-   **Project + Fund**: Filter by specific project and fund combination
+-   **Project + Department**: Filter by project and department
+-   **Fund + Department**: Filter by fund and department
+-   **All Dimensions**: Filter by all three dimensions simultaneously
 
-#### Discussion Points
+**Step 6: Verify Dimension Data Integrity**
 
--   What methods are used for cost allocation?
--   How do you ensure fair cost allocation?
--   What information do managers need from departmental reports?
+-   **Missing Dimensions**: Check for transactions without dimensions
+-   **Invalid Dimensions**: Verify dimension references are valid
+-   **Dimension Totals**: Ensure dimension totals match overall totals
+-   **Dimension Reports**: Generate dimension-specific reports
 
-#### Hands-On Exercise
+#### Expected Results
 
-Practice cost allocation methods, departmental reporting, and performance analysis. Learn to handle different allocation scenarios and department structures.
+-   All dimensions properly configured
+-   Filtering works correctly for all dimensions
+-   Cross-dimensional analysis functional
+-   Dimension data integrity maintained
+-   Reports show accurate dimensional breakdowns
 
 ---
 

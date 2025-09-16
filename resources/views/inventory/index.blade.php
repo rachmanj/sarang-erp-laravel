@@ -258,7 +258,7 @@
                 const formData = $(this).serialize();
 
                 $.ajax({
-                    url: '{{ route('inventory.adjust-stock', '') }}/' + $('#adjust_item_id').val(),
+                    url: '/inventory/' + $('#adjust_item_id').val() + '/adjust-stock',
                     method: 'POST',
                     data: formData,
                     headers: {
@@ -302,8 +302,7 @@
                 const formData = $(this).serialize();
 
                 $.ajax({
-                    url: '{{ route('inventory.transfer-stock', '') }}/' + $(
-                        '#transfer_from_item_id').val(),
+                    url: '/inventory/' + $('#transfer_from_item_id').val() + '/transfer-stock',
                     method: 'POST',
                     data: formData,
                     headers: {

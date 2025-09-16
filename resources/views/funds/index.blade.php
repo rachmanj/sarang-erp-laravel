@@ -123,8 +123,9 @@
                     is_restricted: $('#is_restricted').is(':checked') ? 1 : 0,
                     _token: '{{ csrf_token() }}'
                 };
+
                 try {
-                    await $.ajax({
+                    const response = await $.ajax({
                         url,
                         method,
                         data: payload,
@@ -132,30 +133,95 @@
                             'Accept': 'application/json'
                         }
                     });
+
                     $('#fundModal').modal('hide');
-                    toastr.success('Saved');
+
+                    if (response.success) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Success!',
+                            text: response.message || 'Fund saved successfully',
+                            timer: 2000,
+                            showConfirmButton: false
+                        });
+                    } else {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error!',
+                            text: response.message || 'Failed to save fund'
+                        });
+                    }
+
                     table.ajax.reload();
                 } catch (e) {
-                    toastr.error('Failed to save');
+                    let errorMessage = 'Failed to save fund';
+
+                    if (e.responseJSON) {
+                        if (e.responseJSON.errors) {
+                            // Handle validation errors
+                            const errors = Object.values(e.responseJSON.errors).flat();
+                            errorMessage = errors.join('<br>');
+                        } else if (e.responseJSON.message) {
+                            errorMessage = e.responseJSON.message;
+                        }
+                    }
+
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error!',
+                        html: errorMessage
+                    });
                 }
             });
             $(document).on('click', '.btn-delete', async function() {
-                if (!confirm('Delete this fund?')) return;
-                try {
-                    await $.ajax({
-                        url: $(this).data('url'),
-                        method: 'DELETE',
-                        data: {
-                            _token: '{{ csrf_token() }}'
-                        },
-                        headers: {
-                            'Accept': 'application/json'
+                const deleteUrl = $(this).data('url');
+
+                const result = await Swal.fire({
+                    title: 'Are you sure?',
+                    text: "You won't be able to revert this!",
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#d33',
+                    cancelButtonColor: '#3085d6',
+                    confirmButtonText: 'Yes, delete it!',
+                    cancelButtonText: 'Cancel'
+                });
+
+                if (result.isConfirmed) {
+                    try {
+                        const response = await $.ajax({
+                            url: deleteUrl,
+                            method: 'DELETE',
+                            data: {
+                                _token: '{{ csrf_token() }}'
+                            },
+                            headers: {
+                                'Accept': 'application/json'
+                            }
+                        });
+
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Deleted!',
+                            text: 'Fund has been deleted successfully.',
+                            timer: 2000,
+                            showConfirmButton: false
+                        });
+
+                        table.ajax.reload();
+                    } catch (e) {
+                        let errorMessage = 'Failed to delete fund';
+
+                        if (e.responseJSON && e.responseJSON.message) {
+                            errorMessage = e.responseJSON.message;
                         }
-                    });
-                    toastr.success('Deleted');
-                    table.ajax.reload();
-                } catch (e) {
-                    toastr.error(e.responseJSON?.message || 'Failed to delete');
+
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error!',
+                            text: errorMessage
+                        });
+                    }
                 }
             });
         });

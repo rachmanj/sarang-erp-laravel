@@ -1,5 +1,5 @@
 Purpose: Technical reference for understanding system design and development patterns
-Last Updated: 2025-01-15 (Updated with Phase 4 Advanced Trading Features completion)
+Last Updated: 2025-01-16 (Updated with Master Data CRUD Testing and SweetAlert2 Implementation completion)
 
 ## Architecture Documentation Guidelines
 
@@ -60,6 +60,31 @@ Sarange ERP is a comprehensive Enterprise Resource Planning system built with La
 -   **Excel Export**: Laravel Excel (Maatwebsite)
 -   **UI Framework**: AdminLTE 3 with Bootstrap 4
 -   **Timezone**: Asia/Singapore (configured)
+
+## Navigation Structure
+
+The system uses a hierarchical sidebar navigation structure optimized for trading company operations:
+
+### Main Navigation Sections
+
+1. **Dashboard** - System overview and key metrics
+2. **MAIN** - Core business operations:
+    - **Sales** - Customer management, sales invoices, orders, receipts
+    - **Purchase** - Supplier management, purchase invoices, orders, goods receipts, payments
+    - **Inventory** - Item management, stock levels, valuation reports, low stock alerts
+    - **Accounting** - Journals, cash expenses, accounts, periods
+    - **Master Data** - Projects, funds, departments
+    - **Fixed Assets** - Asset categories, assets, depreciation, disposals, movements, import, data quality, bulk operations
+3. **REPORTS** - Comprehensive reporting modules
+4. **ADMIN** - User management, roles and permissions
+
+### Navigation Features
+
+-   **Role-Based Access**: Menu items are conditionally displayed based on user permissions
+-   **Active State Management**: Current page highlighting and menu expansion
+-   **Responsive Design**: Collapsible sidebar with mobile-friendly navigation
+-   **Icon Integration**: FontAwesome icons for visual navigation cues
+-   **Breadcrumb Navigation**: Page-level breadcrumb trails for deep navigation
 
 ## Core Components
 
@@ -152,6 +177,15 @@ Sarange ERP is a comprehensive Enterprise Resource Planning system built with La
 -   **Assessment Framework**: Multi-level evaluation system with certification levels (Basic, Intermediate, Advanced, Expert)
 -   **Indonesian Business Context**: All training materials tailored for Indonesian trading company operations
 -   **Implementation Guidelines**: Detailed delivery structure, success metrics, and post-training support
+
+### 13. Master Data Management System
+
+-   **Projects Management**: Project-based cost tracking with comprehensive CRUD operations
+-   **Funds Management**: Fund-based accounting and reporting with restricted/unrestricted fund types
+-   **Departments Management**: Departmental cost allocation and organizational structure management
+-   **SweetAlert2 Integration**: Consistent confirmation dialogs and success notifications across all Master Data features
+-   **JSON API Responses**: Proper AJAX handling with JSON success/error responses for seamless user experience
+-   **DataTable Integration**: Dynamic data loading with search, sorting, and pagination capabilities
 
 ## Database Schema
 
@@ -264,6 +298,9 @@ The database schema has been consolidated from 51 to 44 migration files for impr
 -   `/supplier-analytics/*`: Supplier performance analytics with comparisons, optimization opportunities
 -   `/business-intelligence/*`: Business intelligence with reports, insights, KPI dashboard
 -   `/analytics/*`: Unified analytics dashboard integrating all trading components
+-   `/projects/*`: Project management with CRUD operations and SweetAlert2 integration
+-   `/funds/*`: Fund management with CRUD operations and SweetAlert2 integration
+-   `/departments/*`: Department management with CRUD operations and SweetAlert2 integration
 -   `/reports/*`: Comprehensive reporting suite
 -   `/admin/*`: User and role management
 
@@ -309,6 +346,14 @@ graph TD
 -   **SQL Injection Prevention**: Eloquent ORM with parameterized queries
 -   **XSS Protection**: Blade template escaping and input sanitization
 -   **Session Security**: Secure session configuration with proper timeouts
+
+### User Interface Enhancements
+
+-   **SweetAlert2 Integration**: Consistent confirmation dialogs and success notifications across all Master Data features
+-   **Global Configuration**: Centralized SweetAlert2 configuration with consistent styling and behavior
+-   **AJAX Response Handling**: Proper JSON responses for all CRUD operations with comprehensive error handling
+-   **DataTable Integration**: Dynamic data loading with search, sorting, and pagination capabilities
+-   **Modal Management**: Consistent modal dialogs for create/edit operations with proper form validation
 
 ## Deployment
 

@@ -1,4 +1,15 @@
-@extends('layouts.app')
+@extends('layouts.main')
+
+@section('title_page')
+    Create Purchase Order
+@endsection
+
+@section('breadcrumb_title')
+    <li class="breadcrumb-item"><a href="/dashboard">Dashboard</a></li>
+    <li class="breadcrumb-item"><a href="{{ route('purchase-orders.index') }}">Purchase Orders</a></li>
+    <li class="breadcrumb-item active">Create</li>
+@endsection
+
 @section('content')
     <section class="content">
         <div class="container-fluid">

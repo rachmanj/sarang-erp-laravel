@@ -145,6 +145,60 @@
                     </li>
                 @endcanany
 
+                <!-- Inventory Group -->
+                @canany(['inventory.view', 'inventory.create', 'inventory.update'])
+                    @php
+                        $inventoryActive = request()->routeIs('inventory.*');
+                    @endphp
+                    <li class="nav-item {{ $inventoryActive ? 'menu-is-opening menu-open' : '' }}">
+                        <a href="#" class="nav-link {{ $inventoryActive ? 'active' : '' }}">
+                            <i class="nav-icon fas fa-boxes"></i>
+                            <p>
+                                Inventory
+                                <i class="right fas fa-angle-left"></i>
+                            </p>
+                        </a>
+                        <ul class="nav nav-treeview">
+                            @can('inventory.view')
+                                <li class="nav-item">
+                                    <a href="{{ route('inventory.index') }}"
+                                        class="nav-link {{ request()->routeIs('inventory.index') ? 'active' : '' }}">
+                                        <i class="far fa-circle nav-icon"></i>
+                                        <p>Inventory Items</p>
+                                    </a>
+                                </li>
+                            @endcan
+                            @can('inventory.create')
+                                <li class="nav-item">
+                                    <a href="{{ route('inventory.create') }}"
+                                        class="nav-link {{ request()->routeIs('inventory.create') ? 'active' : '' }}">
+                                        <i class="far fa-circle nav-icon"></i>
+                                        <p>Add Item</p>
+                                    </a>
+                                </li>
+                            @endcan
+                            @can('inventory.view')
+                                <li class="nav-item">
+                                    <a href="{{ route('inventory.low-stock') }}"
+                                        class="nav-link {{ request()->routeIs('inventory.low-stock') ? 'active' : '' }}">
+                                        <i class="far fa-circle nav-icon"></i>
+                                        <p>Low Stock Report</p>
+                                    </a>
+                                </li>
+                            @endcan
+                            @can('inventory.view')
+                                <li class="nav-item">
+                                    <a href="{{ route('inventory.valuation-report') }}"
+                                        class="nav-link {{ request()->routeIs('inventory.valuation-report') ? 'active' : '' }}">
+                                        <i class="far fa-circle nav-icon"></i>
+                                        <p>Valuation Report</p>
+                                    </a>
+                                </li>
+                            @endcan
+                        </ul>
+                    </li>
+                @endcanany
+
                 <!-- Accounting Group (moved below Purchase) -->
                 @can('journals.view')
                     @php
@@ -198,13 +252,148 @@
                         </ul>
                     </li>
                 @endcan
+
+                <!-- Master Data Group -->
+                @canany(['projects.view', 'funds.view', 'departments.view'])
+                    @php
+                        $masterDataActive =
+                            request()->routeIs('projects.*') ||
+                            request()->routeIs('funds.*') ||
+                            request()->routeIs('departments.*');
+                    @endphp
+                    <li class="nav-item {{ $masterDataActive ? 'menu-is-opening menu-open' : '' }}">
+                        <a href="#" class="nav-link {{ $masterDataActive ? 'active' : '' }}">
+                            <i class="nav-icon fas fa-database"></i>
+                            <p>
+                                Master Data
+                                <i class="right fas fa-angle-left"></i>
+                            </p>
+                        </a>
+                        <ul class="nav nav-treeview">
+                            @can('projects.view')
+                                <li class="nav-item">
+                                    <a href="{{ route('projects.index') }}"
+                                        class="nav-link {{ request()->routeIs('projects.*') ? 'active' : '' }}">
+                                        <i class="far fa-circle nav-icon"></i>
+                                        <p>Projects</p>
+                                    </a>
+                                </li>
+                            @endcan
+                            @can('funds.view')
+                                <li class="nav-item">
+                                    <a href="{{ route('funds.index') }}"
+                                        class="nav-link {{ request()->routeIs('funds.*') ? 'active' : '' }}">
+                                        <i class="far fa-circle nav-icon"></i>
+                                        <p>Funds</p>
+                                    </a>
+                                </li>
+                            @endcan
+                            @can('departments.view')
+                                <li class="nav-item">
+                                    <a href="{{ route('departments.index') }}"
+                                        class="nav-link {{ request()->routeIs('departments.*') ? 'active' : '' }}">
+                                        <i class="far fa-circle nav-icon"></i>
+                                        <p>Departments</p>
+                                    </a>
+                                </li>
+                            @endcan
+                        </ul>
+                    </li>
+                @endcanany
+
+                <!-- Fixed Assets Group -->
+                @canany(['assets.view', 'asset_categories.view', 'assets.depreciation.run', 'assets.disposal.view',
+                    'assets.movement.view'])
+                    @php
+                        $assetsActive = request()->routeIs('assets.*') || request()->routeIs('asset-categories.*');
+                    @endphp
+                    <li class="nav-item {{ $assetsActive ? 'menu-is-opening menu-open' : '' }}">
+                        <a href="#" class="nav-link {{ $assetsActive ? 'active' : '' }}">
+                            <i class="nav-icon fas fa-building"></i>
+                            <p>
+                                Fixed Assets
+                                <i class="right fas fa-angle-left"></i>
+                            </p>
+                        </a>
+                        <ul class="nav nav-treeview">
+                            @can('asset_categories.view')
+                                <li class="nav-item">
+                                    <a href="{{ route('asset-categories.index') }}"
+                                        class="nav-link {{ request()->routeIs('asset-categories.*') ? 'active' : '' }}">
+                                        <i class="far fa-circle nav-icon"></i>
+                                        <p>Asset Categories</p>
+                                    </a>
+                                </li>
+                            @endcan
+                            @can('assets.view')
+                                <li class="nav-item">
+                                    <a href="{{ route('assets.index') }}"
+                                        class="nav-link {{ request()->routeIs('assets.*') && !request()->routeIs('assets.depreciation.*') ? 'active' : '' }}">
+                                        <i class="far fa-circle nav-icon"></i>
+                                        <p>Assets</p>
+                                    </a>
+                                </li>
+                            @endcan
+                            @can('assets.depreciation.run')
+                                <li class="nav-item">
+                                    <a href="{{ route('assets.depreciation.index') }}"
+                                        class="nav-link {{ request()->routeIs('assets.depreciation.*') ? 'active' : '' }}">
+                                        <i class="far fa-circle nav-icon"></i>
+                                        <p>Depreciation Runs</p>
+                                    </a>
+                                </li>
+                            @endcan
+                            @can('assets.disposal.view')
+                                <li class="nav-item">
+                                    <a href="{{ route('assets.disposals.index') }}"
+                                        class="nav-link {{ request()->routeIs('assets.disposals.*') ? 'active' : '' }}">
+                                        <i class="far fa-circle nav-icon"></i>
+                                        <p>Asset Disposals</p>
+                                    </a>
+                                </li>
+                            @endcan
+                            @can('assets.movement.view')
+                                <li class="nav-item">
+                                    <a href="{{ route('assets.movements.index') }}"
+                                        class="nav-link {{ request()->routeIs('assets.movements.*') ? 'active' : '' }}">
+                                        <i class="far fa-circle nav-icon"></i>
+                                        <p>Asset Movements</p>
+                                    </a>
+                                </li>
+                            @endcan
+                            @can('assets.create')
+                                <li class="nav-item">
+                                    <a href="{{ route('assets.import.index') }}"
+                                        class="nav-link {{ request()->routeIs('assets.import.*') ? 'active' : '' }}">
+                                        <i class="far fa-circle nav-icon"></i>
+                                        <p>Asset Import</p>
+                                    </a>
+                                </li>
+                            @endcan
+                            @can('assets.view')
+                                <li class="nav-item">
+                                    <a href="{{ route('assets.data-quality.index') }}"
+                                        class="nav-link {{ request()->routeIs('assets.data-quality.*') ? 'active' : '' }}">
+                                        <i class="far fa-circle nav-icon"></i>
+                                        <p>Data Quality</p>
+                                    </a>
+                                </li>
+                            @endcan
+                            @can('assets.update')
+                                <li class="nav-item">
+                                    <a href="{{ route('assets.bulk-operations.index') }}"
+                                        class="nav-link {{ request()->routeIs('assets.bulk-operations.*') ? 'active' : '' }}">
+                                        <i class="far fa-circle nav-icon"></i>
+                                        <p>Bulk Operations</p>
+                                    </a>
+                                </li>
+                            @endcan
+                        </ul>
+                    </li>
+                @endcanany
+
                 <!-- Reports Section -->
                 @include('layouts.partials.menu.reports')
-
-                @canany(['projects.view', 'funds.view', 'departments.view', 'assets.view', 'asset_categories.view',
-                    'assets.depreciation.run'])
-                    @include('layouts.partials.menu.master')
-                @endcanany
 
                 @can('view-admin')
                     @include('layouts.partials.menu.admin')

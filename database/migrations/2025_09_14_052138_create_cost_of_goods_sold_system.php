@@ -110,7 +110,7 @@ return new class extends Migration
             $table->enum('analysis_type', ['product', 'customer', 'supplier', 'period']);
             $table->foreignId('inventory_item_id')->nullable()->constrained()->onDelete('cascade');
             $table->foreignId('customer_id')->nullable()->constrained()->onDelete('cascade');
-            $table->foreignId('supplier_id')->nullable()->constrained()->onDelete('cascade');
+            $table->foreignId('supplier_id')->nullable()->constrained('vendors')->onDelete('cascade');
             $table->date('analysis_date');
             $table->decimal('revenue', 15, 4)->default(0);
             $table->decimal('cost_of_goods_sold', 15, 4)->default(0);
@@ -132,7 +132,7 @@ return new class extends Migration
         // Supplier cost analysis table
         Schema::create('supplier_cost_analyses', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('supplier_id')->constrained()->onDelete('cascade');
+            $table->foreignId('supplier_id')->constrained('vendors')->onDelete('cascade');
             $table->date('analysis_date');
             $table->decimal('total_purchase_value', 15, 4)->default(0);
             $table->decimal('total_freight_cost', 15, 4)->default(0);

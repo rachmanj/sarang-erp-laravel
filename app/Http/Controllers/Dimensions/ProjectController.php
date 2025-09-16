@@ -66,22 +66,43 @@ class ProjectController extends Controller
     public function update(Request $request, int $id)
     {
         $this->middleware('permission:projects.manage');
-        $data = $request->validate([
-            'code' => ['required', 'string', 'max:50', 'unique:projects,code,' . $id],
-            'name' => ['required', 'string', 'max:255'],
-            'fund_id' => ['nullable', 'integer', 'exists:funds,id'],
-            'budget_total' => ['nullable', 'numeric', 'min:0'],
-            'status' => ['nullable', 'in:active,closed'],
-        ]);
-        DB::table('projects')->where('id', $id)->update([
-            'code' => $data['code'],
-            'name' => $data['name'],
-            'fund_id' => $data['fund_id'] ?? null,
-            'budget_total' => $data['budget_total'] ?? 0,
-            'status' => $data['status'] ?? 'active',
-            'updated_at' => now(),
-        ]);
-        return back()->with('success', 'Project updated');
+
+        try {
+            $data = $request->validate([
+                'code' => ['required', 'string', 'max:50', 'unique:projects,code,' . $id],
+                'name' => ['required', 'string', 'max:255'],
+                'fund_id' => ['nullable', 'integer', 'exists:funds,id'],
+                'budget_total' => ['nullable', 'numeric', 'min:0'],
+                'status' => ['nullable', 'in:active,closed'],
+            ]);
+
+            $updated = DB::table('projects')->where('id', $id)->update([
+                'code' => $data['code'],
+                'name' => $data['name'],
+                'fund_id' => $data['fund_id'] ?? null,
+                'budget_total' => $data['budget_total'] ?? 0,
+                'status' => $data['status'] ?? 'active',
+                'updated_at' => now(),
+            ]);
+
+            if ($updated) {
+                return response()->json(['success' => true, 'message' => 'Project updated successfully']);
+            } else {
+                return response()->json(['success' => false, 'message' => 'Project not found or no changes made'], 404);
+            }
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            \Log::error('Project update error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while updating the project'
+            ], 500);
+        }
     }
 
     public function destroy(int $id)

@@ -4,6 +4,8 @@
 <script src="{{ asset('adminlte/plugins/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
 <!-- SweetAlert2 -->
 <script src="{{ asset('adminlte/plugins/sweetalert2/sweetalert2.min.js') }}"></script>
+<!-- SweetAlert2 Global Configuration -->
+<script src="{{ asset('js/sweetalert2-config.js') }}"></script>
 <!-- Toastr -->
 <script src="{{ asset('adminlte/plugins/toastr/toastr.min.js') }}"></script>
 <!-- AdminLTE App -->

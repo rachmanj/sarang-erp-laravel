@@ -88,6 +88,14 @@ class RolePermissionSeeder extends Seeder
             'assets.movement.delete',
             'assets.movement.approve',
             'assets.reports.view',
+            // Inventory permissions
+            'inventory.view',
+            'inventory.create',
+            'inventory.update',
+            'inventory.delete',
+            'inventory.adjust',
+            'inventory.transfer',
+            'inventory.reports',
         ];
 
         foreach ($permissions as $perm) {

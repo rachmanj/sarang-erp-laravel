@@ -1,5 +1,5 @@
 **Purpose**: Record technical decisions and rationale for future reference
-**Last Updated**: 2025-01-15 (Added Phase 4 Advanced Trading Features implementation decision records)
+**Last Updated**: 2025-01-16 (Added ERP System Menu Reorganization decision record)
 
 # Technical Decision Records
 
@@ -464,3 +464,49 @@ Decision: [Title] - [YYYY-MM-DD]
 -   Integrated realistic business scenarios covering tax compliance, inventory management, and analytics
 
 **Review Date**: 2025-10-15 (after training workshop delivery and user feedback)
+
+---
+
+### Decision: ERP System Menu Reorganization for Trading Company Operations - 2025-01-16
+
+**Context**: Current sidebar menu structure mixed master data and fixed assets together, and lacked dedicated inventory management section, making navigation confusing for trading company users who need quick access to inventory and purchase operations.
+
+**Options Considered**:
+
+1. **Option A**: Keep existing menu structure with minor adjustments
+
+    - ✅ Pros: Minimal development effort, no disruption to existing users
+    - ❌ Cons: Poor user experience, confusing navigation, doesn't reflect trading company needs
+
+2. **Option B**: Complete menu reorganization with clear separation of concerns
+
+    - ✅ Pros: Better user experience, logical grouping, trading company focus, scalable structure
+    - ❌ Cons: Requires development effort, potential user confusion during transition
+
+3. **Option C**: Add inventory menu without reorganizing existing structure
+    - ✅ Pros: Addresses immediate inventory access need, minimal changes
+    - ❌ Cons: Doesn't solve underlying navigation issues, still confusing structure
+
+**Decision**: Complete menu reorganization with clear separation of concerns (Option B)
+
+**Rationale**:
+
+-   Trading companies require prominent inventory management access for daily operations
+-   Clear separation between master data and fixed assets improves user understanding
+-   Logical grouping of related functionality improves workflow efficiency
+-   Hierarchical structure supports role-based access control effectively
+-   Better reflects business processes and user mental models
+-   Scalable structure enables future feature additions
+-   Improved user adoption and system utilization
+
+**Implementation**:
+
+-   Reorganized sidebar menu under MAIN section with clear hierarchy
+-   Added dedicated Inventory section with Inventory Items, Add Item, Low Stock Report, Valuation Report
+-   Separated Master Data (Projects, Funds, Departments) from Fixed Assets
+-   Created comprehensive Fixed Assets section with Asset Categories, Assets, Depreciation Runs, Asset Disposals, Asset Movements, Asset Import, Data Quality, Bulk Operations
+-   Maintained role-based access control with permission-based menu visibility
+-   Preserved existing functionality while improving navigation structure
+-   Updated sidebar.blade.php with new menu organization
+
+**Review Date**: 2025-07-16 (after user feedback and usage analytics)

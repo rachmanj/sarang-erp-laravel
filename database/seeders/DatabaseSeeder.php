@@ -26,6 +26,10 @@ class DatabaseSeeder extends Seeder
             RolePermissionSeeder::class,
             DemoJournalSeeder::class,
             TermsSeeder::class,
+            AssetCategorySeeder::class,
+            TrainingCustomerSeeder::class,
+            TrainingVendorSeeder::class,
+            TrainingAssetSeeder::class,
         ]);
     }
 }

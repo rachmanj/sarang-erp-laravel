@@ -53,18 +53,38 @@ class FundController extends Controller
 
     public function update(Request $request, int $id)
     {
-        $data = $request->validate([
-            'code' => ['required', 'string', 'max:50', 'unique:funds,code,' . $id],
-            'name' => ['required', 'string', 'max:255'],
-            'is_restricted' => ['nullable', 'boolean'],
-        ]);
-        DB::table('funds')->where('id', $id)->update([
-            'code' => $data['code'],
-            'name' => $data['name'],
-            'is_restricted' => !empty($data['is_restricted']),
-            'updated_at' => now(),
-        ]);
-        return back()->with('success', 'Fund updated');
+        try {
+            $data = $request->validate([
+                'code' => ['required', 'string', 'max:50', 'unique:funds,code,' . $id],
+                'name' => ['required', 'string', 'max:255'],
+                'is_restricted' => ['nullable', 'boolean'],
+            ]);
+
+            $updated = DB::table('funds')->where('id', $id)->update([
+                'code' => $data['code'],
+                'name' => $data['name'],
+                'is_restricted' => !empty($data['is_restricted']),
+                'updated_at' => now(),
+            ]);
+
+            if ($updated) {
+                return response()->json(['success' => true, 'message' => 'Fund updated successfully']);
+            } else {
+                return response()->json(['success' => false, 'message' => 'Fund not found or no changes made'], 404);
+            }
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            \Log::error('Fund update error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while updating the fund'
+            ], 500);
+        }
     }
 
     public function destroy(int $id)

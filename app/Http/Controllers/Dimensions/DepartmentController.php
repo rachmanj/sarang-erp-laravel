@@ -50,16 +50,36 @@ class DepartmentController extends Controller
 
     public function update(Request $request, int $id)
     {
-        $data = $request->validate([
-            'code' => ['required', 'string', 'max:50', 'unique:departments,code,' . $id],
-            'name' => ['required', 'string', 'max:255'],
-        ]);
-        DB::table('departments')->where('id', $id)->update([
-            'code' => $data['code'],
-            'name' => $data['name'],
-            'updated_at' => now(),
-        ]);
-        return back()->with('success', 'Department updated');
+        try {
+            $data = $request->validate([
+                'code' => ['required', 'string', 'max:50', 'unique:departments,code,' . $id],
+                'name' => ['required', 'string', 'max:255'],
+            ]);
+
+            $updated = DB::table('departments')->where('id', $id)->update([
+                'code' => $data['code'],
+                'name' => $data['name'],
+                'updated_at' => now(),
+            ]);
+
+            if ($updated) {
+                return response()->json(['success' => true, 'message' => 'Department updated successfully']);
+            } else {
+                return response()->json(['success' => false, 'message' => 'Department not found or no changes made'], 404);
+            }
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            \Log::error('Department update error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while updating the department'
+            ], 500);
+        }
     }
 
     public function destroy(int $id)

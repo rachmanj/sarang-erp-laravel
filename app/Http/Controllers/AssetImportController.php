@@ -37,7 +37,7 @@ class AssetImportController extends Controller
             ->header('Content-Disposition', 'attachment; filename="asset_import_template.csv"');
     }
 
-    public function validate(Request $request)
+    public function validateImport(Request $request)
     {
         $this->authorize('create', \App\Models\Asset::class);
 
