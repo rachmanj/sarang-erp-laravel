@@ -6,14 +6,17 @@ use App\Http\Controllers\Controller;
 use App\Models\Accounting\PurchaseInvoice;
 use App\Models\Accounting\PurchaseInvoiceLine;
 use App\Services\Accounting\PostingService;
+use App\Services\DocumentNumberingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\Facades\DataTables;
 
 class PurchaseInvoiceController extends Controller
 {
-    public function __construct(private PostingService $posting)
-    {
+    public function __construct(
+        private PostingService $posting,
+        private DocumentNumberingService $documentNumberingService
+    ) {
         $this->middleware(['auth']);
         $this->middleware('permission:ap.invoices.view')->only(['index', 'show']);
         $this->middleware('permission:ap.invoices.create')->only(['create', 'store']);
@@ -65,8 +68,8 @@ class PurchaseInvoiceController extends Controller
                 'total_amount' => 0,
             ]);
 
-            $ym = date('Ym', strtotime($data['date']));
-            $invoice->update(['invoice_no' => sprintf('PI-%s-%06d', $ym, $invoice->id)]);
+            $invoiceNo = $this->documentNumberingService->generateNumber('purchase_invoice', $data['date']);
+            $invoice->update(['invoice_no' => $invoiceNo]);
 
             $total = 0;
             foreach ($data['lines'] as $l) {

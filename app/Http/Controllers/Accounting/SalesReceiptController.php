@@ -6,14 +6,17 @@ use App\Http\Controllers\Controller;
 use App\Models\Accounting\SalesReceipt;
 use App\Models\Accounting\SalesReceiptLine;
 use App\Services\Accounting\PostingService;
+use App\Services\DocumentNumberingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\Facades\DataTables;
 
 class SalesReceiptController extends Controller
 {
-    public function __construct(private PostingService $posting)
-    {
+    public function __construct(
+        private PostingService $posting,
+        private DocumentNumberingService $documentNumberingService
+    ) {
         $this->middleware(['auth']);
         $this->middleware('permission:ar.receipts.view')->only(['index', 'show']);
         $this->middleware('permission:ar.receipts.create')->only(['create', 'store']);
@@ -54,8 +57,8 @@ class SalesReceiptController extends Controller
                 'total_amount' => 0,
             ]);
 
-            $ym = date('Ym', strtotime($data['date']));
-            $receipt->update(['receipt_no' => sprintf('SR-%s-%06d', $ym, $receipt->id)]);
+            $receiptNo = $this->documentNumberingService->generateNumber('sales_receipt', $data['date']);
+            $receipt->update(['receipt_no' => $receiptNo]);
             $total = 0;
             foreach ($data['lines'] as $l) {
                 $amount = (float) $l['amount'];

@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class CashExpense extends Model
 {
-    protected $fillable = ['date', 'description', 'account_id', 'amount', 'status', 'created_by'];
+    protected $fillable = ['expense_no', 'date', 'description', 'account_id', 'amount', 'status', 'created_by'];
 
     public function expenseAccount(): BelongsTo
     {

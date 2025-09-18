@@ -5,10 +5,14 @@ namespace App\Services\Accounting;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Carbon;
 use App\Services\Accounting\PeriodCloseService;
+use App\Services\DocumentNumberingService;
 
 class PostingService
 {
-    public function __construct(private PeriodCloseService $periods) {}
+    public function __construct(
+        private PeriodCloseService $periods,
+        private DocumentNumberingService $documentNumberingService
+    ) {}
     public function postJournal(array $payload): int
     {
         // Expected $payload keys: date, description, period_id|null, source_type, source_id, posted_by|null, lines[]
@@ -33,9 +37,8 @@ class PostingService
                 'updated_at' => now(),
             ]);
 
-            // Generate journal number: JNL-YYYYMM-###### using journal id and date
-            $dateYm = date('Ym', strtotime($payload['date']));
-            $journalNo = sprintf('JNL-%s-%06d', $dateYm, $journalId);
+            // Generate journal number using centralized service
+            $journalNo = $this->documentNumberingService->generateNumber('journal', $payload['date']);
             DB::table('journals')->where('id', $journalId)->update(['journal_no' => $journalNo]);
 
             $linesInsert = [];

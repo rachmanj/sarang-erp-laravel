@@ -1,5 +1,5 @@
 Purpose: Technical reference for understanding system design and development patterns
-Last Updated: 2025-01-16 (Updated with Master Data CRUD Testing and SweetAlert2 Implementation completion)
+Last Updated: 2025-01-17 (Updated with Comprehensive Auto-Numbering System Implementation)
 
 ## Architecture Documentation Guidelines
 
@@ -94,18 +94,22 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 -   **Journal Management**: Manual journal entries with automatic numbering (JNL-YYYYMM-######)
 -   **Period Management**: Financial period closing with validation
 -   **Posting Service**: Centralized accounting posting with balance validation
+-   **Auto-Numbering System**: Centralized document numbering service with consistent PREFIX-YYYYMM-###### format across all document types
 
 ### 2. Accounts Receivable (AR) Module
 
--   **Sales Invoices**: Customer billing with line items, tax codes, and dimensions
--   **Sales Receipts**: Payment collection with automatic allocation to invoices
+-   **Sales Invoices**: Customer billing with line items, tax codes, and dimensions (SINV-YYYYMM-######)
+-   **Sales Receipts**: Payment collection with automatic allocation to invoices (SR-YYYYMM-######)
+-   **Sales Orders**: Customer order management with automatic numbering (SO-YYYYMM-######)
 -   **AR Aging**: Customer payment tracking and aging analysis
 -   **AR Balances**: Customer account balance reporting
 
 ### 3. Accounts Payable (AP) Module
 
--   **Purchase Invoices**: Vendor billing with line items and tax handling
--   **Purchase Payments**: Vendor payment processing with allocation
+-   **Purchase Invoices**: Vendor billing with line items and tax handling (PINV-YYYYMM-######)
+-   **Purchase Payments**: Vendor payment processing with allocation (PP-YYYYMM-######)
+-   **Purchase Orders**: Vendor order management with automatic numbering (PO-YYYYMM-######)
+-   **Goods Receipts**: Inventory receipt processing with automatic numbering (GR-YYYYMM-######)
 -   **AP Aging**: Vendor payment tracking and aging analysis
 -   **AP Balances**: Vendor account balance reporting
 
@@ -114,19 +118,19 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 -   **Asset Register**: Complete asset lifecycle management
 -   **Asset Categories**: Configurable categories with depreciation settings
 -   **Depreciation Management**: Automated depreciation calculation and posting
--   **Asset Disposal**: Disposal process with gain/loss calculation
+-   **Asset Disposal**: Disposal process with gain/loss calculation and automatic numbering (DIS-YYYYMM-######)
 -   **Asset Movement**: Transfer tracking between departments/projects
 -   **Data Quality**: Duplicate detection, completeness checks, consistency validation
 
 ### 5. Procurement Management
 
--   **Purchase Orders**: Vendor order management with approval workflow
--   **Goods Receipts**: Inventory receipt processing
+-   **Purchase Orders**: Vendor order management with approval workflow (PO-YYYYMM-######)
+-   **Goods Receipts**: Inventory receipt processing (GR-YYYYMM-######)
 -   **Vendor Management**: Vendor master data with performance tracking
 
 ### 6. Sales Management
 
--   **Sales Orders**: Customer order management
+-   **Sales Orders**: Customer order management (SO-YYYYMM-######)
 -   **Customer Management**: Customer master data with credit management
 
 ### 7. Multi-Dimensional Accounting
@@ -186,6 +190,27 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 -   **SweetAlert2 Integration**: Consistent confirmation dialogs and success notifications across all Master Data features
 -   **JSON API Responses**: Proper AJAX handling with JSON success/error responses for seamless user experience
 -   **DataTable Integration**: Dynamic data loading with search, sorting, and pagination capabilities
+
+### 14. Comprehensive Auto-Numbering System
+
+-   **Centralized Service**: DocumentNumberingService provides unified document numbering across all document types
+-   **Consistent Format**: All documents follow PREFIX-YYYYMM-###### format (e.g., PO-202509-000001)
+-   **Thread-Safe Operations**: Database transactions with proper locking prevent duplicate numbers
+-   **Month-Based Sequences**: Automatic sequence reset and tracking per month
+-   **Document Type Support**: 10 document types with standardized prefixes:
+    -   Purchase Orders: PO-YYYYMM-######
+    -   Sales Orders: SO-YYYYMM-######
+    -   Purchase Invoices: PINV-YYYYMM-######
+    -   Sales Invoices: SINV-YYYYMM-######
+    -   Purchase Payments: PP-YYYYMM-######
+    -   Sales Receipts: SR-YYYYMM-######
+    -   Asset Disposals: DIS-YYYYMM-######
+    -   Goods Receipts: GR-YYYYMM-######
+    -   Cash Expenses: CEV-YYYYMM-######
+    -   Journals: JNL-YYYYMM-######
+-   **Sequence Management**: DocumentSequence model tracks last sequence per document type and month
+-   **Error Handling**: Comprehensive exception handling and validation
+-   **Database Persistence**: Sequence tracking stored in document_sequences table with unique constraints
 
 ## Database Schema
 
@@ -260,11 +285,16 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 -   `supplier_comparisons`: Supplier comparison data and benchmarking
 -   `business_intelligences`: Business intelligence reports and analytics data
 
+#### Auto-Numbering Tables
+
+-   `document_sequences`: Sequence tracking per document type and month with thread-safe operations
+-   `cash_expenses`: Cash expense tracking with automatic numbering (CEV-YYYYMM-######) and creator attribution
+-   `asset_disposals`: Asset disposal transactions with automatic numbering (DIS-YYYYMM-######)
+
 #### System Tables
 
 -   `users`: User management with role integration and username field
 -   `roles` / `permissions`: RBAC system (Spatie) with consolidated permissions
--   `cash_expenses`: Cash expense tracking with creator attribution
 
 ### Migration Consolidation (2025-01-15)
 
@@ -312,15 +342,20 @@ graph TD
     B --> C[Permission Validation]
     C --> D[Data Validation]
     D --> E[Business Logic Processing]
-    E --> F[Posting Service]
-    F --> G[Journal Creation]
-    G --> H[Database Transaction]
-    H --> I[Response Generation]
-    I --> J[View Rendering]
+    E --> F[Document Numbering Service]
+    F --> G[Posting Service]
+    G --> H[Journal Creation]
+    H --> I[Database Transaction]
+    I --> J[Response Generation]
+    J --> K[View Rendering]
 
-    F --> K[Period Validation]
-    K --> L[Balance Validation]
-    L --> M[Dimension Assignment]
+    F --> L[Sequence Generation]
+    L --> M[Month-Based Tracking]
+    M --> N[Thread-Safe Locking]
+
+    G --> O[Period Validation]
+    O --> P[Balance Validation]
+    P --> Q[Dimension Assignment]
 ```
 
 ## Security Implementation

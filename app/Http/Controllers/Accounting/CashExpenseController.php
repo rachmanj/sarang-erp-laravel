@@ -5,14 +5,18 @@ namespace App\Http\Controllers\Accounting;
 use App\Http\Controllers\Controller;
 use App\Models\Accounting\CashExpense;
 use App\Services\Accounting\PostingService;
+use App\Services\DocumentNumberingService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\Facades\DataTables;
 
 class CashExpenseController extends Controller
 {
-    public function __construct(private PostingService $posting)
-    {
+    public function __construct(
+        private PostingService $posting,
+        private DocumentNumberingService $documentNumberingService
+    ) {
         $this->middleware(['auth']);
     }
 
@@ -24,7 +28,7 @@ class CashExpenseController extends Controller
     public function create()
     {
         $expenseAccounts = DB::table('accounts')->where('type', 'expense')->where('is_postable', 1)->orderBy('code')->get();
-        $cashAccounts = DB::table('accounts')->where('code', 'like', '1.1.2%')->where('is_postable', 1)->orderBy('code')->get();
+        $cashAccounts = DB::table('accounts')->where('code', 'like', '1.1.1%')->where('is_postable', 1)->orderBy('code')->get();
         $projects = DB::table('projects')->orderBy('code')->get(['id', 'code', 'name']);
         $funds = DB::table('funds')->orderBy('code')->get(['id', 'code', 'name']);
         $departments = DB::table('departments')->orderBy('code')->get(['id', 'code', 'name']);
@@ -55,13 +59,17 @@ class CashExpenseController extends Controller
                 'account_id' => $data['expense_account_id'],
                 'amount' => $amount,
                 'status' => 'posted',
-                'created_by' => auth()->id(),
+                'created_by' => Auth::id(),
             ]);
+
+            // Generate expense number
+            $expenseNo = $this->documentNumberingService->generateNumber('cash_expense', $data['date']);
+            $exp->update(['expense_no' => $expenseNo]);
 
             // Post journal: Debit Expense, Credit Cash
             $this->posting->postJournal([
                 'date' => $exp->date,
-                'description' => 'Cash Expense #' . $exp->id,
+                'description' => 'Cash Expense ' . $expenseNo,
                 'source_type' => 'cash_expense',
                 'source_id' => $exp->id,
                 'lines' => [

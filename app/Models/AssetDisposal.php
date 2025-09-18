@@ -10,6 +10,7 @@ use Carbon\Carbon;
 class AssetDisposal extends Model
 {
     protected $fillable = [
+        'disposal_no',
         'asset_id',
         'disposal_date',
         'disposal_type',

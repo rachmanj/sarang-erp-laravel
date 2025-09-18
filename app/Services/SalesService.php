@@ -11,16 +11,19 @@ use App\Models\CustomerCreditLimit;
 use App\Models\CustomerPricingTier;
 use App\Models\CustomerPerformance;
 use App\Services\InventoryService;
+use App\Services\DocumentNumberingService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 
 class SalesService
 {
     protected $inventoryService;
+    protected $documentNumberingService;
 
-    public function __construct(InventoryService $inventoryService)
+    public function __construct(InventoryService $inventoryService, DocumentNumberingService $documentNumberingService)
     {
         $this->inventoryService = $inventoryService;
+        $this->documentNumberingService = $documentNumberingService;
     }
 
     public function createSalesOrder($data)
@@ -51,8 +54,8 @@ class SalesService
             ]);
 
             // Generate order number
-            $ym = date('Ym', strtotime($data['date']));
-            $so->update(['order_no' => sprintf('SO-%s-%06d', $ym, $so->id)]);
+            $orderNo = $this->documentNumberingService->generateNumber('sales_order', $data['date']);
+            $so->update(['order_no' => $orderNo]);
 
             $totalAmount = 0;
             $totalFreightCost = 0;

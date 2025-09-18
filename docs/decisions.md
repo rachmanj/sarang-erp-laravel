@@ -1,5 +1,5 @@
 **Purpose**: Record technical decisions and rationale for future reference
-**Last Updated**: 2025-01-16 (Added ERP System Menu Reorganization decision record)
+**Last Updated**: 2025-01-17 (Added Comprehensive Auto-Numbering System decision record)
 
 # Technical Decision Records
 
@@ -29,6 +29,54 @@ Decision: [Title] - [YYYY-MM-DD]
 ---
 
 ## Recent Decisions
+
+### Decision: Comprehensive Auto-Numbering System Architecture - 2025-01-17
+
+**Context**: Sarange ERP system required consistent document numbering across all document types with PREFIX-YYYYMM-###### format, but existing implementation was scattered across multiple controllers with inconsistent logic and missing implementations for some document types.
+
+**Options Considered**:
+
+1. **Option A**: Fix individual implementations incrementally
+
+    - ✅ Pros: Minimal disruption, gradual improvement
+    - ❌ Cons: Inconsistent logic, duplicate code, maintenance overhead, continued inconsistencies
+
+2. **Option B**: Create centralized auto-numbering service with unified logic
+
+    - ✅ Pros: Consistent implementation, centralized logic, thread-safe operations, easy maintenance
+    - ❌ Cons: Requires refactoring existing code, higher initial development effort
+
+3. **Option C**: Use database auto-increment with formatting
+    - ✅ Pros: Simple implementation, database-managed sequences
+    - ❌ Cons: No month-based reset, potential gaps, limited control over format
+
+**Decision**: Create centralized auto-numbering service with unified logic (Option B)
+
+**Rationale**:
+
+-   Ensures consistent PREFIX-YYYYMM-###### format across all document types
+-   Centralized logic reduces code duplication and maintenance overhead
+-   Thread-safe operations prevent duplicate numbers in concurrent environments
+-   Month-based sequence tracking enables proper document organization
+-   Easy to extend for new document types
+-   Better error handling and validation
+-   Database persistence ensures sequence integrity across system restarts
+
+**Implementation**:
+
+-   Created `DocumentNumberingService` with centralized numbering logic
+-   Implemented `DocumentSequence` model and `document_sequences` table for sequence tracking
+-   Added auto-numbering to missing document types (Asset Disposals, Cash Expenses)
+-   Updated all 8 existing controllers/services to use centralized service
+-   Standardized prefixes: PO, SO, PINV, SINV, PP, SR, DIS, GR, CEV, JNL
+-   Implemented thread-safe operations with database transactions and locking
+-   Added proper error handling and validation
+-   Created database migrations for new fields and sequence table
+-   Fixed database migration issues and ran fresh migration for clean implementation
+
+**Review Date**: 2025-04-17 (after production deployment and user feedback)
+
+---
 
 ### Decision: Trading Company Chart of Accounts Structure - 2025-01-15
 

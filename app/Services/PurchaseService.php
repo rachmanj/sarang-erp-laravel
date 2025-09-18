@@ -9,16 +9,19 @@ use App\Models\InventoryItem;
 use App\Models\InventoryTransaction;
 use App\Models\SupplierPerformance;
 use App\Services\InventoryService;
+use App\Services\DocumentNumberingService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 
 class PurchaseService
 {
     protected $inventoryService;
+    protected $documentNumberingService;
 
-    public function __construct(InventoryService $inventoryService)
+    public function __construct(InventoryService $inventoryService, DocumentNumberingService $documentNumberingService)
     {
         $this->inventoryService = $inventoryService;
+        $this->documentNumberingService = $documentNumberingService;
     }
 
     public function createPurchaseOrder($data)
@@ -44,8 +47,8 @@ class PurchaseService
             ]);
 
             // Generate order number
-            $ym = date('Ym', strtotime($data['date']));
-            $po->update(['order_no' => sprintf('PO-%s-%06d', $ym, $po->id)]);
+            $orderNo = $this->documentNumberingService->generateNumber('purchase_order', $data['date']);
+            $po->update(['order_no' => $orderNo]);
 
             $totalAmount = 0;
             $totalFreightCost = 0;

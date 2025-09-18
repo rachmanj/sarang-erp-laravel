@@ -5,11 +5,16 @@ namespace App\Http\Controllers;
 use App\Models\GoodsReceipt;
 use App\Models\GoodsReceiptLine;
 use App\Models\PurchaseOrder;
+use App\Services\DocumentNumberingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class GoodsReceiptController extends Controller
 {
+    public function __construct(
+        private DocumentNumberingService $documentNumberingService
+    ) {}
+
     public function index()
     {
         return view('goods_receipts.index');
@@ -49,8 +54,8 @@ class GoodsReceiptController extends Controller
                 'status' => 'draft',
                 'total_amount' => 0,
             ]);
-            $ym = date('Ym', strtotime($data['date']));
-            $grn->update(['grn_no' => sprintf('GRN-%s-%06d', $ym, $grn->id)]);
+            $grnNo = $this->documentNumberingService->generateNumber('goods_receipt', $data['date']);
+            $grn->update(['grn_no' => $grnNo]);
             $total = 0;
             foreach ($data['lines'] as $l) {
                 $amount = (float)$l['qty'] * (float)$l['unit_price'];

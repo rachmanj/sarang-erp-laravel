@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Asset;
 use App\Models\AssetDisposal;
 use App\Services\Accounting\FixedAssetService;
+use App\Services\DocumentNumberingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -13,7 +14,8 @@ use Carbon\Carbon;
 class AssetDisposalController extends Controller
 {
     public function __construct(
-        private FixedAssetService $fixedAssetService
+        private FixedAssetService $fixedAssetService,
+        private DocumentNumberingService $documentNumberingService
     ) {}
 
     /**
@@ -143,6 +145,10 @@ class AssetDisposalController extends Controller
                 'created_by' => Auth::id(),
                 'status' => 'draft',
             ]);
+
+            // Generate disposal number
+            $disposalNo = $this->documentNumberingService->generateNumber('asset_disposal', $request->disposal_date);
+            $disposal->update(['disposal_no' => $disposalNo]);
 
             // Update asset status to disposed
             $asset->update([

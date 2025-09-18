@@ -27,9 +27,9 @@ class DatabaseSeeder extends Seeder
             DemoJournalSeeder::class,
             TermsSeeder::class,
             AssetCategorySeeder::class,
-            TrainingCustomerSeeder::class,
-            TrainingVendorSeeder::class,
-            TrainingAssetSeeder::class,
+            // TrainingCustomerSeeder::class, // Commented out - requires additional models
+            // TrainingVendorSeeder::class, // Commented out - requires additional models
+            // TrainingAssetSeeder::class, // Commented out - requires additional models
         ]);
     }
 }
