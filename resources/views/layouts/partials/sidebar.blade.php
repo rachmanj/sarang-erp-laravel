@@ -70,6 +70,13 @@
                                     <p>Sales Orders</p>
                                 </a>
                             </li>
+                            <li class="nav-item">
+                                <a href="{{ route('delivery-orders.index') }}"
+                                    class="nav-link {{ request()->routeIs('delivery-orders.*') ? 'active' : '' }}">
+                                    <i class="far fa-circle nav-icon"></i>
+                                    <p>Delivery Orders</p>
+                                </a>
+                            </li>
                             @can('ar.receipts.view')
                                 <li class="nav-item">
                                     <a href="{{ route('sales-receipts.index') }}"
@@ -276,15 +283,6 @@
                                         class="nav-link {{ request()->routeIs('projects.*') ? 'active' : '' }}">
                                         <i class="far fa-circle nav-icon"></i>
                                         <p>Projects</p>
-                                    </a>
-                                </li>
-                            @endcan
-                            @can('funds.view')
-                                <li class="nav-item">
-                                    <a href="{{ route('funds.index') }}"
-                                        class="nav-link {{ request()->routeIs('funds.*') ? 'active' : '' }}">
-                                        <i class="far fa-circle nav-icon"></i>
-                                        <p>Funds</p>
                                     </a>
                                 </li>
                             @endcan

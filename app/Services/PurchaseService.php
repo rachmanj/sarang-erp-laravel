@@ -41,6 +41,7 @@ class PurchaseService
                 'freight_cost' => $data['freight_cost'] ?? 0,
                 'handling_cost' => $data['handling_cost'] ?? 0,
                 'insurance_cost' => $data['insurance_cost'] ?? 0,
+                'order_type' => $data['order_type'] ?? 'item',
                 'status' => 'draft',
                 'approval_status' => 'pending',
                 'created_by' => Auth::id(),
@@ -55,27 +56,44 @@ class PurchaseService
             $totalHandlingCost = 0;
 
             foreach ($data['lines'] as $lineData) {
-                $amount = $lineData['qty'] * $lineData['unit_price'];
+                $originalAmount = $lineData['qty'] * $lineData['unit_price'];
+                $vatAmount = $originalAmount * ($lineData['vat_rate'] / 100);
+                $wtaxAmount = $originalAmount * ($lineData['wtax_rate'] / 100);
+                $amount = $originalAmount + $vatAmount - $wtaxAmount;
+
                 $totalAmount += $amount;
-                $totalFreightCost += $lineData['freight_cost'] ?? 0;
-                $totalHandlingCost += $lineData['handling_cost'] ?? 0;
+
+                // Determine if this is an inventory item or account based on order type
+                $inventoryItemId = null;
+                $accountId = null;
+
+                if ($data['order_type'] === 'item') {
+                    $inventoryItemId = $lineData['item_id'];
+                    // Get account from inventory item
+                    $inventoryItem = InventoryItem::find($lineData['item_id']);
+                    $accountId = $inventoryItem ? $inventoryItem->account_id : null;
+                } else {
+                    $accountId = $lineData['item_id'];
+                }
 
                 PurchaseOrderLine::create([
                     'order_id' => $po->id,
-                    'account_id' => $lineData['account_id'],
-                    'inventory_item_id' => $lineData['inventory_item_id'] ?? null,
-                    'item_code' => $lineData['item_code'] ?? null,
-                    'item_name' => $lineData['item_name'] ?? null,
-                    'unit_of_measure' => $lineData['unit_of_measure'] ?? null,
+                    'account_id' => $accountId,
+                    'inventory_item_id' => $inventoryItemId,
+                    'item_code' => null,
+                    'item_name' => null,
+                    'unit_of_measure' => null,
                     'description' => $lineData['description'] ?? null,
                     'qty' => $lineData['qty'],
                     'received_qty' => 0,
                     'pending_qty' => $lineData['qty'],
                     'unit_price' => $lineData['unit_price'],
                     'amount' => $amount,
-                    'freight_cost' => $lineData['freight_cost'] ?? 0,
-                    'handling_cost' => $lineData['handling_cost'] ?? 0,
-                    'tax_code_id' => $lineData['tax_code_id'] ?? null,
+                    'freight_cost' => 0,
+                    'handling_cost' => 0,
+                    'tax_code_id' => null,
+                    'vat_rate' => $lineData['vat_rate'],
+                    'wtax_rate' => $lineData['wtax_rate'],
                     'notes' => $lineData['notes'] ?? null,
                     'status' => 'pending',
                 ]);
@@ -313,5 +331,34 @@ class PurchaseService
         ];
 
         SupplierPerformance::updatePerformanceMetrics($vendorId, $year, $month, $orderData);
+    }
+
+    /**
+     * Validate order type consistency for Purchase Order
+     */
+    public function validateOrderTypeConsistency(PurchaseOrder $purchaseOrder): bool
+    {
+        try {
+            $purchaseOrder->validateOrderTypeConsistency();
+            return true;
+        } catch (\Exception $e) {
+            throw new \Exception($e->getMessage());
+        }
+    }
+
+    /**
+     * Check if Purchase Order can copy to GRPO
+     */
+    public function canCopyToGRPO(PurchaseOrder $purchaseOrder): bool
+    {
+        return $purchaseOrder->canCopyToGRPO();
+    }
+
+    /**
+     * Check if Purchase Order can copy to Purchase Invoice
+     */
+    public function canCopyToPurchaseInvoice(PurchaseOrder $purchaseOrder): bool
+    {
+        return $purchaseOrder->canCopyToPurchaseInvoice();
     }
 }

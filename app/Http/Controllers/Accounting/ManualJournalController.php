@@ -22,9 +22,8 @@ class ManualJournalController extends Controller
             ->orderBy('code')
             ->get(['id', 'code', 'name']);
         $projects = DB::table('projects')->orderBy('code')->get(['id', 'code', 'name']);
-        $funds = DB::table('funds')->orderBy('code')->get(['id', 'code', 'name']);
         $departments = DB::table('departments')->orderBy('code')->get(['id', 'code', 'name']);
-        return view('journals.manual.create', compact('accounts', 'projects', 'funds', 'departments'));
+        return view('journals.manual.create', compact('accounts', 'projects', 'departments'));
     }
 
     public function store(Request $request)
@@ -38,7 +37,6 @@ class ManualJournalController extends Controller
             'lines.*.debit' => ['nullable', 'numeric', 'min:0'],
             'lines.*.credit' => ['nullable', 'numeric', 'min:0'],
             'lines.*.project_id' => ['nullable', 'integer'],
-            'lines.*.fund_id' => ['nullable', 'integer'],
             'lines.*.dept_id' => ['nullable', 'integer'],
             'lines.*.memo' => ['nullable', 'string', 'max:255'],
         ]);

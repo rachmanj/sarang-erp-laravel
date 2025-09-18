@@ -31,6 +31,12 @@
                         </form>
                         <a href="{{ route('sales-orders.create-invoice', $order->id) }}" class="btn btn-sm btn-success"
                             aria-label="Create Invoice from Sales Order">Create Invoice</a>
+                        @if ($order->order_type === 'item' && $order->approval_status === 'approved' && $order->status === 'confirmed')
+                            <a href="{{ route('delivery-orders.create', ['sales_order_id' => $order->id]) }}"
+                                class="btn btn-sm btn-info" aria-label="Create Delivery Order from Sales Order">
+                                <i class="fas fa-truck"></i> Create Delivery Order
+                            </a>
+                        @endif
                     </div>
                 </div>
                 <div class="card-body">

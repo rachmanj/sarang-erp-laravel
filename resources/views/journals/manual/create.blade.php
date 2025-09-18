@@ -69,7 +69,6 @@
                                             <th width="12%">Debit</th>
                                             <th width="12%">Credit</th>
                                             <th width="12%">Project</th>
-                                            <th width="12%">Fund</th>
                                             <th width="12%">Dept</th>
                                             <th>Memo</th>
                                             <th width="5%">Action</th>
@@ -81,7 +80,7 @@
                                             <th class="text-right">Totals:</th>
                                             <th id="td" class="text-right">0.00</th>
                                             <th id="tc" class="text-right">0.00</th>
-                                            <th colspan="5"></th>
+                                            <th colspan="4"></th>
                                         </tr>
                                     </tfoot>
                                 </table>
@@ -123,7 +122,6 @@
 
         const accounts = @json($accounts);
         const projects = @json($projects);
-        const funds = @json($funds);
         const departments = @json($departments);
 
         function accountSelectHtml(name) {
@@ -154,7 +152,6 @@
             <td><input type="number" step="0.01" min="0" name="lines[${idx}][debit]" class="form-control text-right" /></td>
             <td><input type="number" step="0.01" min="0" name="lines[${idx}][credit]" class="form-control text-right" /></td>
             <td>${dimSelectHtml(projects, `lines[${idx}][project_id]`, '-- project --')}</td>
-            <td>${dimSelectHtml(funds, `lines[${idx}][fund_id]`, '-- fund --')}</td>
             <td>${dimSelectHtml(departments, `lines[${idx}][dept_id]`, '-- dept --')}</td>
             <td><input type="text" name="lines[${idx}][memo]" class="form-control" /></td>
             <td class="text-center">

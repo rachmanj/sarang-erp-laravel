@@ -6,13 +6,15 @@ use App\Models\GoodsReceipt;
 use App\Models\GoodsReceiptLine;
 use App\Models\PurchaseOrder;
 use App\Services\DocumentNumberingService;
+use App\Services\GRPOCopyService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class GoodsReceiptController extends Controller
 {
     public function __construct(
-        private DocumentNumberingService $documentNumberingService
+        private DocumentNumberingService $documentNumberingService,
+        private GRPOCopyService $grpoCopyService
     ) {}
 
     public function index()
@@ -112,5 +114,82 @@ class GoodsReceiptController extends Controller
             })->toArray(),
         ];
         return view('purchase_invoices.create', compact('accounts', 'vendors', 'taxCodes') + ['prefill' => $prefill, 'goods_receipt_id' => $grn->id]);
+    }
+
+    /**
+     * Create GRPO from Purchase Order
+     */
+    public function createFromPO($poId)
+    {
+        $po = PurchaseOrder::with(['lines.inventoryItem', 'vendor'])->findOrFail($poId);
+
+        if (!$this->grpoCopyService->canCopyToGRPO($po)) {
+            return back()->with('error', 'Purchase Order cannot be copied to GRPO. Only approved Item Purchase Orders are allowed.');
+        }
+
+        $availableLines = $this->grpoCopyService->getAvailableLines($po);
+
+        return view('goods_receipts.create_from_po', compact('po', 'availableLines'));
+    }
+
+    /**
+     * Store GRPO copied from Purchase Order
+     */
+    public function storeFromPO(Request $request, $poId)
+    {
+        $po = PurchaseOrder::findOrFail($poId);
+
+        if (!$this->grpoCopyService->canCopyToGRPO($po)) {
+            return back()->with('error', 'Purchase Order cannot be copied to GRPO. Only approved Item Purchase Orders are allowed.');
+        }
+
+        $selectedLines = $request->input('selected_lines', null);
+
+        try {
+            $grpo = $this->grpoCopyService->copyFromPurchaseOrder($po, $selectedLines);
+
+            return redirect()->route('goods-receipts.show', $grpo->id)
+                ->with('success', 'GRPO created from Purchase Order successfully');
+        } catch (\Exception $e) {
+            return back()->with('error', 'Error creating GRPO: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Get Purchase Orders available for GRPO creation
+     */
+    public function getAvailablePOs(Request $request)
+    {
+        $query = PurchaseOrder::with(['vendor', 'lines.inventoryItem'])
+            ->where('order_type', 'item')
+            ->where('status', 'approved');
+
+        // Filter by vendor if specified
+        if ($request->has('vendor_id')) {
+            $query->where('vendor_id', $request->vendor_id);
+        }
+
+        // Filter by date range if specified
+        if ($request->has('date_from')) {
+            $query->where('date', '>=', $request->date_from);
+        }
+        if ($request->has('date_to')) {
+            $query->where('date', '<=', $request->date_to);
+        }
+
+        $pos = $query->get()->map(function ($po) {
+            return [
+                'id' => $po->id,
+                'order_no' => $po->order_no,
+                'date' => $po->date,
+                'vendor_id' => $po->vendor_id,
+                'vendor_name' => $po->vendor->name ?? '',
+                'total_amount' => $po->total_amount,
+                'lines_count' => $po->lines->count(),
+                'can_copy_to_grpo' => $this->grpoCopyService->canCopyToGRPO($po),
+            ];
+        });
+
+        return response()->json(['purchase_orders' => $pos]);
     }
 }

@@ -14,7 +14,6 @@ class AssetDepreciationEntry extends Model
         'amount',
         'book',
         'journal_id',
-        'fund_id',
         'project_id',
         'department_id',
     ];
@@ -34,10 +33,6 @@ class AssetDepreciationEntry extends Model
         return $this->belongsTo(Journal::class, 'journal_id');
     }
 
-    public function fund(): BelongsTo
-    {
-        return $this->belongsTo(Fund::class, 'fund_id');
-    }
 
     public function project(): BelongsTo
     {

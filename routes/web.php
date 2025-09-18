@@ -17,7 +17,6 @@ use App\Http\Controllers\Accounting\CashExpenseController;
 use App\Http\Controllers\Master\CustomerController;
 use App\Http\Controllers\Master\VendorController;
 use App\Http\Controllers\Dimensions\ProjectController as DimProjectController;
-use App\Http\Controllers\Dimensions\FundController as DimFundController;
 use App\Http\Controllers\Dimensions\DepartmentController as DimDepartmentController;
 use App\Http\Controllers\DownloadController;
 use App\Http\Controllers\Auth\PasswordController;
@@ -155,13 +154,6 @@ Route::middleware('auth')->group(function () {
         Route::patch('/{id}', [DimProjectController::class, 'update'])->middleware('permission:projects.manage')->name('projects.update');
         Route::delete('/{id}', [DimProjectController::class, 'destroy'])->middleware('permission:projects.manage')->name('projects.destroy');
     });
-    Route::prefix('funds')->middleware(['permission:funds.view'])->group(function () {
-        Route::get('/', [DimFundController::class, 'index'])->name('funds.index');
-        Route::get('/data', [DimFundController::class, 'data'])->name('funds.data');
-        Route::post('/', [DimFundController::class, 'store'])->middleware('permission:funds.manage')->name('funds.store');
-        Route::patch('/{id}', [DimFundController::class, 'update'])->middleware('permission:funds.manage')->name('funds.update');
-        Route::delete('/{id}', [DimFundController::class, 'destroy'])->middleware('permission:funds.manage')->name('funds.destroy');
-    });
     Route::prefix('departments')->middleware(['permission:departments.view'])->group(function () {
         Route::get('/', [DimDepartmentController::class, 'index'])->name('departments.index');
         Route::get('/data', [DimDepartmentController::class, 'data'])->name('departments.data');
@@ -190,7 +182,6 @@ Route::middleware('auth')->group(function () {
         Route::patch('/{asset}', [AssetController::class, 'update'])->middleware('permission:assets.update')->name('assets.update');
         Route::delete('/{asset}', [AssetController::class, 'destroy'])->middleware('permission:assets.delete')->name('assets.destroy');
         Route::get('/categories', [AssetController::class, 'getCategories'])->name('assets.categories');
-        Route::get('/funds', [AssetController::class, 'getFunds'])->name('assets.funds');
         Route::get('/projects', [AssetController::class, 'getProjects'])->name('assets.projects');
         Route::get('/departments', [AssetController::class, 'getDepartments'])->name('assets.departments');
         Route::get('/vendors', [AssetController::class, 'getVendors'])->name('assets.vendors');

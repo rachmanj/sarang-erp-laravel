@@ -20,6 +20,7 @@ class InventoryItem extends Model
         'max_stock_level',
         'reorder_point',
         'valuation_method',
+        'item_type',
         'is_active',
     ];
 
@@ -54,6 +55,16 @@ class InventoryItem extends Model
         return $query->where('is_active', true);
     }
 
+    public function scopeItems($query)
+    {
+        return $query->where('item_type', 'item');
+    }
+
+    public function scopeServices($query)
+    {
+        return $query->where('item_type', 'service');
+    }
+
     public function scopeLowStock($query)
     {
         return $query->whereRaw('current_stock <= reorder_point');
@@ -62,6 +73,11 @@ class InventoryItem extends Model
     // Accessors
     public function getCurrentStockAttribute()
     {
+        // Services don't have stock
+        if ($this->item_type === 'service') {
+            return 0;
+        }
+
         $lastTransaction = $this->transactions()
             ->orderBy('transaction_date', 'desc')
             ->orderBy('created_at', 'desc')

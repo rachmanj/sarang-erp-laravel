@@ -18,6 +18,7 @@ return new class extends Migration
             $table->unsignedBigInteger('customer_id');
             $table->string('description')->nullable();
             $table->decimal('total_amount', 15, 2)->default(0);
+            $table->enum('order_type', ['item', 'service'])->default('item');
             $table->string('status')->default('draft');
             $table->timestamps();
         });

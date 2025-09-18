@@ -1,5 +1,5 @@
 **Purpose**: Record technical decisions and rationale for future reference
-**Last Updated**: 2025-01-17 (Added Comprehensive Auto-Numbering System decision record)
+**Last Updated**: 2025-01-18 (Added Delivery Order System Architecture and Multi-Dimensional Accounting Simplification decision records)
 
 # Technical Decision Records
 
@@ -558,3 +558,208 @@ Decision: [Title] - [YYYY-MM-DD]
 -   Updated sidebar.blade.php with new menu organization
 
 **Review Date**: 2025-07-16 (after user feedback and usage analytics)
+
+---
+
+### Decision: Dual-Type Inventory System Implementation - 2025-01-17
+
+**Context**: Trading companies need to handle both physical inventory items and services, with different document flows and inventory impact requirements.
+
+**Options Considered**:
+
+1. **Option A**: Separate systems for items and services
+
+    - ✅ Pros: Clear separation, no confusion
+    - ❌ Cons: Code duplication, maintenance overhead, inconsistent user experience
+
+2. **Option B**: Single system with type field
+
+    - ✅ Pros: Unified interface, shared business logic, consistent data model
+    - ❌ Cons: Additional complexity in validation and business rules
+
+3. **Option C**: Service-only system without inventory integration
+    - ✅ Pros: Simple implementation, no inventory complexity
+    - ❌ Cons: Limited functionality, poor integration with existing systems
+
+**Decision**: Single system with type field (Option B)
+
+**Rationale**:
+
+-   Unified user experience across all document types
+-   Shared business logic reduces code duplication
+-   Consistent data model enables better reporting and analytics
+-   Flexible document flow supports both item and service workflows
+-   Better integration with existing purchase/sales order systems
+-   Easier maintenance and future enhancements
+
+**Implementation**:
+
+-   Added `item_type` enum field to `inventory_items` table (item/service)
+-   Added `order_type` enum field to `purchase_orders` and `sales_orders` tables
+-   Added source tracking fields to `goods_receipts` table (`source_po_id`, `source_type`)
+-   Created `sales_invoice_grpo_combinations` table for multi-GRPO tracking
+-   Updated models with validation methods for type consistency
+-   Added GRPO document type to DocumentNumberingService
+-   Implemented business logic to prevent mixing item/service types
+-   Service items bypass inventory transactions but maintain accounting impact
+
+**Document Flow**:
+
+-   Item PO → GRPO (with selective line copying) → Sales Invoice (multi-GRPO combination)
+-   Service PO → Purchase Invoice (direct, no GRPO needed)
+-   Different numbering prefixes for copied documents (GRPO vs GR)
+
+**Review Date**: 2025-04-17 (after Phase 2 implementation and user testing)
+
+---
+
+### Decision: Comprehensive Design Improvements Application Strategy - 2025-01-17
+
+**Context**: ERP system create pages had inconsistent design patterns, poor user experience, and lacked professional appearance. The redesigned PO Create page demonstrated significant improvements in visual design, user experience, and functionality that needed to be applied consistently across all create pages.
+
+**Options Considered**:
+
+1. **Option A**: Keep existing designs with minor improvements
+
+    - ✅ Pros: Minimal development effort, no disruption to existing functionality
+    - ❌ Cons: Inconsistent user experience, poor visual design, continued usability issues
+
+2. **Option B**: Apply consistent design improvements across all create pages
+
+    - ✅ Pros: Unified user experience, professional appearance, enhanced functionality, consistent patterns
+    - ❌ Cons: Significant development effort, requires updating multiple files
+
+3. **Option C**: Gradual design improvements over time
+    - ✅ Pros: Reduced immediate effort, incremental improvement
+    - ❌ Cons: Extended inconsistency period, user confusion, maintenance overhead
+
+**Decision**: Apply consistent design improvements across all create pages (Option B)
+
+**Rationale**:
+
+-   Unified design language improves user experience and reduces learning curve
+-   Professional appearance enhances system credibility and user adoption
+-   Consistent patterns reduce development and maintenance overhead
+-   Enhanced functionality (Select2BS4, real-time calculations) improves productivity
+-   Better accessibility and responsive design supports diverse user needs
+-   Improved form validation and error handling reduces user frustration
+
+**Implementation**:
+
+-   Redesigned 6 create pages: Goods Receipt, Purchase Invoice, Purchase Payment, Sales Order, Sales Invoice, Sales Receipt
+-   Applied consistent design patterns: card-outline styling, enhanced headers with icons, responsive 3-column layouts
+-   Integrated Select2BS4 for enhanced dropdown functionality with search capabilities
+-   Implemented real-time total calculations with Indonesian number formatting
+-   Added professional table designs with card-outline sections and striped styling
+-   Enhanced navigation with consistent breadcrumbs and "Back" buttons
+-   Improved form validation with proper field indicators and error handling
+-   Standardized button styling with FontAwesome icons and professional appearance
+-   Maintained all existing functionality while significantly enhancing user experience
+
+**Design Standards Applied**:
+
+-   Card-outline styling with proper color schemes
+-   Enhanced headers with relevant icons and navigation buttons
+-   Responsive Bootstrap grid layouts with proper form groups
+-   Select2BS4 integration for improved dropdown experience
+-   Real-time calculations with Indonesian number formatting
+-   Professional table designs with proper action buttons
+-   Consistent error handling and validation messages
+-   Standardized page structure with proper sections and footers
+
+**Review Date**: 2025-04-17 (after user feedback and usage analytics)
+
+---
+
+### Decision: Delivery Order System Architecture - 2025-01-18
+
+**Context**: Sales workflow required comprehensive delivery management system with inventory reservation, revenue recognition, and journal entries integration for complete trading company operations from sales order to delivery completion.
+
+**Options Considered**:
+
+1. **Option A**: Basic delivery tracking without inventory integration
+
+    - ✅ Pros: Simple implementation, minimal development effort
+    - ❌ Cons: No inventory management, manual processes, poor integration, limited functionality
+
+2. **Option B**: Comprehensive delivery management system with full integration
+
+    - ✅ Pros: Complete workflow integration, automated journal entries, inventory management, revenue recognition
+    - ❌ Cons: Complex implementation, extensive development effort, integration challenges
+
+3. **Option C**: Third-party delivery management integration
+    - ✅ Pros: Proven solution, reduced development effort
+    - ❌ Cons: External dependency, ongoing costs, limited customization, integration complexity
+
+**Decision**: Comprehensive delivery management system with full integration (Option B)
+
+**Rationale**:
+
+-   Trading companies require complete delivery lifecycle management for customer service excellence
+-   Inventory reservation is critical for accurate stock management and customer order fulfillment
+-   Revenue recognition automation ensures proper accounting and financial reporting
+-   Journal entries integration provides complete audit trail and financial integration
+-   Better integration with existing sales order and inventory systems
+-   Full control over delivery process and customization capabilities
+-   Cost-effective long-term solution despite higher initial development effort
+
+**Implementation**:
+
+-   Created DeliveryOrder, DeliveryOrderLine, and DeliveryTracking models with comprehensive relationships
+-   Implemented DeliveryService with approval workflows, status management, and business logic
+-   Built DeliveryOrderController with full CRUD operations, approval/rejection workflows, and print functionality
+-   Created comprehensive AdminLTE views (index, create, show, edit, print) with professional design
+-   Implemented DeliveryJournalService for automatic inventory reservation and revenue recognition journal entries
+-   Added seamless integration with Sales Order system for delivery order creation
+-   Implemented complete status tracking from draft to completed with proper approval workflows
+-   Added inventory reservation system with automatic stock allocation and release
+-   Created revenue recognition system with COGS calculation and accounts receivable management
+
+**Review Date**: 2025-04-18 (after user feedback and delivery performance analysis)
+
+---
+
+### Decision: Multi-Dimensional Accounting Simplification Strategy - 2025-01-18
+
+**Context**: Multi-dimensional accounting system included projects, funds, and departments dimensions, but funds dimension was rarely used and added unnecessary complexity to the system while projects and departments provided essential cost tracking capabilities.
+
+**Options Considered**:
+
+1. **Option A**: Keep all three dimensions as-is
+
+    - ✅ Pros: Complete flexibility, no disruption to existing functionality
+    - ❌ Cons: Unnecessary complexity, maintenance overhead, user confusion, unused functionality
+
+2. **Option B**: Remove funds dimension while maintaining projects and departments
+
+    - ✅ Pros: Reduced complexity, cleaner system, maintained essential functionality, improved user experience
+    - ❌ Cons: Requires comprehensive system updates, potential for missed references
+
+3. **Option C**: Make funds dimension optional/configurable
+    - ✅ Pros: Flexibility for different organizations, gradual migration
+    - ❌ Cons: Continued complexity, configuration overhead, maintenance burden
+
+**Decision**: Remove funds dimension while maintaining projects and departments (Option B)
+
+**Rationale**:
+
+-   Funds dimension was rarely used in practice and added unnecessary complexity
+-   Projects and departments provide essential multi-dimensional accounting capabilities
+-   Simplified system reduces maintenance overhead and improves user experience
+-   Cleaner database schema improves performance and understanding
+-   Reduced complexity enables better focus on core multi-dimensional features
+-   Projects and departments continue to provide comprehensive cost tracking and allocation
+-   Better alignment with actual business usage patterns
+
+**Implementation**:
+
+-   Created comprehensive migration to remove fund_id columns from all relevant tables
+-   Updated all models to remove fund relationships while preserving project and department relationships
+-   Modified PostingService to remove fund handling while maintaining project and department support
+-   Updated all controllers to remove fund references and validation rules
+-   Removed fund-related routes, views, and navigation elements
+-   Updated sidebar navigation to remove funds section
+-   Maintained complete functionality for projects and departments dimensions
+-   Preserved all existing multi-dimensional accounting capabilities for essential dimensions
+
+**Review Date**: 2025-04-18 (after user feedback and usage analytics)

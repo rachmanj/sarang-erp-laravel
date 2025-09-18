@@ -17,10 +17,15 @@ return new class extends Migration
             $table->date('date');
             $table->unsignedBigInteger('vendor_id');
             $table->unsignedBigInteger('purchase_order_id')->nullable();
+            $table->unsignedBigInteger('source_po_id')->nullable();
+            $table->enum('source_type', ['copy', 'manual'])->default('manual');
             $table->string('description')->nullable();
             $table->decimal('total_amount', 15, 2)->default(0);
             $table->string('status')->default('draft');
             $table->timestamps();
+
+            // Foreign key constraints
+            $table->foreign('source_po_id')->references('id')->on('purchase_orders')->onDelete('set null');
         });
     }
 

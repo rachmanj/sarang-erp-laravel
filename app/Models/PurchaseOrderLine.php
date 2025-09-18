@@ -24,6 +24,8 @@ class PurchaseOrderLine extends Model
         'handling_cost',
         'total_cost',
         'tax_code_id',
+        'vat_rate',
+        'wtax_rate',
         'notes',
         'status'
     ];
@@ -37,6 +39,8 @@ class PurchaseOrderLine extends Model
         'freight_cost' => 'decimal:2',
         'handling_cost' => 'decimal:2',
         'total_cost' => 'decimal:2',
+        'vat_rate' => 'decimal:2',
+        'wtax_rate' => 'decimal:2',
     ];
 
     // Relationships

@@ -166,6 +166,24 @@
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="form-group">
+                                    <label for="item_type">Item Type <span class="text-danger">*</span></label>
+                                    <select class="form-control @error('item_type') is-invalid @enderror" id="item_type"
+                                        name="item_type" required>
+                                        <option value="">Select Type</option>
+                                        <option value="item" {{ old('item_type', 'item') == 'item' ? 'selected' : '' }}>
+                                            Item (Physical Inventory)
+                                        </option>
+                                        <option value="service" {{ old('item_type') == 'service' ? 'selected' : '' }}>
+                                            Service (Non-Inventory)
+                                        </option>
+                                    </select>
+                                    @error('item_type')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
                                     <label for="valuation_method">Valuation Method <span
                                             class="text-danger">*</span></label>
                                     <select class="form-control @error('valuation_method') is-invalid @enderror"
@@ -187,6 +205,9 @@
                                     @enderror
                                 </div>
                             </div>
+                        </div>
+
+                        <div class="row">
                             <div class="col-md-6">
                                 <div class="form-group">
                                     <label for="initial_stock">Initial Stock</label>
@@ -194,7 +215,8 @@
                                         class="form-control @error('initial_stock') is-invalid @enderror"
                                         id="initial_stock" name="initial_stock" value="{{ old('initial_stock', 0) }}"
                                         min="0">
-                                    <small class="form-text text-muted">Optional: Set initial stock quantity</small>
+                                    <small class="form-text text-muted">Optional: Set initial stock quantity (only for Item
+                                        type)</small>
                                     @error('initial_stock')
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
@@ -243,22 +265,52 @@
                 $('#reorder_point').val(minLevel);
             });
 
+            // Handle item type changes
+            function toggleStockFields() {
+                const itemType = $('#item_type').val();
+                const stockFields = ['#min_stock_level', '#max_stock_level', '#reorder_point', '#initial_stock'];
+
+                if (itemType === 'service') {
+                    // Hide and disable stock-related fields for services
+                    stockFields.forEach(function(field) {
+                        $(field).closest('.form-group').hide();
+                        $(field).prop('disabled', true);
+                    });
+                } else {
+                    // Show and enable stock-related fields for items
+                    stockFields.forEach(function(field) {
+                        $(field).closest('.form-group').show();
+                        $(field).prop('disabled', false);
+                    });
+                }
+            }
+
+            // Initial toggle
+            toggleStockFields();
+
+            // Toggle on change
+            $('#item_type').on('change', toggleStockFields);
+
             // Validation
             $('form').on('submit', function(e) {
+                const itemType = $('#item_type').val();
                 const minLevel = parseInt($('#min_stock_level').val()) || 0;
                 const maxLevel = parseInt($('#max_stock_level').val()) || 0;
                 const reorderPoint = parseInt($('#reorder_point').val()) || 0;
 
-                if (maxLevel > 0 && minLevel > maxLevel) {
-                    e.preventDefault();
-                    toastr.error('Minimum stock level cannot be greater than maximum stock level');
-                    return false;
-                }
+                // Only validate stock fields for item type
+                if (itemType === 'item') {
+                    if (maxLevel > 0 && minLevel > maxLevel) {
+                        e.preventDefault();
+                        toastr.error('Minimum stock level cannot be greater than maximum stock level');
+                        return false;
+                    }
 
-                if (reorderPoint > minLevel) {
-                    e.preventDefault();
-                    toastr.error('Reorder point cannot be greater than minimum stock level');
-                    return false;
+                    if (reorderPoint > minLevel) {
+                        e.preventDefault();
+                        toastr.error('Reorder point cannot be greater than minimum stock level');
+                        return false;
+                    }
                 }
             });
         });

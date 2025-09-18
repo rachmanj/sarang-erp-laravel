@@ -28,6 +28,7 @@ class SalesOrder extends Model
         'discount_amount',
         'discount_percentage',
         'net_amount',
+        'order_type',
         'status',
         'approval_status',
         'approved_by',
@@ -85,6 +86,11 @@ class SalesOrder extends Model
     public function updatedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'updated_by');
+    }
+
+    public function deliveryOrders(): HasMany
+    {
+        return $this->hasMany(DeliveryOrder::class, 'sales_order_id');
     }
 
     // Scopes
@@ -230,5 +236,30 @@ class SalesOrder extends Model
             ->where('min_order_amount', '<=', $this->net_amount)
             ->orderBy('min_order_amount', 'desc')
             ->first();
+    }
+
+    // Order type validation methods
+    public function validateOrderTypeConsistency()
+    {
+        $lineTypes = $this->lines()->with('inventoryItem')->get()
+            ->pluck('inventoryItem.item_type')->unique();
+
+        if ($lineTypes->count() > 1) {
+            throw new \Exception('Order lines must be of the same type (item or service)');
+        }
+
+        if ($lineTypes->first() !== $this->order_type) {
+            throw new \Exception('Order type must match line item types');
+        }
+    }
+
+    public function canCopyToDeliveryNote()
+    {
+        return $this->order_type === 'item' && $this->status === 'approved';
+    }
+
+    public function canCopyToSalesInvoice()
+    {
+        return $this->order_type === 'service' && $this->status === 'approved';
     }
 }

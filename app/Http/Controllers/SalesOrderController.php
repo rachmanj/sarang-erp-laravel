@@ -10,6 +10,7 @@ use App\Models\InventoryItem;
 use App\Models\CustomerCreditLimit;
 use App\Models\CustomerPricingTier;
 use App\Services\SalesService;
+use App\Services\SalesInvoiceService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
@@ -17,10 +18,14 @@ use Illuminate\Support\Facades\Auth;
 class SalesOrderController extends Controller
 {
     protected $salesService;
+    protected $salesInvoiceService;
 
-    public function __construct(SalesService $salesService)
-    {
+    public function __construct(
+        SalesService $salesService,
+        SalesInvoiceService $salesInvoiceService
+    ) {
         $this->salesService = $salesService;
+        $this->salesInvoiceService = $salesInvoiceService;
     }
 
     public function index()
@@ -55,24 +60,30 @@ class SalesOrderController extends Controller
             'insurance_cost' => ['nullable', 'numeric', 'min:0'],
             'discount_amount' => ['nullable', 'numeric', 'min:0'],
             'discount_percentage' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'order_type' => ['required', 'in:item,service'],
             'lines' => ['required', 'array', 'min:1'],
-            'lines.*.account_id' => ['required', 'integer', 'exists:accounts,id'],
-            'lines.*.inventory_item_id' => ['nullable', 'integer', 'exists:inventory_items,id'],
-            'lines.*.item_code' => ['nullable', 'string', 'max:50'],
-            'lines.*.item_name' => ['nullable', 'string', 'max:255'],
-            'lines.*.unit_of_measure' => ['nullable', 'string', 'max:50'],
+            'lines.*.item_id' => ['required', 'integer'],
             'lines.*.description' => ['nullable', 'string', 'max:255'],
             'lines.*.qty' => ['required', 'numeric', 'min:0.01'],
             'lines.*.unit_price' => ['required', 'numeric', 'min:0'],
-            'lines.*.freight_cost' => ['nullable', 'numeric', 'min:0'],
-            'lines.*.handling_cost' => ['nullable', 'numeric', 'min:0'],
-            'lines.*.discount_amount' => ['nullable', 'numeric', 'min:0'],
-            'lines.*.discount_percentage' => ['nullable', 'numeric', 'min:0', 'max:100'],
-            'lines.*.tax_code_id' => ['nullable', 'integer', 'exists:tax_codes,id'],
+            'lines.*.vat_rate' => ['required', 'numeric', 'min:0', 'max:100'],
+            'lines.*.wtax_rate' => ['required', 'numeric', 'min:0', 'max:100'],
             'lines.*.notes' => ['nullable', 'string'],
         ]);
 
         try {
+            // Calculate total amount from lines
+            $totalAmount = 0;
+            foreach ($data['lines'] as $line) {
+                $originalAmount = $line['qty'] * $line['unit_price'];
+                $vatAmount = $originalAmount * ($line['vat_rate'] / 100);
+                $wtaxAmount = $originalAmount * ($line['wtax_rate'] / 100);
+                $lineAmount = $originalAmount + $vatAmount - $wtaxAmount;
+                $totalAmount += $lineAmount;
+            }
+
+            $data['total_amount'] = $totalAmount;
+
             $so = $this->salesService->createSalesOrder($data);
             return redirect()->route('sales-orders.show', $so->id)
                 ->with('success', 'Sales Order created successfully');
@@ -283,5 +294,147 @@ class SalesOrderController extends Controller
             'credit_status' => $creditLimit->credit_status,
             'credit_utilization' => $creditLimit->credit_utilization,
         ]);
+    }
+
+    /**
+     * Copy Item Sales Order to Delivery Note
+     */
+    public function copyToDeliveryNote(Request $request, $id)
+    {
+        $so = SalesOrder::with('lines.inventoryItem')->findOrFail($id);
+
+        if (!$this->salesService->canCopyToDeliveryNote($so)) {
+            return back()->with('error', 'Sales Order cannot be copied to Delivery Note. Only approved Item Sales Orders are allowed.');
+        }
+
+        $selectedLines = $request->input('selected_lines', null);
+
+        try {
+            // This would be implemented when Delivery Note functionality is added
+            // For now, we'll redirect to a placeholder
+            return back()->with('info', 'Delivery Note functionality will be implemented in the next phase');
+        } catch (\Exception $e) {
+            return back()->with('error', 'Error creating Delivery Note: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Copy Service Sales Order to Sales Invoice
+     */
+    public function copyToSalesInvoice($id)
+    {
+        $so = SalesOrder::with('lines.inventoryItem')->findOrFail($id);
+
+        if (!$this->salesService->canCopyToSalesInvoice($so)) {
+            return back()->with('error', 'Sales Order cannot be copied to Sales Invoice. Only approved Service Sales Orders are allowed.');
+        }
+
+        try {
+            // This would be implemented when Service Sales Order to Invoice functionality is added
+            // For now, we'll redirect to a placeholder
+            return back()->with('info', 'Service Sales Order to Invoice functionality will be implemented in the next phase');
+        } catch (\Exception $e) {
+            return back()->with('error', 'Error creating Sales Invoice: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Show copy to Delivery Note form
+     */
+    public function showCopyToDeliveryNote($id)
+    {
+        $so = SalesOrder::with(['lines.inventoryItem', 'customer'])->findOrFail($id);
+
+        if (!$this->salesService->canCopyToDeliveryNote($so)) {
+            return back()->with('error', 'Sales Order cannot be copied to Delivery Note. Only approved Item Sales Orders are allowed.');
+        }
+
+        return view('sales_orders.copy_to_delivery_note', compact('so'));
+    }
+
+    /**
+     * Show copy to Sales Invoice form
+     */
+    public function showCopyToSalesInvoice($id)
+    {
+        $so = SalesOrder::with(['lines.inventoryItem', 'customer'])->findOrFail($id);
+
+        if (!$this->salesService->canCopyToSalesInvoice($so)) {
+            return back()->with('error', 'Sales Order cannot be copied to Sales Invoice. Only approved Service Sales Orders are allowed.');
+        }
+
+        return view('sales_orders.copy_to_sales_invoice', compact('so'));
+    }
+
+    /**
+     * Create Sales Invoice from GRPOs
+     */
+    public function createSalesInvoiceFromGRPOs(Request $request)
+    {
+        $data = $request->validate([
+            'date' => ['required', 'date'],
+            'customer_id' => ['required', 'integer', 'exists:customers,id'],
+            'sales_order_id' => ['nullable', 'integer', 'exists:sales_orders,id'],
+            'grpo_ids' => ['required', 'array', 'min:1'],
+            'grpo_ids.*' => ['integer', 'exists:goods_receipts,id'],
+            'project_id' => ['nullable', 'integer', 'exists:projects,id'],
+            'fund_id' => ['nullable', 'integer', 'exists:funds,id'],
+            'dept_id' => ['nullable', 'integer', 'exists:departments,id'],
+        ]);
+
+        try {
+            $salesInvoice = $this->salesInvoiceService->createFromGoodsReceipts($data['grpo_ids'], $data);
+
+            return redirect()->route('sales-invoices.show', $salesInvoice->id)
+                ->with('success', 'Sales Invoice created from GRPOs successfully');
+        } catch (\Exception $e) {
+            return back()->withInput()->with('error', 'Error creating Sales Invoice: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Show create Sales Invoice from GRPOs form
+     */
+    public function showCreateSalesInvoiceFromGRPOs(Request $request)
+    {
+        $filters = $request->only(['vendor_id', 'date_from', 'date_to', 'source_po_id']);
+        $availableGRPOs = $this->salesInvoiceService->getAvailableGRPOs($filters);
+        $groupedGRPOs = $this->salesInvoiceService->getGRPOsGroupedByPO($filters);
+
+        $customers = DB::table('customers')->orderBy('name')->get();
+        $salesOrders = DB::table('sales_orders')->where('status', 'approved')->orderBy('order_no')->get();
+        $projects = DB::table('projects')->orderBy('name')->get();
+        $funds = DB::table('funds')->orderBy('name')->get();
+        $departments = DB::table('departments')->orderBy('name')->get();
+
+        return view('sales_orders.create_invoice_from_grpos', compact(
+            'availableGRPOs',
+            'groupedGRPOs',
+            'customers',
+            'salesOrders',
+            'projects',
+            'funds',
+            'departments'
+        ));
+    }
+
+    /**
+     * Validate GRPO combination (AJAX)
+     */
+    public function validateGRPOCombination(Request $request)
+    {
+        $grpoIds = $request->input('grpo_ids', []);
+
+        if (empty($grpoIds)) {
+            return response()->json(['errors' => ['No GRPOs selected']], 400);
+        }
+
+        $errors = $this->salesInvoiceService->validateGRPOCombination($grpoIds);
+
+        if (!empty($errors)) {
+            return response()->json(['errors' => $errors], 400);
+        }
+
+        return response()->json(['valid' => true]);
     }
 }

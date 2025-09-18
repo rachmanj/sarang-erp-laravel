@@ -12,6 +12,8 @@ class GoodsReceipt extends Model
         'date',
         'vendor_id',
         'purchase_order_id',
+        'source_po_id',
+        'source_type',
         'description',
         'total_amount',
         'status'

@@ -1,5 +1,5 @@
 Purpose: Technical reference for understanding system design and development patterns
-Last Updated: 2025-01-17 (Updated with Comprehensive Auto-Numbering System Implementation)
+Last Updated: 2025-01-18 (Updated with Delivery Order System Implementation and Multi-Dimensional Accounting Simplification)
 
 ## Architecture Documentation Guidelines
 
@@ -113,7 +113,18 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 -   **AP Aging**: Vendor payment tracking and aging analysis
 -   **AP Balances**: Vendor account balance reporting
 
-### 4. Fixed Asset Management
+### 4. Dual-Type Inventory System
+
+-   **Item Types**: Support for both physical items and services with item_type field
+-   **Order Types**: Purchase and Sales orders support both item and service types
+-   **Inventory Impact**: Only 'item' type affects stock quantities, 'service' type bypasses inventory
+-   **Document Flow**:
+    -   Item PO → GRPO → Sales Invoice (with multi-GRPO combination)
+    -   Service PO → Purchase Invoice (direct, no GRPO needed)
+-   **Type Validation**: Prevents mixing item/service types within same order
+-   **Numbering**: Different prefixes for copied documents (GRPO vs GR)
+
+### 5. Fixed Asset Management
 
 -   **Asset Register**: Complete asset lifecycle management
 -   **Asset Categories**: Configurable categories with depreciation settings
@@ -131,12 +142,23 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 ### 6. Sales Management
 
 -   **Sales Orders**: Customer order management (SO-YYYYMM-######)
+-   **Delivery Orders**: Delivery management with inventory reservation and revenue recognition (DO-YYYYMM-######)
 -   **Customer Management**: Customer master data with credit management
+
+### 6.1. Delivery Order System
+
+-   **Delivery Lifecycle Management**: Complete delivery process from sales order to completion
+-   **Inventory Reservation**: Automatic stock allocation and reservation upon delivery order approval
+-   **Revenue Recognition**: Automated revenue recognition with COGS calculation upon delivery completion
+-   **Status Tracking**: Comprehensive status management (draft, picking, packed, ready, in_transit, delivered, completed)
+-   **Approval Workflows**: Multi-level approval process with proper authorization controls
+-   **Journal Entries Integration**: Automatic journal entries for inventory reservation and revenue recognition
+-   **Delivery Tracking**: Logistics cost tracking, performance metrics, and customer satisfaction monitoring
+-   **Print Functionality**: Professional delivery order documents with company branding
 
 ### 7. Multi-Dimensional Accounting
 
 -   **Projects**: Project-based cost tracking
--   **Funds**: Fund-based accounting and reporting
 -   **Departments**: Departmental cost allocation
 
 ### 8. Reporting & Analytics
@@ -212,6 +234,20 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 -   **Error Handling**: Comprehensive exception handling and validation
 -   **Database Persistence**: Sequence tracking stored in document_sequences table with unique constraints
 
+### 15. Unified Design System
+
+-   **Consistent UI Patterns**: All create pages follow unified design standards with card-outline styling
+-   **Professional Visual Design**: Enhanced headers with relevant icons, proper color schemes, and visual hierarchy
+-   **Responsive Form Layouts**: 3-column responsive layouts with proper Bootstrap grid implementation
+-   **Enhanced User Experience**: Select2BS4 integration for improved dropdown functionality with search capabilities
+-   **Real-Time Calculations**: Automatic total calculations with Indonesian number formatting across all forms
+-   **Professional Table Design**: Card-outline table sections with striped styling and proper action buttons
+-   **Improved Navigation**: Consistent breadcrumb navigation and "Back" buttons across all pages
+-   **Form Validation**: Comprehensive error handling with proper field indicators and validation messages
+-   **Button Styling**: Consistent button design with FontAwesome icons and professional styling
+-   **Page Structure**: Standardized page layout with proper sections, headers, and footers
+-   **Accessibility**: Proper form labels, required field indicators, and semantic HTML structure
+
 ## Database Schema
 
 ### Core Tables (52 migrations total - consolidated from 51, plus Phase 3 tax compliance and Phase 4 advanced trading analytics)
@@ -249,20 +285,22 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 
 #### Order Management Tables
 
--   `sales_orders` / `sales_order_lines`: Sales order processing
--   `purchase_orders` / `purchase_order_lines`: Purchase order processing
--   `goods_receipts` / `goods_receipt_lines`: Inventory receipt
+-   `sales_orders` / `sales_order_lines`: Sales order processing with order_type (item/service)
+-   `purchase_orders` / `purchase_order_lines`: Purchase order processing with order_type (item/service)
+-   `goods_receipts` / `goods_receipt_lines`: Inventory receipt with source tracking (source_po_id, source_type)
+-   `sales_invoice_grpo_combinations`: Multi-GRPO Sales Invoice tracking
+-   `delivery_orders` / `delivery_order_lines`: Delivery order processing with inventory reservation and revenue recognition
+-   `delivery_tracking`: Delivery tracking with logistics cost and performance metrics
 
 #### Dimension Tables
 
 -   `projects`: Project dimension for cost tracking
--   `funds`: Fund dimension for accounting
 -   `departments`: Department dimension for cost allocation
 
 #### Trading Company Tables (Phase 1-3)
 
 -   `product_categories`: Hierarchical product categorization
--   `inventory_items`: Product master data with pricing and stock levels
+-   `inventory_items`: Product master data with pricing, stock levels, and item_type (item/service)
 -   `inventory_transactions`: Stock movement tracking with cost allocation
 -   `inventory_valuations`: Real-time inventory valuation with multiple methods
 -   `tax_transactions`: Enhanced individual tax calculation tracking with Indonesian compliance
@@ -320,6 +358,7 @@ The database schema has been consolidated from 51 to 44 migration files for impr
 -   `/accounts/*`: Chart of accounts management
 -   `/journals/*`: Journal entry management
 -   `/sales-invoices/*`: AR invoice management
+-   `/delivery-orders/*`: Delivery order management with inventory reservation and revenue recognition
 -   `/purchase-invoices/*`: AP invoice management
 -   `/assets/*`: Fixed asset management
 -   `/inventory/*`: Inventory management with CRUD operations, stock management, reports
@@ -356,6 +395,14 @@ graph TD
     G --> O[Period Validation]
     O --> P[Balance Validation]
     P --> Q[Dimension Assignment]
+
+    R[Sales Order] --> S[Delivery Order Creation]
+    S --> T[Inventory Reservation]
+    T --> U[Delivery Approval]
+    U --> V[Picking/Packing]
+    V --> W[Delivery Completion]
+    W --> X[Revenue Recognition]
+    X --> Y[Journal Entries]
 ```
 
 ## Security Implementation

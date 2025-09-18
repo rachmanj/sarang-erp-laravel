@@ -20,14 +20,6 @@
             </li>
         @endcan
 
-        @can('funds.view')
-            <li class="nav-item">
-                <a href="{{ route('funds.index') }}" class="nav-link {{ request()->routeIs('funds.*') ? 'active' : '' }}">
-                    <i class="far fa-circle nav-icon"></i>
-                    <p>Funds</p>
-                </a>
-            </li>
-        @endcan
 
         @can('departments.view')
             <li class="nav-item">

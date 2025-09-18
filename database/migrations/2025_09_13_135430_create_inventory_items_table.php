@@ -24,6 +24,7 @@ return new class extends Migration
             $table->integer('max_stock_level')->default(0);
             $table->integer('reorder_point')->default(0);
             $table->enum('valuation_method', ['fifo', 'lifo', 'weighted_average'])->default('fifo');
+            $table->enum('item_type', ['item', 'service'])->default('item');
             $table->boolean('is_active')->default(true);
             $table->timestamps();
 
@@ -33,6 +34,7 @@ return new class extends Migration
             // Indexes
             $table->index('code');
             $table->index('category_id');
+            $table->index('item_type');
             $table->index('is_active');
         });
     }

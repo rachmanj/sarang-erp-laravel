@@ -17,6 +17,7 @@ class DocumentNumberingService
         'sales_receipt' => 'SR',
         'asset_disposal' => 'DIS',
         'goods_receipt' => 'GR',
+        'grpo' => 'GRPO',
         'cash_expense' => 'CEV',
         'journal' => 'JNL'
     ];

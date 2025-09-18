@@ -26,6 +26,7 @@ class PurchaseOrder extends Model
         'handling_cost',
         'insurance_cost',
         'total_cost',
+        'order_type',
         'status',
         'approval_status',
         'approved_by',
@@ -173,5 +174,30 @@ class PurchaseOrder extends Model
         }
 
         return round(($completedApprovals / $totalApprovals) * 100);
+    }
+
+    // Order type validation methods
+    public function validateOrderTypeConsistency()
+    {
+        $lineTypes = $this->lines()->with('inventoryItem')->get()
+            ->pluck('inventoryItem.item_type')->unique();
+
+        if ($lineTypes->count() > 1) {
+            throw new \Exception('Order lines must be of the same type (item or service)');
+        }
+
+        if ($lineTypes->first() !== $this->order_type) {
+            throw new \Exception('Order type must match line item types');
+        }
+    }
+
+    public function canCopyToGRPO()
+    {
+        return $this->order_type === 'item' && $this->status === 'approved';
+    }
+
+    public function canCopyToPurchaseInvoice()
+    {
+        return $this->order_type === 'service' && $this->status === 'approved';
     }
 }

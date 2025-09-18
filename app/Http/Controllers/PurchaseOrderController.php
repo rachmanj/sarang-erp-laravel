@@ -10,6 +10,8 @@ use App\Models\InventoryItem;
 use App\Models\Asset;
 use App\Models\AssetCategory;
 use App\Services\PurchaseService;
+use App\Services\GRPOCopyService;
+use App\Services\PurchaseInvoiceCopyService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
@@ -17,10 +19,17 @@ use Illuminate\Support\Facades\Auth;
 class PurchaseOrderController extends Controller
 {
     protected $purchaseService;
+    protected $grpoCopyService;
+    protected $purchaseInvoiceCopyService;
 
-    public function __construct(PurchaseService $purchaseService)
-    {
+    public function __construct(
+        PurchaseService $purchaseService,
+        GRPOCopyService $grpoCopyService,
+        PurchaseInvoiceCopyService $purchaseInvoiceCopyService
+    ) {
         $this->purchaseService = $purchaseService;
+        $this->grpoCopyService = $grpoCopyService;
+        $this->purchaseInvoiceCopyService = $purchaseInvoiceCopyService;
     }
 
     public function index()
@@ -53,18 +62,14 @@ class PurchaseOrderController extends Controller
             'freight_cost' => ['nullable', 'numeric', 'min:0'],
             'handling_cost' => ['nullable', 'numeric', 'min:0'],
             'insurance_cost' => ['nullable', 'numeric', 'min:0'],
+            'order_type' => ['required', 'in:item,service'],
             'lines' => ['required', 'array', 'min:1'],
-            'lines.*.account_id' => ['required', 'integer', 'exists:accounts,id'],
-            'lines.*.inventory_item_id' => ['nullable', 'integer', 'exists:inventory_items,id'],
-            'lines.*.item_code' => ['nullable', 'string', 'max:50'],
-            'lines.*.item_name' => ['nullable', 'string', 'max:255'],
-            'lines.*.unit_of_measure' => ['nullable', 'string', 'max:50'],
+            'lines.*.item_id' => ['required', 'integer'],
             'lines.*.description' => ['nullable', 'string', 'max:255'],
             'lines.*.qty' => ['required', 'numeric', 'min:0.01'],
             'lines.*.unit_price' => ['required', 'numeric', 'min:0'],
-            'lines.*.freight_cost' => ['nullable', 'numeric', 'min:0'],
-            'lines.*.handling_cost' => ['nullable', 'numeric', 'min:0'],
-            'lines.*.tax_code_id' => ['nullable', 'integer', 'exists:tax_codes,id'],
+            'lines.*.vat_rate' => ['required', 'numeric', 'min:0', 'max:100'],
+            'lines.*.wtax_rate' => ['required', 'numeric', 'min:0', 'max:100'],
             'lines.*.notes' => ['nullable', 'string'],
         ]);
 
@@ -314,5 +319,97 @@ class PurchaseOrderController extends Controller
             'min_stock_level' => $item->min_stock_level,
             'reorder_point' => $item->reorder_point,
         ]);
+    }
+
+    /**
+     * Copy Purchase Order to GRPO (for Item POs)
+     */
+    public function copyToGRPO(Request $request, $id)
+    {
+        $po = PurchaseOrder::with('lines.inventoryItem')->findOrFail($id);
+
+        if (!$this->grpoCopyService->canCopyToGRPO($po)) {
+            return back()->with('error', 'Purchase Order cannot be copied to GRPO. Only approved Item Purchase Orders are allowed.');
+        }
+
+        $selectedLines = $request->input('selected_lines', null);
+
+        try {
+            $grpo = $this->grpoCopyService->copyFromPurchaseOrder($po, $selectedLines);
+
+            return redirect()->route('goods-receipts.show', $grpo->id)
+                ->with('success', 'GRPO created from Purchase Order successfully');
+        } catch (\Exception $e) {
+            return back()->with('error', 'Error creating GRPO: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Copy Service Purchase Order to Purchase Invoice
+     */
+    public function copyToPurchaseInvoice($id)
+    {
+        $po = PurchaseOrder::with('lines.inventoryItem')->findOrFail($id);
+
+        if (!$this->purchaseInvoiceCopyService->canCopyToPurchaseInvoice($po)) {
+            return back()->with('error', 'Purchase Order cannot be copied to Purchase Invoice. Only approved Service Purchase Orders are allowed.');
+        }
+
+        try {
+            $invoice = $this->purchaseInvoiceCopyService->copyFromServicePurchaseOrder($po);
+
+            return redirect()->route('purchase-invoices.show', $invoice->id)
+                ->with('success', 'Purchase Invoice created from Service Purchase Order successfully');
+        } catch (\Exception $e) {
+            return back()->with('error', 'Error creating Purchase Invoice: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Show copy to GRPO form
+     */
+    public function showCopyToGRPO($id)
+    {
+        $po = PurchaseOrder::with(['lines.inventoryItem', 'vendor'])->findOrFail($id);
+
+        if (!$this->grpoCopyService->canCopyToGRPO($po)) {
+            return back()->with('error', 'Purchase Order cannot be copied to GRPO. Only approved Item Purchase Orders are allowed.');
+        }
+
+        $availableLines = $this->grpoCopyService->getAvailableLines($po);
+
+        return view('purchase_orders.copy_to_grpo', compact('po', 'availableLines'));
+    }
+
+    /**
+     * Show copy to Purchase Invoice form
+     */
+    public function showCopyToPurchaseInvoice($id)
+    {
+        $po = PurchaseOrder::with(['lines.inventoryItem', 'vendor'])->findOrFail($id);
+
+        if (!$this->purchaseInvoiceCopyService->canCopyToPurchaseInvoice($po)) {
+            return back()->with('error', 'Purchase Order cannot be copied to Purchase Invoice. Only approved Service Purchase Orders are allowed.');
+        }
+
+        $poSummary = $this->purchaseInvoiceCopyService->getPurchaseOrderSummary($po);
+
+        return view('purchase_orders.copy_to_purchase_invoice', compact('po', 'poSummary'));
+    }
+
+    /**
+     * Get available lines for copying (AJAX)
+     */
+    public function getAvailableLines($id)
+    {
+        $po = PurchaseOrder::findOrFail($id);
+
+        if (!$this->grpoCopyService->canCopyToGRPO($po)) {
+            return response()->json(['error' => 'Purchase Order cannot be copied to GRPO'], 400);
+        }
+
+        $availableLines = $this->grpoCopyService->getAvailableLines($po);
+
+        return response()->json(['lines' => $availableLines]);
     }
 }

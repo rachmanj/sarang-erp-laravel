@@ -34,9 +34,8 @@ class PurchaseInvoiceController extends Controller
         $vendors = DB::table('vendors')->orderBy('name')->get();
         $taxCodes = DB::table('tax_codes')->orderBy('code')->get();
         $projects = DB::table('projects')->orderBy('code')->get(['id', 'code', 'name']);
-        $funds = DB::table('funds')->orderBy('code')->get(['id', 'code', 'name']);
         $departments = DB::table('departments')->orderBy('code')->get(['id', 'code', 'name']);
-        return view('purchase_invoices.create', compact('accounts', 'vendors', 'taxCodes', 'projects', 'funds', 'departments'));
+        return view('purchase_invoices.create', compact('accounts', 'vendors', 'taxCodes', 'projects', 'departments'));
     }
 
     public function store(Request $request)
@@ -52,7 +51,6 @@ class PurchaseInvoiceController extends Controller
             'lines.*.unit_price' => ['required', 'numeric', 'min:0'],
             'lines.*.tax_code_id' => ['nullable', 'integer', 'exists:tax_codes,id'],
             'lines.*.project_id' => ['nullable', 'integer'],
-            'lines.*.fund_id' => ['nullable', 'integer'],
             'lines.*.dept_id' => ['nullable', 'integer'],
         ]);
 
@@ -84,7 +82,6 @@ class PurchaseInvoiceController extends Controller
                     'amount' => $amount,
                     'tax_code_id' => $l['tax_code_id'] ?? null,
                     'project_id' => $l['project_id'] ?? null,
-                    'fund_id' => $l['fund_id'] ?? null,
                     'dept_id' => $l['dept_id'] ?? null,
                 ]);
             }
@@ -135,7 +132,6 @@ class PurchaseInvoiceController extends Controller
                 'debit' => (float) $l->amount,
                 'credit' => 0,
                 'project_id' => $l->project_id,
-                'fund_id' => $l->fund_id,
                 'dept_id' => $l->dept_id,
                 'memo' => $l->description,
             ];
@@ -147,7 +143,6 @@ class PurchaseInvoiceController extends Controller
                 'debit' => $ppnTotal,
                 'credit' => 0,
                 'project_id' => null,
-                'fund_id' => null,
                 'dept_id' => null,
                 'memo' => 'PPN Masukan',
             ];
@@ -161,7 +156,6 @@ class PurchaseInvoiceController extends Controller
                     'debit' => 0,
                     'credit' => $withholdingTotal,
                     'project_id' => null,
-                    'fund_id' => null,
                     'dept_id' => null,
                     'memo' => 'Withholding Tax Payable',
                 ];

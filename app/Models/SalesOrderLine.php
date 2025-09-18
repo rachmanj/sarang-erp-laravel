@@ -27,6 +27,8 @@ class SalesOrderLine extends Model
         'discount_percentage',
         'net_amount',
         'tax_code_id',
+        'vat_rate',
+        'wtax_rate',
         'notes',
         'status'
     ];
@@ -43,6 +45,8 @@ class SalesOrderLine extends Model
         'discount_amount' => 'decimal:2',
         'discount_percentage' => 'decimal:2',
         'net_amount' => 'decimal:2',
+        'vat_rate' => 'decimal:2',
+        'wtax_rate' => 'decimal:2',
     ];
 
     // Relationships

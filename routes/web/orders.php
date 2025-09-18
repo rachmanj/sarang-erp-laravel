@@ -3,6 +3,7 @@
 use App\Http\Controllers\SalesOrderController;
 use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\GoodsReceiptController;
+use App\Http\Controllers\DeliveryOrderController;
 use Illuminate\Support\Facades\Route;
 
 // Sales Orders
@@ -74,6 +75,54 @@ Route::prefix('sales-orders')->group(function () {
     Route::get('/{id}/create-invoice', [SalesOrderController::class, 'createInvoice'])->name('sales-orders.create-invoice');
     Route::post('/{id}/approve', [SalesOrderController::class, 'approve'])->name('sales-orders.approve');
     Route::post('/{id}/close', [SalesOrderController::class, 'close'])->name('sales-orders.close');
+});
+
+// Delivery Orders
+Route::prefix('delivery-orders')->group(function () {
+    Route::get('/', [DeliveryOrderController::class, 'index'])->name('delivery-orders.index');
+    Route::get('/data', function () {
+        $q = \Illuminate\Support\Facades\DB::table('delivery_orders as do')
+            ->leftJoin('customers as c', 'c.id', '=', 'do.customer_id')
+            ->leftJoin('sales_orders as so', 'so.id', '=', 'do.sales_order_id')
+            ->select('do.id', 'do.created_at', 'do.do_number', 'do.customer_id', 'c.name as customer_name', 'so.order_no as sales_order_no', 'do.planned_delivery_date', 'do.status', 'do.approval_status');
+        if (request()->filled('status')) {
+            $q->where('do.status', request('status'));
+        }
+        if (request()->filled('from')) {
+            $q->whereDate('do.planned_delivery_date', '>=', request('from'));
+        }
+        if (request()->filled('to')) {
+            $q->whereDate('do.planned_delivery_date', '<=', request('to'));
+        }
+        if (request()->filled('customer_id')) {
+            $q->where('do.customer_id', (int)request('customer_id'));
+        }
+        if (request()->filled('q')) {
+            $kw = request('q');
+            $q->where(function ($w) use ($kw) {
+                $w->where('do.do_number', 'like', '%' . $kw . '%')->orWhere('so.order_no', 'like', '%' . $kw . '%')->orWhere('c.name', 'like', '%' . $kw . '%');
+            });
+        }
+        return Yajra\DataTables\Facades\DataTables::of($q)
+            ->addColumn('customer', fn($r) => $r->customer_name ?: ('#' . $r->customer_id))
+            ->addColumn('actions', function ($r) {
+                $url = route('delivery-orders.show', $r->id);
+                return '<a class="btn btn-xs btn-info" href="' . $url . '">View</a>';
+            })
+            ->rawColumns(['actions'])->toJson();
+    })->name('delivery-orders.data');
+    Route::get('/create', [DeliveryOrderController::class, 'create'])->name('delivery-orders.create');
+    Route::post('/', [DeliveryOrderController::class, 'store'])->name('delivery-orders.store');
+    Route::get('/{deliveryOrder}', [DeliveryOrderController::class, 'show'])->name('delivery-orders.show');
+    Route::get('/{deliveryOrder}/edit', [DeliveryOrderController::class, 'edit'])->name('delivery-orders.edit');
+    Route::patch('/{deliveryOrder}', [DeliveryOrderController::class, 'update'])->name('delivery-orders.update');
+    Route::delete('/{deliveryOrder}', [DeliveryOrderController::class, 'destroy'])->name('delivery-orders.destroy');
+    Route::post('/{deliveryOrder}/approve', [DeliveryOrderController::class, 'approve'])->name('delivery-orders.approve');
+    Route::post('/{deliveryOrder}/reject', [DeliveryOrderController::class, 'reject'])->name('delivery-orders.reject');
+    Route::post('/{deliveryOrder}/update-picking', [DeliveryOrderController::class, 'updatePicking'])->name('delivery-orders.update-picking');
+    Route::post('/{deliveryOrder}/update-delivery', [DeliveryOrderController::class, 'updateDelivery'])->name('delivery-orders.update-delivery');
+    Route::post('/{deliveryOrder}/complete-delivery', [DeliveryOrderController::class, 'completeDelivery'])->name('delivery-orders.complete-delivery');
+    Route::get('/{deliveryOrder}/print', [DeliveryOrderController::class, 'print'])->name('delivery-orders.print');
 });
 
 // Purchase Orders

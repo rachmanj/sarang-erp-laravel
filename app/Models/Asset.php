@@ -24,7 +24,6 @@ class Asset extends Model
         'placed_in_service_date',
         'status',
         'disposal_date',
-        'fund_id',
         'project_id',
         'department_id',
         'vendor_id',
@@ -52,10 +51,6 @@ class Asset extends Model
         return $this->hasMany(AssetDepreciationEntry::class, 'asset_id');
     }
 
-    public function fund(): BelongsTo
-    {
-        return $this->belongsTo(Fund::class, 'fund_id');
-    }
 
     public function project(): BelongsTo
     {

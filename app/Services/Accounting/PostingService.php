@@ -16,7 +16,7 @@ class PostingService
     public function postJournal(array $payload): int
     {
         // Expected $payload keys: date, description, period_id|null, source_type, source_id, posted_by|null, lines[]
-        // Each line: account_id, debit, credit, project_id|null, fund_id|null, dept_id|null, memo|null
+        // Each line: account_id, debit, credit, project_id|null, dept_id|null, memo|null
         $this->validatePayload($payload);
         $this->assertBalanced($payload['lines']);
 
@@ -49,7 +49,6 @@ class PostingService
                     'debit' => (float)($l['debit'] ?? 0),
                     'credit' => (float)($l['credit'] ?? 0),
                     'project_id' => empty($l['project_id']) ? null : $l['project_id'],
-                    'fund_id' => empty($l['fund_id']) ? null : $l['fund_id'],
                     'dept_id' => empty($l['dept_id']) ? null : $l['dept_id'],
                     'memo' => $l['memo'] ?? null,
                     'created_at' => now(),
@@ -92,7 +91,6 @@ class PostingService
                 'debit' => (float)$l->credit,
                 'credit' => (float)$l->debit,
                 'project_id' => $l->project_id,
-                'fund_id' => $l->fund_id,
                 'dept_id' => $l->dept_id,
                 'memo' => 'Reversal of line ' . $l->id,
             ];
