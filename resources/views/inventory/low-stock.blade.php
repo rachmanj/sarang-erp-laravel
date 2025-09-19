@@ -246,9 +246,9 @@
                     <div class="modal-body">
                         <div class="form-group">
                             <label>Vendor</label>
-                            <select class="form-control" name="vendor_id" required>
+                            <select class="form-control" name="business_partner_id" required>
                                 <option value="">Select Vendor</option>
-                                @foreach (\App\Models\Vendor::where('is_active', true)->get() as $vendor)
+                                @foreach (\App\Models\BusinessPartner::where('partner_type', 'supplier')->where('status', 'active')->get() as $vendor)
                                     <option value="{{ $vendor->id }}">{{ $vendor->name }}</option>
                                 @endforeach
                             </select>
@@ -419,13 +419,13 @@
                 selectedItems.forEach(function(item, index) {
                     $(this).append(
                         `<input type="hidden" name="lines[${index}][item_id]" value="${item.item_id}">`
-                        );
+                    );
                     $(this).append(
                         `<input type="hidden" name="lines[${index}][quantity]" value="${item.quantity}">`
-                        );
+                    );
                     $(this).append(
                         `<input type="hidden" name="lines[${index}][unit_price]" value="${item.unit_price}">`
-                        );
+                    );
                 }.bind(this));
             });
 

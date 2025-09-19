@@ -30,9 +30,8 @@ class ReportsController extends Controller
             return response()->json($data);
         }
         $projects = \Illuminate\Support\Facades\DB::table('projects')->orderBy('code')->get(['id', 'code', 'name']);
-        $funds = \Illuminate\Support\Facades\DB::table('funds')->orderBy('code')->get(['id', 'code', 'name']);
         $departments = \Illuminate\Support\Facades\DB::table('departments')->orderBy('code')->get(['id', 'code', 'name']);
-        return view('reports.gl-detail', compact('projects', 'funds', 'departments'));
+        return view('reports.gl-detail', compact('projects', 'departments'));
     }
 
     public function arAging(Request $request)

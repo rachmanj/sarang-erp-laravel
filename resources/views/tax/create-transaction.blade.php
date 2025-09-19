@@ -128,36 +128,36 @@
                                 <div class="row">
                                     <div class="col-md-6">
                                         <div class="form-group">
-                                            <label for="vendor_id">Vendor</label>
-                                            <select class="form-control @error('vendor_id') is-invalid @enderror"
-                                                id="vendor_id" name="vendor_id">
+                                            <label for="business_partner_id">Vendor</label>
+                                            <select class="form-control @error('business_partner_id') is-invalid @enderror"
+                                                id="business_partner_id" name="business_partner_id">
                                                 <option value="">Select Vendor</option>
                                                 @foreach ($vendors as $vendor)
                                                     <option value="{{ $vendor->id }}"
-                                                        {{ old('vendor_id') == $vendor->id ? 'selected' : '' }}>
+                                                        {{ old('business_partner_id') == $vendor->id ? 'selected' : '' }}>
                                                         {{ $vendor->name }} ({{ $vendor->npwp ?? 'No NPWP' }})
                                                     </option>
                                                 @endforeach
                                             </select>
-                                            @error('vendor_id')
+                                            @error('business_partner_id')
                                                 <span class="invalid-feedback">{{ $message }}</span>
                                             @enderror
                                         </div>
                                     </div>
                                     <div class="col-md-6">
                                         <div class="form-group">
-                                            <label for="customer_id">Customer</label>
-                                            <select class="form-control @error('customer_id') is-invalid @enderror"
-                                                id="customer_id" name="customer_id">
+                                            <label for="business_partner_id">Customer</label>
+                                            <select class="form-control @error('business_partner_id') is-invalid @enderror"
+                                                id="business_partner_id" name="business_partner_id">
                                                 <option value="">Select Customer</option>
                                                 @foreach ($customers as $customer)
                                                     <option value="{{ $customer->id }}"
-                                                        {{ old('customer_id') == $customer->id ? 'selected' : '' }}>
+                                                        {{ old('business_partner_id') == $customer->id ? 'selected' : '' }}>
                                                         {{ $customer->name }} ({{ $customer->npwp ?? 'No NPWP' }})
                                                     </option>
                                                 @endforeach
                                             </select>
-                                            @error('customer_id')
+                                            @error('business_partner_id')
                                                 <span class="invalid-feedback">{{ $message }}</span>
                                             @enderror
                                         </div>
@@ -377,19 +377,19 @@
             });
 
             // Auto-fill vendor/customer information
-            $('#vendor_id').change(function() {
+            $('#business_partner_id').change(function() {
                 var vendorId = $(this).val();
                 if (vendorId) {
                     // You can add AJAX call to get vendor details
-                    $('#customer_id').val('').trigger('change');
+                    $('#business_partner_id').val('').trigger('change');
                 }
             });
 
-            $('#customer_id').change(function() {
+            $('#business_partner_id').change(function() {
                 var customerId = $(this).val();
                 if (customerId) {
                     // You can add AJAX call to get customer details
-                    $('#vendor_id').val('').trigger('change');
+                    $('#business_partner_id').val('').trigger('change');
                 }
             });
 

@@ -82,16 +82,98 @@
                                             <label class="col-sm-3 col-form-label">Vendor <span
                                                     class="text-danger">*</span></label>
                                             <div class="col-sm-9">
-                                                <select name="vendor_id" class="form-control form-control-sm select2bs4"
-                                                    required>
+                                                <select name="business_partner_id"
+                                                    class="form-control form-control-sm select2bs4" required>
                                                     <option value="">-- select vendor --</option>
                                                     @foreach ($vendors as $v)
                                                         <option value="{{ $v->id }}"
-                                                            {{ old('vendor_id') == $v->id ? 'selected' : '' }}>
+                                                            {{ old('business_partner_id') == $v->id ? 'selected' : '' }}>
                                                             {{ $v->name }}
                                                         </option>
                                                     @endforeach
                                                 </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="row mt-3">
+                                    <div class="col-md-6">
+                                        <div class="form-group row mb-2">
+                                            <label class="col-sm-3 col-form-label">Reference No</label>
+                                            <div class="col-sm-9">
+                                                <input type="text" name="reference_no" value="{{ old('reference_no') }}"
+                                                    class="form-control form-control-sm" placeholder="Reference number">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-group row mb-2">
+                                            <label class="col-sm-3 col-form-label">Expected Delivery</label>
+                                            <div class="col-sm-9">
+                                                <input type="date" name="expected_delivery_date"
+                                                    value="{{ old('expected_delivery_date') }}"
+                                                    class="form-control form-control-sm">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-md-12">
+                                        <div class="form-group row mb-2">
+                                            <label class="col-sm-2 col-form-label">Description</label>
+                                            <div class="col-sm-10">
+                                                <textarea name="description" class="form-control form-control-sm" rows="2"
+                                                    placeholder="Purchase order description">{{ old('description') }}</textarea>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <div class="form-group row mb-2">
+                                            <label class="col-sm-4 col-form-label">Freight Cost</label>
+                                            <div class="col-sm-8">
+                                                <div class="input-group input-group-sm">
+                                                    <div class="input-group-prepend">
+                                                        <span class="input-group-text">Rp</span>
+                                                    </div>
+                                                    <input type="number" step="0.01" min="0" name="freight_cost"
+                                                        value="{{ old('freight_cost', 0) }}"
+                                                        class="form-control form-control-sm text-right">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="form-group row mb-2">
+                                            <label class="col-sm-4 col-form-label">Handling Cost</label>
+                                            <div class="col-sm-8">
+                                                <div class="input-group input-group-sm">
+                                                    <div class="input-group-prepend">
+                                                        <span class="input-group-text">Rp</span>
+                                                    </div>
+                                                    <input type="number" step="0.01" min="0"
+                                                        name="handling_cost" value="{{ old('handling_cost', 0) }}"
+                                                        class="form-control form-control-sm text-right">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="form-group row mb-2">
+                                            <label class="col-sm-4 col-form-label">Insurance Cost</label>
+                                            <div class="col-sm-8">
+                                                <div class="input-group input-group-sm">
+                                                    <div class="input-group-prepend">
+                                                        <span class="input-group-text">Rp</span>
+                                                    </div>
+                                                    <input type="number" step="0.01" min="0"
+                                                        name="insurance_cost" value="{{ old('insurance_cost', 0) }}"
+                                                        class="form-control form-control-sm text-right">
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -117,7 +199,8 @@
                                                         </th>
                                                         <th style="width: 20%">Description</th>
                                                         <th style="width: 10%">Qty <span class="text-danger">*</span></th>
-                                                        <th style="width: 12%">Unit Price <span class="text-danger">*</span>
+                                                        <th style="width: 12%">Unit Price <span
+                                                                class="text-danger">*</span>
                                                         </th>
                                                         <th style="width: 8%">VAT</th>
                                                         <th style="width: 8%">WTax</th>
@@ -142,6 +225,53 @@
                                                     </tr>
                                                 </tfoot>
                                             </table>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="row mt-3">
+                                    <div class="col-md-6">
+                                        <div class="form-group row mb-2">
+                                            <label class="col-sm-3 col-form-label">Payment Terms</label>
+                                            <div class="col-sm-9">
+                                                <input type="text" name="payment_terms"
+                                                    value="{{ old('payment_terms') }}"
+                                                    class="form-control form-control-sm" placeholder="e.g., Net 30, COD">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-group row mb-2">
+                                            <label class="col-sm-3 col-form-label">Delivery Method</label>
+                                            <div class="col-sm-9">
+                                                <input type="text" name="delivery_method"
+                                                    value="{{ old('delivery_method') }}"
+                                                    class="form-control form-control-sm"
+                                                    placeholder="e.g., Pickup, Delivery">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-md-12">
+                                        <div class="form-group row mb-2">
+                                            <label class="col-sm-2 col-form-label">Notes</label>
+                                            <div class="col-sm-10">
+                                                <textarea name="notes" class="form-control form-control-sm" rows="2" placeholder="Additional notes">{{ old('notes') }}</textarea>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-md-12">
+                                        <div class="form-group row mb-2">
+                                            <label class="col-sm-2 col-form-label">Terms & Conditions</label>
+                                            <div class="col-sm-10">
+                                                <textarea name="terms_conditions" class="form-control form-control-sm" rows="3"
+                                                    placeholder="Terms and conditions">{{ old('terms_conditions') }}</textarea>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -221,7 +351,7 @@
                 $tb.empty();
                 i = 0;
                 $('[name=date]').val(window.prefill.date);
-                $('[name=vendor_id]').val(window.prefill.vendor_id);
+                $('[name=business_partner_id]').val(window.prefill.business_partner_id);
                 $('[name=order_type]').val(window.prefill.order_type || 'item');
 
                 if (window.prefill.lines && window.prefill.lines.length > 0) {
@@ -323,7 +453,7 @@
                     $select.empty();
                     $select.append(
                         `<option value="">-- select ${orderType === 'item' ? 'item' : 'account'} --</option>`
-                        );
+                    );
                     $select.append(getItemOptions(orderType));
 
                     if (currentValue) {

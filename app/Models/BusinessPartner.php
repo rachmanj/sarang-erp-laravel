@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class BusinessPartner extends Model
 {
@@ -13,6 +14,7 @@ class BusinessPartner extends Model
         'name',
         'partner_type',
         'status',
+        'account_id',
         'registration_number',
         'tax_id',
         'website',
@@ -25,6 +27,11 @@ class BusinessPartner extends Model
     ];
 
     // Relationships
+    public function account(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Accounting\Account::class);
+    }
+
     public function contacts(): HasMany
     {
         return $this->hasMany(BusinessPartnerContact::class);
@@ -104,12 +111,12 @@ class BusinessPartner extends Model
     // Scopes
     public function scopeCustomers($query)
     {
-        return $query->whereIn('partner_type', ['customer', 'both']);
+        return $query->where('partner_type', 'customer');
     }
 
     public function scopeSuppliers($query)
     {
-        return $query->whereIn('partner_type', ['supplier', 'both']);
+        return $query->where('partner_type', 'supplier');
     }
 
     public function scopeActive($query)
@@ -125,12 +132,12 @@ class BusinessPartner extends Model
     // Accessors
     public function getIsCustomerAttribute()
     {
-        return in_array($this->partner_type, ['customer', 'both']);
+        return $this->partner_type === 'customer';
     }
 
     public function getIsSupplierAttribute()
     {
-        return in_array($this->partner_type, ['supplier', 'both']);
+        return $this->partner_type === 'supplier';
     }
 
     public function getDisplayNameAttribute()
@@ -173,5 +180,28 @@ class BusinessPartner extends Model
                 'field_type' => $type,
             ]
         );
+    }
+
+    // Account management methods
+    public function getDefaultAccount()
+    {
+        if ($this->partner_type === 'customer') {
+            // Find Accounts Receivable account
+            return \App\Models\Accounting\Account::where('code', 'like', '1100%')
+                ->where('name', 'like', '%receivable%')
+                ->first();
+        } elseif ($this->partner_type === 'supplier') {
+            // Find Accounts Payable account
+            return \App\Models\Accounting\Account::where('code', 'like', '2100%')
+                ->where('name', 'like', '%payable%')
+                ->first();
+        }
+
+        return null;
+    }
+
+    public function getAccountOrDefault()
+    {
+        return $this->account ?? $this->getDefaultAccount();
     }
 }

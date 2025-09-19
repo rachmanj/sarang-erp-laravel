@@ -1,4 +1,4 @@
-@extends('layouts.app')
+@extends('layouts.main')
 
 @section('title', 'Create Assets from Purchase Order')
 
@@ -225,10 +225,6 @@
                                                                 id="assets_{{ $index }}_fund_id"
                                                                 name="assets[{{ $index }}][fund_id]">
                                                                 <option value="">Select Fund</option>
-                                                                @foreach ($funds as $fund)
-                                                                    <option value="{{ $fund->id }}">
-                                                                        {{ $fund->code }} - {{ $fund->name }}</option>
-                                                                @endforeach
                                                             </select>
                                                         </div>
                                                     </div>

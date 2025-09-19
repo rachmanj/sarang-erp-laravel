@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\BusinessPartner;
 use App\Services\BusinessPartnerService;
+use App\Services\BusinessPartnerJournalService;
 use Illuminate\Http\Request;
 use Yajra\DataTables\Facades\DataTables;
 
@@ -36,8 +37,9 @@ class BusinessPartnerController extends Controller
         $data = $request->validate([
             'code' => ['required', 'string', 'max:50', 'unique:business_partners,code'],
             'name' => ['required', 'string', 'max:150'],
-            'partner_type' => ['required', 'in:customer,supplier,both'],
+            'partner_type' => ['required', 'in:customer,supplier'],
             'status' => ['nullable', 'in:active,inactive,suspended'],
+            'account_id' => ['nullable', 'exists:accounts,id'],
             'registration_number' => ['nullable', 'string', 'max:30'],
             'tax_id' => ['nullable', 'string', 'max:50'],
             'website' => ['nullable', 'url', 'max:255'],
@@ -121,8 +123,9 @@ class BusinessPartnerController extends Controller
         $data = $request->validate([
             'code' => ['required', 'string', 'max:50', 'unique:business_partners,code,' . $businessPartner->id],
             'name' => ['required', 'string', 'max:150'],
-            'partner_type' => ['required', 'in:customer,supplier,both'],
+            'partner_type' => ['required', 'in:customer,supplier'],
             'status' => ['nullable', 'in:active,inactive,suspended'],
+            'account_id' => ['nullable', 'exists:accounts,id'],
             'registration_number' => ['nullable', 'string', 'max:30'],
             'tax_id' => ['nullable', 'string', 'max:50'],
             'website' => ['nullable', 'url', 'max:255'],
@@ -236,7 +239,6 @@ class BusinessPartnerController extends Controller
                 $badges = [
                     'customer' => '<span class="badge badge-info">Customer</span>',
                     'supplier' => '<span class="badge badge-warning">Supplier</span>',
-                    'both' => '<span class="badge badge-success">Both</span>',
                 ];
                 return $badges[$businessPartner->partner_type] ?? '';
             })
@@ -279,5 +281,24 @@ class BusinessPartnerController extends Controller
         $businessPartners = $this->businessPartnerService->getBusinessPartnersByType($type);
 
         return response()->json($businessPartners);
+    }
+
+    public function journalHistory(Request $request, BusinessPartner $businessPartner)
+    {
+        $this->middleware('can:business_partners.journal_history');
+
+        $startDate = $request->get('start_date');
+        $endDate = $request->get('end_date');
+        $page = $request->get('page', 1);
+        $perPage = $request->get('per_page', 25);
+
+        $journalService = new BusinessPartnerJournalService($businessPartner);
+        $journalData = $journalService->getJournalHistory($startDate, $endDate, $page, $perPage);
+
+        if ($request->wantsJson()) {
+            return response()->json($journalData);
+        }
+
+        return view('business_partners.journal_history', compact('businessPartner', 'journalData'));
     }
 }

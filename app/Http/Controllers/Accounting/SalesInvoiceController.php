@@ -31,7 +31,7 @@ class SalesInvoiceController extends Controller
     public function create()
     {
         $accounts = DB::table('accounts')->where('is_postable', 1)->orderBy('code')->get();
-        $customers = DB::table('customers')->orderBy('name')->get();
+        $customers = DB::table('business_partners')->where('partner_type', 'customer')->orderBy('name')->get();
         $taxCodes = DB::table('tax_codes')->orderBy('code')->get();
         $projects = DB::table('projects')->orderBy('code')->get(['id', 'code', 'name']);
         $departments = DB::table('departments')->orderBy('code')->get(['id', 'code', 'name']);
@@ -42,7 +42,7 @@ class SalesInvoiceController extends Controller
     {
         $data = $request->validate([
             'date' => ['required', 'date'],
-            'customer_id' => ['required', 'integer', 'exists:customers,id'],
+            'business_partner_id' => ['required', 'integer', 'exists:business_partners,id'],
             'description' => ['nullable', 'string', 'max:255'],
             'lines' => ['required', 'array', 'min:1'],
             'lines.*.account_id' => ['required', 'integer', 'exists:accounts,id'],
@@ -58,7 +58,7 @@ class SalesInvoiceController extends Controller
             $invoice = SalesInvoice::create([
                 'invoice_no' => null,
                 'date' => $data['date'],
-                'customer_id' => $data['customer_id'],
+                'business_partner_id' => $data['business_partner_id'],
                 'sales_order_id' => $request->input('sales_order_id'),
                 'description' => $data['description'] ?? null,
                 'status' => 'draft',
@@ -187,8 +187,8 @@ class SalesInvoiceController extends Controller
     public function data(Request $request)
     {
         $q = DB::table('sales_invoices as si')
-            ->leftJoin('customers as c', 'c.id', '=', 'si.customer_id')
-            ->select('si.id', 'si.date', 'si.invoice_no', 'si.customer_id', 'c.name as customer_name', 'si.total_amount', 'si.status');
+            ->leftJoin('business_partners as c', 'c.id', '=', 'si.business_partner_id')
+            ->select('si.id', 'si.date', 'si.invoice_no', 'si.business_partner_id', 'c.name as customer_name', 'si.total_amount', 'si.status');
 
         if ($request->filled('status')) {
             $q->where('si.status', $request->input('status'));
@@ -216,7 +216,7 @@ class SalesInvoiceController extends Controller
                 return strtoupper($row->status);
             })
             ->addColumn('customer', function ($row) {
-                return $row->customer_name ?: ('#' . $row->customer_id);
+                return $row->customer_name ?: ('#' . $row->business_partner_id);
             })
             ->addColumn('actions', function ($row) {
                 $url = route('sales-invoices.show', $row->id);

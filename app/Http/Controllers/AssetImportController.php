@@ -130,11 +130,10 @@ class AssetImportController extends Controller
 
         return response()->json([
             'categories' => \App\Models\AssetCategory::select('id', 'code', 'name')->get(),
-            'funds' => \App\Models\Fund::select('id', 'code', 'name')->get(),
             'projects' => \App\Models\Project::select('id', 'code', 'name')->get(),
             'departments' => \App\Models\Department::select('id', 'code', 'name')->get(),
-            'vendors' => \App\Models\Vendor::select('id', 'code', 'name')->get(),
-            'purchase_invoices' => \App\Models\PurchaseInvoice::select('id', 'invoice_number', 'vendor_id')
+            'vendors' => \App\Models\BusinessPartner::where('partner_type', 'supplier')->select('id', 'code', 'name')->get(),
+            'purchase_invoices' => \App\Models\PurchaseInvoice::select('id', 'invoice_number', 'business_partner_id')
                 ->with('vendor:id,name')
                 ->get()
         ]);

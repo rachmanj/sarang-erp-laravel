@@ -77,7 +77,7 @@ class SupplierAnalyticsController extends Controller
         $supplierAnalyses = $query->orderBy('overall_score', 'desc')
             ->paginate(20);
 
-        $suppliers = Vendor::all();
+        $suppliers = \App\Models\BusinessPartner::where('partner_type', 'supplier')->get();
 
         return view('supplier-analytics.performance', compact('supplierAnalyses', 'suppliers'));
     }
@@ -177,7 +177,7 @@ class SupplierAnalyticsController extends Controller
         $request->validate([
             'category_id' => 'required|exists:product_categories,id',
             'supplier_ids' => 'array|max:3',
-            'supplier_ids.*' => 'exists:vendors,id',
+            'supplier_ids.*' => 'exists:business_partners,id',
         ]);
 
         $comparison = $this->supplierAnalyticsService->compareSuppliers(
@@ -198,7 +198,7 @@ class SupplierAnalyticsController extends Controller
     public function getSupplierTrends(Request $request): JsonResponse
     {
         $request->validate([
-            'supplier_id' => 'required|exists:vendors,id',
+            'supplier_id' => 'required|exists:business_partners,id',
             'months' => 'integer|min:1|max:24',
         ]);
 
@@ -220,7 +220,7 @@ class SupplierAnalyticsController extends Controller
     public function calculateSupplierRisk(Request $request): JsonResponse
     {
         $request->validate([
-            'supplier_id' => 'required|exists:vendors,id',
+            'supplier_id' => 'required|exists:business_partners,id',
             'start_date' => 'required|date',
             'end_date' => 'required|date|after_or_equal:start_date',
         ]);
@@ -244,10 +244,10 @@ class SupplierAnalyticsController extends Controller
     public function getSupplierDetails(Request $request): JsonResponse
     {
         $request->validate([
-            'supplier_id' => 'required|exists:vendors,id',
+            'supplier_id' => 'required|exists:business_partners,id',
         ]);
 
-        $supplier = Vendor::with(['purchaseOrders' => function ($query) {
+        $supplier = \App\Models\BusinessPartner::with(['purchaseOrders' => function ($query) {
             $query->latest()->limit(10);
         }])->find($request->supplier_id);
 

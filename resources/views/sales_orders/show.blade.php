@@ -50,7 +50,7 @@
                             <div>{{ $order->date }}</div>
                         </div>
                         <div class="col-md-3"><b>Customer</b>
-                            <div>#{{ $order->customer_id }}</div>
+                            <div>#{{ $order->business_partner_id }}</div>
                         </div>
                         <div class="col-md-3"><b>Status</b>
                             <div>{{ strtoupper($order->status) }}</div>

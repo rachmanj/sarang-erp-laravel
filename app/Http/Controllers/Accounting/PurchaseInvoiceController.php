@@ -31,7 +31,7 @@ class PurchaseInvoiceController extends Controller
     public function create()
     {
         $accounts = DB::table('accounts')->where('is_postable', 1)->orderBy('code')->get();
-        $vendors = DB::table('vendors')->orderBy('name')->get();
+        $vendors = DB::table('business_partners')->where('partner_type', 'supplier')->orderBy('name')->get();
         $taxCodes = DB::table('tax_codes')->orderBy('code')->get();
         $projects = DB::table('projects')->orderBy('code')->get(['id', 'code', 'name']);
         $departments = DB::table('departments')->orderBy('code')->get(['id', 'code', 'name']);
@@ -42,7 +42,7 @@ class PurchaseInvoiceController extends Controller
     {
         $data = $request->validate([
             'date' => ['required', 'date'],
-            'vendor_id' => ['required', 'integer', 'exists:vendors,id'],
+            'business_partner_id' => ['required', 'integer', 'exists:business_partners,id'],
             'description' => ['nullable', 'string', 'max:255'],
             'lines' => ['required', 'array', 'min:1'],
             'lines.*.account_id' => ['required', 'integer', 'exists:accounts,id'],
@@ -58,7 +58,7 @@ class PurchaseInvoiceController extends Controller
             $invoice = PurchaseInvoice::create([
                 'invoice_no' => null,
                 'date' => $data['date'],
-                'vendor_id' => $data['vendor_id'],
+                'business_partner_id' => $data['business_partner_id'],
                 'purchase_order_id' => $request->input('purchase_order_id'),
                 'goods_receipt_id' => $request->input('goods_receipt_id'),
                 'description' => $data['description'] ?? null,
@@ -217,8 +217,8 @@ class PurchaseInvoiceController extends Controller
     public function data(Request $request)
     {
         $q = DB::table('purchase_invoices as pi')
-            ->leftJoin('vendors as v', 'v.id', '=', 'pi.vendor_id')
-            ->select('pi.id', 'pi.date', 'pi.invoice_no', 'pi.vendor_id', 'v.name as vendor_name', 'pi.total_amount', 'pi.status');
+            ->leftJoin('business_partners as v', 'v.id', '=', 'pi.business_partner_id')
+            ->select('pi.id', 'pi.date', 'pi.invoice_no', 'pi.business_partner_id', 'v.name as vendor_name', 'pi.total_amount', 'pi.status');
 
         if ($request->filled('status')) {
             $q->where('pi.status', $request->input('status'));
@@ -246,7 +246,7 @@ class PurchaseInvoiceController extends Controller
                 return strtoupper($row->status);
             })
             ->addColumn('vendor', function ($row) {
-                return $row->vendor_name ?: ('#' . $row->vendor_id);
+                return $row->vendor_name ?: ('#' . $row->business_partner_id);
             })
             ->addColumn('actions', function ($row) {
                 $url = route('purchase-invoices.show', $row->id);

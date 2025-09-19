@@ -237,8 +237,9 @@
                             <div class="row">
                                 <div class="col-md-6">
                                     <div class="form-group">
-                                        <label for="vendor_id">Vendor</label>
-                                        <select class="form-control select2bs4" id="vendor_id" name="vendor_id">
+                                        <label for="business_partner_id">Vendor</label>
+                                        <select class="form-control select2bs4" id="business_partner_id"
+                                            name="business_partner_id">
                                             <option value="">Select Vendor</option>
                                         </select>
                                     </div>
@@ -538,7 +539,7 @@
                     vendors.forEach(function(vendor) {
                         vendorOptions += `<option value="${vendor.id}">${vendor.name}</option>`;
                     });
-                    $('#vendor_id').html(vendorOptions);
+                    $('#business_partner_id').html(vendorOptions);
                 });
 
                 // Initialize Select2 for filters

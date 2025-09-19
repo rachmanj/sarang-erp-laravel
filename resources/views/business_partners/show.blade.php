@@ -39,8 +39,6 @@
                                     <span class="badge badge-info">Customer</span>
                                 @elseif($businessPartner->partner_type == 'supplier')
                                     <span class="badge badge-warning">Supplier</span>
-                                @else
-                                    <span class="badge badge-success">Both</span>
                                 @endif
 
                                 @if ($businessPartner->status == 'active')
@@ -99,12 +97,19 @@
                                 <i class="fas fa-exchange-alt"></i> Transactions
                             </a>
                         </li>
+                        <li class="nav-item">
+                            <a class="nav-link" id="journal-history-tab" data-toggle="tab" href="#journal-history"
+                                role="tab" aria-controls="journal-history" aria-selected="false">
+                                <i class="fas fa-book"></i> Account Balance - Journal History
+                            </a>
+                        </li>
                     </ul>
 
                     <!-- Tab Content -->
                     <div class="tab-content pt-3" id="partner-tabs-content">
                         <!-- General Information Tab -->
-                        <div class="tab-pane fade show active" id="general" role="tabpanel" aria-labelledby="general-tab">
+                        <div class="tab-pane fade show active" id="general" role="tabpanel"
+                            aria-labelledby="general-tab">
                             <div class="row">
                                 <div class="col-md-6">
                                     <div class="card">
@@ -126,8 +131,6 @@
                                                             Customer
                                                         @elseif($businessPartner->partner_type == 'supplier')
                                                             Supplier
-                                                        @else
-                                                            Both (Customer & Supplier)
                                                         @endif
                                                     </td>
                                                 </tr>
@@ -331,6 +334,39 @@
                         <!-- Taxation & Terms Tab -->
                         <div class="tab-pane fade" id="taxation" role="tabpanel" aria-labelledby="taxation-tab">
                             <div class="row">
+                                <div class="col-md-6">
+                                    <div class="card">
+                                        <div class="card-body">
+                                            <h5 class="card-title">Accounting</h5>
+                                            <table class="table table-bordered">
+                                                <tr>
+                                                    <th style="width: 40%">GL Account</th>
+                                                    <td>
+                                                        @if ($businessPartner->account)
+                                                            {{ $businessPartner->account->code }} -
+                                                            {{ $businessPartner->account->name }}
+                                                        @else
+                                                            <span class="text-muted">Not assigned</span>
+                                                        @endif
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <th>Default Account</th>
+                                                    <td>
+                                                        @php
+                                                            $defaultAccount = $businessPartner->getDefaultAccount();
+                                                        @endphp
+                                                        @if ($defaultAccount)
+                                                            {{ $defaultAccount->code }} - {{ $defaultAccount->name }}
+                                                        @else
+                                                            <span class="text-muted">Not available</span>
+                                                        @endif
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
                                 <div class="col-md-6">
                                     <div class="card">
                                         <div class="card-body">
@@ -615,6 +651,137 @@
                                 @endif
                             </div>
                         </div>
+
+                        <!-- Journal History Tab -->
+                        <div class="tab-pane fade" id="journal-history" role="tabpanel"
+                            aria-labelledby="journal-history-tab">
+                            <div class="row mb-3">
+                                <div class="col-md-12">
+                                    <div class="card">
+                                        <div class="card-header">
+                                            <h3 class="card-title">Account Balance - Journal History</h3>
+                                            <div class="card-tools">
+                                                <button type="button" class="btn btn-sm btn-primary"
+                                                    id="refresh-journal-history">
+                                                    <i class="fas fa-sync"></i> Refresh
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div class="card-body">
+                                            <!-- Date Range Filter -->
+                                            <div class="row mb-3">
+                                                <div class="col-md-3">
+                                                    <label for="start-date">Start Date</label>
+                                                    <input type="date" class="form-control" id="start-date"
+                                                        value="{{ \Carbon\Carbon::now()->startOfYear()->format('Y-m-d') }}">
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <label for="end-date">End Date</label>
+                                                    <input type="date" class="form-control" id="end-date"
+                                                        value="{{ \Carbon\Carbon::now()->endOfYear()->format('Y-m-d') }}">
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <label>&nbsp;</label>
+                                                    <div>
+                                                        <button type="button" class="btn btn-primary"
+                                                            id="filter-journal-history">
+                                                            <i class="fas fa-filter"></i> Filter
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <!-- Summary Cards -->
+                                            <div class="row mb-3" id="journal-summary">
+                                                <div class="col-md-3">
+                                                    <div class="info-box">
+                                                        <span class="info-box-icon bg-info"><i
+                                                                class="fas fa-wallet"></i></span>
+                                                        <div class="info-box-content">
+                                                            <span class="info-box-text">Opening Balance</span>
+                                                            <span class="info-box-number" id="opening-balance">Rp 0</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <div class="info-box">
+                                                        <span class="info-box-icon bg-success"><i
+                                                                class="fas fa-arrow-up"></i></span>
+                                                        <div class="info-box-content">
+                                                            <span class="info-box-text">Total Debits</span>
+                                                            <span class="info-box-number" id="total-debits">Rp 0</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <div class="info-box">
+                                                        <span class="info-box-icon bg-warning"><i
+                                                                class="fas fa-arrow-down"></i></span>
+                                                        <div class="info-box-content">
+                                                            <span class="info-box-text">Total Credits</span>
+                                                            <span class="info-box-number" id="total-credits">Rp 0</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <div class="info-box">
+                                                        <span class="info-box-icon bg-primary"><i
+                                                                class="fas fa-balance-scale"></i></span>
+                                                        <div class="info-box-content">
+                                                            <span class="info-box-text">Closing Balance</span>
+                                                            <span class="info-box-number" id="closing-balance">Rp 0</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <!-- Transactions Table -->
+                                            <div class="table-responsive">
+                                                <table class="table table-bordered table-striped"
+                                                    id="journal-history-table">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Posting Date</th>
+                                                            <th>Create Date</th>
+                                                            <th>Document Date</th>
+                                                            <th>Type</th>
+                                                            <th>Document No</th>
+                                                            <th>Journal No</th>
+                                                            <th>Description</th>
+                                                            <th>Offset Account</th>
+                                                            <th>Account Name</th>
+                                                            <th>Debit</th>
+                                                            <th>Credit</th>
+                                                            <th>Cumulative Balance</th>
+                                                            <th>Project</th>
+                                                            <th>Created By</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <!-- Data will be loaded via AJAX -->
+                                                    </tbody>
+                                                </table>
+                                            </div>
+
+                                            <!-- Pagination -->
+                                            <div class="row mt-3">
+                                                <div class="col-md-6">
+                                                    <div id="journal-pagination-info"></div>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <nav aria-label="Journal History Pagination">
+                                                        <ul class="pagination justify-content-end"
+                                                            id="journal-pagination">
+                                                            <!-- Pagination will be loaded via AJAX -->
+                                                        </ul>
+                                                    </nav>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -628,4 +795,167 @@
             padding: 20px 0;
         }
     </style>
+@endpush
+
+@push('scripts')
+    <script>
+        $(document).ready(function() {
+            // Initialize tooltips
+            $('[data-toggle="tooltip"]').tooltip();
+
+            // Tab switching functionality
+            $('a[data-toggle="tab"]').on('shown.bs.tab', function(e) {
+                // Handle any tab-specific functionality here
+                var target = $(e.target).attr("href");
+                console.log('Switched to tab:', target);
+
+                // Load journal history when tab is shown
+                if (target === '#journal-history') {
+                    loadJournalHistory();
+                }
+            });
+
+            // Journal History functionality
+            let currentPage = 1;
+            const perPage = 25;
+
+            function loadJournalHistory(page = 1) {
+                const startDate = $('#start-date').val();
+                const endDate = $('#end-date').val();
+
+                $.ajax({
+                    url: '{{ route('business_partners.journal_history', $businessPartner->id) }}',
+                    method: 'GET',
+                    data: {
+                        start_date: startDate,
+                        end_date: endDate,
+                        page: page,
+                        per_page: perPage
+                    },
+                    beforeSend: function() {
+                        $('#journal-history-table tbody').html(
+                            '<tr><td colspan="14" class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading...</td></tr>'
+                            );
+                    },
+                    success: function(response) {
+                        updateSummaryCards(response);
+                        updateTransactionsTable(response.transactions);
+                        updatePagination(response.pagination);
+                        currentPage = page;
+                    },
+                    error: function(xhr) {
+                        console.error('Error loading journal history:', xhr);
+                        $('#journal-history-table tbody').html(
+                            '<tr><td colspan="14" class="text-center text-danger">Error loading data</td></tr>'
+                            );
+                    }
+                });
+            }
+
+            function updateSummaryCards(data) {
+                $('#opening-balance').text(formatCurrency(data.opening_balance));
+                $('#total-debits').text(formatCurrency(data.total_debits));
+                $('#total-credits').text(formatCurrency(data.total_credits));
+                $('#closing-balance').text(formatCurrency(data.closing_balance));
+            }
+
+            function updateTransactionsTable(transactions) {
+                let tbody = $('#journal-history-table tbody');
+                tbody.empty();
+
+                if (transactions.length === 0) {
+                    tbody.html(
+                        '<tr><td colspan="14" class="text-center text-muted">No transactions found</td></tr>');
+                    return;
+                }
+
+                transactions.forEach(function(transaction) {
+                    const row = `
+                        <tr>
+                            <td>${formatDate(transaction.posting_date)}</td>
+                            <td>${formatDateTime(transaction.create_date)}</td>
+                            <td>${formatDate(transaction.document_date)}</td>
+                            <td><span class="badge badge-info">${transaction.type}</span></td>
+                            <td>${transaction.document_no || '-'}</td>
+                            <td>${transaction.journal_no || '-'}</td>
+                            <td>${transaction.description || '-'}</td>
+                            <td>${transaction.offset_account || '-'}</td>
+                            <td>${transaction.account_name || '-'}</td>
+                            <td class="text-right">${transaction.debit > 0 ? formatCurrency(transaction.debit) : '-'}</td>
+                            <td class="text-right">${transaction.credit > 0 ? formatCurrency(transaction.credit) : '-'}</td>
+                            <td class="text-right font-weight-bold">${formatCurrency(transaction.cumulative_balance)}</td>
+                            <td>${transaction.project_dept || '-'}</td>
+                            <td>${transaction.created_by || '-'}</td>
+                        </tr>
+                    `;
+                    tbody.append(row);
+                });
+            }
+
+            function updatePagination(pagination) {
+                const info =
+                    `Showing ${((pagination.current_page - 1) * pagination.per_page) + 1} to ${Math.min(pagination.current_page * pagination.per_page, pagination.total_records)} of ${pagination.total_records} entries`;
+                $('#journal-pagination-info').text(info);
+
+                let paginationHtml = '';
+
+                // Previous button
+                if (pagination.current_page > 1) {
+                    paginationHtml +=
+                        `<li class="page-item"><a class="page-link" href="#" data-page="${pagination.current_page - 1}">Previous</a></li>`;
+                }
+
+                // Page numbers
+                const startPage = Math.max(1, pagination.current_page - 2);
+                const endPage = Math.min(pagination.total_pages, pagination.current_page + 2);
+
+                for (let i = startPage; i <= endPage; i++) {
+                    const activeClass = i === pagination.current_page ? 'active' : '';
+                    paginationHtml +=
+                        `<li class="page-item ${activeClass}"><a class="page-link" href="#" data-page="${i}">${i}</a></li>`;
+                }
+
+                // Next button
+                if (pagination.current_page < pagination.total_pages) {
+                    paginationHtml +=
+                        `<li class="page-item"><a class="page-link" href="#" data-page="${pagination.current_page + 1}">Next</a></li>`;
+                }
+
+                $('#journal-pagination').html(paginationHtml);
+            }
+
+            function formatCurrency(amount) {
+                return new Intl.NumberFormat('id-ID', {
+                    style: 'currency',
+                    currency: 'IDR',
+                    minimumFractionDigits: 0
+                }).format(amount);
+            }
+
+            function formatDate(dateString) {
+                if (!dateString) return '-';
+                return new Date(dateString).toLocaleDateString('id-ID');
+            }
+
+            function formatDateTime(dateString) {
+                if (!dateString) return '-';
+                return new Date(dateString).toLocaleString('id-ID');
+            }
+
+            // Event handlers
+            $('#filter-journal-history').click(function() {
+                loadJournalHistory(1);
+            });
+
+            $('#refresh-journal-history').click(function() {
+                loadJournalHistory(currentPage);
+            });
+
+            $(document).on('click', '#journal-pagination a', function(e) {
+                e.preventDefault();
+                const page = $(this).data('page');
+                loadJournalHistory(page);
+            });
+        });
+    </script>
 @endpush

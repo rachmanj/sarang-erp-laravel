@@ -205,6 +205,39 @@
 
                             <!-- Taxation & Terms Tab -->
                             <div class="tab-pane fade" id="taxation" role="tabpanel" aria-labelledby="taxation-tab">
+                                <!-- Accounting Section -->
+                                <h6>Accounting</h6>
+                                <hr>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <label for="account_id">GL Account</label>
+                                            <select class="form-control @error('account_id') is-invalid @enderror"
+                                                id="account_id" name="account_id">
+                                                <option value="">Select Account (Optional)</option>
+                                                @php
+                                                    $accounts = \App\Models\Accounting\Account::orderBy('code')->get();
+                                                @endphp
+                                                @foreach ($accounts as $account)
+                                                    <option value="{{ $account->id }}"
+                                                        {{ old('account_id', $businessPartner->account_id) == $account->id ? 'selected' : '' }}>
+                                                        {{ $account->code }} - {{ $account->name }}
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                            <small class="form-text text-muted">
+                                                Leave empty to use default account based on partner type
+                                            </small>
+                                            @error('account_id')
+                                                <span class="invalid-feedback">{{ $message }}</span>
+                                            @enderror
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Tax Information Section -->
+                                <h6 class="mt-4">Tax Information</h6>
+                                <hr>
                                 <div class="row">
                                     <div class="col-md-6">
                                         <div class="form-group">

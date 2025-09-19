@@ -117,20 +117,20 @@ class BusinessPartnerSampleSeeder extends Seeder
             'field_type' => 'text',
         ]);
 
-        // Sample both type
-        $both = BusinessPartner::create([
-            'code' => 'BOTH001',
+        // Sample customer 2
+        $customer2 = BusinessPartner::create([
+            'code' => 'CUST002',
             'name' => 'PT Mitra Sejati',
-            'partner_type' => 'both',
+            'partner_type' => 'customer',
             'status' => 'active',
             'registration_number' => '05.678.901.2-567.890',
             'website' => 'https://mitrasejati.co.id',
-            'notes' => 'Strategic partner for both supply and distribution',
+            'notes' => 'Strategic customer for distribution',
         ]);
 
-        // Create both type contact
+        // Create customer 2 contact
         BusinessPartnerContact::create([
-            'business_partner_id' => $both->id,
+            'business_partner_id' => $customer2->id,
             'contact_type' => 'primary',
             'name' => 'Joko Susanto',
             'position' => 'CEO',
@@ -140,9 +140,9 @@ class BusinessPartnerSampleSeeder extends Seeder
             'is_primary' => true,
         ]);
 
-        // Create both type address
+        // Create customer 2 address
         BusinessPartnerAddress::create([
-            'business_partner_id' => $both->id,
+            'business_partner_id' => $customer2->id,
             'address_type' => 'registered',
             'address_line_1' => 'Jl. MT Haryono Kav. 15',
             'address_line_2' => 'Gedung Graha Mitra, Lantai 10',
@@ -153,6 +153,6 @@ class BusinessPartnerSampleSeeder extends Seeder
             'is_primary' => true,
         ]);
 
-        $this->command->info('Created 3 sample business partners (1 customer, 1 supplier, 1 both).');
+        $this->command->info('Created 3 sample business partners (2 customers, 1 supplier).');
     }
 }

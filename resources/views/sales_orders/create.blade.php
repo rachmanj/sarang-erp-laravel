@@ -82,12 +82,12 @@
                                             <label class="col-sm-3 col-form-label">Customer <span
                                                     class="text-danger">*</span></label>
                                             <div class="col-sm-9">
-                                                <select name="customer_id" class="form-control form-control-sm select2bs4"
-                                                    required>
+                                                <select name="business_partner_id"
+                                                    class="form-control form-control-sm select2bs4" required>
                                                     <option value="">-- select customer --</option>
                                                     @foreach ($customers as $c)
                                                         <option value="{{ $c->id }}"
-                                                            {{ old('customer_id') == $c->id ? 'selected' : '' }}>
+                                                            {{ old('business_partner_id') == $c->id ? 'selected' : '' }}>
                                                             {{ $c->name }}
                                                         </option>
                                                     @endforeach
@@ -221,7 +221,7 @@
                 $tb.empty();
                 i = 0;
                 $('[name=date]').val(window.prefill.date);
-                $('[name=customer_id]').val(window.prefill.customer_id);
+                $('[name=business_partner_id]').val(window.prefill.business_partner_id);
                 $('[name=order_type]').val(window.prefill.order_type || 'item');
 
                 if (window.prefill.lines && window.prefill.lines.length > 0) {
@@ -323,7 +323,7 @@
                     $select.empty();
                     $select.append(
                         `<option value="">-- select ${orderType === 'item' ? 'item' : 'account'} --</option>`
-                        );
+                    );
                     $select.append(getItemOptions(orderType));
 
                     if (currentValue) {

@@ -76,10 +76,6 @@
                                 <label>Fund</label>
                                 <select name="fund_id" id="fund_id" class="form-control select2bs4">
                                     <option value="">-- Select Fund (Optional) --</option>
-                                    @foreach ($funds as $f)
-                                        <option value="{{ $f->id }}">{{ $f->code }} - {{ $f->name }}
-                                        </option>
-                                    @endforeach
                                 </select>
                             </div>
                             <div class="form-group col-md-4">

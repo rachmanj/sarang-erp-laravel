@@ -131,7 +131,7 @@ class AssetController extends Controller
                             'fund_id' => $asset->fund_id,
                             'project_id' => $asset->project_id,
                             'department_id' => $asset->department_id,
-                            'vendor_id' => $asset->vendor_id,
+                            'business_partner_id' => $asset->business_partner_id,
                         ]))
                     );
                 }
@@ -167,12 +167,11 @@ class AssetController extends Controller
     public function create()
     {
         $categories = AssetCategory::active()->get();
-        $funds = Fund::all();
         $projects = Project::all();
         $departments = Department::all();
-        $vendors = Vendor::all();
+        $vendors = \App\Models\BusinessPartner::where('partner_type', 'supplier')->get();
 
-        return view('assets.create', compact('categories', 'funds', 'projects', 'departments', 'vendors'));
+        return view('assets.create', compact('categories', 'projects', 'departments', 'vendors'));
     }
 
     public function store(Request $request)
@@ -191,7 +190,7 @@ class AssetController extends Controller
             'fund_id' => 'nullable|exists:funds,id',
             'project_id' => 'nullable|exists:projects,id',
             'department_id' => 'nullable|exists:departments,id',
-            'vendor_id' => 'nullable|exists:vendors,id',
+            'business_partner_id' => 'nullable|exists:business_partners,id',
         ]);
 
         $assetData = $request->all();
@@ -207,12 +206,11 @@ class AssetController extends Controller
     public function edit(Asset $asset)
     {
         $categories = AssetCategory::active()->get();
-        $funds = Fund::all();
         $projects = Project::all();
         $departments = Department::all();
-        $vendors = Vendor::all();
+        $vendors = \App\Models\BusinessPartner::where('partner_type', 'supplier')->get();
 
-        return view('assets.edit', compact('asset', 'categories', 'funds', 'projects', 'departments', 'vendors'));
+        return view('assets.edit', compact('asset', 'categories', 'projects', 'departments', 'vendors'));
     }
 
     public function update(Request $request, Asset $asset)
@@ -231,7 +229,7 @@ class AssetController extends Controller
             'fund_id' => 'nullable|exists:funds,id',
             'project_id' => 'nullable|exists:projects,id',
             'department_id' => 'nullable|exists:departments,id',
-            'vendor_id' => 'nullable|exists:vendors,id',
+            'business_partner_id' => 'nullable|exists:business_partners,id',
         ]);
 
         // Prevent updating acquisition cost if asset has depreciation entries
@@ -270,7 +268,6 @@ class AssetController extends Controller
 
     public function getFunds()
     {
-        $funds = Fund::all(['id', 'code', 'name']);
         return response()->json($funds);
     }
 
@@ -288,7 +285,7 @@ class AssetController extends Controller
 
     public function getVendors()
     {
-        $vendors = Vendor::all(['id', 'code', 'name']);
+        $vendors = \App\Models\BusinessPartner::where('partner_type', 'supplier')->get(['id', 'code', 'name']);
         return response()->json($vendors);
     }
 
@@ -296,12 +293,11 @@ class AssetController extends Controller
     {
         $this->authorize('update', Asset::class);
 
-        $funds = Fund::all(['id', 'code', 'name']);
         $projects = Project::all(['id', 'code', 'name']);
         $departments = Department::all(['id', 'code', 'name']);
-        $vendors = Vendor::all(['id', 'code', 'name']);
+        $vendors = \App\Models\BusinessPartner::where('partner_type', 'supplier')->get(['id', 'code', 'name']);
 
-        return view('assets.bulk-operations.index', compact('funds', 'projects', 'departments', 'vendors'));
+        return view('assets.bulk-operations.index', compact('projects', 'departments', 'vendors'));
     }
 
     public function bulkUpdate(Request $request)
@@ -315,7 +311,7 @@ class AssetController extends Controller
             'updates.fund_id' => 'nullable|exists:funds,id',
             'updates.project_id' => 'nullable|exists:projects,id',
             'updates.department_id' => 'nullable|exists:departments,id',
-            'updates.vendor_id' => 'nullable|exists:vendors,id',
+            'updates.business_partner_id' => 'nullable|exists:business_partners,id',
             'updates.status' => 'nullable|in:active,retired,disposed',
             'updates.description' => 'nullable|string|max:1000',
             'updates.serial_number' => 'nullable|string|max:100',
@@ -367,7 +363,7 @@ class AssetController extends Controller
         $this->authorize('view', Asset::class);
 
         $query = Asset::with(['category', 'fund', 'project', 'department', 'vendor'])
-            ->select(['id', 'code', 'name', 'description', 'serial_number', 'category_id', 'fund_id', 'project_id', 'department_id', 'vendor_id', 'status', 'acquisition_cost', 'salvage_value', 'method', 'life_months', 'placed_in_service_date']);
+            ->select(['id', 'code', 'name', 'description', 'serial_number', 'category_id', 'fund_id', 'project_id', 'department_id', 'business_partner_id', 'status', 'acquisition_cost', 'salvage_value', 'method', 'life_months', 'placed_in_service_date']);
 
         // Apply filters
         if ($request->filled('category_id')) {
@@ -390,8 +386,8 @@ class AssetController extends Controller
             $query->where('department_id', $request->department_id);
         }
 
-        if ($request->filled('vendor_id')) {
-            $query->where('vendor_id', $request->vendor_id);
+        if ($request->filled('business_partner_id')) {
+            $query->where('business_partner_id', $request->business_partner_id);
         }
 
         if ($request->filled('search')) {

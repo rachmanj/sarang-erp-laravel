@@ -30,14 +30,14 @@ class SalesService
     {
         return DB::transaction(function () use ($data) {
             // Check credit limit
-            $this->checkCreditLimit($data['customer_id'], $data['total_amount']);
+            $this->checkCreditLimit($data['business_partner_id'], $data['total_amount']);
 
             $so = SalesOrder::create([
                 'order_no' => null,
                 'reference_no' => $data['reference_no'] ?? null,
                 'date' => $data['date'],
                 'expected_delivery_date' => $data['expected_delivery_date'] ?? null,
-                'customer_id' => $data['customer_id'],
+                'business_partner_id' => $data['business_partner_id'],
                 'description' => $data['description'] ?? null,
                 'notes' => $data['notes'] ?? null,
                 'terms_conditions' => $data['terms_conditions'] ?? null,
@@ -273,7 +273,7 @@ class SalesService
 
     public function checkCreditLimit($customerId, $orderAmount)
     {
-        $creditLimit = CustomerCreditLimit::where('customer_id', $customerId)->first();
+        $creditLimit = CustomerCreditLimit::where('business_partner_id', $customerId)->first();
 
         if (!$creditLimit) {
             return true; // No credit limit set
@@ -324,7 +324,7 @@ class SalesService
         $startDate = $startDate ?? now()->startOfYear()->toDateString();
         $endDate = $endDate ?? now()->endOfYear()->toDateString();
 
-        $orders = SalesOrder::where('customer_id', $customerId)
+        $orders = SalesOrder::where('business_partner_id', $customerId)
             ->whereBetween('date', [$startDate, $endDate])
             ->where('status', '!=', 'draft')
             ->with('lines')
@@ -387,7 +387,7 @@ class SalesService
 
     private function updateCustomerPerformance($salesOrder)
     {
-        $customerId = $salesOrder->customer_id;
+        $customerId = $salesOrder->business_partner_id;
         $year = now()->year;
         $month = now()->month;
 
@@ -400,7 +400,7 @@ class SalesService
 
         CustomerPerformance::updateOrCreate(
             [
-                'customer_id' => $customerId,
+                'business_partner_id' => $customerId,
                 'year' => $year,
                 'month' => $month,
             ],

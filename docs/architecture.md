@@ -1,5 +1,5 @@
 Purpose: Technical reference for understanding system design and development patterns
-Last Updated: 2025-01-19 (Updated with Account Statements System Implementation and Layout Standardization)
+Last Updated: 2025-01-19 (Updated with Critical Field Mapping Issues Resolution)
 
 ## Architecture Documentation Guidelines
 
@@ -208,13 +208,18 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 
 ### 13. Business Partner Management System
 
--   **Unified Partner Management**: Single interface for managing customers and suppliers with partner_type classification (customer, supplier, both)
--   **Tabbed Interface**: Organized partner data across General Information, Contact Details, Addresses, Taxation & Terms, Banking & Financial sections
+-   **Unified Partner Management**: Single interface for managing customers and suppliers with partner_type classification (customer, supplier)
+-   **Account Mapping**: Business partners can be assigned specific GL accounts with automatic default assignment (Customer→AR, Supplier→AP)
+-   **Journal History**: Comprehensive transaction history with running balance calculation, multi-source data consolidation, and pagination
+-   **Tabbed Interface**: Organized partner data across General Information, Contact Details, Addresses, Taxation & Terms (with Accounting section), Banking & Financial, Transactions, and Account Balance - Journal History sections
 -   **Flexible Data Storage**: BusinessPartnerDetail model enables custom field storage without schema changes
 -   **Multiple Contacts**: Support for multiple contact persons per partner with different contact types (primary, billing, shipping, technical, sales, support)
 -   **Multiple Addresses**: Support for multiple addresses per partner with different address types (billing, shipping, registered, warehouse, office)
+-   **Transaction Consolidation**: BusinessPartnerJournalService consolidates transactions from journal lines, sales/purchase invoices/receipts
 -   **Backward Compatibility**: Maintained compatibility with existing PurchaseOrder, SalesOrder, and DeliveryOrder models
 -   **Data Migration**: Comprehensive migration from separate customers and vendors tables to unified business_partners structure
+-   **Field Mapping Consistency**: All controllers, services, forms, and JavaScript use business_partner_id consistently across the entire ERP system
+-   **Form Submission Integrity**: All forms submit correctly with proper field validation and JavaScript handling
 
 ### 14. Master Data Management System
 
@@ -291,7 +296,7 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 
 #### Business Partner Tables
 
--   `business_partners`: Unified customer and supplier master data with partner_type classification
+-   `business_partners`: Unified customer and supplier master data with partner_type classification (customer, supplier) and account_id for GL account mapping
 -   `business_partner_contacts`: Multiple contact persons per partner with contact types
 -   `business_partner_addresses`: Multiple addresses per partner with address types
 -   `business_partner_details`: Flexible custom field storage for partner-specific data

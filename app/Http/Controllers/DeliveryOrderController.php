@@ -46,7 +46,7 @@ class DeliveryOrderController extends Controller
         }
 
         $deliveryOrders = $query->paginate(20);
-        $customers = Customer::orderBy('name')->get();
+        $customers = \App\Models\BusinessPartner::where('partner_type', 'customer')->orderBy('name')->get();
 
         return view('delivery_orders.index', compact('deliveryOrders', 'customers'));
     }

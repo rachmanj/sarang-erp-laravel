@@ -8,6 +8,7 @@ use App\Models\PurchaseOrderApproval;
 use App\Models\InventoryItem;
 use App\Models\InventoryTransaction;
 use App\Models\SupplierPerformance;
+use App\Models\Accounting\Account;
 use App\Services\InventoryService;
 use App\Services\DocumentNumberingService;
 use Illuminate\Support\Facades\DB;
@@ -32,7 +33,7 @@ class PurchaseService
                 'reference_no' => $data['reference_no'] ?? null,
                 'date' => $data['date'],
                 'expected_delivery_date' => $data['expected_delivery_date'] ?? null,
-                'vendor_id' => $data['vendor_id'],
+                'business_partner_id' => $data['business_partner_id'],
                 'description' => $data['description'] ?? null,
                 'notes' => $data['notes'] ?? null,
                 'terms_conditions' => $data['terms_conditions'] ?? null,
@@ -69,9 +70,9 @@ class PurchaseService
 
                 if ($data['order_type'] === 'item') {
                     $inventoryItemId = $lineData['item_id'];
-                    // Get account from inventory item
-                    $inventoryItem = InventoryItem::find($lineData['item_id']);
-                    $accountId = $inventoryItem ? $inventoryItem->account_id : null;
+                    // For inventory items, use a default inventory account
+                    // You can modify this to get the account from inventory item if it has one
+                    $accountId = $this->getDefaultInventoryAccount();
                 } else {
                     $accountId = $lineData['item_id'];
                 }
@@ -255,7 +256,7 @@ class PurchaseService
         $supplierData = [];
 
         foreach ($recentOrders as $line) {
-            $vendorId = $line->order->vendor_id;
+            $vendorId = $line->order->business_partner_id;
             $vendor = $line->order->vendor;
 
             if (!isset($supplierData[$vendorId])) {
@@ -280,7 +281,7 @@ class PurchaseService
             }
 
             // Get performance data
-            $performance = SupplierPerformance::where('vendor_id', $vendorId)
+            $performance = SupplierPerformance::where('business_partner_id', $vendorId)
                 ->orderBy('year', 'desc')
                 ->orderBy('month', 'desc')
                 ->first();
@@ -318,7 +319,7 @@ class PurchaseService
 
     private function updateSupplierPerformance($purchaseOrder)
     {
-        $vendorId = $purchaseOrder->vendor_id;
+        $vendorId = $purchaseOrder->business_partner_id;
         $year = now()->year;
         $month = now()->month;
 
@@ -360,5 +361,24 @@ class PurchaseService
     public function canCopyToPurchaseInvoice(PurchaseOrder $purchaseOrder): bool
     {
         return $purchaseOrder->canCopyToPurchaseInvoice();
+    }
+
+    /**
+     * Get default inventory account for purchase order lines
+     */
+    private function getDefaultInventoryAccount(): ?int
+    {
+        // Try to find an inventory account (typically starts with 1.3.x)
+        $account = Account::where('code', 'like', '1.3%')
+            ->where('name', 'like', '%inventory%')
+            ->first();
+
+        if (!$account) {
+            // Fallback: find any asset account
+            $account = Account::where('code', 'like', '1.%')
+                ->first();
+        }
+
+        return $account ? $account->id : null;
     }
 }

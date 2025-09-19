@@ -11,8 +11,8 @@
                                 value="{{ request('from') }}" />
                             <input type="date" name="to" class="form-control form-control-sm mr-1"
                                 value="{{ request('to') }}" />
-                            <input type="number" name="vendor_id" class="form-control form-control-sm mr-1"
-                                value="{{ request('vendor_id') }}" placeholder="Vendor ID" />
+                            <input type="number" name="business_partner_id" class="form-control form-control-sm mr-1"
+                                value="{{ request('business_partner_id') }}" placeholder="Vendor ID" />
                             <button class="btn btn-sm btn-primary">Apply</button>
                             <a class="btn btn-sm btn-outline-secondary ml-2"
                                 href="{{ route('reports.withholding-recap', array_filter(['from' => request('from'), 'to' => request('to'), 'vendor_id' => request('vendor_id'), 'export' => 'csv'])) }}">CSV</a>

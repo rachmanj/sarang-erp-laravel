@@ -1,4 +1,4 @@
-@extends('layouts.app')
+@extends('layouts.main')
 @section('content')
     <section class="content">
         <div class="container-fluid">
@@ -26,7 +26,7 @@
                             <div>{{ $grn->date }}</div>
                         </div>
                         <div class="col-md-3"><b>Vendor</b>
-                            <div>#{{ $grn->vendor_id }}</div>
+                            <div>#{{ $grn->business_partner_id }}</div>
                         </div>
                         <div class="col-md-3"><b>Status</b>
                             <div>{{ strtoupper($grn->status) }}</div>

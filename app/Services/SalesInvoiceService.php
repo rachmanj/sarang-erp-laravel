@@ -58,7 +58,7 @@ class SalesInvoiceService
             $salesInvoice = SalesInvoice::create([
                 'invoice_no' => null, // Will be generated
                 'date' => $data['date'],
-                'customer_id' => $data['customer_id'],
+                'business_partner_id' => $data['business_partner_id'],
                 'sales_order_id' => $data['sales_order_id'] ?? null,
                 'description' => 'From GRPOs: ' . implode(', ', $grpos->pluck('grn_no')->toArray()),
                 'status' => 'draft',

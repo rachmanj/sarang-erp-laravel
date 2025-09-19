@@ -85,6 +85,7 @@ Route::middleware('auth')->group(function () {
         Route::delete('/{businessPartner}', [BusinessPartnerController::class, 'destroy'])->name('business_partners.destroy');
         Route::get('/search', [BusinessPartnerController::class, 'search'])->name('business_partners.search');
         Route::get('/by-type', [BusinessPartnerController::class, 'getByType'])->name('business_partners.by-type');
+        Route::get('/{businessPartner}/journal-history', [BusinessPartnerController::class, 'journalHistory'])->name('business_partners.journal_history');
     });
 
     // Accounts

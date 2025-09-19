@@ -35,7 +35,7 @@ class SalesOrderController extends Controller
 
     public function create()
     {
-        $customers = DB::table('customers')->orderBy('name')->get();
+        $customers = DB::table('business_partners')->where('partner_type', 'customer')->orderBy('name')->get();
         $accounts = DB::table('accounts')->where('is_postable', 1)->orderBy('code')->get();
         $taxCodes = DB::table('tax_codes')->orderBy('code')->get();
         $inventoryItems = InventoryItem::active()->orderBy('name')->get();
@@ -49,7 +49,7 @@ class SalesOrderController extends Controller
             'date' => ['required', 'date'],
             'reference_no' => ['nullable', 'string', 'max:100'],
             'expected_delivery_date' => ['nullable', 'date'],
-            'customer_id' => ['required', 'integer', 'exists:customers,id'],
+            'business_partner_id' => ['required', 'integer', 'exists:business_partners,id'],
             'description' => ['nullable', 'string', 'max:255'],
             'notes' => ['nullable', 'string'],
             'terms_conditions' => ['nullable', 'string'],
@@ -175,11 +175,11 @@ class SalesOrderController extends Controller
     {
         $order = SalesOrder::with('lines')->findOrFail($id);
         $accounts = DB::table('accounts')->where('is_postable', 1)->orderBy('code')->get();
-        $customers = DB::table('customers')->orderBy('name')->get();
+        $customers = DB::table('business_partners')->where('partner_type', 'customer')->orderBy('name')->get();
         $taxCodes = DB::table('tax_codes')->orderBy('code')->get();
         $prefill = [
             'date' => now()->toDateString(),
-            'customer_id' => $order->customer_id,
+            'business_partner_id' => $order->business_partner_id,
             'description' => 'From SO ' . ($order->order_no ?: ('#' . $order->id)),
             'lines' => $order->lines->map(function ($l) {
                 return [
@@ -197,12 +197,12 @@ class SalesOrderController extends Controller
     public function checkCreditLimit(Request $request)
     {
         $request->validate([
-            'customer_id' => ['required', 'integer', 'exists:customers,id'],
+            'business_partner_id' => ['required', 'integer', 'exists:business_partners,id'],
             'order_amount' => ['required', 'numeric', 'min:0'],
         ]);
 
         try {
-            $this->salesService->checkCreditLimit($request->customer_id, $request->order_amount);
+            $this->salesService->checkCreditLimit($request->business_partner_id, $request->order_amount);
             return response()->json(['status' => 'approved', 'message' => 'Credit limit check passed']);
         } catch (\Exception $e) {
             return response()->json(['status' => 'rejected', 'message' => $e->getMessage()], 400);
@@ -212,11 +212,11 @@ class SalesOrderController extends Controller
     public function getCustomerPricingTier(Request $request)
     {
         $request->validate([
-            'customer_id' => ['required', 'integer', 'exists:customers,id'],
+            'business_partner_id' => ['required', 'integer', 'exists:business_partners,id'],
             'order_amount' => ['required', 'numeric', 'min:0'],
         ]);
 
-        $pricingTier = CustomerPricingTier::where('customer_id', $request->customer_id)
+        $pricingTier = CustomerPricingTier::where('business_partner_id', $request->business_partner_id)
             ->where('is_active', true)
             ->where('min_order_amount', '<=', $request->order_amount)
             ->orderBy('min_order_amount', 'desc')
@@ -237,14 +237,14 @@ class SalesOrderController extends Controller
     public function analyzeCustomerProfitability(Request $request)
     {
         $request->validate([
-            'customer_id' => ['required', 'integer', 'exists:customers,id'],
+            'business_partner_id' => ['required', 'integer', 'exists:business_partners,id'],
             'start_date' => ['nullable', 'date'],
             'end_date' => ['nullable', 'date'],
         ]);
 
         try {
             $analysis = $this->salesService->analyzeCustomerProfitability(
-                $request->customer_id,
+                $request->business_partner_id,
                 $request->start_date,
                 $request->end_date
             );
@@ -281,7 +281,7 @@ class SalesOrderController extends Controller
 
     public function getCustomerCreditInfo(int $customerId)
     {
-        $creditLimit = CustomerCreditLimit::where('customer_id', $customerId)->first();
+        $creditLimit = CustomerCreditLimit::where('business_partner_id', $customerId)->first();
 
         if (!$creditLimit) {
             return response()->json(['message' => 'No credit limit set for this customer']);
@@ -373,7 +373,7 @@ class SalesOrderController extends Controller
     {
         $data = $request->validate([
             'date' => ['required', 'date'],
-            'customer_id' => ['required', 'integer', 'exists:customers,id'],
+            'business_partner_id' => ['required', 'integer', 'exists:business_partners,id'],
             'sales_order_id' => ['nullable', 'integer', 'exists:sales_orders,id'],
             'grpo_ids' => ['required', 'array', 'min:1'],
             'grpo_ids.*' => ['integer', 'exists:goods_receipts,id'],
@@ -397,11 +397,11 @@ class SalesOrderController extends Controller
      */
     public function showCreateSalesInvoiceFromGRPOs(Request $request)
     {
-        $filters = $request->only(['vendor_id', 'date_from', 'date_to', 'source_po_id']);
+        $filters = $request->only(['business_partner_id', 'date_from', 'date_to', 'source_po_id']);
         $availableGRPOs = $this->salesInvoiceService->getAvailableGRPOs($filters);
         $groupedGRPOs = $this->salesInvoiceService->getGRPOsGroupedByPO($filters);
 
-        $customers = DB::table('customers')->orderBy('name')->get();
+        $customers = DB::table('business_partners')->where('partner_type', 'customer')->orderBy('name')->get();
         $salesOrders = DB::table('sales_orders')->where('status', 'approved')->orderBy('order_no')->get();
         $projects = DB::table('projects')->orderBy('name')->get();
         $funds = DB::table('funds')->orderBy('name')->get();

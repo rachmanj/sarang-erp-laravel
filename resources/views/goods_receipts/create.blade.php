@@ -62,12 +62,12 @@
                                             <label class="col-sm-3 col-form-label">Vendor <span
                                                     class="text-danger">*</span></label>
                                             <div class="col-sm-9">
-                                                <select name="vendor_id" class="form-control form-control-sm select2bs4"
-                                                    required>
+                                                <select name="business_partner_id"
+                                                    class="form-control form-control-sm select2bs4" required>
                                                     <option value="">-- select vendor --</option>
                                                     @foreach ($vendors as $v)
                                                         <option value="{{ $v->id }}"
-                                                            {{ old('vendor_id') == $v->id ? 'selected' : '' }}>
+                                                            {{ old('business_partner_id') == $v->id ? 'selected' : '' }}>
                                                             {{ $v->name }}
                                                         </option>
                                                     @endforeach
@@ -193,7 +193,7 @@
                 $tb.empty();
                 i = 0;
                 $('[name=date]').val(window.prefill.date);
-                $('[name=vendor_id]').val(window.prefill.vendor_id);
+                $('[name=business_partner_id]').val(window.prefill.business_partner_id);
                 $('[name=purchase_order_id]').val(window.prefill.purchase_order_id);
 
                 if (window.prefill.lines && window.prefill.lines.length > 0) {

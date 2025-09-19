@@ -30,7 +30,7 @@ class SalesReceiptController extends Controller
 
     public function create()
     {
-        $customers = DB::table('customers')->orderBy('name')->get();
+        $customers = DB::table('business_partners')->where('partner_type', 'customer')->orderBy('name')->get();
         $accounts = DB::table('accounts')->where('is_postable', 1)->orderBy('code')->get();
         return view('sales_receipts.create', compact('customers', 'accounts'));
     }
@@ -39,7 +39,7 @@ class SalesReceiptController extends Controller
     {
         $data = $request->validate([
             'date' => ['required', 'date'],
-            'customer_id' => ['required', 'integer', 'exists:customers,id'],
+            'business_partner_id' => ['required', 'integer', 'exists:business_partners,id'],
             'description' => ['nullable', 'string', 'max:255'],
             'lines' => ['required', 'array', 'min:1'],
             'lines.*.account_id' => ['required', 'integer', 'exists:accounts,id'],
@@ -51,7 +51,7 @@ class SalesReceiptController extends Controller
             $receipt = SalesReceipt::create([
                 'receipt_no' => null,
                 'date' => $data['date'],
-                'customer_id' => $data['customer_id'],
+                'business_partner_id' => $data['business_partner_id'],
                 'description' => $data['description'] ?? null,
                 'status' => 'draft',
                 'total_amount' => 0,
@@ -78,7 +78,7 @@ class SalesReceiptController extends Controller
                 $open = DB::table('sales_invoices as si')
                     ->leftJoin('sales_receipt_allocations as sra', 'sra.invoice_id', '=', 'si.id')
                     ->select('si.id', 'si.total_amount', DB::raw('COALESCE(SUM(sra.amount),0) as allocated'), DB::raw('COALESCE(si.due_date, si.date) as eff_date'))
-                    ->where('si.customer_id', $receipt->customer_id)
+                    ->where('si.business_partner_id', $receipt->business_partner_id)
                     ->where('si.status', 'posted')
                     ->groupBy('si.id', 'si.total_amount', 'eff_date')
                     ->orderBy('eff_date')
@@ -181,8 +181,8 @@ class SalesReceiptController extends Controller
     public function data(Request $request)
     {
         $q = DB::table('sales_receipts as sr')
-            ->leftJoin('customers as c', 'c.id', '=', 'sr.customer_id')
-            ->select('sr.id', 'sr.date', 'sr.receipt_no', 'sr.customer_id', 'c.name as customer_name', 'sr.total_amount', 'sr.status');
+            ->leftJoin('business_partners as c', 'c.id', '=', 'sr.business_partner_id')
+            ->select('sr.id', 'sr.date', 'sr.receipt_no', 'sr.business_partner_id', 'c.name as customer_name', 'sr.total_amount', 'sr.status');
 
         if ($request->filled('status')) {
             $q->where('sr.status', $request->input('status'));
@@ -210,7 +210,7 @@ class SalesReceiptController extends Controller
                 return strtoupper($row->status);
             })
             ->addColumn('customer', function ($row) {
-                return $row->customer_name ?: ('#' . $row->customer_id);
+                return $row->customer_name ?: ('#' . $row->business_partner_id);
             })
             ->addColumn('actions', function ($row) {
                 $url = route('sales-receipts.show', $row->id);
@@ -223,7 +223,7 @@ class SalesReceiptController extends Controller
     public function previewAllocation(Request $request)
     {
         $request->validate([
-            'customer_id' => ['required', 'integer'],
+            'business_partner_id' => ['required', 'integer'],
             'amount' => ['required', 'numeric', 'min:0'],
         ]);
         $pool = (float)$request->input('amount');
@@ -231,9 +231,9 @@ class SalesReceiptController extends Controller
         if ($pool > 0) {
             $open = DB::table('sales_invoices as si')
                 ->leftJoin('sales_receipt_allocations as sra', 'sra.invoice_id', '=', 'si.id')
-                ->leftJoin('customers as c', 'c.id', '=', 'si.customer_id')
+                ->leftJoin('business_partners as c', 'c.id', '=', 'si.business_partner_id')
                 ->select('si.id', 'si.invoice_no', 'si.total_amount', DB::raw('COALESCE(SUM(sra.amount),0) as allocated'), DB::raw('COALESCE(si.due_date, si.date) as eff_date'))
-                ->where('si.customer_id', (int)$request->input('customer_id'))
+                ->where('si.business_partner_id', (int)$request->input('business_partner_id'))
                 ->where('si.status', 'posted')
                 ->groupBy('si.id', 'si.invoice_no', 'si.total_amount', 'eff_date')
                 ->orderBy('eff_date')

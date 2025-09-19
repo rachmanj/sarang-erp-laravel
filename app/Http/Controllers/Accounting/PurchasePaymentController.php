@@ -30,7 +30,7 @@ class PurchasePaymentController extends Controller
 
     public function create()
     {
-        $vendors = DB::table('vendors')->orderBy('name')->get();
+        $vendors = DB::table('business_partners')->where('partner_type', 'supplier')->orderBy('name')->get();
         $accounts = DB::table('accounts')->where('is_postable', 1)->orderBy('code')->get();
         return view('purchase_payments.create', compact('vendors', 'accounts'));
     }
@@ -182,7 +182,7 @@ class PurchasePaymentController extends Controller
     public function data(Request $request)
     {
         $q = DB::table('purchase_payments as pp')
-            ->leftJoin('vendors as v', 'v.id', '=', 'pp.vendor_id')
+            ->leftJoin('business_partners as v', 'v.id', '=', 'pp.vendor_id')
             ->select('pp.id', 'pp.date', 'pp.payment_no', 'pp.vendor_id', 'v.name as vendor_name', 'pp.total_amount', 'pp.status');
 
         if ($request->filled('status')) {
@@ -232,7 +232,7 @@ class PurchasePaymentController extends Controller
         if ($pool > 0) {
             $open = DB::table('purchase_invoices as pi')
                 ->leftJoin('purchase_payment_allocations as ppa', 'ppa.invoice_id', '=', 'pi.id')
-                ->leftJoin('vendors as v', 'v.id', '=', 'pi.vendor_id')
+                ->leftJoin('business_partners as v', 'v.id', '=', 'pi.vendor_id')
                 ->select('pi.id', 'pi.invoice_no', 'pi.total_amount', DB::raw('COALESCE(SUM(ppa.amount),0) as allocated'), DB::raw('COALESCE(pi.due_date, pi.date) as eff_date'))
                 ->where('pi.vendor_id', (int)$request->input('vendor_id'))
                 ->where('pi.status', 'posted')

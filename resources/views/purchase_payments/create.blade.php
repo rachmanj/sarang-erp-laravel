@@ -62,12 +62,12 @@
                                             <label class="col-sm-3 col-form-label">Vendor <span
                                                     class="text-danger">*</span></label>
                                             <div class="col-sm-9">
-                                                <select name="vendor_id" class="form-control form-control-sm select2bs4"
-                                                    required>
+                                                <select name="business_partner_id"
+                                                    class="form-control form-control-sm select2bs4" required>
                                                     <option value="">-- select vendor --</option>
                                                     @foreach ($vendors as $v)
                                                         <option value="{{ $v->id }}"
-                                                            {{ old('vendor_id') == $v->id ? 'selected' : '' }}>
+                                                            {{ old('business_partner_id') == $v->id ? 'selected' : '' }}>
                                                             {{ $v->name }}
                                                         </option>
                                                     @endforeach
@@ -285,13 +285,13 @@
         async function previewAlloc() {
             const amount = Array.from(document.querySelectorAll('input[name^="lines"][name$="[amount]"]'))
                 .reduce((s, el) => s + parseFloat(el.value || 0), 0);
-            const vendorId = document.querySelector('select[name="vendor_id"]').value;
-            if (!vendorId || amount <= 0) {
+            const businessPartnerId = document.querySelector('select[name="business_partner_id"]').value;
+            if (!businessPartnerId || amount <= 0) {
                 toastr.warning('Select vendor and enter amount');
                 return;
             }
             const params = new URLSearchParams({
-                vendor_id: vendorId,
+                business_partner_id: businessPartnerId,
                 amount: amount
             });
             const res = await fetch(`{{ route('purchase-payments.previewAllocation') }}?${params.toString()}`);

@@ -44,6 +44,7 @@ class InventoryController extends Controller
             'min_stock_level' => ['required', 'integer', 'min:0'],
             'max_stock_level' => ['required', 'integer', 'min:0'],
             'reorder_point' => ['required', 'integer', 'min:0'],
+            'item_type' => ['required', 'in:item,service'],
             'valuation_method' => ['required', 'in:fifo,lifo,weighted_average'],
             'is_active' => ['boolean'],
         ]);
@@ -127,6 +128,7 @@ class InventoryController extends Controller
             'min_stock_level' => ['required', 'integer', 'min:0'],
             'max_stock_level' => ['required', 'integer', 'min:0'],
             'reorder_point' => ['required', 'integer', 'min:0'],
+            'item_type' => ['required', 'in:item,service'],
             'valuation_method' => ['required', 'in:fifo,lifo,weighted_average'],
             'is_active' => ['boolean'],
         ]);

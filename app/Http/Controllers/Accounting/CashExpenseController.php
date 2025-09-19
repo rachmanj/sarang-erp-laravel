@@ -30,9 +30,8 @@ class CashExpenseController extends Controller
         $expenseAccounts = DB::table('accounts')->where('type', 'expense')->where('is_postable', 1)->orderBy('code')->get();
         $cashAccounts = DB::table('accounts')->where('code', 'like', '1.1.1%')->where('is_postable', 1)->orderBy('code')->get();
         $projects = DB::table('projects')->orderBy('code')->get(['id', 'code', 'name']);
-        $funds = DB::table('funds')->orderBy('code')->get(['id', 'code', 'name']);
         $departments = DB::table('departments')->orderBy('code')->get(['id', 'code', 'name']);
-        return view('cash_expenses.create', compact('expenseAccounts', 'cashAccounts', 'projects', 'funds', 'departments'));
+        return view('cash_expenses.create', compact('expenseAccounts', 'cashAccounts', 'projects', 'departments'));
     }
 
     public function store(Request $request)

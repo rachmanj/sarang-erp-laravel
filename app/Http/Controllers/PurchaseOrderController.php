@@ -39,7 +39,7 @@ class PurchaseOrderController extends Controller
 
     public function create()
     {
-        $vendors = DB::table('vendors')->orderBy('name')->get();
+        $vendors = DB::table('business_partners')->where('partner_type', 'supplier')->orderBy('name')->get();
         $accounts = DB::table('accounts')->where('is_postable', 1)->orderBy('code')->get();
         $taxCodes = DB::table('tax_codes')->orderBy('code')->get();
         $inventoryItems = InventoryItem::active()->orderBy('name')->get();
@@ -53,7 +53,7 @@ class PurchaseOrderController extends Controller
             'date' => ['required', 'date'],
             'reference_no' => ['nullable', 'string', 'max:100'],
             'expected_delivery_date' => ['nullable', 'date'],
-            'vendor_id' => ['required', 'integer', 'exists:vendors,id'],
+            'business_partner_id' => ['required', 'integer', 'exists:business_partners,id'],
             'description' => ['nullable', 'string', 'max:255'],
             'notes' => ['nullable', 'string'],
             'terms_conditions' => ['nullable', 'string'],
@@ -84,7 +84,7 @@ class PurchaseOrderController extends Controller
 
     public function show(int $id)
     {
-        $order = PurchaseOrder::with(['lines', 'vendor', 'approvals.user', 'approvedBy', 'createdBy'])
+        $order = PurchaseOrder::with(['lines', 'businessPartner', 'approvals.user', 'approvedBy', 'createdBy'])
             ->findOrFail($id);
         return view('purchase_orders.show', compact('order'));
     }
@@ -94,11 +94,11 @@ class PurchaseOrderController extends Controller
     {
         $order = PurchaseOrder::with('lines')->findOrFail($id);
         $accounts = DB::table('accounts')->where('is_postable', 1)->orderBy('code')->get();
-        $vendors = DB::table('vendors')->orderBy('name')->get();
+        $vendors = DB::table('business_partners')->where('partner_type', 'supplier')->orderBy('name')->get();
         $taxCodes = DB::table('tax_codes')->orderBy('code')->get();
         $prefill = [
             'date' => now()->toDateString(),
-            'vendor_id' => $order->vendor_id,
+            'business_partner_id' => $order->business_partner_id,
             'description' => 'From PO ' . ($order->order_no ?: ('#' . $order->id)),
             'lines' => $order->lines->map(function ($l) {
                 return [
@@ -117,7 +117,7 @@ class PurchaseOrderController extends Controller
     {
         $this->authorize('create', Asset::class);
 
-        $order = PurchaseOrder::with(['lines.account', 'vendor'])->findOrFail($id);
+        $order = PurchaseOrder::with(['lines.account', 'businessPartner'])->findOrFail($id);
         $assetCategories = AssetCategory::where('is_active', true)->orderBy('name')->get();
         $funds = DB::table('funds')->orderBy('name')->get();
         $projects = DB::table('projects')->orderBy('name')->get();
@@ -148,7 +148,7 @@ class PurchaseOrderController extends Controller
     {
         $this->authorize('create', Asset::class);
 
-        $order = PurchaseOrder::with(['lines.account', 'vendor'])->findOrFail($id);
+        $order = PurchaseOrder::with(['lines.account', 'businessPartner'])->findOrFail($id);
 
         $request->validate([
             'assets' => 'required|array|min:1',
@@ -191,7 +191,7 @@ class PurchaseOrderController extends Controller
                     'fund_id' => $assetData['fund_id'],
                     'project_id' => $assetData['project_id'],
                     'department_id' => $assetData['department_id'],
-                    'vendor_id' => $order->vendor_id,
+                    'business_partner_id' => $order->business_partner_id,
                     'purchase_invoice_id' => null, // Will be set when invoice is created
                     'status' => 'active',
                     'current_book_value' => $assetData['acquisition_cost'],
@@ -370,7 +370,7 @@ class PurchaseOrderController extends Controller
      */
     public function showCopyToGRPO($id)
     {
-        $po = PurchaseOrder::with(['lines.inventoryItem', 'vendor'])->findOrFail($id);
+        $po = PurchaseOrder::with(['lines.inventoryItem', 'businessPartner'])->findOrFail($id);
 
         if (!$this->grpoCopyService->canCopyToGRPO($po)) {
             return back()->with('error', 'Purchase Order cannot be copied to GRPO. Only approved Item Purchase Orders are allowed.');
@@ -386,7 +386,7 @@ class PurchaseOrderController extends Controller
      */
     public function showCopyToPurchaseInvoice($id)
     {
-        $po = PurchaseOrder::with(['lines.inventoryItem', 'vendor'])->findOrFail($id);
+        $po = PurchaseOrder::with(['lines.inventoryItem', 'businessPartner'])->findOrFail($id);
 
         if (!$this->purchaseInvoiceCopyService->canCopyToPurchaseInvoice($po)) {
             return back()->with('error', 'Purchase Order cannot be copied to Purchase Invoice. Only approved Service Purchase Orders are allowed.');

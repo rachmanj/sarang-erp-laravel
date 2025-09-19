@@ -17,8 +17,7 @@ class ProjectController extends Controller
     public function index()
     {
         $this->middleware('permission:projects.view');
-        $funds = DB::table('funds')->orderBy('code')->get(['id', 'code', 'name']);
-        return view('projects.index', compact('funds'));
+        return view('projects.index');
     }
 
     public function data()

@@ -62,12 +62,12 @@
                                             <label class="col-sm-3 col-form-label">Customer <span
                                                     class="text-danger">*</span></label>
                                             <div class="col-sm-9">
-                                                <select name="customer_id" class="form-control form-control-sm select2bs4"
-                                                    required>
+                                                <select name="business_partner_id"
+                                                    class="form-control form-control-sm select2bs4" required>
                                                     <option value="">-- select customer --</option>
                                                     @foreach ($customers as $c)
                                                         <option value="{{ $c->id }}"
-                                                            {{ old('customer_id') == $c->id ? 'selected' : '' }}>
+                                                            {{ old('business_partner_id') == $c->id ? 'selected' : '' }}>
                                                             {{ $c->name }}
                                                         </option>
                                                     @endforeach
@@ -286,13 +286,13 @@
         async function previewAlloc() {
             const amount = Array.from(document.querySelectorAll('input[name^="lines"][name$="[amount]"]'))
                 .reduce((s, el) => s + parseFloat(el.value || 0), 0);
-            const customerId = document.querySelector('select[name="customer_id"]').value;
-            if (!customerId || amount <= 0) {
+            const businessPartnerId = document.querySelector('select[name="business_partner_id"]').value;
+            if (!businessPartnerId || amount <= 0) {
                 toastr.warning('Select customer and enter amount');
                 return;
             }
             const params = new URLSearchParams({
-                customer_id: customerId,
+                business_partner_id: businessPartnerId,
                 amount: amount
             });
             const res = await fetch(`{{ route('sales-receipts.previewAllocation') }}?${params.toString()}`);

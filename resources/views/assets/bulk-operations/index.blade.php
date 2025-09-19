@@ -47,10 +47,6 @@
                                                 <label for="fund_id">Fund</label>
                                                 <select class="form-control select2bs4" id="fund_id" name="fund_id">
                                                     <option value="">All Funds</option>
-                                                    @foreach ($funds as $fund)
-                                                        <option value="{{ $fund->id }}">{{ $fund->code }} -
-                                                            {{ $fund->name }}</option>
-                                                    @endforeach
                                                 </select>
                                             </div>
                                         </div>
@@ -83,8 +79,9 @@
                                     <div class="row">
                                         <div class="col-md-3">
                                             <div class="form-group">
-                                                <label for="vendor_id">Vendor</label>
-                                                <select class="form-control select2bs4" id="vendor_id" name="vendor_id">
+                                                <label for="business_partner_id">Vendor</label>
+                                                <select class="form-control select2bs4" id="business_partner_id"
+                                                    name="business_partner_id">
                                                     <option value="">All Vendors</option>
                                                     @foreach ($vendors as $vendor)
                                                         <option value="{{ $vendor->id }}">{{ $vendor->code }} -
@@ -144,10 +141,6 @@
                                                 <select class="form-control select2bs4" id="update_fund_id"
                                                     name="updates[fund_id]">
                                                     <option value="">No Change</option>
-                                                    @foreach ($funds as $fund)
-                                                        <option value="{{ $fund->id }}">{{ $fund->code }} -
-                                                            {{ $fund->name }}</option>
-                                                    @endforeach
                                                 </select>
                                             </div>
                                         </div>
@@ -179,9 +172,9 @@
                                         </div>
                                         <div class="col-md-3">
                                             <div class="form-group">
-                                                <label for="update_vendor_id">Vendor</label>
-                                                <select class="form-control select2bs4" id="update_vendor_id"
-                                                    name="updates[vendor_id]">
+                                                <label for="update_business_partner_id">Vendor</label>
+                                                <select class="form-control select2bs4" id="update_business_partner_id"
+                                                    name="updates[business_partner_id]">
                                                     <option value="">No Change</option>
                                                     @foreach ($vendors as $vendor)
                                                         <option value="{{ $vendor->id }}">{{ $vendor->code }} -
@@ -390,7 +383,7 @@
                         d.fund_id = $('#fund_id').val();
                         d.project_id = $('#project_id').val();
                         d.department_id = $('#department_id').val();
-                        d.vendor_id = $('#vendor_id').val();
+                        d.business_partner_id = $('#business_partner_id').val();
                         d.status = $('#status').val();
                     }
                 },

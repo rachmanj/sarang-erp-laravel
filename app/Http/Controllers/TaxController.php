@@ -86,8 +86,8 @@ class TaxController extends Controller
 
     public function createTransaction()
     {
-        $vendors = \App\Models\Master\Vendor::orderBy('name')->get();
-        $customers = \App\Models\Master\Customer::orderBy('name')->get();
+        $vendors = \App\Models\BusinessPartner::where('partner_type', 'supplier')->orderBy('name')->get();
+        $customers = \App\Models\BusinessPartner::where('partner_type', 'customer')->orderBy('name')->get();
         $taxRates = TaxSetting::getTaxRates();
 
         return view('tax.create-transaction', compact('vendors', 'customers', 'taxRates'));
@@ -100,8 +100,7 @@ class TaxController extends Controller
             'transaction_type' => ['required', 'string', 'in:purchase,sales,adjustment,refund'],
             'tax_type' => ['required', 'string', 'in:ppn,pph_21,pph_22,pph_23,pph_26,pph_4_2'],
             'tax_category' => ['required', 'string', 'in:input,output,withholding'],
-            'vendor_id' => ['nullable', 'integer', 'exists:vendors,id'],
-            'customer_id' => ['nullable', 'integer', 'exists:customers,id'],
+            'business_partner_id' => ['nullable', 'integer', 'exists:business_partners,id'],
             'tax_number' => ['nullable', 'string', 'max:50'],
             'tax_name' => ['required', 'string', 'max:255'],
             'tax_address' => ['nullable', 'string'],

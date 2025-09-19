@@ -190,7 +190,7 @@
                 </div>
                 <div class="modal-body">
                     <form id="customerProfitabilityForm">
-                        <input type="hidden" name="customer_id" id="customer_id">
+                        <input type="hidden" name="business_partner_id" id="business_partner_id">
                         <div class="form-group">
                             <label for="start_date">Start Date</label>
                             <input type="date" name="start_date" id="start_date" class="form-control" required>
@@ -228,7 +228,7 @@
         }
 
         function calculateCustomerProfitability(customerId) {
-            $('#customer_id').val(customerId);
+            $('#business_partner_id').val(customerId);
             $('#customerProfitabilityModal').modal('show');
         }
 

@@ -66,12 +66,12 @@
                                             <label class="col-sm-3 col-form-label">Customer <span
                                                     class="text-danger">*</span></label>
                                             <div class="col-sm-9">
-                                                <select name="customer_id" class="form-control form-control-sm select2bs4"
-                                                    required>
+                                                <select name="business_partner_id"
+                                                    class="form-control form-control-sm select2bs4" required>
                                                     <option value="">-- select customer --</option>
                                                     @foreach ($customers as $c)
                                                         <option value="{{ $c->id }}"
-                                                            {{ old('customer_id') == $c->id ? 'selected' : '' }}>
+                                                            {{ old('business_partner_id') == $c->id ? 'selected' : '' }}>
                                                             {{ $c->name }}
                                                         </option>
                                                     @endforeach
@@ -199,10 +199,6 @@
                                                             <select name="lines[0][fund_id]"
                                                                 class="form-control form-control-sm select2bs4">
                                                                 <option value="">-- none --</option>
-                                                                @foreach ($funds as $f)
-                                                                    <option value="{{ $f->id }}">
-                                                                        {{ $f->code }}</option>
-                                                                @endforeach
                                                             </select>
                                                         </td>
                                                         <td>
@@ -327,9 +323,6 @@
                 <td>
                     <select name="lines[${idx}][fund_id]" class="form-control form-control-sm select2bs4">
                         <option value="">-- none --</option>
-                        @foreach ($funds as $f)
-                            <option value="{{ $f->id }}">{{ $f->code }}</option>
-                        @endforeach
                     </select>
                 </td>
                 <td>

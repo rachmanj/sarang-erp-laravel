@@ -60,9 +60,6 @@
                         <div class="form-group"><label>Fund</label>
                             <select id="fund_id" class="form-control">
                                 <option value="">-- none --</option>
-                                @foreach ($funds as $f)
-                                    <option value="{{ $f->id }}">{{ $f->code }} - {{ $f->name }}</option>
-                                @endforeach
                             </select>
                         </div>
                         <div class="form-group"><label>Budget Total</label><input id="budget_total" type="number"
