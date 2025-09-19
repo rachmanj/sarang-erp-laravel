@@ -1,5 +1,5 @@
 Purpose: Technical reference for understanding system design and development patterns
-Last Updated: 2025-01-18 (Updated with Delivery Order System Implementation and Multi-Dimensional Accounting Simplification)
+Last Updated: 2025-01-19 (Updated with Account Statements System Implementation and Layout Standardization)
 
 ## Architecture Documentation Guidelines
 
@@ -95,6 +95,7 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 -   **Journal Management**: Manual journal entries with automatic numbering (JNL-YYYYMM-######)
 -   **Period Management**: Financial period closing with validation
 -   **Posting Service**: Centralized accounting posting with balance validation
+-   **Account Statements**: Comprehensive financial statements for GL accounts and Business Partners with transaction tracking and running balances
 -   **Auto-Numbering System**: Centralized document numbering service with consistent PREFIX-YYYYMM-###### format across all document types
 
 ### 2. Accounts Receivable (AR) Module
@@ -268,6 +269,8 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 -   `journals`: Journal headers with automatic numbering
 -   `journal_lines`: Journal line items with dimensions
 -   `periods`: Financial periods with close/open status
+-   `account_statements`: Account statement headers with opening/closing balances
+-   `account_statement_lines`: Statement line items with transaction details and running balances
 
 #### AR/AP Tables
 
@@ -369,6 +372,7 @@ The database schema has been consolidated from 51 to 44 migration files for impr
 -   `/dashboard`: Main dashboard with summary statistics
 -   `/accounts/*`: Chart of accounts management
 -   `/journals/*`: Journal entry management
+-   `/account-statements/*`: Account statement generation and management for GL accounts and Business Partners
 -   `/sales-invoices/*`: AR invoice management
 -   `/delivery-orders/*`: Delivery order management with inventory reservation and revenue recognition
 -   `/purchase-invoices/*`: AP invoice management

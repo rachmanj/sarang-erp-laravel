@@ -19,7 +19,8 @@ class DocumentNumberingService
         'goods_receipt' => 'GR',
         'grpo' => 'GRPO',
         'cash_expense' => 'CEV',
-        'journal' => 'JNL'
+        'journal' => 'JNL',
+        'account_statement' => 'AST'
     ];
 
     /**

@@ -96,6 +96,11 @@ class BusinessPartner extends Model
         return $this->hasMany(Asset::class);
     }
 
+    public function accountStatements(): HasMany
+    {
+        return $this->hasMany(\App\Models\Accounting\AccountStatement::class);
+    }
+
     // Scopes
     public function scopeCustomers($query)
     {

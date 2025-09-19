@@ -35,6 +35,7 @@ use App\Http\Controllers\COGSController;
 use App\Http\Controllers\SupplierAnalyticsController;
 use App\Http\Controllers\BusinessIntelligenceController;
 use App\Http\Controllers\AnalyticsController;
+use App\Http\Controllers\Accounting\AccountStatementController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -396,6 +397,29 @@ Route::middleware('auth')->group(function () {
         Route::get('/unified-dashboard', [AnalyticsController::class, 'unifiedDashboard'])->name('analytics.unified-dashboard');
         Route::get('/comprehensive-data', [AnalyticsController::class, 'getComprehensiveAnalytics'])->name('analytics.comprehensive-data');
         Route::post('/generate-integrated-report', [AnalyticsController::class, 'generateIntegratedReport'])->middleware('permission:analytics.generate')->name('analytics.generate-integrated-report');
+    });
+
+    // Account Statements Management
+    Route::prefix('account-statements')->middleware(['permission:account_statements.view'])->group(function () {
+        Route::get('/', [AccountStatementController::class, 'index'])->name('account-statements.index');
+        Route::get('/create', [AccountStatementController::class, 'create'])->middleware('permission:account_statements.create')->name('account-statements.create');
+        Route::post('/', [AccountStatementController::class, 'store'])->middleware('permission:account_statements.create')->name('account-statements.store');
+        Route::get('/{accountStatement}', [AccountStatementController::class, 'show'])->name('account-statements.show');
+        Route::get('/{accountStatement}/edit', [AccountStatementController::class, 'edit'])->middleware('permission:account_statements.update')->name('account-statements.edit');
+        Route::patch('/{accountStatement}', [AccountStatementController::class, 'update'])->middleware('permission:account_statements.update')->name('account-statements.update');
+        Route::delete('/{accountStatement}', [AccountStatementController::class, 'destroy'])->middleware('permission:account_statements.delete')->name('account-statements.destroy');
+
+        // Statement Actions
+        Route::post('/{accountStatement}/finalize', [AccountStatementController::class, 'finalize'])->middleware('permission:account_statements.update')->name('account-statements.finalize');
+        Route::post('/{accountStatement}/cancel', [AccountStatementController::class, 'cancel'])->middleware('permission:account_statements.update')->name('account-statements.cancel');
+
+        // Export and Print
+        Route::get('/{accountStatement}/export', [AccountStatementController::class, 'export'])->name('account-statements.export');
+        Route::get('/{accountStatement}/print', [AccountStatementController::class, 'print'])->name('account-statements.print');
+
+        // Balance API Endpoints
+        Route::get('/api/account-balance', [AccountStatementController::class, 'getAccountBalance'])->name('account-statements.account-balance');
+        Route::get('/api/business-partner-balance', [AccountStatementController::class, 'getBusinessPartnerBalance'])->name('account-statements.business-partner-balance');
     });
 });
 

@@ -314,13 +314,14 @@
                 </li>
 
                 <!-- 6. Accounting Group -->
-                @can('journals.view')
+                @canany(['journals.view', 'accounts.view', 'account_statements.view'])
                     @php
                         $acctActive =
                             request()->routeIs('journals.*') ||
                             request()->routeIs('accounts.*') ||
                             request()->routeIs('periods.*') ||
-                            request()->routeIs('cash-expenses.*');
+                            request()->routeIs('cash-expenses.*') ||
+                            request()->routeIs('account-statements.*');
                     @endphp
                     <li class="nav-item {{ $acctActive ? 'menu-is-opening menu-open' : '' }}">
                         <a href="#" class="nav-link {{ $acctActive ? 'active' : '' }}">
@@ -354,6 +355,15 @@
                                     </a>
                                 </li>
                             @endcan
+                            @can('account_statements.view')
+                                <li class="nav-item">
+                                    <a href="{{ route('account-statements.index') }}"
+                                        class="nav-link {{ request()->routeIs('account-statements.*') ? 'active' : '' }}">
+                                        <i class="far fa-circle nav-icon"></i>
+                                        <p>Account Statements</p>
+                                    </a>
+                                </li>
+                            @endcan
                             @can('periods.view')
                                 <li class="nav-item">
                                     <a href="{{ route('periods.index') }}"
@@ -365,7 +375,7 @@
                             @endcan
                         </ul>
                     </li>
-                @endcan
+                @endcanany
 
                 <!-- 7. Master Data Group -->
                 @canany(['projects.view', 'funds.view', 'departments.view'])
