@@ -17,18 +17,12 @@
                 <div class="card-header d-flex justify-content-between">
                     <h3 class="card-title">Sales Order {{ $order->order_no ?? '#' . $order->id }}</h3>
                     <div>
-                        <form method="post" action="{{ route('sales-orders.approve', $order->id) }}" class="d-inline"
-                            data-confirm="Approve this Sales Order?">
-                            @csrf
-                            <button class="btn btn-sm btn-primary" aria-label="Approve Sales Order"
-                                {{ $order->status !== 'draft' ? 'disabled' : '' }}>Approve</button>
-                        </form>
-                        <form method="post" action="{{ route('sales-orders.close', $order->id) }}" class="d-inline"
-                            data-confirm="Close this Sales Order?">
-                            @csrf
-                            <button class="btn btn-sm btn-warning" aria-label="Close Sales Order"
-                                {{ $order->status !== 'approved' ? 'disabled' : '' }}>Close</button>
-                        </form>
+                        <button class="btn btn-sm btn-primary" aria-label="Approve Sales Order"
+                            {{ $order->approval_status !== 'pending' ? 'disabled' : '' }}
+                            onclick="confirmApproval({{ $order->id }}, 'approve')">Approve</button>
+                        <button class="btn btn-sm btn-warning" aria-label="Close Sales Order"
+                            {{ $order->status !== 'approved' ? 'disabled' : '' }}
+                            onclick="confirmApproval({{ $order->id }}, 'close')">Close</button>
                         <a href="{{ route('sales-orders.create-invoice', $order->id) }}" class="btn btn-sm btn-success"
                             aria-label="Create Invoice from Sales Order">Create Invoice</a>
                         @if ($order->order_type === 'item' && $order->approval_status === 'approved' && $order->status === 'confirmed')
@@ -91,15 +85,42 @@
 
 @section('scripts')
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const confs = document.querySelectorAll('form[data-confirm]');
-            confs.forEach(function(f) {
-                f.addEventListener('submit', function(e) {
-                    if (!confirm(f.getAttribute('data-confirm'))) {
-                        e.preventDefault();
-                    }
-                });
+        function confirmApproval(orderId, action) {
+            const actionText = action === 'approve' ? 'approve' : 'close';
+            const actionTitle = action === 'approve' ? 'Approve Sales Order' : 'Close Sales Order';
+            const actionMessage = action === 'approve' ? 'Are you sure you want to approve this Sales Order?' :
+                'Are you sure you want to close this Sales Order?';
+            const confirmText = action === 'approve' ? 'Yes, approve it!' : 'Yes, close it!';
+            const icon = action === 'approve' ? 'question' : 'warning';
+
+            Swal.fire({
+                title: actionTitle,
+                text: actionMessage,
+                icon: icon,
+                showCancelButton: true,
+                confirmButtonColor: action === 'approve' ? '#3085d6' : '#f39c12',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: confirmText,
+                cancelButtonText: 'Cancel',
+                reverseButtons: true
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // Create and submit form
+                    const form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = action === 'approve' ? '{{ route('sales-orders.approve', ':id') }}'.replace(
+                        ':id', orderId) : '{{ route('sales-orders.close', ':id') }}'.replace(':id', orderId);
+
+                    const csrfToken = document.createElement('input');
+                    csrfToken.type = 'hidden';
+                    csrfToken.name = '_token';
+                    csrfToken.value = '{{ csrf_token() }}';
+
+                    form.appendChild(csrfToken);
+                    document.body.appendChild(form);
+                    form.submit();
+                }
             });
-        });
+        }
     </script>
 @endsection

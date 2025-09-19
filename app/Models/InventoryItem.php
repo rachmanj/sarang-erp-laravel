@@ -13,9 +13,14 @@ class InventoryItem extends Model
         'name',
         'description',
         'category_id',
+        'default_warehouse_id',
         'unit_of_measure',
         'purchase_price',
         'selling_price',
+        'selling_price_level_2',
+        'selling_price_level_3',
+        'price_level_2_percentage',
+        'price_level_3_percentage',
         'min_stock_level',
         'max_stock_level',
         'reorder_point',
@@ -27,6 +32,10 @@ class InventoryItem extends Model
     protected $casts = [
         'purchase_price' => 'decimal:2',
         'selling_price' => 'decimal:2',
+        'selling_price_level_2' => 'decimal:2',
+        'selling_price_level_3' => 'decimal:2',
+        'price_level_2_percentage' => 'decimal:2',
+        'price_level_3_percentage' => 'decimal:2',
         'min_stock_level' => 'integer',
         'max_stock_level' => 'integer',
         'reorder_point' => 'integer',
@@ -49,6 +58,21 @@ class InventoryItem extends Model
         return $this->hasMany(InventoryValuation::class, 'item_id');
     }
 
+    public function defaultWarehouse(): BelongsTo
+    {
+        return $this->belongsTo(Warehouse::class, 'default_warehouse_id');
+    }
+
+    public function warehouseStock(): HasMany
+    {
+        return $this->hasMany(InventoryWarehouseStock::class, 'item_id');
+    }
+
+    public function customerPriceLevels(): HasMany
+    {
+        return $this->hasMany(CustomerItemPriceLevel::class, 'inventory_item_id');
+    }
+
     // Scopes
     public function scopeActive($query)
     {
@@ -68,6 +92,62 @@ class InventoryItem extends Model
     public function scopeLowStock($query)
     {
         return $query->whereRaw('current_stock <= reorder_point');
+    }
+
+    // Helper methods for price levels
+    public function getPriceForLevel($level, $customerId = null)
+    {
+        // Check for customer-specific price level first
+        if ($customerId) {
+            $customerPriceLevel = $this->customerPriceLevels()
+                ->where('business_partner_id', $customerId)
+                ->first();
+
+            if ($customerPriceLevel && $customerPriceLevel->custom_price) {
+                return $customerPriceLevel->custom_price;
+            }
+        }
+
+        switch ($level) {
+            case '1':
+                return $this->selling_price;
+            case '2':
+                if ($this->selling_price_level_2) {
+                    return $this->selling_price_level_2;
+                }
+                if ($this->price_level_2_percentage) {
+                    return $this->selling_price * (1 + $this->price_level_2_percentage / 100);
+                }
+                return $this->selling_price;
+            case '3':
+                if ($this->selling_price_level_3) {
+                    return $this->selling_price_level_3;
+                }
+                if ($this->price_level_3_percentage) {
+                    return $this->selling_price * (1 + $this->price_level_3_percentage / 100);
+                }
+                return $this->selling_price;
+            default:
+                return $this->selling_price;
+        }
+    }
+
+    public function getAccountByType($type)
+    {
+        if (!$this->category) {
+            return null;
+        }
+
+        switch ($type) {
+            case 'inventory':
+                return $this->category->inventoryAccount;
+            case 'cogs':
+                return $this->category->cogsAccount;
+            case 'sales':
+                return $this->category->salesAccount;
+            default:
+                return null;
+        }
     }
 
     // Accessors

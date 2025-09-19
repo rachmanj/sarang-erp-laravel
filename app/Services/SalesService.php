@@ -360,17 +360,14 @@ class SalesService
 
     private function createApprovalWorkflow($salesOrder)
     {
-        // Simple approval workflow - can be enhanced based on business rules
-        $approvalLevels = ['manager', 'director']; // Example levels
-
-        foreach ($approvalLevels as $level) {
-            SalesOrderApproval::create([
-                'sales_order_id' => $salesOrder->id,
-                'user_id' => Auth::id(), // In real implementation, get users by role/level
-                'approval_level' => $level,
-                'status' => 'pending',
-            ]);
-        }
+        // Simple approval workflow - create a single approval record for the current user
+        // In a real implementation, this would create approval records for different users based on roles
+        SalesOrderApproval::create([
+            'sales_order_id' => $salesOrder->id,
+            'user_id' => Auth::id(),
+            'approval_level' => 'manager',
+            'status' => 'pending',
+        ]);
     }
 
     private function createSalesCommissions($salesOrder)

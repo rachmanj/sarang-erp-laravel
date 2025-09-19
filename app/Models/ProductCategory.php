@@ -13,6 +13,9 @@ class ProductCategory extends Model
         'name',
         'description',
         'parent_id',
+        'inventory_account_id',
+        'cogs_account_id',
+        'sales_account_id',
         'is_active',
     ];
 
@@ -34,6 +37,21 @@ class ProductCategory extends Model
     public function inventoryItems(): HasMany
     {
         return $this->hasMany(InventoryItem::class, 'category_id');
+    }
+
+    public function inventoryAccount(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Accounting\Account::class, 'inventory_account_id');
+    }
+
+    public function cogsAccount(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Accounting\Account::class, 'cogs_account_id');
+    }
+
+    public function salesAccount(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Accounting\Account::class, 'sales_account_id');
     }
 
     // Scopes

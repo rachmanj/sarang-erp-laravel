@@ -6,6 +6,9 @@ use App\Models\InventoryItem;
 use App\Models\InventoryTransaction;
 use App\Models\InventoryValuation;
 use App\Models\ProductCategory;
+use App\Models\Warehouse;
+use App\Services\AuditLogService;
+use App\Services\PriceLevelService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
@@ -28,7 +31,11 @@ class InventoryController extends Controller
             ->orderBy('name')
             ->get();
 
-        return view('inventory.create', compact('categories'));
+        $warehouses = Warehouse::active()
+            ->orderBy('name')
+            ->get();
+
+        return view('inventory.create', compact('categories', 'warehouses'));
     }
 
     public function store(Request $request)
@@ -38,9 +45,14 @@ class InventoryController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
             'category_id' => ['required', 'integer', 'exists:product_categories,id'],
+            'default_warehouse_id' => ['nullable', 'integer', 'exists:warehouses,id'],
             'unit_of_measure' => ['required', 'string', 'max:50'],
             'purchase_price' => ['required', 'numeric', 'min:0'],
             'selling_price' => ['required', 'numeric', 'min:0'],
+            'selling_price_level_2' => ['nullable', 'numeric', 'min:0'],
+            'selling_price_level_3' => ['nullable', 'numeric', 'min:0'],
+            'price_level_2_percentage' => ['nullable', 'numeric', 'min:0', 'max:1000'],
+            'price_level_3_percentage' => ['nullable', 'numeric', 'min:0', 'max:1000'],
             'min_stock_level' => ['required', 'integer', 'min:0'],
             'max_stock_level' => ['required', 'integer', 'min:0'],
             'reorder_point' => ['required', 'integer', 'min:0'],
@@ -54,11 +66,21 @@ class InventoryController extends Controller
         return DB::transaction(function () use ($data, $request) {
             $item = InventoryItem::create($data);
 
+            // Log the creation
+            app(AuditLogService::class)->logInventoryItem(
+                'created',
+                $item->id,
+                null,
+                $item->getAttributes(),
+                "Inventory item '{$item->name}' created"
+            );
+
             // Create initial stock transaction if initial stock is provided
             if ($request->has('initial_stock') && $request->initial_stock > 0) {
                 $initialStock = $request->initial_stock;
-                InventoryTransaction::create([
+                $transaction = InventoryTransaction::create([
                     'item_id' => $item->id,
+                    'warehouse_id' => $item->default_warehouse_id,
                     'transaction_type' => 'adjustment',
                     'quantity' => $initialStock,
                     'unit_cost' => $data['purchase_price'],
@@ -69,6 +91,15 @@ class InventoryController extends Controller
                     'notes' => 'Initial stock entry',
                     'created_by' => Auth::id(),
                 ]);
+
+                // Log the transaction
+                app(AuditLogService::class)->logInventoryTransaction(
+                    'created',
+                    $transaction->id,
+                    null,
+                    $transaction->getAttributes(),
+                    "Initial stock entry: {$initialStock} units"
+                );
 
                 // Create initial valuation
                 InventoryValuation::create([
@@ -88,10 +119,11 @@ class InventoryController extends Controller
 
     public function show(int $id)
     {
-        $item = InventoryItem::with(['category', 'transactions', 'valuations'])
+        $item = InventoryItem::with(['category', 'transactions', 'valuations', 'defaultWarehouse', 'warehouseStock.warehouse'])
             ->findOrFail($id);
 
         $transactions = $item->transactions()
+            ->with('warehouse')
             ->orderBy('transaction_date', 'desc')
             ->orderBy('created_at', 'desc')
             ->paginate(10);
@@ -100,7 +132,10 @@ class InventoryController extends Controller
             ->orderBy('valuation_date', 'desc')
             ->paginate(10);
 
-        return view('inventory.show', compact('item', 'transactions', 'valuations'));
+        // Get audit trail
+        $auditTrail = app(AuditLogService::class)->getAuditTrail('inventory_item', $id);
+
+        return view('inventory.show', compact('item', 'transactions', 'valuations', 'auditTrail'));
     }
 
     public function edit(int $id)
@@ -382,6 +417,54 @@ class InventoryController extends Controller
         // This would typically generate an Excel/CSV export for valuation report
         // For now, return a simple response
         return response()->json(['message' => 'Valuation export functionality will be implemented']);
+    }
+
+    /**
+     * Get effective price for an item and customer
+     */
+    public function getEffectivePrice(Request $request, int $itemId)
+    {
+        $customerId = $request->get('customer_id');
+        $priceLevel = $request->get('price_level');
+
+        $priceLevelService = app(PriceLevelService::class);
+        $effectivePrice = $priceLevelService->getEffectivePrice($itemId, $customerId, $priceLevel);
+
+        return response()->json(['effective_price' => $effectivePrice]);
+    }
+
+    /**
+     * Set customer price level for an item
+     */
+    public function setCustomerPriceLevel(Request $request)
+    {
+        $data = $request->validate([
+            'customer_id' => ['required', 'integer', 'exists:business_partners,id'],
+            'item_id' => ['required', 'integer', 'exists:inventory_items,id'],
+            'price_level' => ['required', 'in:1,2,3'],
+            'custom_price' => ['nullable', 'numeric', 'min:0'],
+        ]);
+
+        $priceLevelService = app(PriceLevelService::class);
+        $customerPriceLevel = $priceLevelService->setCustomerItemPriceLevel(
+            $data['customer_id'],
+            $data['item_id'],
+            $data['price_level'],
+            $data['custom_price']
+        );
+
+        return response()->json(['success' => true, 'data' => $customerPriceLevel]);
+    }
+
+    /**
+     * Get price level summary for an item
+     */
+    public function getPriceLevelSummary(int $itemId)
+    {
+        $priceLevelService = app(PriceLevelService::class);
+        $summary = $priceLevelService->getItemPriceLevelSummary($itemId);
+
+        return response()->json($summary);
     }
 
     private function updateValuation(InventoryItem $item)

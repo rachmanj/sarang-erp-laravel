@@ -32,8 +32,8 @@ class DeliveryOrderController extends Controller
         }
 
         // Filter by customer
-        if ($request->filled('customer_id')) {
-            $query->where('customer_id', $request->customer_id);
+        if ($request->filled('business_partner_id')) {
+            $query->where('business_partner_id', $request->business_partner_id);
         }
 
         // Filter by date range

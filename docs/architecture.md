@@ -1,5 +1,5 @@
 Purpose: Technical reference for understanding system design and development patterns
-Last Updated: 2025-01-19 (Updated with Critical Field Mapping Issues Resolution)
+Last Updated: 2025-09-19 (Updated with Comprehensive Inventory Enhancement Implementation)
 
 ## Architecture Documentation Guidelines
 
@@ -115,7 +115,9 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 -   **AP Aging**: Vendor payment tracking and aging analysis
 -   **AP Balances**: Vendor account balance reporting
 
-### 4. Dual-Type Inventory System
+### 4. Enhanced Inventory Management System
+
+#### 4.1. Dual-Type Inventory System
 
 -   **Item Types**: Support for both physical items and services with item_type field
 -   **Order Types**: Purchase and Sales orders support both item and service types
@@ -125,6 +127,43 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
     -   Service PO → Purchase Invoice (direct, no GRPO needed)
 -   **Type Validation**: Prevents mixing item/service types within same order
 -   **Numbering**: Different prefixes for copied documents (GRPO vs GR)
+
+#### 4.2. Item Category Account Mapping System
+
+-   **Account Integration**: Each product category maps to 3 specific accounts:
+    -   **Inventory Account**: For inventory valuation (e.g., "Inventory - Stationery")
+    -   **COGS Account**: For cost of goods sold (e.g., "COGS - Stationery")
+    -   **Sales Account**: For revenue recognition (e.g., "Sales - Stationery")
+-   **Automatic Mapping**: Items inherit account mappings from their category
+-   **Service Categories**: Support for service-only categories without inventory accounts
+-   **Sample Categories**: Stationery, Electronics, Furniture, Vehicles, Services with proper account mappings
+
+#### 4.3. Multi-Warehouse Management
+
+-   **Warehouse Master Data**: Complete warehouse information with contact details and status
+-   **Per-Warehouse Stock Tracking**: Individual stock levels for each item-warehouse combination
+-   **Default Warehouse Assignment**: Items can have default warehouses for automatic assignment
+-   **Stock Transfers**: Inter-warehouse stock transfer capabilities with full audit trail
+-   **Warehouse-Specific Reorder Points**: Different reorder points per warehouse
+-   **Sample Warehouses**: Main Warehouse, Branch Warehouse, Storage Facility
+
+#### 4.4. Sales Price Level System
+
+-   **Three Price Levels**: Level 1 (default), Level 2, Level 3 with flexible pricing
+-   **Customer Assignment**: Customers can have default price levels
+-   **Item-Specific Pricing**: Individual items can have different prices for each level
+-   **Percentage-Based Calculations**: Support for percentage-based price calculations
+-   **Customer Overrides**: Customer-specific price overrides for individual items
+-   **Flexible Pricing**: Both fixed prices and percentage-based calculations supported
+
+#### 4.5. Comprehensive Audit Trail System
+
+-   **System-Wide Tracking**: Complete audit trail for all inventory-related changes
+-   **Change Tracking**: Old and new values captured for all modifications
+-   **User Attribution**: Full user tracking with IP address and user agent
+-   **Entity-Specific Logs**: Separate audit trails for items, transactions, warehouses
+-   **Action Types**: Created, Updated, Deleted, Approved, Rejected, Transferred, Adjusted
+-   **Search and Filtering**: Comprehensive audit log management with filtering capabilities
 
 ### 5. Fixed Asset Management
 
@@ -305,11 +344,11 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 
 #### Order Management Tables
 
--   `sales_orders` / `sales_order_lines`: Sales order processing with order_type (item/service)
--   `purchase_orders` / `purchase_order_lines`: Purchase order processing with order_type (item/service)
--   `goods_receipts` / `goods_receipt_lines`: Inventory receipt with source tracking (source_po_id, source_type)
+-   `sales_orders` / `sales_order_lines`: Sales order processing with order_type (item/service) and business_partner_id
+-   `purchase_orders` / `purchase_order_lines`: Purchase order processing with order_type (item/service) and business_partner_id
+-   `goods_receipts` / `goods_receipt_lines`: Inventory receipt with source tracking (source_po_id, source_type) and business_partner_id
 -   `sales_invoice_grpo_combinations`: Multi-GRPO Sales Invoice tracking
--   `delivery_orders` / `delivery_order_lines`: Delivery order processing with inventory reservation and revenue recognition
+-   `delivery_orders` / `delivery_order_lines`: Delivery order processing with inventory reservation, revenue recognition, and business_partner_id
 -   `delivery_tracking`: Delivery tracking with logistics cost and performance metrics
 
 #### Dimension Tables
@@ -319,10 +358,14 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 
 #### Trading Company Tables (Phase 1-3)
 
--   `product_categories`: Hierarchical product categorization
--   `inventory_items`: Product master data with pricing, stock levels, and item_type (item/service)
--   `inventory_transactions`: Stock movement tracking with cost allocation
+-   `product_categories`: Hierarchical product categorization with account mapping (inventory_account_id, cogs_account_id, sales_account_id)
+-   `inventory_items`: Product master data with pricing, stock levels, item_type (item/service), default_warehouse_id, and price levels (selling_price_level_2, selling_price_level_3, percentage fields)
+-   `inventory_transactions`: Stock movement tracking with cost allocation and warehouse_id
 -   `inventory_valuations`: Real-time inventory valuation with multiple methods
+-   `warehouses`: Warehouse master data with contact information and status
+-   `inventory_warehouse_stock`: Per-warehouse stock tracking with quantity_on_hand, reserved_quantity, available_quantity, and warehouse-specific reorder points
+-   `audit_logs`: System-wide audit trail with entity_type, entity_id, action, old_values, new_values, user tracking, and timestamps
+-   `customer_item_price_levels`: Customer-specific price level overrides with custom pricing capabilities
 -   `tax_transactions`: Enhanced individual tax calculation tracking with Indonesian compliance
 -   `tax_periods`: Tax reporting periods with status management
 -   `tax_reports`: SPT report generation and submission tracking
@@ -370,7 +413,7 @@ The database schema has been consolidated from 51 to 44 migration files for impr
 -   **Web Routes**: Traditional Laravel web routes with middleware
 -   **Permission-Based Access**: All routes protected with granular permissions
 -   **RESTful Design**: Standard CRUD operations for all entities
--   **DataTables Integration**: AJAX endpoints for dynamic data loading
+-   **DataTables Integration**: AJAX endpoints for dynamic data loading with business_partners table integration
 
 ### Key Endpoints
 
@@ -382,7 +425,9 @@ The database schema has been consolidated from 51 to 44 migration files for impr
 -   `/delivery-orders/*`: Delivery order management with inventory reservation and revenue recognition
 -   `/purchase-invoices/*`: AP invoice management
 -   `/assets/*`: Fixed asset management
--   `/inventory/*`: Inventory management with CRUD operations, stock management, reports
+-   `/inventory/*`: Enhanced inventory management with CRUD operations, stock management, reports, price level management, and audit trails
+-   `/warehouses/*`: Multi-warehouse management with CRUD operations, stock transfers, and warehouse-specific reporting
+-   `/audit-logs/*`: System-wide audit trail management with filtering and search capabilities
 -   `/tax/*`: Indonesian tax compliance management with transactions, periods, reports, settings
 -   `/cogs/*`: Cost of Goods Sold management with cost allocation, margin analysis, optimization
 -   `/supplier-analytics/*`: Supplier performance analytics with comparisons, optimization opportunities
@@ -574,7 +619,8 @@ graph TD
 
 #### New Permissions Required
 
--   `inventory.view/create/update/delete`: Inventory management
+-   `inventory.view/create/update/delete/adjust/transfer`: Enhanced inventory management with warehouse and price level support
+-   `admin.view`: System-wide audit trail access
 -   `cogs.view/calculate`: Cost of goods sold access
 -   `tax.ppn.view/calculate/report`: VAT management
 -   `tax.pph.view/calculate/report`: Income tax management

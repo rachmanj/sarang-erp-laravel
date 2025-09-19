@@ -283,6 +283,37 @@ Route::middleware('auth')->group(function () {
         Route::get('/export', [InventoryController::class, 'export'])->name('inventory.export');
         Route::get('/export-low-stock', [InventoryController::class, 'exportLowStock'])->name('inventory.export-low-stock');
         Route::get('/export-valuation', [InventoryController::class, 'exportValuation'])->name('inventory.export-valuation');
+
+        // Price Level Management
+        Route::get('/{item}/effective-price', [InventoryController::class, 'getEffectivePrice'])->name('inventory.get-effective-price');
+        Route::post('/set-customer-price-level', [InventoryController::class, 'setCustomerPriceLevel'])->middleware('permission:inventory.update')->name('inventory.set-customer-price-level');
+        Route::get('/{item}/price-level-summary', [InventoryController::class, 'getPriceLevelSummary'])->name('inventory.get-price-level-summary');
+    });
+
+    // Warehouse Management
+    Route::prefix('warehouses')->middleware(['permission:inventory.view'])->group(function () {
+        Route::get('/', [WarehouseController::class, 'index'])->name('warehouses.index');
+        Route::get('/create', [WarehouseController::class, 'create'])->middleware('permission:inventory.create')->name('warehouses.create');
+        Route::post('/', [WarehouseController::class, 'store'])->middleware('permission:inventory.create')->name('warehouses.store');
+        Route::get('/{warehouse}', [WarehouseController::class, 'show'])->name('warehouses.show');
+        Route::get('/{warehouse}/edit', [WarehouseController::class, 'edit'])->middleware('permission:inventory.update')->name('warehouses.edit');
+        Route::patch('/{warehouse}', [WarehouseController::class, 'update'])->middleware('permission:inventory.update')->name('warehouses.update');
+        Route::delete('/{warehouse}', [WarehouseController::class, 'destroy'])->middleware('permission:inventory.delete')->name('warehouses.destroy');
+
+        // Warehouse Stock Management
+        Route::get('/api/warehouses', [WarehouseController::class, 'getWarehouses'])->name('warehouses.get-warehouses');
+        Route::get('/api/items/{itemId}/stock', [WarehouseController::class, 'getItemStock'])->name('warehouses.get-item-stock');
+        Route::post('/transfer-stock', [WarehouseController::class, 'transferStock'])->middleware('permission:inventory.transfer')->name('warehouses.transfer-stock');
+        Route::get('/low-stock/{warehouse?}', [WarehouseController::class, 'lowStock'])->name('warehouses.low-stock');
+    });
+
+    // Audit Log Management
+    Route::prefix('audit-logs')->middleware(['permission:admin.view'])->group(function () {
+        Route::get('/', [AuditLogController::class, 'index'])->name('audit-logs.index');
+        Route::get('/data', [AuditLogController::class, 'data'])->name('audit-logs.data');
+        Route::get('/{entityType}/{entityId}', [AuditLogController::class, 'show'])->name('audit-logs.show');
+        Route::get('/by-user/{userId}', [AuditLogController::class, 'byUser'])->name('audit-logs.by-user');
+        Route::get('/by-action/{action}', [AuditLogController::class, 'byAction'])->name('audit-logs.by-action');
     });
 
     // Tax Compliance Management

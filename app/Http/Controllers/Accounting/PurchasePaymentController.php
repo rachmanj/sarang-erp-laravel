@@ -39,7 +39,7 @@ class PurchasePaymentController extends Controller
     {
         $data = $request->validate([
             'date' => ['required', 'date'],
-            'vendor_id' => ['required', 'integer', 'exists:vendors,id'],
+            'business_partner_id' => ['required', 'integer', 'exists:business_partners,id'],
             'description' => ['nullable', 'string', 'max:255'],
             'lines' => ['required', 'array', 'min:1'],
             'lines.*.account_id' => ['required', 'integer', 'exists:accounts,id'],
@@ -51,7 +51,7 @@ class PurchasePaymentController extends Controller
             $payment = PurchasePayment::create([
                 'payment_no' => null,
                 'date' => $data['date'],
-                'vendor_id' => $data['vendor_id'],
+                'business_partner_id' => $data['business_partner_id'],
                 'description' => $data['description'] ?? null,
                 'status' => 'draft',
                 'total_amount' => 0,
@@ -79,7 +79,7 @@ class PurchasePaymentController extends Controller
                 $open = DB::table('purchase_invoices as pi')
                     ->leftJoin('purchase_payment_allocations as ppa', 'ppa.invoice_id', '=', 'pi.id')
                     ->select('pi.id', 'pi.total_amount', DB::raw('COALESCE(SUM(ppa.amount),0) as allocated'), DB::raw('COALESCE(pi.due_date, pi.date) as eff_date'))
-                    ->where('pi.vendor_id', $payment->vendor_id)
+                    ->where('pi.business_partner_id', $payment->business_partner_id)
                     ->where('pi.status', 'posted')
                     ->groupBy('pi.id', 'pi.total_amount', 'eff_date')
                     ->orderBy('eff_date')
@@ -182,8 +182,8 @@ class PurchasePaymentController extends Controller
     public function data(Request $request)
     {
         $q = DB::table('purchase_payments as pp')
-            ->leftJoin('business_partners as v', 'v.id', '=', 'pp.vendor_id')
-            ->select('pp.id', 'pp.date', 'pp.payment_no', 'pp.vendor_id', 'v.name as vendor_name', 'pp.total_amount', 'pp.status');
+            ->leftJoin('business_partners as v', 'v.id', '=', 'pp.business_partner_id')
+            ->select('pp.id', 'pp.date', 'pp.payment_no', 'pp.business_partner_id', 'v.name as vendor_name', 'pp.total_amount', 'pp.status');
 
         if ($request->filled('status')) {
             $q->where('pp.status', $request->input('status'));
@@ -211,7 +211,7 @@ class PurchasePaymentController extends Controller
                 return strtoupper($row->status);
             })
             ->addColumn('vendor', function ($row) {
-                return $row->vendor_name ?: ('#' . $row->vendor_id);
+                return $row->vendor_name ?: ('#' . $row->business_partner_id);
             })
             ->addColumn('actions', function ($row) {
                 $url = route('purchase-payments.show', $row->id);
@@ -224,7 +224,7 @@ class PurchasePaymentController extends Controller
     public function previewAllocation(Request $request)
     {
         $request->validate([
-            'vendor_id' => ['required', 'integer'],
+            'business_partner_id' => ['required', 'integer'],
             'amount' => ['required', 'numeric', 'min:0'],
         ]);
         $pool = (float)$request->input('amount');
@@ -234,7 +234,7 @@ class PurchasePaymentController extends Controller
                 ->leftJoin('purchase_payment_allocations as ppa', 'ppa.invoice_id', '=', 'pi.id')
                 ->leftJoin('business_partners as v', 'v.id', '=', 'pi.vendor_id')
                 ->select('pi.id', 'pi.invoice_no', 'pi.total_amount', DB::raw('COALESCE(SUM(ppa.amount),0) as allocated'), DB::raw('COALESCE(pi.due_date, pi.date) as eff_date'))
-                ->where('pi.vendor_id', (int)$request->input('vendor_id'))
+                ->where('pi.business_partner_id', (int)$request->input('business_partner_id'))
                 ->where('pi.status', 'posted')
                 ->groupBy('pi.id', 'pi.invoice_no', 'pi.total_amount', 'eff_date')
                 ->orderBy('eff_date')

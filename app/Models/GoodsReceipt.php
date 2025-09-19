@@ -10,7 +10,7 @@ class GoodsReceipt extends Model
     protected $fillable = [
         'grn_no',
         'date',
-        'vendor_id',
+        'business_partner_id',
         'purchase_order_id',
         'source_po_id',
         'source_type',
@@ -22,5 +22,15 @@ class GoodsReceipt extends Model
     public function lines(): HasMany
     {
         return $this->hasMany(GoodsReceiptLine::class, 'grn_id');
+    }
+
+    public function businessPartner()
+    {
+        return $this->belongsTo(BusinessPartner::class, 'business_partner_id');
+    }
+
+    public function purchaseOrder()
+    {
+        return $this->belongsTo(PurchaseOrder::class, 'purchase_order_id');
     }
 }

@@ -28,7 +28,7 @@
                             <div>{{ $order->date }}</div>
                         </div>
                         <div class="col-md-3"><b>Vendor</b>
-                            <div>#{{ $order->vendor_id }}</div>
+                            <div>#{{ $order->business_partner_id }}</div>
                         </div>
                         <div class="col-md-3"><b>Status</b>
                             <div>{{ strtoupper($order->status) }}</div>

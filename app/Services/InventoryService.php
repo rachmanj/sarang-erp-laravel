@@ -5,20 +5,28 @@ namespace App\Services;
 use App\Models\InventoryItem;
 use App\Models\InventoryTransaction;
 use App\Models\InventoryValuation;
+use App\Models\InventoryWarehouseStock;
+use App\Services\AuditLogService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 
 class InventoryService
 {
-    public function processPurchaseTransaction(int $itemId, int $quantity, float $unitCost, string $referenceType = null, int $referenceId = null, string $notes = null)
+    public function processPurchaseTransaction(int $itemId, int $quantity, float $unitCost, string $referenceType = null, int $referenceId = null, string $notes = null, int $warehouseId = null)
     {
-        return DB::transaction(function () use ($itemId, $quantity, $unitCost, $referenceType, $referenceId, $notes) {
+        return DB::transaction(function () use ($itemId, $quantity, $unitCost, $referenceType, $referenceId, $notes, $warehouseId) {
             $item = InventoryItem::findOrFail($itemId);
             $totalCost = $quantity * $unitCost;
+
+            // Use default warehouse if not specified
+            if (!$warehouseId) {
+                $warehouseId = $item->default_warehouse_id;
+            }
 
             // Create purchase transaction
             $transaction = InventoryTransaction::create([
                 'item_id' => $itemId,
+                'warehouse_id' => $warehouseId,
                 'transaction_type' => 'purchase',
                 'quantity' => $quantity,
                 'unit_cost' => $unitCost,
@@ -30,8 +38,22 @@ class InventoryService
                 'created_by' => Auth::id(),
             ]);
 
+            // Update warehouse stock
+            if ($warehouseId) {
+                $this->updateWarehouseStock($itemId, $warehouseId, $quantity);
+            }
+
             // Update valuation
             $this->updateItemValuation($item);
+
+            // Log the transaction
+            app(AuditLogService::class)->logInventoryTransaction(
+                'created',
+                $transaction->id,
+                null,
+                $transaction->getAttributes(),
+                "Purchase transaction: {$quantity} units at {$unitCost}"
+            );
 
             return $transaction;
         });
@@ -321,5 +343,29 @@ class InventoryService
         $openingOut = $openingTransactions->whereIn('transaction_type', ['sale', 'adjustment'])->sum('quantity');
 
         return $openingIn - $openingOut;
+    }
+
+    /**
+     * Update warehouse stock for an item
+     */
+    private function updateWarehouseStock(int $itemId, int $warehouseId, int $quantityChange)
+    {
+        $warehouseStock = InventoryWarehouseStock::firstOrCreate(
+            ['item_id' => $itemId, 'warehouse_id' => $warehouseId],
+            [
+                'quantity_on_hand' => 0,
+                'reserved_quantity' => 0,
+                'available_quantity' => 0,
+                'min_stock_level' => 0,
+                'max_stock_level' => 0,
+                'reorder_point' => 0,
+            ]
+        );
+
+        $warehouseStock->quantity_on_hand += $quantityChange;
+        $warehouseStock->updateAvailableQuantity();
+        $warehouseStock->save();
+
+        return $warehouseStock;
     }
 }

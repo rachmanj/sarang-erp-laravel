@@ -1,5 +1,5 @@
 **Purpose**: Record technical decisions and rationale for future reference
-**Last Updated**: 2025-01-19 (Added Critical Field Mapping Issues Resolution decision record)
+**Last Updated**: 2025-09-19 (Added Goods Receipt Testing and DataTables Fixes decision record)
 
 # Technical Decision Records
 
@@ -928,3 +928,79 @@ Decision: [Title] - [YYYY-MM-DD]
 -   Added comprehensive testing and validation using browser MCP
 
 **Review Date**: 2025-12-19 (after production deployment and user feedback)
+
+---
+
+## Decision: Goods Receipt Testing and DataTables Fixes - 2025-09-19
+
+**Context**: During comprehensive testing of Goods Receipt functionality, we discovered critical issues preventing proper Goods Receipt creation and DataTables errors across all order-related pages showing "Processing..." due to database field mapping issues after business partner consolidation.
+
+**Options Considered**:
+
+1. **Option A**: Fix only Goods Receipt model issues
+
+    - ✅ Pros: Quick fix for immediate testing needs
+    - ❌ Cons: Leaves DataTables errors unresolved, incomplete solution
+
+2. **Option B**: Comprehensive fix of all field mapping issues across the system
+    - ✅ Pros: Complete resolution, prevents future issues, maintains system consistency
+    - ❌ Cons: More extensive changes required
+
+**Decision**: Option B - Comprehensive fix of all field mapping issues
+
+**Rationale**:
+
+-   Goods Receipt model had critical fillable fields issue (vendor_id → business_partner_id)
+-   DataTables errors were systemic across all order-related pages due to outdated database queries
+-   Business partner consolidation required comprehensive field mapping updates
+-   ERP accounting principles validation confirmed proper separation between inventory movements and financial transactions
+
+**Implementation**:
+
+-   Fixed GoodsReceipt model fillable fields and added proper relationships
+-   Updated all DataTables routes in routes/web/orders.php to use business_partners table instead of vendors/customers tables
+-   Updated all order-related routes (/data and /csv endpoints) to use business_partner_id field
+-   Validated ERP accounting principles where Goods Receipts represent physical inventory movements without automatic journal entry creation
+-   Ensured all order management functionality works correctly with proper field mapping
+
+**Review Date**: 2025-12-19 (after comprehensive system testing and user validation)
+
+---
+
+## Decision: Comprehensive Inventory Enhancement Implementation - 2025-09-19
+
+**Context**: Need to implement four major inventory enhancement initiatives for advanced trading company operations: Item Category Account Mapping System, System-Wide Audit Trail, Multi-Warehouse Feature, and Sales Price Levels (1-3) with Customer Assignment.
+
+**Options Considered**:
+
+1. **Option A**: Implement features incrementally over multiple phases
+
+    - ✅ Pros: Lower risk, easier testing, gradual user adoption
+    - ❌ Cons: Longer implementation timeline, potential integration issues, fragmented user experience
+
+2. **Option B**: Implement all features comprehensively in single phase
+    - ✅ Pros: Complete feature set, integrated user experience, comprehensive testing
+    - ❌ Cons: Higher complexity, more extensive testing required, larger codebase changes
+
+**Decision**: Implement all four features comprehensively in single phase with proper database design, service architecture, and testing validation.
+
+**Rationale**:
+
+-   All four features are interdependent and benefit from integrated implementation
+-   Comprehensive database design ensures proper relationships and data integrity
+-   Service-based architecture provides clean separation of concerns
+-   Single-phase implementation enables comprehensive testing and validation
+-   Browser testing confirms functionality works correctly with existing system
+
+**Implementation**:
+
+-   **Database Schema**: 8 new migrations with proper foreign key relationships and indexes
+-   **Models**: 4 new models (Warehouse, InventoryWarehouseStock, AuditLog, CustomerItemPriceLevel) with comprehensive relationships
+-   **Services**: 3 new services (AuditLogService, WarehouseService, PriceLevelService) for business logic
+-   **Controllers**: 2 new controllers (WarehouseController, AuditLogController) with full CRUD operations
+-   **Enhanced Models**: Updated existing models with new relationships and helper methods
+-   **Sample Data**: Created 3 warehouses and 5 product categories with account mappings
+-   **Routes**: Comprehensive route configuration with middleware and permissions
+-   **Testing**: Browser testing validation confirms functionality works correctly
+
+**Review Date**: 2026-03-19 (after 6 months of production use and user feedback)

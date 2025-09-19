@@ -15,6 +15,7 @@ class BusinessPartner extends Model
         'partner_type',
         'status',
         'account_id',
+        'default_sales_price_level',
         'registration_number',
         'tax_id',
         'website',
@@ -106,6 +107,11 @@ class BusinessPartner extends Model
     public function accountStatements(): HasMany
     {
         return $this->hasMany(\App\Models\Accounting\AccountStatement::class);
+    }
+
+    public function itemPriceLevels(): HasMany
+    {
+        return $this->hasMany(CustomerItemPriceLevel::class, 'business_partner_id');
     }
 
     // Scopes

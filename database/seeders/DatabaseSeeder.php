@@ -28,6 +28,8 @@ class DatabaseSeeder extends Seeder
             TermsSeeder::class,
             AssetCategorySeeder::class,
             BusinessPartnerSampleSeeder::class, // Add sample business partners
+            WarehouseSeeder::class, // Add warehouses
+            ProductCategoryAccountSeeder::class, // Add product categories with account mapping
             // TrainingCustomerSeeder::class, // Commented out - requires additional models
             // TrainingVendorSeeder::class, // Commented out - requires additional models
             // TrainingAssetSeeder::class, // Commented out - requires additional models

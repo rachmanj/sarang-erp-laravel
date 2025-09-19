@@ -257,7 +257,7 @@ class SupplierAnalyticsController extends Controller
             ->latest()
             ->first();
 
-        $performance = SupplierPerformance::where('vendor_id', $request->supplier_id)
+        $performance = SupplierPerformance::where('business_partner_id', $request->supplier_id)
             ->latest()
             ->first();
 

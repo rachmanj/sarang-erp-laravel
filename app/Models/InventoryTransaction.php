@@ -9,6 +9,7 @@ class InventoryTransaction extends Model
 {
     protected $fillable = [
         'item_id',
+        'warehouse_id',
         'transaction_type',
         'quantity',
         'unit_cost',
@@ -36,6 +37,11 @@ class InventoryTransaction extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function warehouse(): BelongsTo
+    {
+        return $this->belongsTo(Warehouse::class, 'warehouse_id');
     }
 
     // Scopes
