@@ -321,7 +321,8 @@
                             request()->routeIs('accounts.*') ||
                             request()->routeIs('periods.*') ||
                             request()->routeIs('cash-expenses.*') ||
-                            request()->routeIs('account-statements.*');
+                            request()->routeIs('account-statements.*') ||
+                            request()->routeIs('control-accounts.*');
                     @endphp
                     <li class="nav-item {{ $acctActive ? 'menu-is-opening menu-open' : '' }}">
                         <a href="#" class="nav-link {{ $acctActive ? 'active' : '' }}">
@@ -364,6 +365,15 @@
                                     </a>
                                 </li>
                             @endcan
+                            @can('accounts.view')
+                                <li class="nav-item">
+                                    <a href="{{ route('control-accounts.index') }}"
+                                        class="nav-link {{ request()->routeIs('control-accounts.*') ? 'active' : '' }}">
+                                        <i class="far fa-circle nav-icon"></i>
+                                        <p>Control Accounts</p>
+                                    </a>
+                                </li>
+                            @endcan
                             @can('periods.view')
                                 <li class="nav-item">
                                     <a href="{{ route('periods.index') }}"
@@ -378,12 +388,12 @@
                 @endcanany
 
                 <!-- 7. Master Data Group -->
-                @canany(['projects.view', 'funds.view', 'departments.view'])
+                @canany(['projects.view', 'departments.view', 'inventory.view'])
                     @php
                         $masterDataActive =
                             request()->routeIs('projects.*') ||
-                            request()->routeIs('funds.*') ||
-                            request()->routeIs('departments.*');
+                            request()->routeIs('departments.*') ||
+                            request()->routeIs('product-categories.*');
                     @endphp
                     <li class="nav-item {{ $masterDataActive ? 'menu-is-opening menu-open' : '' }}">
                         <a href="#" class="nav-link {{ $masterDataActive ? 'active' : '' }}">
@@ -394,6 +404,15 @@
                             </p>
                         </a>
                         <ul class="nav nav-treeview">
+                            @can('inventory.view')
+                                <li class="nav-item">
+                                    <a href="{{ route('product-categories.index') }}"
+                                        class="nav-link {{ request()->routeIs('product-categories.*') ? 'active' : '' }}">
+                                        <i class="far fa-circle nav-icon"></i>
+                                        <p>Product Categories</p>
+                                    </a>
+                                </li>
+                            @endcan
                             @can('projects.view')
                                 <li class="nav-item">
                                     <a href="{{ route('projects.index') }}"

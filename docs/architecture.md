@@ -1,5 +1,5 @@
 Purpose: Technical reference for understanding system design and development patterns
-Last Updated: 2025-09-19 (Updated with Comprehensive Inventory Enhancement Implementation)
+Last Updated: 2025-09-19 (Updated with Product Category CRUD Interface Implementation)
 
 ## Architecture Documentation Guidelines
 
@@ -96,6 +96,7 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 -   **Period Management**: Financial period closing with validation
 -   **Posting Service**: Centralized accounting posting with balance validation
 -   **Account Statements**: Comprehensive financial statements for GL accounts and Business Partners with transaction tracking and running balances
+-   **Control Account System**: Enterprise-level control account architecture with automatic balance tracking, subsidiary ledger management, and reconciliation dashboard for financial control and compliance
 -   **Auto-Numbering System**: Centralized document numbering service with consistent PREFIX-YYYYMM-###### format across all document types
 
 ### 2. Accounts Receivable (AR) Module
@@ -136,6 +137,13 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
     -   **Sales Account**: For revenue recognition (e.g., "Sales - Stationery")
 -   **Automatic Mapping**: Items inherit account mappings from their category
 -   **Service Categories**: Support for service-only categories without inventory accounts
+-   **CRUD Interface**: Complete Product Category management system with:
+    -   **ProductCategoryController**: Full CRUD operations with validation
+    -   **AdminLTE Views**: Index, create, show, edit views with proper form handling
+    -   **Account Selection**: Dropdown interfaces for selecting inventory, COGS, and sales accounts
+    -   **Hierarchical Support**: Parent-child category relationships
+    -   **Audit Integration**: Complete audit trail for category changes
+    -   **Menu Integration**: Accessible via Master Data → Product Categories
 -   **Sample Categories**: Stationery, Electronics, Furniture, Vehicles, Services with proper account mappings
 
 #### 4.3. Multi-Warehouse Management
@@ -197,12 +205,22 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 -   **Delivery Tracking**: Logistics cost tracking, performance metrics, and customer satisfaction monitoring
 -   **Print Functionality**: Professional delivery order documents with company branding
 
-### 7. Multi-Dimensional Accounting
+### 7. Control Account Management System
+
+-   **Control Accounts**: Summary accounts representing totals of subsidiary ledger groups (AR Control, AP Control, Inventory Control, Fixed Assets Control)
+-   **Subsidiary Ledger Management**: Individual subsidiary accounts linked to control accounts (Business Partners, Inventory Items, Fixed Assets)
+-   **Automatic Balance Tracking**: Real-time balance updates through PostingService integration
+-   **Reconciliation Dashboard**: Comprehensive reconciliation interface with variance detection and exception reporting
+-   **Multi-Dimensional Support**: Control account balances tracked by project and department dimensions
+-   **Exception Reporting**: Automatic identification of accounts with variances above tolerance levels
+-   **Audit Trail**: Complete transaction history and reconciliation tracking
+
+### 8. Multi-Dimensional Accounting
 
 -   **Projects**: Project-based cost tracking
 -   **Departments**: Departmental cost allocation
 
-### 8. Reporting & Analytics
+### 9. Reporting & Analytics
 
 -   **Trial Balance**: Real-time financial position reporting
 -   **GL Detail**: Detailed general ledger with filtering
@@ -211,7 +229,7 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 -   **AR/AP Reports**: Customer and vendor analysis
 -   **Withholding Tax**: Tax reporting and compliance
 
-### 9. Indonesian Tax Compliance System
+### 10. Indonesian Tax Compliance System
 
 -   **Tax Transaction Management**: Comprehensive tracking of all tax transactions (PPN, PPh 21-26, PPh 4(2))
 -   **Tax Period Management**: Monthly/quarterly/annual tax period management with status tracking
@@ -220,7 +238,7 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 -   **Compliance Monitoring**: Overdue tracking, audit trail, and compliance status monitoring
 -   **Integration**: Automatic tax calculation with purchase/sales systems
 
-### 10. Advanced Trading Analytics System (Phase 4)
+### 11. Advanced Trading Analytics System (Phase 4)
 
 -   **COGS Foundation**: Comprehensive Cost of Goods Sold tracking with multiple valuation methods (FIFO, LIFO, Weighted Average)
 -   **Cost Allocation**: Automatic cost allocation across products, customers, and suppliers with configurable methods
@@ -229,14 +247,14 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 -   **Business Intelligence**: Advanced analytics with insights generation, recommendations engine, and KPI tracking
 -   **Unified Dashboard**: Integrated analytics platform combining all trading components for comprehensive decision making
 
-### 11. User Management & Security
+### 12. User Management & Security
 
 -   **Role-Based Access Control**: Granular permission system
 -   **User Management**: Complete user lifecycle management
 -   **Permission Management**: Fine-grained access control
 -   **Session Management**: Secure authentication and session handling
 
-### 12. Training & Documentation System
+### 13. Training & Documentation System
 
 -   **Comprehensive Training Materials**: Complete 3-day training workshop package with 9 comprehensive documents
 -   **Module-Based Training**: 7 specialized training modules covering all major system components
@@ -245,7 +263,7 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 -   **Indonesian Business Context**: All training materials tailored for Indonesian trading company operations
 -   **Implementation Guidelines**: Detailed delivery structure, success metrics, and post-training support
 
-### 13. Business Partner Management System
+### 14. Business Partner Management System
 
 -   **Unified Partner Management**: Single interface for managing customers and suppliers with partner_type classification (customer, supplier)
 -   **Account Mapping**: Business partners can be assigned specific GL accounts with automatic default assignment (Customer→AR, Supplier→AP)
@@ -260,7 +278,7 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 -   **Field Mapping Consistency**: All controllers, services, forms, and JavaScript use business_partner_id consistently across the entire ERP system
 -   **Form Submission Integrity**: All forms submit correctly with proper field validation and JavaScript handling
 
-### 14. Master Data Management System
+### 15. Master Data Management System
 
 -   **Projects Management**: Project-based cost tracking with comprehensive CRUD operations
 -   **Departments Management**: Departmental cost allocation and organizational structure management
@@ -268,7 +286,7 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 -   **JSON API Responses**: Proper AJAX handling with JSON success/error responses for seamless user experience
 -   **DataTable Integration**: Dynamic data loading with search, sorting, and pagination capabilities
 
-### 15. Comprehensive Auto-Numbering System
+### 16. Comprehensive Auto-Numbering System
 
 -   **Centralized Service**: DocumentNumberingService provides unified document numbering across all document types
 -   **Consistent Format**: All documents follow PREFIX-YYYYMM-###### format (e.g., PO-202509-000001)
@@ -289,7 +307,7 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 -   **Error Handling**: Comprehensive exception handling and validation
 -   **Database Persistence**: Sequence tracking stored in document_sequences table with unique constraints
 
-### 16. Unified Design System
+### 17. Unified Design System
 
 -   **Consistent UI Patterns**: All create pages follow unified design standards with card-outline styling
 -   **Professional Visual Design**: Enhanced headers with relevant icons, proper color schemes, and visual hierarchy
@@ -315,6 +333,9 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 -   `periods`: Financial periods with close/open status
 -   `account_statements`: Account statement headers with opening/closing balances
 -   `account_statement_lines`: Statement line items with transaction details and running balances
+-   `control_accounts`: Control account definitions linking GL accounts to control types (AR, AP, Inventory, Fixed Assets)
+-   `subsidiary_ledger_accounts`: Subsidiary ledger accounts linking individual entities to control accounts
+-   `control_account_balances`: Control account balances with multi-dimensional accounting support (projects/departments)
 
 #### AR/AP Tables
 
@@ -421,11 +442,13 @@ The database schema has been consolidated from 51 to 44 migration files for impr
 -   `/accounts/*`: Chart of accounts management
 -   `/journals/*`: Journal entry management
 -   `/account-statements/*`: Account statement generation and management for GL accounts and Business Partners
+-   `/control-accounts/*`: Control account management with CRUD operations, reconciliation dashboard, and balance tracking
 -   `/sales-invoices/*`: AR invoice management
 -   `/delivery-orders/*`: Delivery order management with inventory reservation and revenue recognition
 -   `/purchase-invoices/*`: AP invoice management
 -   `/assets/*`: Fixed asset management
 -   `/inventory/*`: Enhanced inventory management with CRUD operations, stock management, reports, price level management, and audit trails
+-   `/product-categories/*`: Product category management with CRUD operations, account mapping, hierarchical support, and audit integration
 -   `/warehouses/*`: Multi-warehouse management with CRUD operations, stock transfers, and warehouse-specific reporting
 -   `/audit-logs/*`: System-wide audit trail management with filtering and search capabilities
 -   `/tax/*`: Indonesian tax compliance management with transactions, periods, reports, settings
@@ -461,14 +484,20 @@ graph TD
     G --> O[Period Validation]
     O --> P[Balance Validation]
     P --> Q[Dimension Assignment]
+    Q --> R[Control Account Balance Update]
 
-    R[Sales Order] --> S[Delivery Order Creation]
-    S --> T[Inventory Reservation]
-    T --> U[Delivery Approval]
-    U --> V[Picking/Packing]
-    V --> W[Delivery Completion]
-    W --> X[Revenue Recognition]
-    X --> Y[Journal Entries]
+    S[Sales Order] --> T[Delivery Order Creation]
+    T --> U[Inventory Reservation]
+    U --> V[Delivery Approval]
+    V --> W[Picking/Packing]
+    W --> X[Delivery Completion]
+    X --> Y[Revenue Recognition]
+    Y --> Z[Journal Entries]
+    Z --> AA[Control Account Reconciliation]
+
+    BB[Control Account Setup] --> CC[Subsidiary Ledger Creation]
+    CC --> DD[Balance Initialization]
+    DD --> EE[Reconciliation Dashboard]
 ```
 
 ## Security Implementation

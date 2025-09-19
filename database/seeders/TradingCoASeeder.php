@@ -44,6 +44,11 @@ class TradingCoASeeder extends Seeder
 
         $create('1.1.3', 'Persediaan', 'asset', false, '1.1');
         $create('1.1.3.01', 'Persediaan Barang Dagangan', 'asset', true, '1.1.3');
+        $create('1.1.3.01.01', 'Persediaan Stationery', 'asset', true, '1.1.3.01');
+        $create('1.1.3.01.02', 'Persediaan Electronics', 'asset', true, '1.1.3.01');
+        $create('1.1.3.01.03', 'Persediaan Furniture', 'asset', true, '1.1.3.01');
+        $create('1.1.3.01.04', 'Persediaan Vehicles', 'asset', true, '1.1.3.01');
+        $create('1.1.3.01.05', 'Persediaan Services', 'asset', true, '1.1.3.01');
         $create('1.1.3.02', 'Persediaan dalam Perjalanan', 'asset', true, '1.1.3');
         $create('1.1.3.03', 'Persediaan Konsinyasi', 'asset', true, '1.1.3');
 
@@ -121,8 +126,11 @@ class TradingCoASeeder extends Seeder
         $create('4', 'Pendapatan', 'income', false);
         $create('4.1', 'Pendapatan Usaha', 'income', false, '4');
         $create('4.1.1', 'Penjualan Barang Dagangan', 'income', false, '4.1');
-        $create('4.1.1.01', 'Penjualan Tunai', 'income', true, '4.1.1');
-        $create('4.1.1.02', 'Penjualan Kredit', 'income', true, '4.1.1');
+        $create('4.1.1.01', 'Penjualan Stationery', 'income', true, '4.1.1');
+        $create('4.1.1.02', 'Penjualan Electronics', 'income', true, '4.1.1');
+        $create('4.1.1.03', 'Penjualan Furniture', 'income', true, '4.1.1');
+        $create('4.1.1.04', 'Penjualan Vehicles', 'income', true, '4.1.1');
+        $create('4.1.1.05', 'Penjualan Services', 'income', true, '4.1.1');
         $create('4.1.2', 'Retur Penjualan', 'income', true, '4.1');
         $create('4.1.3', 'Diskon Penjualan', 'income', true, '4.1');
         $create('4.1.4', 'Potongan Penjualan', 'income', true, '4.1');
@@ -134,9 +142,12 @@ class TradingCoASeeder extends Seeder
 
         // Cost of Goods Sold (5) - Harga Pokok Penjualan
         $create('5', 'Harga Pokok Penjualan', 'expense', false);
-        $create('5.1', 'Pembelian Barang Dagangan', 'expense', false, '5');
-        $create('5.1.1', 'Pembelian Tunai', 'expense', true, '5.1');
-        $create('5.1.2', 'Pembelian Kredit', 'expense', true, '5.1');
+        $create('5.1', 'HPP Barang Dagangan', 'expense', false, '5');
+        $create('5.1.01', 'HPP Stationery', 'expense', true, '5.1');
+        $create('5.1.02', 'HPP Electronics', 'expense', true, '5.1');
+        $create('5.1.03', 'HPP Furniture', 'expense', true, '5.1');
+        $create('5.1.04', 'HPP Vehicles', 'expense', true, '5.1');
+        $create('5.1.05', 'HPP Services', 'expense', true, '5.1');
         $create('5.2', 'Retur Pembelian', 'expense', true, '5');
         $create('5.3', 'Diskon Pembelian', 'expense', true, '5');
         $create('5.4', 'Potongan Pembelian', 'expense', true, '5');

@@ -6,12 +6,14 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Carbon;
 use App\Services\Accounting\PeriodCloseService;
 use App\Services\DocumentNumberingService;
+use App\Services\ControlAccountService;
 
 class PostingService
 {
     public function __construct(
         private PeriodCloseService $periods,
-        private DocumentNumberingService $documentNumberingService
+        private DocumentNumberingService $documentNumberingService,
+        private ControlAccountService $controlAccountService
     ) {}
     public function postJournal(array $payload): int
     {
@@ -56,6 +58,17 @@ class PostingService
                 ];
             }
             DB::table('journal_lines')->insert($linesInsert);
+
+            // Update control account balances for each line
+            foreach ($payload['lines'] as $line) {
+                $this->controlAccountService->updateBalanceOnJournalPost(
+                    $line['account_id'],
+                    (float)($line['debit'] ?? 0),
+                    (float)($line['credit'] ?? 0),
+                    empty($line['project_id']) ? null : $line['project_id'],
+                    empty($line['dept_id']) ? null : $line['dept_id']
+                );
+            }
 
             return $journalId;
         });

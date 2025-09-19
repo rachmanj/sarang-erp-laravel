@@ -21,6 +21,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             TradingCoASeeder::class,
             TradingTaxCodeSeeder::class,
+            ProductCategoryAccountSeeder::class, // Add product categories with account mapping FIRST
             TradingSampleDataSeeder::class,
             FundProjectSeeder::class,
             RolePermissionSeeder::class,
@@ -29,7 +30,7 @@ class DatabaseSeeder extends Seeder
             AssetCategorySeeder::class,
             BusinessPartnerSampleSeeder::class, // Add sample business partners
             WarehouseSeeder::class, // Add warehouses
-            ProductCategoryAccountSeeder::class, // Add product categories with account mapping
+            ControlAccountSeeder::class, // Set up control accounts AFTER all data is seeded
             // TrainingCustomerSeeder::class, // Commented out - requires additional models
             // TrainingVendorSeeder::class, // Commented out - requires additional models
             // TrainingAssetSeeder::class, // Commented out - requires additional models

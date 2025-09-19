@@ -14,6 +14,7 @@ use App\Http\Controllers\Accounting\SalesReceiptController;
 use App\Http\Controllers\Accounting\PurchasePaymentController;
 use App\Http\Controllers\Accounting\AccountController;
 use App\Http\Controllers\Accounting\CashExpenseController;
+use App\Http\Controllers\ControlAccountController;
 use App\Http\Controllers\BusinessPartnerController;
 use App\Http\Controllers\Dimensions\ProjectController as DimProjectController;
 use App\Http\Controllers\Dimensions\DepartmentController as DimDepartmentController;
@@ -30,6 +31,7 @@ use App\Http\Controllers\AssetMovementController;
 use App\Http\Controllers\AssetImportController;
 use App\Http\Controllers\AssetDataQualityController;
 use App\Http\Controllers\InventoryController;
+use App\Http\Controllers\ProductCategoryController;
 use App\Http\Controllers\TaxController;
 use App\Http\Controllers\COGSController;
 use App\Http\Controllers\SupplierAnalyticsController;
@@ -290,6 +292,21 @@ Route::middleware('auth')->group(function () {
         Route::get('/{item}/price-level-summary', [InventoryController::class, 'getPriceLevelSummary'])->name('inventory.get-price-level-summary');
     });
 
+    // Product Category Management
+    Route::prefix('product-categories')->middleware(['permission:inventory.view'])->group(function () {
+        Route::get('/', [ProductCategoryController::class, 'index'])->name('product-categories.index');
+        Route::get('/create', [ProductCategoryController::class, 'create'])->middleware('permission:inventory.create')->name('product-categories.create');
+        Route::post('/', [ProductCategoryController::class, 'store'])->middleware('permission:inventory.create')->name('product-categories.store');
+        Route::get('/{productCategory}', [ProductCategoryController::class, 'show'])->name('product-categories.show');
+        Route::get('/{productCategory}/edit', [ProductCategoryController::class, 'edit'])->middleware('permission:inventory.update')->name('product-categories.edit');
+        Route::patch('/{productCategory}', [ProductCategoryController::class, 'update'])->middleware('permission:inventory.update')->name('product-categories.update');
+        Route::delete('/{productCategory}', [ProductCategoryController::class, 'destroy'])->middleware('permission:inventory.delete')->name('product-categories.destroy');
+
+        // API Endpoints
+        Route::get('/api/categories', [ProductCategoryController::class, 'getCategories'])->name('product-categories.get-categories');
+        Route::get('/{productCategory}/account-mapping', [ProductCategoryController::class, 'getAccountMapping'])->name('product-categories.get-account-mapping');
+    });
+
     // Warehouse Management
     Route::prefix('warehouses')->middleware(['permission:inventory.view'])->group(function () {
         Route::get('/', [WarehouseController::class, 'index'])->name('warehouses.index');
@@ -452,6 +469,17 @@ Route::middleware('auth')->group(function () {
         // Balance API Endpoints
         Route::get('/api/account-balance', [AccountStatementController::class, 'getAccountBalance'])->name('account-statements.account-balance');
         Route::get('/api/business-partner-balance', [AccountStatementController::class, 'getBusinessPartnerBalance'])->name('account-statements.business-partner-balance');
+    });
+
+    // Control Account Management
+    Route::prefix('control-accounts')->middleware(['permission:accounts.view'])->group(function () {
+        Route::get('/', [ControlAccountController::class, 'index'])->name('control-accounts.index');
+        Route::get('/create', [ControlAccountController::class, 'create'])->middleware('permission:accounts.manage')->name('control-accounts.create');
+        Route::post('/', [ControlAccountController::class, 'store'])->middleware('permission:accounts.manage')->name('control-accounts.store');
+        Route::get('/reconciliation', [ControlAccountController::class, 'reconciliation'])->name('control-accounts.reconciliation');
+        Route::get('/data', [ControlAccountController::class, 'data'])->name('control-accounts.data');
+        Route::get('/{controlAccount}', [ControlAccountController::class, 'show'])->name('control-accounts.show');
+        Route::post('/{controlAccount}/reconcile', [ControlAccountController::class, 'reconcile'])->middleware('permission:accounts.manage')->name('control-accounts.reconcile');
     });
 });
 

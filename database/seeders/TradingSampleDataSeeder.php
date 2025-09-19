@@ -14,19 +14,20 @@ class TradingSampleDataSeeder extends Seeder
      */
     public function run(): void
     {
-        // Create product categories
-        $categories = [
-            ['code' => 'CAT001', 'name' => 'Elektronik', 'description' => 'Produk elektronik dan gadget'],
-            ['code' => 'CAT002', 'name' => 'Pakaian', 'description' => 'Pakaian dan aksesoris fashion'],
-            ['code' => 'CAT003', 'name' => 'Makanan', 'description' => 'Produk makanan dan minuman'],
-            ['code' => 'CAT004', 'name' => 'Olahraga', 'description' => 'Perlengkapan olahraga dan fitness'],
-            ['code' => 'CAT005', 'name' => 'Rumah Tangga', 'description' => 'Peralatan rumah tangga'],
+        // Get existing product categories
+        $categoryIds = [];
+        $existingCategories = [
+            'ELECTRONICS' => ProductCategory::where('code', 'ELECTRONICS')->first(),
+            'STATIONERY' => ProductCategory::where('code', 'STATIONERY')->first(),
+            'FURNITURE' => ProductCategory::where('code', 'FURNITURE')->first(),
+            'VEHICLES' => ProductCategory::where('code', 'VEHICLES')->first(),
+            'SERVICES' => ProductCategory::where('code', 'SERVICES')->first(),
         ];
 
-        $categoryIds = [];
-        foreach ($categories as $category) {
-            $cat = ProductCategory::create($category);
-            $categoryIds[$category['code']] = $cat->id;
+        foreach ($existingCategories as $code => $category) {
+            if ($category) {
+                $categoryIds[$code] = $category->id;
+            }
         }
 
         // Create sample inventory items
@@ -35,7 +36,7 @@ class TradingSampleDataSeeder extends Seeder
                 'code' => 'ITEM001',
                 'name' => 'Laptop Dell Inspiron 15',
                 'description' => 'Laptop Dell Inspiron 15 3000 Series dengan Intel Core i5',
-                'category_id' => $categoryIds['CAT001'],
+                'category_id' => $categoryIds['ELECTRONICS'],
                 'unit_of_measure' => 'pcs',
                 'purchase_price' => 8000000,
                 'selling_price' => 9500000,
@@ -48,7 +49,7 @@ class TradingSampleDataSeeder extends Seeder
                 'code' => 'ITEM002',
                 'name' => 'Smartphone Samsung Galaxy A54',
                 'description' => 'Smartphone Samsung Galaxy A54 128GB',
-                'category_id' => $categoryIds['CAT001'],
+                'category_id' => $categoryIds['ELECTRONICS'],
                 'unit_of_measure' => 'pcs',
                 'purchase_price' => 3500000,
                 'selling_price' => 4200000,
@@ -61,7 +62,7 @@ class TradingSampleDataSeeder extends Seeder
                 'code' => 'ITEM003',
                 'name' => 'Kaos Polo Cotton',
                 'description' => 'Kaos polo cotton premium berbagai warna',
-                'category_id' => $categoryIds['CAT002'],
+                'category_id' => $categoryIds['STATIONERY'],
                 'unit_of_measure' => 'pcs',
                 'purchase_price' => 85000,
                 'selling_price' => 125000,
@@ -74,7 +75,7 @@ class TradingSampleDataSeeder extends Seeder
                 'code' => 'ITEM004',
                 'name' => 'Sepatu Nike Air Max',
                 'description' => 'Sepatu olahraga Nike Air Max original',
-                'category_id' => $categoryIds['CAT004'],
+                'category_id' => $categoryIds['VEHICLES'],
                 'unit_of_measure' => 'pcs',
                 'purchase_price' => 1200000,
                 'selling_price' => 1500000,
@@ -87,7 +88,7 @@ class TradingSampleDataSeeder extends Seeder
                 'code' => 'ITEM005',
                 'name' => 'Blender Philips',
                 'description' => 'Blender Philips HR2115 dengan 2 liter kapasitas',
-                'category_id' => $categoryIds['CAT005'],
+                'category_id' => $categoryIds['FURNITURE'],
                 'unit_of_measure' => 'pcs',
                 'purchase_price' => 450000,
                 'selling_price' => 650000,
@@ -100,7 +101,7 @@ class TradingSampleDataSeeder extends Seeder
                 'code' => 'ITEM006',
                 'name' => 'Snack Keripik Singkong',
                 'description' => 'Keripik singkong pedas kemasan 200gr',
-                'category_id' => $categoryIds['CAT003'],
+                'category_id' => $categoryIds['SERVICES'],
                 'unit_of_measure' => 'pcs',
                 'purchase_price' => 8000,
                 'selling_price' => 12000,
