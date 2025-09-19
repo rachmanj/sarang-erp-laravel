@@ -64,7 +64,7 @@ return new class extends Migration
         // Create supplier_performance table for supplier comparison
         Schema::create('supplier_performance', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('vendor_id');
+            $table->unsignedBigInteger('business_partner_id');
             $table->year('year');
             $table->integer('month');
             $table->integer('total_orders')->default(0);
@@ -77,8 +77,8 @@ return new class extends Migration
             $table->text('notes')->nullable();
             $table->timestamps();
 
-            $table->foreign('vendor_id')->references('id')->on('vendors')->onDelete('cascade');
-            $table->unique(['vendor_id', 'year', 'month']);
+            $table->foreign('business_partner_id')->references('id')->on('business_partners')->onDelete('cascade');
+            $table->unique(['business_partner_id', 'year', 'month']);
         });
     }
 

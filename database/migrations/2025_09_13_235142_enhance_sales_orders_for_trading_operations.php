@@ -70,7 +70,7 @@ return new class extends Migration
         // Create customer_credit_limits table for credit management
         Schema::create('customer_credit_limits', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('customer_id');
+            $table->unsignedBigInteger('business_partner_id');
             $table->decimal('credit_limit', 15, 2)->default(0);
             $table->decimal('current_balance', 15, 2)->default(0);
             $table->decimal('available_credit', 15, 2)->default(0);
@@ -79,13 +79,13 @@ return new class extends Migration
             $table->text('notes')->nullable();
             $table->timestamps();
 
-            $table->foreign('customer_id')->references('id')->on('customers')->onDelete('cascade');
+            $table->foreign('business_partner_id')->references('id')->on('business_partners')->onDelete('cascade');
         });
 
         // Create customer_pricing_tiers table for pricing management
         Schema::create('customer_pricing_tiers', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('customer_id');
+            $table->unsignedBigInteger('business_partner_id');
             $table->string('tier_name');
             $table->decimal('discount_percentage', 5, 2)->default(0);
             $table->decimal('min_order_amount', 15, 2)->default(0);
@@ -93,7 +93,7 @@ return new class extends Migration
             $table->text('notes')->nullable();
             $table->timestamps();
 
-            $table->foreign('customer_id')->references('id')->on('customers')->onDelete('cascade');
+            $table->foreign('business_partner_id')->references('id')->on('business_partners')->onDelete('cascade');
         });
 
         // Create sales_commissions table for commission tracking
@@ -115,7 +115,7 @@ return new class extends Migration
         // Create customer_performance table for customer analysis
         Schema::create('customer_performance', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('customer_id');
+            $table->unsignedBigInteger('business_partner_id');
             $table->year('year');
             $table->integer('month');
             $table->integer('total_orders')->default(0);
@@ -126,8 +126,8 @@ return new class extends Migration
             $table->text('notes')->nullable();
             $table->timestamps();
 
-            $table->foreign('customer_id')->references('id')->on('customers')->onDelete('cascade');
-            $table->unique(['customer_id', 'year', 'month']);
+            $table->foreign('business_partner_id')->references('id')->on('business_partners')->onDelete('cascade');
+            $table->unique(['business_partner_id', 'year', 'month']);
         });
     }
 

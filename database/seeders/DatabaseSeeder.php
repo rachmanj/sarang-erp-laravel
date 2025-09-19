@@ -27,6 +27,7 @@ class DatabaseSeeder extends Seeder
             DemoJournalSeeder::class,
             TermsSeeder::class,
             AssetCategorySeeder::class,
+            BusinessPartnerSampleSeeder::class, // Add sample business partners
             // TrainingCustomerSeeder::class, // Commented out - requires additional models
             // TrainingVendorSeeder::class, // Commented out - requires additional models
             // TrainingAssetSeeder::class, // Commented out - requires additional models

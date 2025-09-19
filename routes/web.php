@@ -14,8 +14,7 @@ use App\Http\Controllers\Accounting\SalesReceiptController;
 use App\Http\Controllers\Accounting\PurchasePaymentController;
 use App\Http\Controllers\Accounting\AccountController;
 use App\Http\Controllers\Accounting\CashExpenseController;
-use App\Http\Controllers\Master\CustomerController;
-use App\Http\Controllers\Master\VendorController;
+use App\Http\Controllers\BusinessPartnerController;
 use App\Http\Controllers\Dimensions\ProjectController as DimProjectController;
 use App\Http\Controllers\Dimensions\DepartmentController as DimDepartmentController;
 use App\Http\Controllers\DownloadController;
@@ -73,28 +72,18 @@ Route::middleware('auth')->group(function () {
     require __DIR__ . '/web/orders.php';
     require __DIR__ . '/web/ar_ap.php';
 
-    // Customers (Sales group)
-    Route::prefix('customers')->group(function () {
-        Route::get('/', [CustomerController::class, 'index'])->name('customers.index');
-        Route::get('/data', [CustomerController::class, 'data'])->name('customers.data');
-        Route::get('/create', [CustomerController::class, 'create'])->name('customers.create');
-        Route::post('/', [CustomerController::class, 'store'])->name('customers.store');
-        Route::get('/{customer}/edit', [CustomerController::class, 'edit'])->name('customers.edit');
-        Route::patch('/{customer}', [CustomerController::class, 'update'])->name('customers.update');
-    });
-
-    // Vendors (Purchase group)
-    Route::prefix('vendors')->group(function () {
-        Route::get('/', [VendorController::class, 'index'])->name('vendors.index');
-        Route::get('/data', [VendorController::class, 'data'])->name('vendors.data');
-        Route::get('/create', [VendorController::class, 'create'])->name('vendors.create');
-        Route::post('/', [VendorController::class, 'store'])->name('vendors.store');
-        Route::get('/{vendor}', [VendorController::class, 'show'])->name('vendors.show');
-        Route::get('/{vendor}/edit', [VendorController::class, 'edit'])->name('vendors.edit');
-        Route::patch('/{vendor}', [VendorController::class, 'update'])->name('vendors.update');
-        Route::get('/{vendor}/assets', [VendorController::class, 'assets'])->name('vendors.assets');
-        Route::get('/{vendor}/purchase-orders', [VendorController::class, 'purchaseOrders'])->name('vendors.purchase-orders');
-        Route::get('/{vendor}/asset-acquisition-history', [VendorController::class, 'assetAcquisitionHistory'])->name('vendors.asset-acquisition-history');
+    // Business Partners (Unified Customers & Suppliers)
+    Route::prefix('business-partners')->group(function () {
+        Route::get('/', [BusinessPartnerController::class, 'index'])->name('business_partners.index');
+        Route::get('/data', [BusinessPartnerController::class, 'data'])->name('business_partners.data');
+        Route::get('/create', [BusinessPartnerController::class, 'create'])->name('business_partners.create');
+        Route::post('/', [BusinessPartnerController::class, 'store'])->name('business_partners.store');
+        Route::get('/{businessPartner}', [BusinessPartnerController::class, 'show'])->name('business_partners.show');
+        Route::get('/{businessPartner}/edit', [BusinessPartnerController::class, 'edit'])->name('business_partners.edit');
+        Route::put('/{businessPartner}', [BusinessPartnerController::class, 'update'])->name('business_partners.update');
+        Route::delete('/{businessPartner}', [BusinessPartnerController::class, 'destroy'])->name('business_partners.destroy');
+        Route::get('/search', [BusinessPartnerController::class, 'search'])->name('business_partners.search');
+        Route::get('/by-type', [BusinessPartnerController::class, 'getByType'])->name('business_partners.by-type');
     });
 
     // Accounts

@@ -40,7 +40,7 @@ return new class extends Migration
             $table->unsignedBigInteger('department_id')->nullable();
 
             // Source tracking
-            $table->unsignedBigInteger('vendor_id')->nullable();
+            $table->unsignedBigInteger('business_partner_id')->nullable();
             $table->unsignedBigInteger('purchase_invoice_id')->nullable();
 
             $table->timestamps();
@@ -50,7 +50,7 @@ return new class extends Migration
             $table->foreign('fund_id')->references('id')->on('funds');
             $table->foreign('project_id')->references('id')->on('projects');
             $table->foreign('department_id')->references('id')->on('departments');
-            $table->foreign('vendor_id')->references('id')->on('vendors');
+            $table->foreign('business_partner_id')->references('id')->on('business_partners');
             $table->foreign('purchase_invoice_id')->references('id')->on('purchase_invoices');
         });
     }

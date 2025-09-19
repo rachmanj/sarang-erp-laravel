@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->string('do_number')->unique();
             $table->foreignId('sales_order_id')->constrained()->onDelete('cascade');
-            $table->foreignId('customer_id')->constrained()->onDelete('cascade');
+            $table->foreignId('business_partner_id')->constrained('business_partners')->onDelete('cascade');
             $table->text('delivery_address');
             $table->string('delivery_contact_person')->nullable();
             $table->string('delivery_phone')->nullable();
@@ -33,7 +33,7 @@ return new class extends Migration
             $table->timestamps();
 
             $table->index(['status', 'planned_delivery_date']);
-            $table->index(['customer_id', 'status']);
+            $table->index(['business_partner_id', 'status']);
         });
     }
 

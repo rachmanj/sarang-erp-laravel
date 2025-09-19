@@ -68,13 +68,14 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 ### Main Navigation Sections
 
 1. **Dashboard** - System overview and key metrics
-2. **MAIN** - Core business operations:
-    - **Sales** - Customer management, sales invoices, orders, receipts
-    - **Purchase** - Supplier management, purchase invoices, orders, goods receipts, payments
+2. **MAIN** - Core business operations (ordered by business process flow):
     - **Inventory** - Item management, stock levels, valuation reports, low stock alerts
-    - **Accounting** - Journals, cash expenses, accounts, periods
-    - **Master Data** - Projects, funds, departments
+    - **Purchase** - Dashboard, purchase orders, goods receipts, purchase invoices, purchase payments
+    - **Sales** - Dashboard, sales orders, delivery orders, sales invoices, sales receipts
     - **Fixed Assets** - Asset categories, assets, depreciation, disposals, movements, import, data quality, bulk operations
+    - **Business Partner** - Unified customer and supplier management with tabbed interface
+    - **Accounting** - Journals, cash expenses, accounts, periods
+    - **Master Data** - Projects, departments
 3. **REPORTS** - Comprehensive reporting modules
 4. **ADMIN** - User management, roles and permissions
 
@@ -204,16 +205,25 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 -   **Indonesian Business Context**: All training materials tailored for Indonesian trading company operations
 -   **Implementation Guidelines**: Detailed delivery structure, success metrics, and post-training support
 
-### 13. Master Data Management System
+### 13. Business Partner Management System
+
+-   **Unified Partner Management**: Single interface for managing customers and suppliers with partner_type classification (customer, supplier, both)
+-   **Tabbed Interface**: Organized partner data across General Information, Contact Details, Addresses, Taxation & Terms, Banking & Financial sections
+-   **Flexible Data Storage**: BusinessPartnerDetail model enables custom field storage without schema changes
+-   **Multiple Contacts**: Support for multiple contact persons per partner with different contact types (primary, billing, shipping, technical, sales, support)
+-   **Multiple Addresses**: Support for multiple addresses per partner with different address types (billing, shipping, registered, warehouse, office)
+-   **Backward Compatibility**: Maintained compatibility with existing PurchaseOrder, SalesOrder, and DeliveryOrder models
+-   **Data Migration**: Comprehensive migration from separate customers and vendors tables to unified business_partners structure
+
+### 14. Master Data Management System
 
 -   **Projects Management**: Project-based cost tracking with comprehensive CRUD operations
--   **Funds Management**: Fund-based accounting and reporting with restricted/unrestricted fund types
 -   **Departments Management**: Departmental cost allocation and organizational structure management
 -   **SweetAlert2 Integration**: Consistent confirmation dialogs and success notifications across all Master Data features
 -   **JSON API Responses**: Proper AJAX handling with JSON success/error responses for seamless user experience
 -   **DataTable Integration**: Dynamic data loading with search, sorting, and pagination capabilities
 
-### 14. Comprehensive Auto-Numbering System
+### 15. Comprehensive Auto-Numbering System
 
 -   **Centralized Service**: DocumentNumberingService provides unified document numbering across all document types
 -   **Consistent Format**: All documents follow PREFIX-YYYYMM-###### format (e.g., PO-202509-000001)
@@ -234,7 +244,7 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 -   **Error Handling**: Comprehensive exception handling and validation
 -   **Database Persistence**: Sequence tracking stored in document_sequences table with unique constraints
 
-### 15. Unified Design System
+### 16. Unified Design System
 
 -   **Consistent UI Patterns**: All create pages follow unified design standards with card-outline styling
 -   **Professional Visual Design**: Enhanced headers with relevant icons, proper color schemes, and visual hierarchy
@@ -276,10 +286,12 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 -   `asset_disposals`: Asset disposal transactions
 -   `asset_movements`: Asset transfer tracking
 
-#### Master Data Tables
+#### Business Partner Tables
 
--   `customers`: Customer master data
--   `vendors`: Vendor master data
+-   `business_partners`: Unified customer and supplier master data with partner_type classification
+-   `business_partner_contacts`: Multiple contact persons per partner with contact types
+-   `business_partner_addresses`: Multiple addresses per partner with address types
+-   `business_partner_details`: Flexible custom field storage for partner-specific data
 -   `tax_codes`: Tax configuration
 -   `bank_accounts` / `bank_transactions`: Banking integration
 

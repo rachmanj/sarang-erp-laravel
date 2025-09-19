@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->string('grn_no')->nullable()->unique();
             $table->date('date');
-            $table->unsignedBigInteger('vendor_id');
+            $table->unsignedBigInteger('business_partner_id');
             $table->unsignedBigInteger('purchase_order_id')->nullable();
             $table->unsignedBigInteger('source_po_id')->nullable();
             $table->enum('source_type', ['copy', 'manual'])->default('manual');

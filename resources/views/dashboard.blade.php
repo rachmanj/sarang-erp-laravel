@@ -46,7 +46,7 @@
         <div class="col-lg-3 col-6">
             <div class="small-box bg-danger">
                 <div class="inner">
-                    <h3>{{ \DB::table('customers')->count() + \DB::table('vendors')->count() }}</h3>
+                    <h3>{{ \DB::table('business_partners')->count() }}</h3>
                     <p>Parties</p>
                 </div>
                 <div class="icon"><i class="fas fa-users"></i></div>

@@ -763,3 +763,97 @@ Decision: [Title] - [YYYY-MM-DD]
 -   Preserved all existing multi-dimensional accounting capabilities for essential dimensions
 
 **Review Date**: 2025-04-18 (after user feedback and usage analytics)
+
+---
+
+### Decision: ERP System Menu Reordering and Navigation Optimization - 2025-09-19
+
+**Context**: Current sidebar menu structure did not reflect the natural business process flow for trading company operations, with Business Partner duplicated in both Sales and Purchase sections, and submenus not organized according to operational workflow.
+
+**Options Considered**:
+
+1. **Option A**: Keep existing menu structure with minor adjustments
+
+    - ✅ Pros: Minimal development effort, no disruption to existing users
+    - ❌ Cons: Poor user experience, confusing navigation, doesn't reflect trading company workflow
+
+2. **Option B**: Complete menu reorganization with logical business process flow
+
+    - ✅ Pros: Better user experience, logical ordering, trading company workflow alignment, improved efficiency
+    - ❌ Cons: Requires development effort, potential user confusion during transition
+
+3. **Option C**: Add Dashboard placeholders without reorganizing structure
+    - ✅ Pros: Addresses immediate analytics need, minimal changes
+    - ❌ Cons: Doesn't solve underlying navigation issues, still confusing structure
+
+**Decision**: Complete menu reorganization with logical business process flow (Option B)
+
+**Rationale**:
+
+-   Trading companies follow natural workflow: Inventory → Purchase → Sales → Fixed Assets → Business Partner → Accounting → Master Data
+-   Logical ordering improves user efficiency and reduces navigation time
+-   Standalone Business Partner menu eliminates confusion from duplicated entries
+-   Dashboard placeholders prepare for future analytics integration
+-   Better reflects business processes and user mental models
+-   Scalable structure enables future feature additions
+-   Improved user adoption and system utilization
+
+**Implementation**:
+
+-   Reordered main menu items according to business process flow: 1) Inventory, 2) Purchase, 3) Sales, 4) Fixed Assets, 5) Business Partner, 6) Accounting, 7) Master Data
+-   Reorganized Purchase submenu: Dashboard, Purchase Orders, Goods Receipts, Purchase Invoices, Purchase Payments
+-   Reorganized Sales submenu: Dashboard, Sales Orders, Delivery Orders, Sales Invoices, Sales Receipts
+-   Moved Business Partner from duplicated entries in Sales/Purchase to standalone menu item with proper icon (fas fa-handshake)
+-   Added Dashboard placeholders as dummy links in Purchase and Sales sections for future analytics integration
+-   Updated sidebar.blade.php with new menu organization and proper active state detection
+-   Maintained all existing functionality while improving navigation structure
+
+**Review Date**: 2025-12-19 (after user feedback and usage analytics)
+
+---
+
+### Decision: Business Partner Consolidation Architecture - 2025-09-19
+
+**Context**: Separate customers and vendors tables created data inconsistency, duplicate management overhead, and inability to handle entities that serve as both customers and suppliers in trading company operations.
+
+**Options Considered**:
+
+1. **Option A**: Keep separate customers and vendors tables
+
+    - ✅ Pros: Simple existing structure, no migration required
+    - ❌ Cons: Data inconsistency, duplicate management, limited flexibility, poor scalability
+
+2. **Option B**: Create unified Business Partner system with flexible data structure
+
+    - ✅ Pros: Data consistency, unified management, flexible partner types, better scalability, tabbed interface
+    - ❌ Cons: Complex migration, requires updating dependent models, higher development effort
+
+3. **Option C**: Create separate tables but with shared management interface
+    - ✅ Pros: Preserves existing data structure, unified interface
+    - ❌ Cons: Still maintains data inconsistency, complex relationships, maintenance overhead
+
+**Decision**: Create unified Business Partner system with flexible data structure (Option B)
+
+**Rationale**:
+
+-   Trading companies often have entities that serve as both customers and suppliers
+-   Unified data structure eliminates data inconsistency and duplicate management
+-   Flexible partner_type classification (customer, supplier, both) supports various business relationships
+-   Tabbed interface provides better organization of complex partner data
+-   Multiple contacts and addresses per partner support real-world business scenarios
+-   Flexible attribute storage enables customization without schema changes
+-   Backward compatibility ensures smooth transition without breaking existing functionality
+
+**Implementation**:
+
+-   Created unified database schema: business_partners, business_partner_contacts, business_partner_addresses, business_partner_details
+-   Implemented BusinessPartner model with partner_type classification and comprehensive relationships
+-   Created BusinessPartnerContact, BusinessPartnerAddress, and BusinessPartnerDetail models for flexible data storage
+-   Developed tabbed interface with General Information, Contact Details, Addresses, Taxation & Terms, Banking & Financial sections
+-   Updated dependent models (PurchaseOrder, SalesOrder, DeliveryOrder) to use new relationships while maintaining backward compatibility
+-   Created BusinessPartnerController with comprehensive CRUD operations and DataTables integration
+-   Implemented BusinessPartnerService for business logic encapsulation
+-   Created data migration tools for seamless transition from separate tables
+-   Added comprehensive testing and validation using browser MCP
+
+**Review Date**: 2025-12-19 (after production deployment and user feedback)

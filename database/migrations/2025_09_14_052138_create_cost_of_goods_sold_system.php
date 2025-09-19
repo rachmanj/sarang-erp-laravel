@@ -92,7 +92,7 @@ return new class extends Migration
         // Customer cost allocations table - tracks costs allocated to customers
         Schema::create('customer_cost_allocations', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('customer_id')->constrained()->onDelete('cascade');
+            $table->foreignId('business_partner_id')->constrained('business_partners')->onDelete('cascade');
             $table->foreignId('cost_allocation_id')->constrained()->onDelete('cascade');
             $table->date('allocation_date');
             $table->decimal('allocated_amount', 15, 4)->default(0);
@@ -101,7 +101,7 @@ return new class extends Migration
             $table->foreignId('created_by')->constrained('users')->onDelete('cascade');
             $table->timestamps();
 
-            $table->index(['customer_id', 'allocation_date']);
+            $table->index(['business_partner_id', 'allocation_date'], 'cpa_bp_date_idx');
         });
 
         // Margin analysis table - stores calculated margin data
@@ -109,8 +109,7 @@ return new class extends Migration
             $table->id();
             $table->enum('analysis_type', ['product', 'customer', 'supplier', 'period']);
             $table->foreignId('inventory_item_id')->nullable()->constrained()->onDelete('cascade');
-            $table->foreignId('customer_id')->nullable()->constrained()->onDelete('cascade');
-            $table->foreignId('supplier_id')->nullable()->constrained('vendors')->onDelete('cascade');
+            $table->foreignId('business_partner_id')->nullable()->constrained('business_partners')->onDelete('cascade');
             $table->date('analysis_date');
             $table->decimal('revenue', 15, 4)->default(0);
             $table->decimal('cost_of_goods_sold', 15, 4)->default(0);
@@ -126,13 +125,13 @@ return new class extends Migration
 
             $table->index(['analysis_type', 'analysis_date']);
             $table->index(['inventory_item_id', 'analysis_date']);
-            $table->index(['customer_id', 'analysis_date']);
+            $table->index(['business_partner_id', 'analysis_date'], 'ma_bp_date_idx');
         });
 
         // Supplier cost analysis table
         Schema::create('supplier_cost_analyses', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('supplier_id')->constrained('vendors')->onDelete('cascade');
+            $table->foreignId('business_partner_id')->constrained('business_partners')->onDelete('cascade');
             $table->date('analysis_date');
             $table->decimal('total_purchase_value', 15, 4)->default(0);
             $table->decimal('total_freight_cost', 15, 4)->default(0);
@@ -148,7 +147,7 @@ return new class extends Migration
             $table->integer('late_deliveries')->default(0);
             $table->timestamps();
 
-            $table->index(['supplier_id', 'analysis_date']);
+            $table->index(['business_partner_id', 'analysis_date'], 'sca_bp_date_idx');
         });
 
         // Cost allocation rules table - defines how costs are allocated

@@ -11,14 +11,16 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('vendors', function (Blueprint $table) {
+        Schema::create('business_partners', function (Blueprint $table) {
             $table->id();
             $table->string('code', 50)->unique();
             $table->string('name', 150);
-            $table->string('npwp', 30)->nullable();
-            $table->string('address', 255)->nullable();
-            $table->string('phone', 50)->nullable();
-            $table->string('email', 150)->nullable();
+            $table->enum('partner_type', ['customer', 'supplier', 'both'])->default('customer');
+            $table->enum('status', ['active', 'inactive', 'suspended'])->default('active');
+            $table->string('registration_number', 30)->nullable()->comment('NPWP for Indonesian companies');
+            $table->string('tax_id', 50)->nullable()->comment('Additional tax identifiers');
+            $table->string('website', 255)->nullable();
+            $table->text('notes')->nullable();
             $table->timestamps();
         });
     }
@@ -28,6 +30,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('vendors');
+        Schema::dropIfExists('business_partners');
     }
 };

@@ -55,6 +55,8 @@ Include relevant context in brackets to help with future AI-assisted coding:
 
 ## Recently Completed
 
+-   `[done] P1: ERP System Menu Reordering and Navigation Optimization [reordered main menu items according to business process flow, reorganized Purchase and Sales submenus, moved Business Partner to standalone menu, added Dashboard placeholders, improved user experience with logical navigation structure] (completed: 2025-09-19)`
+-   `[done] P1: Business Partner Consolidation Implementation [unified database schema with business_partners table, created flexible model structure with relationships, developed tabbed interface, updated dependent models with backward compatibility, created data migration tools, comprehensive testing and validation] (completed: 2025-09-19)`
 -   `[done] P1: Multi-Dimensional Accounting Simplification [removed funds dimension, maintained projects and departments, updated PostingService, removed fund routes and views, simplified navigation] (completed: 2025-01-18)`
 -   `[done] P1: Delivery Order System Implementation [DeliveryOrder models, DeliveryService, DeliveryOrderController, inventory reservation journal entries, revenue recognition journal entries, comprehensive AdminLTE views, seamless Sales Order integration] (completed: 2025-01-18)`
 -   `[done] P1: Comprehensive Design Improvements Application [unified design patterns across 6 create pages, card-outline styling, Select2BS4 integration, real-time calculations, professional UI/UX, consistent navigation, enhanced form validation] (completed: 2025-01-17)`

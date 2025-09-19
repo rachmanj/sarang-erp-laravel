@@ -17,7 +17,7 @@ return new class extends Migration
             $table->date('date');
             $table->date('due_date')->nullable();
             $table->integer('terms_days')->nullable();
-            $table->unsignedBigInteger('customer_id');
+            $table->unsignedBigInteger('business_partner_id');
             $table->unsignedBigInteger('sales_order_id')->nullable();
             $table->string('description')->nullable();
             $table->decimal('total_amount', 15, 2)->default(0);

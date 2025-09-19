@@ -15,7 +15,7 @@ class PurchaseOrder extends Model
         'date',
         'expected_delivery_date',
         'actual_delivery_date',
-        'vendor_id',
+        'business_partner_id',
         'description',
         'notes',
         'terms_conditions',
@@ -53,9 +53,15 @@ class PurchaseOrder extends Model
         return $this->hasMany(PurchaseOrderLine::class, 'order_id');
     }
 
+    public function businessPartner(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\BusinessPartner::class, 'business_partner_id');
+    }
+
+    // Backward compatibility method
     public function vendor(): BelongsTo
     {
-        return $this->belongsTo(\App\Models\Master\Vendor::class, 'vendor_id');
+        return $this->businessPartner();
     }
 
     public function approvals(): HasMany

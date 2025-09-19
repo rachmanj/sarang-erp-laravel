@@ -17,7 +17,7 @@ return new class extends Migration
             $table->date('date');
             $table->date('due_date')->nullable();
             $table->integer('terms_days')->nullable();
-            $table->unsignedBigInteger('vendor_id');
+            $table->unsignedBigInteger('business_partner_id');
             $table->unsignedBigInteger('purchase_order_id')->nullable();
             $table->unsignedBigInteger('goods_receipt_id')->nullable();
             $table->string('description')->nullable();

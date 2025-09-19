@@ -16,9 +16,8 @@ return new class extends Migration
             $table->string('transaction_no')->unique()->after('id');
             $table->string('tax_type')->after('transaction_type'); // ppn, pph_21, pph_22, pph_23, pph_26, pph_4_2
             $table->string('tax_category')->after('tax_type'); // input, output, withholding
-            $table->unsignedBigInteger('vendor_id')->nullable()->after('reference_id');
-            $table->unsignedBigInteger('customer_id')->nullable()->after('vendor_id');
-            $table->string('tax_number')->nullable()->after('customer_id'); // NPWP
+            $table->unsignedBigInteger('business_partner_id')->nullable()->after('reference_id');
+            $table->string('tax_number')->nullable()->after('business_partner_id'); // NPWP
             $table->string('tax_name')->nullable()->after('tax_number');
             $table->text('tax_address')->nullable()->after('tax_name');
             $table->decimal('tax_rate', 5, 2)->default(0)->after('tax_address');
@@ -35,8 +34,7 @@ return new class extends Migration
             $table->renameColumn('base_amount', 'taxable_amount');
 
             // Add foreign keys
-            $table->foreign('vendor_id')->references('id')->on('vendors')->onDelete('set null');
-            $table->foreign('customer_id')->references('id')->on('customers')->onDelete('set null');
+            $table->foreign('business_partner_id')->references('id')->on('business_partners')->onDelete('set null');
             $table->foreign('created_by')->references('id')->on('users')->onDelete('set null');
             $table->foreign('updated_by')->references('id')->on('users')->onDelete('set null');
 
@@ -53,8 +51,7 @@ return new class extends Migration
     {
         Schema::table('tax_transactions', function (Blueprint $table) {
             // Drop foreign keys
-            $table->dropForeign(['vendor_id']);
-            $table->dropForeign(['customer_id']);
+            $table->dropForeign(['business_partner_id']);
             $table->dropForeign(['created_by']);
             $table->dropForeign(['updated_by']);
 
@@ -70,8 +67,7 @@ return new class extends Migration
                 'transaction_no',
                 'tax_type',
                 'tax_category',
-                'vendor_id',
-                'customer_id',
+                'business_partner_id',
                 'tax_number',
                 'tax_name',
                 'tax_address',

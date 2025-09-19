@@ -14,7 +14,7 @@ class SalesOrder extends Model
         'date',
         'expected_delivery_date',
         'actual_delivery_date',
-        'customer_id',
+        'business_partner_id',
         'description',
         'notes',
         'terms_conditions',
@@ -58,9 +58,15 @@ class SalesOrder extends Model
         return $this->hasMany(SalesOrderLine::class, 'order_id');
     }
 
+    public function businessPartner(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\BusinessPartner::class, 'business_partner_id');
+    }
+
+    // Backward compatibility method
     public function customer(): BelongsTo
     {
-        return $this->belongsTo(\App\Models\Master\Customer::class, 'customer_id');
+        return $this->businessPartner();
     }
 
     public function approvals(): HasMany
@@ -217,25 +223,35 @@ class SalesOrder extends Model
 
     public function checkCreditLimit()
     {
-        $creditLimit = $this->customer->creditLimit ?? null;
+        // Get credit limit from business partner details
+        $creditLimitDetail = $this->businessPartner->getDetailBySection('financial', 'credit_limit');
+        $creditLimit = $creditLimitDetail ? (float) $creditLimitDetail->field_value : null;
 
         if (!$creditLimit) {
             return true; // No credit limit set
         }
 
-        $currentBalance = $creditLimit->current_balance;
+        // Calculate current balance from unpaid invoices
+        $currentBalance = $this->businessPartner->salesInvoices()
+            ->where('status', '!=', 'paid')
+            ->sum('total_amount');
+
         $orderAmount = $this->net_amount;
 
-        return ($currentBalance + $orderAmount) <= $creditLimit->credit_limit;
+        return ($currentBalance + $orderAmount) <= $creditLimit;
     }
 
     public function getCustomerPricingTier()
     {
-        return $this->customer->pricingTiers()
-            ->where('is_active', true)
-            ->where('min_order_amount', '<=', $this->net_amount)
-            ->orderBy('min_order_amount', 'desc')
-            ->first();
+        // Get discount percentage from business partner details
+        $discountDetail = $this->businessPartner->getDetailBySection('financial', 'discount_percentage');
+        $discountPercentage = $discountDetail ? (float) $discountDetail->field_value : 0;
+
+        // Create a simple pricing tier object
+        return (object) [
+            'discount_percentage' => $discountPercentage,
+            'tier_name' => 'Default'
+        ];
     }
 
     // Order type validation methods

@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->string('payment_no')->nullable()->unique();
             $table->date('date');
-            $table->unsignedBigInteger('vendor_id');
+            $table->unsignedBigInteger('business_partner_id');
             $table->string('description')->nullable();
             $table->decimal('total_amount', 15, 2)->default(0);
             $table->string('status')->default('draft');

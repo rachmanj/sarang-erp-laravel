@@ -12,7 +12,7 @@ class DeliveryOrder extends Model
     protected $fillable = [
         'do_number',
         'sales_order_id',
-        'customer_id',
+        'business_partner_id',
         'delivery_address',
         'delivery_contact_person',
         'delivery_phone',
@@ -42,9 +42,15 @@ class DeliveryOrder extends Model
         return $this->belongsTo(SalesOrder::class);
     }
 
+    public function businessPartner(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\BusinessPartner::class);
+    }
+
+    // Backward compatibility method
     public function customer(): BelongsTo
     {
-        return $this->belongsTo(\App\Models\Master\Customer::class);
+        return $this->businessPartner();
     }
 
     public function lines(): HasMany
