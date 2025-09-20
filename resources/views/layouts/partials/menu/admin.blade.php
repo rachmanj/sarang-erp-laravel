@@ -37,3 +37,12 @@
         </li>
     </ul>
 </li>
+
+<!-- ERP Parameters -->
+<li class="nav-item">
+    <a href="{{ route('erp-parameters.index') }}"
+        class="nav-link {{ request()->routeIs('erp-parameters.*') ? 'active' : '' }}">
+        <i class="nav-icon fas fa-cogs"></i>
+        <p>ERP Parameters</p>
+    </a>
+</li>

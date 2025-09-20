@@ -2,24 +2,26 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\GoodsReceipt;
-use App\Models\GoodsReceiptLine;
+use App\Models\GoodsReceiptPO;
+use App\Models\GoodsReceiptPOLine;
 use App\Models\PurchaseOrder;
 use App\Services\DocumentNumberingService;
 use App\Services\GRPOCopyService;
+use App\Services\DocumentClosureService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
-class GoodsReceiptController extends Controller
+class GoodsReceiptPOController extends Controller
 {
     public function __construct(
         private DocumentNumberingService $documentNumberingService,
-        private GRPOCopyService $grpoCopyService
+        private GRPOCopyService $grpoCopyService,
+        private DocumentClosureService $documentClosureService
     ) {}
 
     public function index()
     {
-        return view('goods_receipts.index');
+        return view('goods_receipt_pos.index');
     }
 
     public function create()
@@ -27,8 +29,8 @@ class GoodsReceiptController extends Controller
         $vendors = DB::table('business_partners')->where('partner_type', 'supplier')->orderBy('name')->get();
         $accounts = DB::table('accounts')->where('is_postable', 1)->orderBy('code')->get();
         $taxCodes = DB::table('tax_codes')->orderBy('code')->get();
-        $purchaseOrders = DB::table('purchase_orders')->orderByDesc('id')->limit(50)->get(['id', 'order_no']);
-        return view('goods_receipts.create', compact('vendors', 'accounts', 'taxCodes', 'purchaseOrders'));
+        // Don't load POs initially - will be loaded via AJAX based on vendor selection
+        return view('goods_receipt_pos.create', compact('vendors', 'accounts', 'taxCodes'));
     }
 
     public function store(Request $request)
@@ -47,7 +49,7 @@ class GoodsReceiptController extends Controller
         ]);
 
         return DB::transaction(function () use ($data) {
-            $grn = GoodsReceipt::create([
+            $grpo = GoodsReceiptPO::create([
                 'grn_no' => null,
                 'date' => $data['date'],
                 'business_partner_id' => $data['business_partner_id'],
@@ -56,14 +58,14 @@ class GoodsReceiptController extends Controller
                 'status' => 'draft',
                 'total_amount' => 0,
             ]);
-            $grnNo = $this->documentNumberingService->generateNumber('goods_receipt', $data['date']);
-            $grn->update(['grn_no' => $grnNo]);
+            $grpoNo = $this->documentNumberingService->generateNumber('goods_receipt', $data['date']);
+            $grpo->update(['grn_no' => $grpoNo]);
             $total = 0;
             foreach ($data['lines'] as $l) {
                 $amount = (float)$l['qty'] * (float)$l['unit_price'];
                 $total += $amount;
-                GoodsReceiptLine::create([
-                    'grn_id' => $grn->id,
+                GoodsReceiptPOLine::create([
+                    'grpo_id' => $grpo->id,
                     'account_id' => $l['account_id'],
                     'description' => $l['description'] ?? null,
                     'qty' => (float)$l['qty'],
@@ -72,38 +74,38 @@ class GoodsReceiptController extends Controller
                     'tax_code_id' => $l['tax_code_id'] ?? null,
                 ]);
             }
-            $grn->update(['total_amount' => $total]);
-            return redirect()->route('goods-receipts.show', $grn->id)->with('success', 'Goods Receipt created');
+            $grpo->update(['total_amount' => $total]);
+            return redirect()->route('goods-receipt-pos.show', $grpo->id)->with('success', 'Goods Receipt PO created');
         });
     }
 
     public function show(int $id)
     {
-        $grn = GoodsReceipt::with('lines')->findOrFail($id);
-        return view('goods_receipts.show', compact('grn'));
+        $grpo = GoodsReceiptPO::with('lines')->findOrFail($id);
+        return view('goods_receipt_pos.show', compact('grpo'));
     }
 
     public function receive(int $id)
     {
-        $grn = GoodsReceipt::findOrFail($id);
-        if ($grn->status === 'received') {
+        $grpo = GoodsReceiptPO::findOrFail($id);
+        if ($grpo->status === 'received') {
             return back()->with('success', 'Already received');
         }
-        $grn->update(['status' => 'received']);
-        return back()->with('success', 'Goods Receipt marked as received');
+        $grpo->update(['status' => 'received']);
+        return back()->with('success', 'Goods Receipt PO marked as received');
     }
 
     public function createInvoice(int $id)
     {
-        $grn = GoodsReceipt::with('lines')->findOrFail($id);
+        $grpo = GoodsReceiptPO::with('lines')->findOrFail($id);
         $accounts = DB::table('accounts')->where('is_postable', 1)->orderBy('code')->get();
         $vendors = DB::table('business_partners')->where('partner_type', 'supplier')->orderBy('name')->get();
         $taxCodes = DB::table('tax_codes')->orderBy('code')->get();
         $prefill = [
             'date' => now()->toDateString(),
-            'business_partner_id' => $grn->business_partner_id,
-            'description' => 'From GRN ' . ($grn->grn_no ?: ('#' . $grn->id)),
-            'lines' => $grn->lines->map(function ($l) {
+            'business_partner_id' => $grpo->business_partner_id,
+            'description' => 'From GRPO ' . ($grpo->grn_no ?: ('#' . $grpo->id)),
+            'lines' => $grpo->lines->map(function ($l) {
                 return [
                     'account_id' => (int)$l->account_id,
                     'description' => $l->description,
@@ -113,7 +115,7 @@ class GoodsReceiptController extends Controller
                 ];
             })->toArray(),
         ];
-        return view('purchase_invoices.create', compact('accounts', 'vendors', 'taxCodes') + ['prefill' => $prefill, 'goods_receipt_id' => $grn->id]);
+        return view('purchase_invoices.create', compact('accounts', 'vendors', 'taxCodes') + ['prefill' => $prefill, 'goods_receipt_po_id' => $grpo->id]);
     }
 
     /**
@@ -129,7 +131,7 @@ class GoodsReceiptController extends Controller
 
         $availableLines = $this->grpoCopyService->getAvailableLines($po);
 
-        return view('goods_receipts.create_from_po', compact('po', 'availableLines'));
+        return view('goods_receipt_pos.create_from_po', compact('po', 'availableLines'));
     }
 
     /**
@@ -148,7 +150,7 @@ class GoodsReceiptController extends Controller
         try {
             $grpo = $this->grpoCopyService->copyFromPurchaseOrder($po, $selectedLines);
 
-            return redirect()->route('goods-receipts.show', $grpo->id)
+            return redirect()->route('goods-receipt-pos.show', $grpo->id)
                 ->with('success', 'GRPO created from Purchase Order successfully');
         } catch (\Exception $e) {
             return back()->with('error', 'Error creating GRPO: ' . $e->getMessage());
@@ -191,5 +193,71 @@ class GoodsReceiptController extends Controller
         });
 
         return response()->json(['purchase_orders' => $pos]);
+    }
+
+    /**
+     * Get Purchase Orders for specific vendor with remaining quantities
+     */
+    public function getVendorPOs(Request $request)
+    {
+        $vendorId = $request->input('business_partner_id');
+        
+        if (!$vendorId) {
+            return response()->json(['purchase_orders' => []]);
+        }
+
+        $pos = PurchaseOrder::with(['lines'])
+            ->where('business_partner_id', $vendorId)
+            ->where('status', 'approved')
+            ->where('order_type', 'item')
+            ->get()
+            ->filter(function ($po) {
+                // Only include POs that have remaining quantities to be received
+                return $po->lines->where('pending_qty', '>', 0)->count() > 0;
+            })
+            ->map(function ($po) {
+                return [
+                    'id' => $po->id,
+                    'order_no' => $po->order_no,
+                    'date' => $po->date->format('Y-m-d'),
+                    'total_amount' => $po->total_amount,
+                    'remaining_lines_count' => $po->lines->where('pending_qty', '>', 0)->count(),
+                ];
+            });
+
+        return response()->json(['purchase_orders' => $pos]);
+    }
+
+    /**
+     * Get remaining lines from Purchase Order for copying
+     */
+    public function getRemainingPOLines(Request $request)
+    {
+        $poId = $request->input('purchase_order_id');
+        
+        if (!$poId) {
+            return response()->json(['lines' => []]);
+        }
+
+        $po = PurchaseOrder::with(['lines.account', 'lines.taxCode'])->findOrFail($poId);
+        
+        $remainingLines = $po->lines
+            ->where('pending_qty', '>', 0)
+            ->map(function ($line) {
+                return [
+                    'id' => $line->id,
+                    'account_id' => $line->account_id,
+                    'account_code' => $line->account->code ?? '',
+                    'account_name' => $line->account->name ?? '',
+                    'description' => $line->description,
+                    'qty' => $line->pending_qty, // Use remaining quantity
+                    'unit_price' => $line->unit_price,
+                    'amount' => $line->pending_qty * $line->unit_price,
+                    'tax_code_id' => $line->tax_code_id,
+                    'tax_code' => $line->taxCode->code ?? '',
+                ];
+            });
+
+        return response()->json(['lines' => $remainingLines]);
     }
 }

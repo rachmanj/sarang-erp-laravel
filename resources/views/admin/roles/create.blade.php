@@ -4,6 +4,37 @@
     Create Role
 @endsection
 
+@section('styles')
+    <style>
+        .permission-group {
+            border: 1px solid #e3e6f0;
+            border-radius: 8px;
+            padding: 15px;
+            background-color: #f8f9fc;
+        }
+
+        .permission-group h6 {
+            border-bottom: 2px solid #4e73df;
+            padding-bottom: 8px;
+            margin-bottom: 15px;
+        }
+
+        .permission-group .custom-control-label {
+            font-size: 0.9rem;
+            color: #5a5c69;
+        }
+
+        .permissions-container {
+            max-height: 600px;
+            overflow-y: auto;
+            border: 1px solid #e3e6f0;
+            border-radius: 8px;
+            padding: 15px;
+            background-color: #ffffff;
+        }
+    </style>
+@endsection
+
 @section('breadcrumb_title')
     <li class="breadcrumb-item"><a href="/dashboard">Dashboard</a></li>
     <li class="breadcrumb-item"><a href="{{ route('admin.roles.index') }}">Roles</a></li>
@@ -39,18 +70,27 @@
 
                                 <div class="form-group">
                                     <label>Permissions</label>
-                                    <div class="row">
-                                        @foreach ($permissions as $permission)
-                                            <div class="col-md-4">
-                                                <div class="custom-control custom-checkbox">
-                                                    <input type="checkbox" class="custom-control-input"
-                                                        id="permission_{{ $permission->id }}" name="permissions[]"
-                                                        value="{{ $permission->id }}"
-                                                        {{ in_array($permission->id, old('permissions', [])) ? 'checked' : '' }}>
-                                                    <label class="custom-control-label"
-                                                        for="permission_{{ $permission->id }}">
-                                                        {{ ucfirst(str_replace('-', ' ', $permission->name)) }}
-                                                    </label>
+                                    <div class="permissions-container">
+                                        @foreach ($groupedPermissions as $groupName => $groupPermissions)
+                                            <div class="permission-group mb-4">
+                                                <h6 class="text-primary font-weight-bold mb-3">
+                                                    <i class="fas fa-folder"></i> {{ $groupName }}
+                                                </h6>
+                                                <div class="row">
+                                                    @foreach ($groupPermissions as $permission)
+                                                        <div class="col-md-4 col-lg-3">
+                                                            <div class="custom-control custom-checkbox">
+                                                                <input type="checkbox" class="custom-control-input"
+                                                                    id="permission_{{ $permission->id }}"
+                                                                    name="permissions[]" value="{{ $permission->id }}"
+                                                                    {{ in_array($permission->id, old('permissions', [])) ? 'checked' : '' }}>
+                                                                <label class="custom-control-label"
+                                                                    for="permission_{{ $permission->id }}">
+                                                                    {{ ucfirst(str_replace('-', ' ', $permission->name)) }}
+                                                                </label>
+                                                            </div>
+                                                        </div>
+                                                    @endforeach
                                                 </div>
                                             </div>
                                         @endforeach

@@ -7,6 +7,7 @@ use App\Models\Accounting\SalesReceipt;
 use App\Models\Accounting\SalesReceiptLine;
 use App\Services\Accounting\PostingService;
 use App\Services\DocumentNumberingService;
+use App\Services\DocumentClosureService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\Facades\DataTables;
@@ -15,7 +16,8 @@ class SalesReceiptController extends Controller
 {
     public function __construct(
         private PostingService $posting,
-        private DocumentNumberingService $documentNumberingService
+        private DocumentNumberingService $documentNumberingService,
+        private DocumentClosureService $documentClosureService
     ) {
         $this->middleware(['auth']);
         $this->middleware('permission:ar.receipts.view')->only(['index', 'show']);
@@ -99,6 +101,18 @@ class SalesReceiptController extends Controller
                     $remainingPool -= $alloc;
                 }
             }
+
+            // Attempt to close related Sales Invoices if fully paid
+            try {
+                $this->documentClosureService->closeSalesInvoiceByReceipt($receipt->id, auth()->id());
+            } catch (\Exception $closureException) {
+                // Log closure failure but don't fail the receipt creation
+                \Log::warning('Failed to close Sales Invoices after receipt creation', [
+                    'receipt_id' => $receipt->id,
+                    'error' => $closureException->getMessage()
+                ]);
+            }
+
             return redirect()->route('sales-receipts.show', $receipt->id)->with('success', 'Receipt created');
         });
     }

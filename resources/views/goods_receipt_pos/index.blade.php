@@ -1,12 +1,12 @@
 @extends('layouts.main')
 
 @section('title_page')
-    Goods Receipts
+    Goods Receipt PO
 @endsection
 
 @section('breadcrumb_title')
     <li class="breadcrumb-item"><a href="/dashboard">Dashboard</a></li>
-    <li class="breadcrumb-item active">Goods Receipts</li>
+    <li class="breadcrumb-item active">Goods Receipt PO</li>
 @endsection
 
 @section('content')
@@ -15,7 +15,7 @@
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <div>
-                        <a href="{{ route('goods-receipts.create') }}" class="btn btn-primary btn-sm">Create</a>
+                        <a href="{{ route('goods-receipt-pos.create') }}" class="btn btn-primary btn-sm">Create</a>
                     </div>
                     <form class="form-inline" id="filters">
                         <input type="date" name="from" class="form-control form-control-sm mr-1" placeholder="From">
@@ -57,7 +57,7 @@
                 processing: true,
                 serverSide: true,
                 ajax: {
-                    url: '{{ route('goods-receipts.data') }}',
+                    url: '{{ route('goods-receipt-pos.data') }}',
                     data: function(d) {
                         const f = $('#filters').serializeArray();
                         f.forEach(p => d[p.name] = p.value);
@@ -94,7 +94,7 @@
             });
             $('#csv').on('click', function(e) {
                 e.preventDefault();
-                this.href = '{{ route('goods-receipts.csv') }}?' + $('#filters').serialize();
+                this.href = '{{ route('goods-receipt-pos.csv') }}?' + $('#filters').serialize();
                 window.location = this.href;
             });
         });

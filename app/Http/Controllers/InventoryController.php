@@ -25,6 +25,50 @@ class InventoryController extends Controller
         return view('inventory.index', compact('items'));
     }
 
+    public function search(Request $request)
+    {
+        $query = InventoryItem::with('category')
+            ->active();
+
+        // Search by code
+        if ($request->filled('code')) {
+            $query->where('code', 'like', '%' . $request->code . '%');
+        }
+
+        // Search by name
+        if ($request->filled('name')) {
+            $query->where('name', 'like', '%' . $request->name . '%');
+        }
+
+        // Filter by category
+        if ($request->filled('category_id')) {
+            $query->where('category_id', $request->category_id);
+        }
+
+        // Filter by item type
+        if ($request->filled('item_type')) {
+            $query->where('item_type', $request->item_type);
+        }
+
+        // Order by name
+        $query->orderBy('name');
+
+        // Pagination
+        $perPage = $request->get('per_page', 20);
+        $items = $query->paginate($perPage);
+
+        return response()->json([
+            'items' => $items->items(),
+            'pagination' => [
+                'current_page' => $items->currentPage(),
+                'last_page' => $items->lastPage(),
+                'per_page' => $items->perPage(),
+                'total' => $items->total(),
+                'has_more' => $items->hasMorePages()
+            ]
+        ]);
+    }
+
     public function create()
     {
         $categories = ProductCategory::where('is_active', true)

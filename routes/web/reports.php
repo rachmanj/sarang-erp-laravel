@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Reports\ReportsController;
 use App\Http\Controllers\Reports\AssetReportsController;
+use App\Http\Controllers\OpenItemsController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('reports')->group(function () {
@@ -13,6 +14,15 @@ Route::prefix('reports')->group(function () {
     Route::get('/withholding-recap', [ReportsController::class, 'withholdingRecap'])->name('reports.withholding-recap');
     Route::get('/ar-balances', [ReportsController::class, 'arBalances'])->name('reports.ar-balances');
     Route::get('/ap-balances', [ReportsController::class, 'apBalances'])->name('reports.ap-balances');
+
+    // Open Items Reports
+    Route::prefix('open-items')->middleware(['permission:reports.open-items'])->group(function () {
+        Route::get('/', [OpenItemsController::class, 'index'])->name('reports.open-items.index');
+        Route::get('/{documentType}', [OpenItemsController::class, 'show'])->name('reports.open-items.show');
+        Route::get('/export/excel', [OpenItemsController::class, 'export'])->name('reports.open-items.export');
+        Route::get('/api/data', [OpenItemsController::class, 'getData'])->name('reports.open-items.data');
+        Route::get('/api/summary', [OpenItemsController::class, 'getSummary'])->name('reports.open-items.summary');
+    });
 
     // Asset Reports
     Route::prefix('assets')->group(function () {

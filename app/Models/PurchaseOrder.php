@@ -32,7 +32,12 @@ class PurchaseOrder extends Model
         'approved_by',
         'approved_at',
         'created_by',
-        'updated_by'
+        'updated_by',
+        'closure_status',
+        'closed_by_document_type',
+        'closed_by_document_id',
+        'closed_at',
+        'closed_by_user_id'
     ];
 
     protected $casts = [
@@ -40,6 +45,7 @@ class PurchaseOrder extends Model
         'expected_delivery_date' => 'date',
         'actual_delivery_date' => 'date',
         'approved_at' => 'datetime',
+        'closed_at' => 'datetime',
         'total_amount' => 'decimal:2',
         'freight_cost' => 'decimal:2',
         'handling_cost' => 'decimal:2',
@@ -205,5 +211,49 @@ class PurchaseOrder extends Model
     public function canCopyToPurchaseInvoice()
     {
         return $this->order_type === 'service' && $this->status === 'approved';
+    }
+
+    // Closure status methods
+    public function isOpen()
+    {
+        return $this->closure_status === 'open';
+    }
+
+    public function isClosed()
+    {
+        return $this->closure_status === 'closed';
+    }
+
+    public function getClosureInfo()
+    {
+        return [
+            'status' => $this->closure_status,
+            'closed_by_document_type' => $this->closed_by_document_type,
+            'closed_by_document_id' => $this->closed_by_document_id,
+            'closed_at' => $this->closed_at,
+            'closed_by_user_id' => $this->closed_by_user_id,
+        ];
+    }
+
+    public function getClosureHistory()
+    {
+        $history = [];
+
+        if ($this->closure_status === 'closed') {
+            $history[] = [
+                'action' => 'closed',
+                'document_type' => $this->closed_by_document_type,
+                'document_id' => $this->closed_by_document_id,
+                'closed_at' => $this->closed_at,
+                'closed_by_user_id' => $this->closed_by_user_id,
+            ];
+        }
+
+        return $history;
+    }
+
+    public function closedByUser()
+    {
+        return $this->belongsTo(User::class, 'closed_by_user_id');
     }
 }

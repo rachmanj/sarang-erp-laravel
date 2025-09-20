@@ -33,7 +33,7 @@ class SalesService
             $this->checkCreditLimit($data['business_partner_id'], $data['total_amount']);
 
             $so = SalesOrder::create([
-                'order_no' => null,
+                'order_no' => $data['order_no'],
                 'reference_no' => $data['reference_no'] ?? null,
                 'date' => $data['date'],
                 'expected_delivery_date' => $data['expected_delivery_date'] ?? null,
@@ -53,10 +53,6 @@ class SalesService
                 'approval_status' => 'pending',
                 'created_by' => Auth::id(),
             ]);
-
-            // Generate order number
-            $orderNo = $this->documentNumberingService->generateNumber('sales_order', $data['date']);
-            $so->update(['order_no' => $orderNo]);
 
             $totalAmount = 0;
             $totalFreightCost = 0;
@@ -157,6 +153,7 @@ class SalesService
             if ($pendingApprovals === 0) {
                 $so->update([
                     'approval_status' => 'approved',
+                    'status' => 'ordered',
                     'approved_by' => $userId,
                     'approved_at' => now(),
                 ]);

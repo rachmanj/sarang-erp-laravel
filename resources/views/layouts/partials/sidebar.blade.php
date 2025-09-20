@@ -87,7 +87,7 @@
                             request()->routeIs('purchase-invoices.*') ||
                             request()->routeIs('purchase-payments.*') ||
                             request()->routeIs('purchase-orders.*') ||
-                            request()->routeIs('goods-receipts.*');
+                            request()->routeIs('goods-receipt-pos.*');
                     @endphp
                     <li class="nav-item {{ $purchaseActive ? 'menu-is-opening menu-open' : '' }}">
                         <a href="#" class="nav-link {{ $purchaseActive ? 'active' : '' }}">
@@ -112,10 +112,10 @@
                                 </a>
                             </li>
                             <li class="nav-item">
-                                <a href="{{ route('goods-receipts.index') }}"
-                                    class="nav-link {{ request()->routeIs('goods-receipts.*') ? 'active' : '' }}">
+                                <a href="{{ route('goods-receipt-pos.index') }}"
+                                    class="nav-link {{ request()->routeIs('goods-receipt-pos.*') ? 'active' : '' }}">
                                     <i class="far fa-circle nav-icon"></i>
-                                    <p>Goods Receipts</p>
+                                    <p>Goods Receipt PO</p>
                                 </a>
                             </li>
                             @can('ap.invoices.view')

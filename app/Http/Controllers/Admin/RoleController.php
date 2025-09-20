@@ -21,7 +21,8 @@ class RoleController extends Controller
     {
         $this->authorize('roles.create');
         $permissions = Permission::orderBy('name')->get(['id', 'name']);
-        return view('admin.roles.create', compact('permissions'));
+        $groupedPermissions = $this->groupPermissionsByFeature($permissions);
+        return view('admin.roles.create', compact('permissions', 'groupedPermissions'));
     }
 
     public function data(Request $request)
@@ -93,7 +94,8 @@ class RoleController extends Controller
     {
         $this->authorize('roles.update');
         $permissions = Permission::orderBy('name')->get(['id', 'name']);
-        return view('admin.roles.edit', compact('role', 'permissions'));
+        $groupedPermissions = $this->groupPermissionsByFeature($permissions);
+        return view('admin.roles.edit', compact('role', 'permissions', 'groupedPermissions'));
     }
 
     public function update(Request $request, Role $role)
@@ -129,5 +131,135 @@ class RoleController extends Controller
         $perms = $request->input('permissions', []);
         $role->syncPermissions($perms);
         return back()->with('success', 'Permissions updated');
+    }
+
+    /**
+     * Group permissions by feature/module for better organization
+     */
+    private function groupPermissionsByFeature($permissions)
+    {
+        $groups = [
+            'System Administration' => [
+                'users.view',
+                'users.create',
+                'users.update',
+                'users.delete',
+                'users.assign',
+                'roles.view',
+                'roles.create',
+                'roles.update',
+                'roles.delete',
+                'roles.assign',
+                'permissions.view',
+                'permissions.create',
+                'permissions.update',
+                'permissions.delete',
+                'view-admin',
+                'manage-erp-parameters'
+            ],
+            'Master Data Management' => [
+                'customers.view',
+                'customers.manage',
+                'vendors.view',
+                'vendors.manage',
+                'accounts.view',
+                'accounts.manage',
+                'taxcodes.view',
+                'taxcodes.manage',
+                'departments.view',
+                'departments.manage',
+                'projects.view',
+                'projects.manage',
+                'funds.view',
+                'funds.manage',
+                'asset_categories.view',
+                'asset_categories.manage'
+            ],
+            'Inventory Management' => [
+                'inventory.view',
+                'inventory.create',
+                'inventory.update',
+                'inventory.delete',
+                'inventory.adjust',
+                'inventory.transfer',
+                'inventory.reports'
+            ],
+            'Fixed Asset Management' => [
+                'assets.view',
+                'assets.create',
+                'assets.update',
+                'assets.delete',
+                'assets.movement.view',
+                'assets.movement.create',
+                'assets.movement.update',
+                'assets.movement.delete',
+                'assets.movement.approve',
+                'assets.disposal.view',
+                'assets.disposal.create',
+                'assets.disposal.update',
+                'assets.disposal.delete',
+                'assets.disposal.post',
+                'assets.disposal.reverse',
+                'assets.depreciation.run',
+                'assets.depreciation.reverse',
+                'assets.reports.view'
+            ],
+            'Purchase Management' => [
+                'ap.invoices.view',
+                'ap.invoices.create',
+                'ap.invoices.post',
+                'ap.payments.view',
+                'ap.payments.create',
+                'ap.payments.post'
+            ],
+            'Sales Management' => [
+                'ar.invoices.view',
+                'ar.invoices.create',
+                'ar.invoices.post',
+                'ar.receipts.view',
+                'ar.receipts.create',
+                'ar.receipts.post'
+            ],
+            'Accounting & Finance' => [
+                'journals.view',
+                'journals.create',
+                'journals.post',
+                'journals.reverse',
+                'periods.view',
+                'periods.close',
+                'account_statements.view',
+                'account_statements.create',
+                'account_statements.update',
+                'account_statements.delete'
+            ],
+            'Reports & Analytics' => [
+                'reports.view',
+                'reports.open-items'
+            ]
+        ];
+
+        $groupedPermissions = [];
+
+        foreach ($groups as $groupName => $permissionNames) {
+            $groupPermissions = $permissions->filter(function ($permission) use ($permissionNames) {
+                return in_array($permission->name, $permissionNames);
+            });
+
+            if ($groupPermissions->isNotEmpty()) {
+                $groupedPermissions[$groupName] = $groupPermissions;
+            }
+        }
+
+        // Add any remaining permissions that don't fit into the defined groups
+        $assignedPermissions = collect($groups)->flatten()->toArray();
+        $remainingPermissions = $permissions->filter(function ($permission) use ($assignedPermissions) {
+            return !in_array($permission->name, $assignedPermissions);
+        });
+
+        if ($remainingPermissions->isNotEmpty()) {
+            $groupedPermissions['Other Permissions'] = $remainingPermissions;
+        }
+
+        return $groupedPermissions;
     }
 }

@@ -4,15 +4,15 @@
         <div class="container-fluid">
             <div class="card">
                 <div class="card-header d-flex justify-content-between">
-                    <h3 class="card-title">Goods Receipt {{ $grn->grn_no ?? '#' . $grn->id }}</h3>
+                    <h3 class="card-title">Goods Receipt PO {{ $grpo->grn_no ?? '#' . $grpo->id }}</h3>
                     <div>
-                        <form method="post" action="{{ route('goods-receipts.receive', $grn->id) }}" class="d-inline"
-                            data-confirm="Mark this GRN as received?">
-                            @csrf<button class="btn btn-sm btn-primary" aria-label="Mark GRN Received"
-                                {{ $grn->status !== 'draft' ? 'disabled' : '' }}>Mark
+                        <form method="post" action="{{ route('goods-receipt-pos.receive', $grpo->id) }}" class="d-inline"
+                            data-confirm="Mark this GRPO as received?">
+                            @csrf<button class="btn btn-sm btn-primary" aria-label="Mark GRPO Received"
+                                {{ $grpo->status !== 'draft' ? 'disabled' : '' }}>Mark
                                 Received</button></form>
-                        <a href="{{ route('goods-receipts.create-invoice', $grn->id) }}" class="btn btn-sm btn-success"
-                            aria-label="Create Purchase Invoice from GRN">Create Purchase Invoice</a>
+                        <a href="{{ route('goods-receipt-pos.create-invoice', $grpo->id) }}" class="btn btn-sm btn-success"
+                            aria-label="Create Purchase Invoice from GRPO">Create Purchase Invoice</a>
                     </div>
                 </div>
                 <div class="card-body">
@@ -23,26 +23,26 @@
                     @endif
                     <div class="row mb-3">
                         <div class="col-md-3"><b>Date</b>
-                            <div>{{ $grn->date }}</div>
+                            <div>{{ $grpo->date }}</div>
                         </div>
                         <div class="col-md-3"><b>Vendor</b>
-                            <div>#{{ $grn->business_partner_id }}</div>
+                            <div>#{{ $grpo->business_partner_id }}</div>
                         </div>
                         <div class="col-md-3"><b>Status</b>
-                            <div>{{ strtoupper($grn->status) }}</div>
+                            <div>{{ strtoupper($grpo->status) }}</div>
                         </div>
                         <div class="col-md-3"><b>Total</b>
-                            <div>{{ number_format($grn->total_amount, 2) }}</div>
+                            <div>{{ number_format($grpo->total_amount, 2) }}</div>
                         </div>
                     </div>
                     @php
                         $orderedQty = null;
-                        if (!empty($grn->purchase_order_id)) {
+                        if (!empty($grpo->purchase_order_id)) {
                             $orderedQty = (float) DB::table('purchase_order_lines')
-                                ->where('order_id', $grn->purchase_order_id)
+                                ->where('order_id', $grpo->purchase_order_id)
                                 ->sum('qty');
                         }
-                        $receivedQty = (float) DB::table('goods_receipt_lines')->where('grn_id', $grn->id)->sum('qty');
+                        $receivedQty = (float) DB::table('goods_receipt_po_lines')->where('grpo_id', $grpo->id)->sum('qty');
                     @endphp
                     @if (!is_null($orderedQty))
                         <p><b>Ordered vs Received:</b> {{ number_format($orderedQty, 2) }} ordered |
@@ -62,7 +62,7 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                @foreach ($grn->lines as $l)
+                                @foreach ($grpo->lines as $l)
                                     <tr>
                                         <td>#{{ $l->account_id }}</td>
                                         <td>{{ $l->description }}</td>

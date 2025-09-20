@@ -56,6 +56,18 @@
                                                 </div>
                                             </div>
                                         </div>
+                                        <div class="form-group row mb-2">
+                                            <label class="col-sm-3 col-form-label">SO Number</label>
+                                            <div class="col-sm-9">
+                                                <div class="input-group input-group-sm">
+                                                    <div class="input-group-prepend">
+                                                        <span class="input-group-text"><i class="fas fa-hashtag"></i></span>
+                                                    </div>
+                                                    <input type="text" name="order_no" value="{{ $soNumber }}"
+                                                        class="form-control bg-light" readonly>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                     <div class="col-md-4">
                                         <div class="form-group row mb-2">
@@ -169,6 +181,9 @@
             </div>
         </div>
     </section>
+
+    <!-- Include Item Selection Modal -->
+    @include('components.item-selection-modal')
 @endsection
 
 @push('scripts')
@@ -216,6 +231,22 @@
                 updateAllLineDropdowns();
             });
 
+            // Handle item search button clicks
+            $(document).on('click', '.item-search-btn', function() {
+                const lineIdx = $(this).data('line-idx');
+                const orderType = $(this).data('order-type');
+
+                // Store current line index for item selection
+                window.currentLineIdx = lineIdx;
+                window.currentOrderType = orderType;
+
+                // Show modal
+                $('#itemSelectionModal').modal('show');
+
+                // Load initial items
+                loadItems();
+            });
+
             // Handle prefill data if available
             if (window.prefill) {
                 $tb.empty();
@@ -249,10 +280,18 @@
 
                 tr.innerHTML = `
                     <td>
-                        <select name="lines[${lineIdx}][item_id]" class="form-control form-control-sm select2bs4 item-select" required>
-                            <option value="">-- select ${orderType === 'item' ? 'item' : 'account'} --</option>
-                            ${getItemOptions(orderType, data.item_id)}
-                        </select>
+                        <div class="input-group">
+                            <select name="lines[${lineIdx}][item_id]" class="form-control form-control-sm item-select" required>
+                                <option value="">-- select ${orderType === 'item' ? 'item' : 'account'} --</option>
+                                ${getItemOptions(orderType, data.item_id)}
+                            </select>
+                            <div class="input-group-append">
+                                <button type="button" class="btn btn-outline-secondary btn-sm item-search-btn" 
+                                        data-line-idx="${lineIdx}" data-order-type="${orderType}">
+                                    <i class="fas fa-search"></i>
+                                </button>
+                            </div>
+                        </div>
                     </td>
                     <td>
                         <input type="text" name="lines[${lineIdx}][description]" class="form-control form-control-sm" 
@@ -402,6 +441,156 @@
                     maximumFractionDigits: 2
                 }));
             }
+
+            // Modal functionality
+            function loadItems(page = 1) {
+                const searchData = {
+                    code: $('#searchCode').val(),
+                    name: $('#searchName').val(),
+                    category_id: $('#searchCategory').val(),
+                    item_type: $('#searchType').val(),
+                    per_page: 20,
+                    page: page
+                };
+
+                $.ajax({
+                    url: '{{ route('inventory.search') }}',
+                    method: 'GET',
+                    data: searchData,
+                    success: function(response) {
+                        displayItems(response.items);
+                        updatePagination(response.pagination);
+                        updateSearchResultsCount(response.pagination.total);
+                    },
+                    error: function(xhr) {
+                        console.error('Error loading items:', xhr.responseText);
+                        alert('Error loading items. Please try again.');
+                    }
+                });
+            }
+
+            function displayItems(items) {
+                const tbody = $('#itemsTable tbody');
+                tbody.empty();
+
+                if (items.length === 0) {
+                    tbody.append('<tr><td colspan="9" class="text-center text-muted">No items found</td></tr>');
+                    return;
+                }
+
+                items.forEach((item, index) => {
+                    const row = `
+                        <tr>
+                            <td>${index + 1}</td>
+                            <td><strong>${item.code}</strong></td>
+                            <td>${item.name}</td>
+                            <td>${item.category ? item.category.name : '-'}</td>
+                            <td><span class="badge badge-${item.item_type === 'item' ? 'primary' : 'info'}">${item.item_type}</span></td>
+                            <td>${item.unit_of_measure}</td>
+                            <td class="text-right">${formatCurrency(item.purchase_price)}</td>
+                            <td class="text-right">${formatCurrency(item.selling_price)}</td>
+                            <td>
+                                <button type="button" class="btn btn-sm btn-success select-item-btn" 
+                                        data-item-id="${item.id}" 
+                                        data-item-code="${item.code}" 
+                                        data-item-name="${item.name}"
+                                        data-item-price="${item.selling_price}">
+                                    <i class="fas fa-check"></i> Select
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                    tbody.append(row);
+                });
+            }
+
+            function updatePagination(pagination) {
+                const paginationContainer = $('#itemsPagination');
+                paginationContainer.empty();
+
+                if (pagination.last_page <= 1) return;
+
+                // Previous button
+                if (pagination.current_page > 1) {
+                    paginationContainer.append(`
+                        <li class="page-item">
+                            <a class="page-link" href="#" data-page="${pagination.current_page - 1}">Previous</a>
+                        </li>
+                    `);
+                }
+
+                // Page numbers
+                for (let i = 1; i <= pagination.last_page; i++) {
+                    const activeClass = i === pagination.current_page ? 'active' : '';
+                    paginationContainer.append(`
+                        <li class="page-item ${activeClass}">
+                            <a class="page-link" href="#" data-page="${i}">${i}</a>
+                        </li>
+                    `);
+                }
+
+                // Next button
+                if (pagination.current_page < pagination.last_page) {
+                    paginationContainer.append(`
+                        <li class="page-item">
+                            <a class="page-link" href="#" data-page="${pagination.current_page + 1}">Next</a>
+                        </li>
+                    `);
+                }
+            }
+
+            function updateSearchResultsCount(total) {
+                $('#searchResultsCount').text(`Found ${total} items`);
+            }
+
+            function formatCurrency(amount) {
+                return new Intl.NumberFormat('id-ID', {
+                    style: 'currency',
+                    currency: 'IDR',
+                    minimumFractionDigits: 0
+                }).format(amount);
+            }
+
+            // Event handlers for modal
+            $('#searchItems').on('click', function() {
+                loadItems(1);
+            });
+
+            $('#clearSearch').on('click', function() {
+                $('#searchCode, #searchName').val('');
+                $('#searchCategory, #searchType').val('');
+                loadItems(1);
+            });
+
+            $(document).on('click', '.page-link', function(e) {
+                e.preventDefault();
+                const page = $(this).data('page');
+                loadItems(page);
+            });
+
+            $(document).on('click', '.select-item-btn', function() {
+                const itemId = $(this).data('item-id');
+                const itemCode = $(this).data('item-code');
+                const itemName = $(this).data('item-name');
+                const itemPrice = $(this).data('item-price');
+
+                // Update the select dropdown
+                const selectElement = $(`select[name="lines[${window.currentLineIdx}][item_id]"]`);
+                selectElement.empty();
+                selectElement.append(
+                    `<option value="${itemId}" selected>${itemCode} - ${itemName}</option>`);
+
+                // Update the price field
+                const priceInput = selectElement.closest('tr').find('.price-input');
+                priceInput.val(itemPrice);
+
+                // Update line amount
+                updateLineAmount(selectElement.closest('tr'));
+                updateTotals();
+
+                // Close modal
+                $('#itemSelectionModal').modal('hide');
+            });
         });
     </script>
 @endpush

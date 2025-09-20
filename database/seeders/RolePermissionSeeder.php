@@ -53,7 +53,10 @@ class RolePermissionSeeder extends Seeder
             'permissions.create',
             'permissions.update',
             'permissions.delete',
+            // ERP Parameters
+            'manage-erp-parameters',
             'reports.view',
+            'reports.open-items',
             // AR/AP
             'ar.invoices.view',
             'ar.invoices.create',
@@ -115,6 +118,7 @@ class RolePermissionSeeder extends Seeder
                 'vendors.view',
                 'taxcodes.view',
                 'reports.view',
+                'reports.open-items',
                 // AR/AP create/view
                 'ar.invoices.view',
                 'ar.invoices.create',
@@ -131,6 +135,7 @@ class RolePermissionSeeder extends Seeder
             ],
             'approver' => [
                 'reports.view',
+                'reports.open-items',
                 // Posting permissions
                 'journals.post',
                 'ar.invoices.post',
@@ -159,7 +164,7 @@ class RolePermissionSeeder extends Seeder
                 'ar.receipts.create',
                 'ap.payments.create',
             ],
-            'auditor' => ['reports.view'],
+            'auditor' => ['reports.view', 'reports.open-items'],
         ];
 
         foreach ($roles as $roleName => $perms) {

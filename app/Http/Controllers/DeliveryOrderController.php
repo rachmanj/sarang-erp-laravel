@@ -6,16 +6,19 @@ use App\Models\DeliveryOrder;
 use App\Models\SalesOrder;
 use App\Models\Master\Customer;
 use App\Services\DeliveryService;
+use App\Services\DocumentClosureService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class DeliveryOrderController extends Controller
 {
     protected $deliveryService;
+    protected $documentClosureService;
 
-    public function __construct(DeliveryService $deliveryService)
+    public function __construct(DeliveryService $deliveryService, DocumentClosureService $documentClosureService)
     {
         $this->deliveryService = $deliveryService;
+        $this->documentClosureService = $documentClosureService;
     }
 
     /**
@@ -99,6 +102,17 @@ class DeliveryOrderController extends Controller
                 $data['sales_order_id'],
                 $data
             );
+
+            // Attempt to close the Sales Order if Delivery Order quantity is sufficient
+            try {
+                $this->documentClosureService->closeSalesOrder($data['sales_order_id'], $deliveryOrder->id, Auth::id());
+            } catch (\Exception $closureException) {
+                \Log::warning('Failed to close Sales Order after Delivery Order creation', [
+                    'so_id' => $data['sales_order_id'],
+                    'do_id' => $deliveryOrder->id,
+                    'error' => $closureException->getMessage()
+                ]);
+            }
 
             return redirect()->route('delivery-orders.show', $deliveryOrder->id)
                 ->with('success', 'Delivery Order created successfully');

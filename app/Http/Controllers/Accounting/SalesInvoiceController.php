@@ -7,6 +7,7 @@ use App\Models\Accounting\SalesInvoice;
 use App\Models\Accounting\SalesInvoiceLine;
 use App\Services\Accounting\PostingService;
 use App\Services\DocumentNumberingService;
+use App\Services\DocumentClosureService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\Facades\DataTables;
@@ -15,7 +16,8 @@ class SalesInvoiceController extends Controller
 {
     public function __construct(
         private PostingService $posting,
-        private DocumentNumberingService $documentNumberingService
+        private DocumentNumberingService $documentNumberingService,
+        private DocumentClosureService $documentClosureService
     ) {
         $this->middleware(['auth']);
         $this->middleware('permission:ar.invoices.view')->only(['index', 'show']);
@@ -89,6 +91,21 @@ class SalesInvoiceController extends Controller
             $termsDays = (int) ($request->input('terms_days') ?? 0);
             $dueDate = $termsDays > 0 ? date('Y-m-d', strtotime($data['date'] . ' +' . $termsDays . ' days')) : null;
             $invoice->update(['total_amount' => $total, 'terms_days' => $termsDays ?: null, 'due_date' => $dueDate]);
+
+            // Attempt to close related documents if this SI was created from Delivery Order
+            if ($request->input('delivery_order_id')) {
+                try {
+                    $this->documentClosureService->closeDeliveryOrder($request->input('delivery_order_id'), $invoice->id, auth()->id());
+                } catch (\Exception $closureException) {
+                    // Log closure failure but don't fail the SI creation
+                    \Log::warning('Failed to close Delivery Order after SI creation', [
+                        'do_id' => $request->input('delivery_order_id'),
+                        'si_id' => $invoice->id,
+                        'error' => $closureException->getMessage()
+                    ]);
+                }
+            }
+
             return redirect()->route('sales-invoices.show', $invoice->id)->with('success', 'Invoice created');
         });
     }

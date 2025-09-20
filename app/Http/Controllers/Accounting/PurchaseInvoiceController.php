@@ -7,6 +7,7 @@ use App\Models\Accounting\PurchaseInvoice;
 use App\Models\Accounting\PurchaseInvoiceLine;
 use App\Services\Accounting\PostingService;
 use App\Services\DocumentNumberingService;
+use App\Services\DocumentClosureService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\Facades\DataTables;
@@ -15,7 +16,8 @@ class PurchaseInvoiceController extends Controller
 {
     public function __construct(
         private PostingService $posting,
-        private DocumentNumberingService $documentNumberingService
+        private DocumentNumberingService $documentNumberingService,
+        private DocumentClosureService $documentClosureService
     ) {
         $this->middleware(['auth']);
         $this->middleware('permission:ap.invoices.view')->only(['index', 'show']);
@@ -89,6 +91,21 @@ class PurchaseInvoiceController extends Controller
             $termsDays = (int) ($request->input('terms_days') ?? 0);
             $dueDate = $termsDays > 0 ? date('Y-m-d', strtotime($data['date'] . ' +' . $termsDays . ' days')) : null;
             $invoice->update(['total_amount' => $total, 'terms_days' => $termsDays ?: null, 'due_date' => $dueDate]);
+
+            // Attempt to close related documents if this PI was created from GRPO
+            if ($request->input('goods_receipt_id')) {
+                try {
+                    $this->documentClosureService->closeGoodsReceipt($request->input('goods_receipt_id'), $invoice->id, auth()->id());
+                } catch (\Exception $closureException) {
+                    // Log closure failure but don't fail the PI creation
+                    \Log::warning('Failed to close Goods Receipt after PI creation', [
+                        'grpo_id' => $request->input('goods_receipt_id'),
+                        'pi_id' => $invoice->id,
+                        'error' => $closureException->getMessage()
+                    ]);
+                }
+            }
+
             return redirect()->route('purchase-invoices.show', $invoice->id)->with('success', 'Purchase invoice created');
         });
     }

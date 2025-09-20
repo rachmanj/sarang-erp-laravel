@@ -12,6 +12,8 @@ use App\Models\AssetCategory;
 use App\Services\PurchaseService;
 use App\Services\GRPOCopyService;
 use App\Services\PurchaseInvoiceCopyService;
+use App\Services\DocumentClosureService;
+use App\Services\DocumentNumberingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
@@ -21,15 +23,18 @@ class PurchaseOrderController extends Controller
     protected $purchaseService;
     protected $grpoCopyService;
     protected $purchaseInvoiceCopyService;
+    protected $documentClosureService;
 
     public function __construct(
         PurchaseService $purchaseService,
         GRPOCopyService $grpoCopyService,
-        PurchaseInvoiceCopyService $purchaseInvoiceCopyService
+        PurchaseInvoiceCopyService $purchaseInvoiceCopyService,
+        DocumentClosureService $documentClosureService
     ) {
         $this->purchaseService = $purchaseService;
         $this->grpoCopyService = $grpoCopyService;
         $this->purchaseInvoiceCopyService = $purchaseInvoiceCopyService;
+        $this->documentClosureService = $documentClosureService;
     }
 
     public function index()
@@ -44,12 +49,17 @@ class PurchaseOrderController extends Controller
         $taxCodes = DB::table('tax_codes')->orderBy('code')->get();
         $inventoryItems = InventoryItem::active()->orderBy('name')->get();
 
-        return view('purchase_orders.create', compact('vendors', 'accounts', 'taxCodes', 'inventoryItems'));
+        // Generate PO number for display
+        $documentNumberingService = app(DocumentNumberingService::class);
+        $poNumber = $documentNumberingService->generateNumber('purchase_order', now()->format('Y-m-d'));
+
+        return view('purchase_orders.create', compact('vendors', 'accounts', 'taxCodes', 'inventoryItems', 'poNumber'));
     }
 
     public function store(Request $request)
     {
         $data = $request->validate([
+            'order_no' => ['required', 'string', 'max:50'],
             'date' => ['required', 'date'],
             'reference_no' => ['nullable', 'string', 'max:100'],
             'expected_delivery_date' => ['nullable', 'date'],
@@ -337,6 +347,18 @@ class PurchaseOrderController extends Controller
         try {
             $grpo = $this->grpoCopyService->copyFromPurchaseOrder($po, $selectedLines);
 
+            // Attempt to close the Purchase Order if GRPO quantity is sufficient
+            try {
+                $this->documentClosureService->closePurchaseOrder($po->id, $grpo->id, Auth::id());
+            } catch (\Exception $closureException) {
+                // Log closure failure but don't fail the GRPO creation
+                \Log::warning('Failed to close Purchase Order after GRPO creation', [
+                    'po_id' => $po->id,
+                    'grpo_id' => $grpo->id,
+                    'error' => $closureException->getMessage()
+                ]);
+            }
+
             return redirect()->route('goods-receipts.show', $grpo->id)
                 ->with('success', 'GRPO created from Purchase Order successfully');
         } catch (\Exception $e) {
@@ -357,6 +379,18 @@ class PurchaseOrderController extends Controller
 
         try {
             $invoice = $this->purchaseInvoiceCopyService->copyFromServicePurchaseOrder($po);
+
+            // Attempt to close the Purchase Order if PI quantity is sufficient
+            try {
+                $this->documentClosureService->closePurchaseOrder($po->id, $invoice->id, Auth::id());
+            } catch (\Exception $closureException) {
+                // Log closure failure but don't fail the PI creation
+                \Log::warning('Failed to close Purchase Order after PI creation', [
+                    'po_id' => $po->id,
+                    'pi_id' => $invoice->id,
+                    'error' => $closureException->getMessage()
+                ]);
+            }
 
             return redirect()->route('purchase-invoices.show', $invoice->id)
                 ->with('success', 'Purchase Invoice created from Service Purchase Order successfully');

@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class GoodsReceiptPOLine extends Model
 {
     protected $table = 'goods_receipt_po_lines';
-
+    
     protected $fillable = [
         'grpo_id',
         'account_id',

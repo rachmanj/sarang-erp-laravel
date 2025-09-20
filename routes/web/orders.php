@@ -2,7 +2,7 @@
 
 use App\Http\Controllers\SalesOrderController;
 use App\Http\Controllers\PurchaseOrderController;
-use App\Http\Controllers\GoodsReceiptController;
+use App\Http\Controllers\GoodsReceiptPOController;
 use App\Http\Controllers\DeliveryOrderController;
 use Illuminate\Support\Facades\Route;
 
@@ -131,9 +131,12 @@ Route::prefix('purchase-orders')->group(function () {
     Route::get('/data', function () {
         $q = \Illuminate\Support\Facades\DB::table('purchase_orders as po')
             ->leftJoin('business_partners as v', 'v.id', '=', 'po.business_partner_id')
-            ->select('po.id', 'po.date', 'po.order_no', 'po.business_partner_id', 'v.name as vendor_name', 'po.total_amount', 'po.status');
+            ->select('po.id', 'po.date', 'po.order_no', 'po.business_partner_id', 'v.name as vendor_name', 'po.total_amount', 'po.status', 'po.closure_status', 'po.closed_at', 'po.closed_by_document_type', 'po.closed_by_document_id');
         if (request()->filled('status')) {
             $q->where('po.status', request('status'));
+        }
+        if (request()->filled('closure_status')) {
+            $q->where('po.closure_status', request('closure_status'));
         }
         if (request()->filled('from')) {
             $q->whereDate('po.date', '>=', request('from'));
@@ -153,11 +156,22 @@ Route::prefix('purchase-orders')->group(function () {
         return Yajra\DataTables\Facades\DataTables::of($q)
             ->editColumn('total_amount', fn($r) => number_format((float)$r->total_amount, 2))
             ->addColumn('vendor', fn($r) => $r->vendor_name ?: ('#' . $r->business_partner_id))
+            ->addColumn('closure_status', function ($r) {
+                if ($r->closure_status === 'closed') {
+                    $closedBy = $r->closed_by_document_type ? ' by ' . $r->closed_by_document_type : '';
+                    return '<span class="badge badge-success"><i class="fas fa-check"></i> Closed' . $closedBy . '</span>';
+                } else {
+                    $daysOpen = $r->closed_at ? \Carbon\Carbon::parse($r->closed_at)->diffInDays(now()) : \Carbon\Carbon::parse($r->date)->diffInDays(now());
+                    $isOverdue = $daysOpen > 30; // Default threshold
+                    $badgeClass = $isOverdue ? 'badge-warning' : 'badge-info';
+                    return '<span class="badge ' . $badgeClass . '"><i class="fas fa-clock"></i> Open (' . $daysOpen . ' days)</span>';
+                }
+            })
             ->addColumn('actions', function ($r) {
                 $url = route('purchase-orders.show', $r->id);
                 return '<a class="btn btn-xs btn-info" href="' . $url . '">View</a>';
             })
-            ->rawColumns(['actions'])->toJson();
+            ->rawColumns(['actions', 'closure_status'])->toJson();
     })->name('purchase-orders.data');
     Route::get('/csv', function () {
         $q = \Illuminate\Support\Facades\DB::table('purchase_orders as po')
@@ -199,72 +213,76 @@ Route::prefix('purchase-orders')->group(function () {
     Route::post('/{id}/close', [PurchaseOrderController::class, 'close'])->name('purchase-orders.close');
 });
 
-// Goods Receipts
-Route::prefix('goods-receipts')->group(function () {
-    Route::get('/', [GoodsReceiptController::class, 'index'])->name('goods-receipts.index');
+// Goods Receipt PO
+Route::prefix('goods-receipt-pos')->group(function () {
+    Route::get('/', [GoodsReceiptPOController::class, 'index'])->name('goods-receipt-pos.index');
     Route::get('/data', function () {
-        $q = \Illuminate\Support\Facades\DB::table('goods_receipts as grn')
-            ->leftJoin('business_partners as v', 'v.id', '=', 'grn.business_partner_id')
-            ->select('grn.id', 'grn.date', 'grn.grn_no', 'grn.business_partner_id', 'v.name as vendor_name', 'grn.total_amount', 'grn.status');
+        $q = \Illuminate\Support\Facades\DB::table('goods_receipt_po as grpo')
+            ->leftJoin('business_partners as v', 'v.id', '=', 'grpo.business_partner_id')
+            ->select('grpo.id', 'grpo.date', 'grpo.grn_no', 'grpo.business_partner_id', 'v.name as vendor_name', 'grpo.total_amount', 'grpo.status');
         if (request()->filled('status')) {
-            $q->where('grn.status', request('status'));
+            $q->where('grpo.status', request('status'));
         }
         if (request()->filled('from')) {
-            $q->whereDate('grn.date', '>=', request('from'));
+            $q->whereDate('grpo.date', '>=', request('from'));
         }
         if (request()->filled('to')) {
-            $q->whereDate('grn.date', '<=', request('to'));
+            $q->whereDate('grpo.date', '<=', request('to'));
         }
         if (request()->filled('business_partner_id')) {
-            $q->where('grn.business_partner_id', (int)request('business_partner_id'));
+            $q->where('grpo.business_partner_id', (int)request('business_partner_id'));
         }
         if (request()->filled('q')) {
             $kw = request('q');
             $q->where(function ($w) use ($kw) {
-                $w->where('grn.grn_no', 'like', '%' . $kw . '%')->orWhere('grn.description', 'like', '%' . $kw . '%')->orWhere('v.name', 'like', '%' . $kw . '%');
+                $w->where('grpo.grn_no', 'like', '%' . $kw . '%')->orWhere('grpo.description', 'like', '%' . $kw . '%')->orWhere('v.name', 'like', '%' . $kw . '%');
             });
         }
         return Yajra\DataTables\Facades\DataTables::of($q)
             ->editColumn('total_amount', fn($r) => number_format((float)$r->total_amount, 2))
             ->addColumn('vendor', fn($r) => $r->vendor_name ?: ('#' . $r->business_partner_id))
             ->addColumn('actions', function ($r) {
-                $url = route('goods-receipts.show', $r->id);
+                $url = route('goods-receipt-pos.show', $r->id);
                 return '<a class="btn btn-xs btn-info" href="' . $url . '">View</a>';
             })
             ->rawColumns(['actions'])->toJson();
-    })->name('goods-receipts.data');
+    })->name('goods-receipt-pos.data');
     Route::get('/csv', function () {
-        $q = \Illuminate\Support\Facades\DB::table('goods_receipts as grn')
-            ->leftJoin('business_partners as v', 'v.id', '=', 'grn.business_partner_id')
-            ->select('grn.date', 'grn.grn_no', 'v.name as vendor', 'grn.total_amount', 'grn.status');
+        $q = \Illuminate\Support\Facades\DB::table('goods_receipt_po as grpo')
+            ->leftJoin('business_partners as v', 'v.id', '=', 'grpo.business_partner_id')
+            ->select('grpo.date', 'grpo.grn_no', 'v.name as vendor', 'grpo.total_amount', 'grpo.status');
         if (request()->filled('status')) {
-            $q->where('grn.status', request('status'));
+            $q->where('grpo.status', request('status'));
         }
         if (request()->filled('from')) {
-            $q->whereDate('grn.date', '>=', request('from'));
+            $q->whereDate('grpo.date', '>=', request('from'));
         }
         if (request()->filled('to')) {
-            $q->whereDate('grn.date', '<=', request('to'));
+            $q->whereDate('grpo.date', '<=', request('to'));
         }
         if (request()->filled('business_partner_id')) {
-            $q->where('grn.business_partner_id', (int)request('business_partner_id'));
+            $q->where('grpo.business_partner_id', (int)request('business_partner_id'));
         }
         if (request()->filled('q')) {
             $kw = request('q');
             $q->where(function ($w) use ($kw) {
-                $w->where('grn.grn_no', 'like', '%' . $kw . '%')->orWhere('grn.description', 'like', '%' . $kw . '%')->orWhere('v.name', 'like', '%' . $kw . '%');
+                $w->where('grpo.grn_no', 'like', '%' . $kw . '%')->orWhere('grpo.description', 'like', '%' . $kw . '%')->orWhere('v.name', 'like', '%' . $kw . '%');
             });
         }
-        $rows = $q->orderBy('grn.date', 'desc')->get();
-        $csv = "date,grn_no,vendor,total,status\n";
+        $rows = $q->orderBy('grpo.date', 'desc')->get();
+        $csv = "date,grpo_no,vendor,total,status\n";
         foreach ($rows as $r) {
             $csv .= sprintf("%s,%s,%s,%.2f,%s\n", $r->date, $r->grn_no, str_replace(',', ' ', (string)$r->vendor), (float)$r->total_amount, $r->status);
         }
-        return response($csv, 200, ['Content-Type' => 'text/csv', 'Content-Disposition' => 'attachment; filename="goods-receipts.csv"']);
-    })->name('goods-receipts.csv');
-    Route::get('/create', [GoodsReceiptController::class, 'create'])->name('goods-receipts.create');
-    Route::post('/', [GoodsReceiptController::class, 'store'])->name('goods-receipts.store');
-    Route::get('/{id}', [GoodsReceiptController::class, 'show'])->name('goods-receipts.show');
-    Route::get('/{id}/create-invoice', [GoodsReceiptController::class, 'createInvoice'])->name('goods-receipts.create-invoice');
-    Route::post('/{id}/receive', [GoodsReceiptController::class, 'receive'])->name('goods-receipts.receive');
+        return response($csv, 200, ['Content-Type' => 'text/csv', 'Content-Disposition' => 'attachment; filename="goods-receipt-pos.csv"']);
+    })->name('goods-receipt-pos.csv');
+    Route::get('/create', [GoodsReceiptPOController::class, 'create'])->name('goods-receipt-pos.create');
+    Route::post('/', [GoodsReceiptPOController::class, 'store'])->name('goods-receipt-pos.store');
+    Route::get('/{id}', [GoodsReceiptPOController::class, 'show'])->name('goods-receipt-pos.show');
+    Route::get('/{id}/create-invoice', [GoodsReceiptPOController::class, 'createInvoice'])->name('goods-receipt-pos.create-invoice');
+    Route::post('/{id}/receive', [GoodsReceiptPOController::class, 'receive'])->name('goods-receipt-pos.receive');
+    
+    // New AJAX endpoints for enhanced functionality
+    Route::get('/vendor-pos', [GoodsReceiptPOController::class, 'getVendorPOs'])->name('goods-receipt-pos.vendor-pos');
+    Route::get('/remaining-lines', [GoodsReceiptPOController::class, 'getRemainingPOLines'])->name('goods-receipt-pos.remaining-lines');
 });

@@ -29,7 +29,7 @@ class PurchaseService
     {
         return DB::transaction(function () use ($data) {
             $po = PurchaseOrder::create([
-                'order_no' => null,
+                'order_no' => $data['order_no'],
                 'reference_no' => $data['reference_no'] ?? null,
                 'date' => $data['date'],
                 'expected_delivery_date' => $data['expected_delivery_date'] ?? null,
@@ -47,10 +47,6 @@ class PurchaseService
                 'approval_status' => 'pending',
                 'created_by' => Auth::id(),
             ]);
-
-            // Generate order number
-            $orderNo = $this->documentNumberingService->generateNumber('purchase_order', $data['date']);
-            $po->update(['order_no' => $orderNo]);
 
             $totalAmount = 0;
             $totalFreightCost = 0;
@@ -137,6 +133,7 @@ class PurchaseService
             if ($pendingApprovals === 0) {
                 $po->update([
                     'approval_status' => 'approved',
+                    'status' => 'ordered',
                     'approved_by' => $userId,
                     'approved_at' => now(),
                 ]);

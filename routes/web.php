@@ -22,7 +22,9 @@ use App\Http\Controllers\DownloadController;
 use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\SalesOrderController;
 use App\Http\Controllers\PurchaseOrderController;
-use App\Http\Controllers\GoodsReceiptController;
+use App\Http\Controllers\GoodsReceiptPOController;
+use App\Http\Controllers\WarehouseController;
+use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\AssetController;
 use App\Http\Controllers\AssetCategoryController;
 use App\Http\Controllers\AssetDepreciationController;
@@ -134,6 +136,19 @@ Route::middleware('auth')->group(function () {
         Route::post('/permissions', [AdminPermissionController::class, 'store'])->name('admin.permissions.store');
         Route::patch('/permissions/{permission}', [AdminPermissionController::class, 'update'])->name('admin.permissions.update');
         Route::delete('/permissions/{permission}', [AdminPermissionController::class, 'destroy'])->name('admin.permissions.destroy');
+    });
+
+    // ERP Parameters
+    Route::prefix('erp-parameters')->middleware(['permission:manage-erp-parameters'])->group(function () {
+        Route::get('/', [App\Http\Controllers\ErpParameterController::class, 'index'])->name('erp-parameters.index');
+        Route::get('/create', [App\Http\Controllers\ErpParameterController::class, 'create'])->name('erp-parameters.create');
+        Route::post('/', [App\Http\Controllers\ErpParameterController::class, 'store'])->name('erp-parameters.store');
+        Route::get('/{erpParameter}', [App\Http\Controllers\ErpParameterController::class, 'show'])->name('erp-parameters.show');
+        Route::get('/{erpParameter}/edit', [App\Http\Controllers\ErpParameterController::class, 'edit'])->name('erp-parameters.edit');
+        Route::patch('/{erpParameter}', [App\Http\Controllers\ErpParameterController::class, 'update'])->name('erp-parameters.update');
+        Route::delete('/{erpParameter}', [App\Http\Controllers\ErpParameterController::class, 'destroy'])->name('erp-parameters.destroy');
+        Route::get('/by-category', [App\Http\Controllers\ErpParameterController::class, 'getByCategory'])->name('erp-parameters.by-category');
+        Route::post('/bulk-update', [App\Http\Controllers\ErpParameterController::class, 'bulkUpdate'])->name('erp-parameters.bulk-update');
     });
 
     // Downloads
@@ -280,6 +295,7 @@ Route::middleware('auth')->group(function () {
         // API Endpoints
         Route::get('/api/items', [InventoryController::class, 'getItems'])->name('inventory.get-items');
         Route::get('/api/items/{id}', [InventoryController::class, 'getItemDetails'])->name('inventory.get-item-details');
+        Route::get('/api/search', [InventoryController::class, 'search'])->name('inventory.search');
 
         // Export Functions
         Route::get('/export', [InventoryController::class, 'export'])->name('inventory.export');

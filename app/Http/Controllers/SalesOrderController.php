@@ -11,6 +11,8 @@ use App\Models\CustomerCreditLimit;
 use App\Models\CustomerPricingTier;
 use App\Services\SalesService;
 use App\Services\SalesInvoiceService;
+use App\Services\DocumentClosureService;
+use App\Services\DocumentNumberingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
@@ -19,13 +21,16 @@ class SalesOrderController extends Controller
 {
     protected $salesService;
     protected $salesInvoiceService;
+    protected $documentClosureService;
 
     public function __construct(
         SalesService $salesService,
-        SalesInvoiceService $salesInvoiceService
+        SalesInvoiceService $salesInvoiceService,
+        DocumentClosureService $documentClosureService
     ) {
         $this->salesService = $salesService;
         $this->salesInvoiceService = $salesInvoiceService;
+        $this->documentClosureService = $documentClosureService;
     }
 
     public function index()
@@ -40,12 +45,17 @@ class SalesOrderController extends Controller
         $taxCodes = DB::table('tax_codes')->orderBy('code')->get();
         $inventoryItems = InventoryItem::active()->orderBy('name')->get();
 
-        return view('sales_orders.create', compact('customers', 'accounts', 'taxCodes', 'inventoryItems'));
+        // Generate SO number for display
+        $documentNumberingService = app(DocumentNumberingService::class);
+        $soNumber = $documentNumberingService->generateNumber('sales_order', now()->format('Y-m-d'));
+
+        return view('sales_orders.create', compact('customers', 'accounts', 'taxCodes', 'inventoryItems', 'soNumber'));
     }
 
     public function store(Request $request)
     {
         $data = $request->validate([
+            'order_no' => ['required', 'string', 'max:50'],
             'date' => ['required', 'date'],
             'reference_no' => ['nullable', 'string', 'max:100'],
             'expected_delivery_date' => ['nullable', 'date'],

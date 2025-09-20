@@ -1,14 +1,14 @@
 @extends('layouts.main')
 
-@section('title', 'Create Goods Receipt')
+@section('title', 'Create Goods Receipt PO')
 
 @section('title_page')
-    Create Goods Receipt
+    Create Goods Receipt PO
 @endsection
 
 @section('breadcrumb_title')
     <li class="breadcrumb-item"><a href="/dashboard">Dashboard</a></li>
-    <li class="breadcrumb-item"><a href="{{ route('goods-receipts.index') }}">Goods Receipts</a></li>
+    <li class="breadcrumb-item"><a href="{{ route('goods-receipt-pos.index') }}">Goods Receipt PO</a></li>
     <li class="breadcrumb-item active">Create</li>
 @endsection
 
@@ -30,13 +30,13 @@
                         <div class="card-header">
                             <h3 class="card-title">
                                 <i class="fas fa-truck mr-1"></i>
-                                New Goods Receipt
+                                New Goods Receipt PO
                             </h3>
-                            <a href="{{ route('goods-receipts.index') }}" class="btn btn-sm btn-secondary float-right">
-                                <i class="fas fa-arrow-left"></i> Back to Goods Receipts
+                            <a href="{{ route('goods-receipt-pos.index') }}" class="btn btn-sm btn-secondary float-right">
+                                <i class="fas fa-arrow-left"></i> Back to Goods Receipt PO
                             </a>
                         </div>
-                        <form method="post" action="{{ route('goods-receipts.store') }}" id="grn-form">
+                        <form method="post" action="{{ route('goods-receipt-pos.store') }}" id="grpo-form">
                             @csrf
                             <div class="card-body pb-1">
                                 <div class="row">
@@ -62,7 +62,7 @@
                                             <label class="col-sm-3 col-form-label">Vendor <span
                                                     class="text-danger">*</span></label>
                                             <div class="col-sm-9">
-                                                <select name="business_partner_id"
+                                                <select name="business_partner_id" id="vendor-select"
                                                     class="form-control form-control-sm select2bs4" required>
                                                     <option value="">-- select vendor --</option>
                                                     @foreach ($vendors as $v)
@@ -79,16 +79,17 @@
                                         <div class="form-group row mb-2">
                                             <label class="col-sm-3 col-form-label">Purchase Order</label>
                                             <div class="col-sm-9">
-                                                <select name="purchase_order_id"
-                                                    class="form-control form-control-sm select2bs4">
-                                                    <option value="">-- select PO --</option>
-                                                    @foreach ($purchaseOrders as $po)
-                                                        <option value="{{ $po->id }}"
-                                                            {{ old('purchase_order_id') == $po->id ? 'selected' : '' }}>
-                                                            {{ $po->order_no ?? '#' . $po->id }}
-                                                        </option>
-                                                    @endforeach
-                                                </select>
+                                                <div class="input-group input-group-sm">
+                                                    <select name="purchase_order_id" id="po-select"
+                                                        class="form-control form-control-sm select2bs4" disabled>
+                                                        <option value="">-- select vendor first --</option>
+                                                    </select>
+                                                    <div class="input-group-append">
+                                                        <button type="button" id="copy-lines-btn" class="btn btn-sm btn-success" disabled>
+                                                            <i class="fas fa-copy"></i> Copy Lines
+                                                        </button>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -136,9 +137,9 @@
                                 <div class="row">
                                     <div class="col-md-6">
                                         <button class="btn btn-primary" type="submit">
-                                            <i class="fas fa-save mr-1"></i> Save Receipt
+                                            <i class="fas fa-save mr-1"></i> Save GRPO
                                         </button>
-                                        <a href="{{ route('goods-receipts.index') }}" class="btn btn-default">
+                                        <a href="{{ route('goods-receipt-pos.index') }}" class="btn btn-default">
                                             <i class="fas fa-times mr-1"></i> Cancel
                                         </a>
                                     </div>
@@ -188,13 +189,105 @@
                 updateTotalAmount();
             });
 
+            // Vendor selection handler - load POs for selected vendor
+            $('#vendor-select').on('change', function() {
+                const vendorId = $(this).val();
+                const $poSelect = $('#po-select');
+                const $copyBtn = $('#copy-lines-btn');
+                
+                if (vendorId) {
+                    // Enable PO select and load vendor's POs
+                    $poSelect.prop('disabled', false);
+                    $poSelect.empty().append('<option value="">-- loading POs --</option>');
+                    
+                    $.get('{{ route("goods-receipt-pos.vendor-pos") }}', { business_partner_id: vendorId })
+                        .done(function(data) {
+                            $poSelect.empty().append('<option value="">-- select PO --</option>');
+                            
+                            if (data.purchase_orders.length > 0) {
+                                $.each(data.purchase_orders, function(index, po) {
+                                    $poSelect.append(`<option value="${po.id}">${po.order_no} (${po.date}) - ${po.remaining_lines_count} lines</option>`);
+                                });
+                            } else {
+                                $poSelect.append('<option value="">-- no open POs found --</option>');
+                            }
+                        })
+                        .fail(function() {
+                            $poSelect.empty().append('<option value="">-- error loading POs --</option>');
+                        });
+                } else {
+                    // Disable PO select and copy button
+                    $poSelect.prop('disabled', true).empty().append('<option value="">-- select vendor first --</option>');
+                    $copyBtn.prop('disabled', true);
+                }
+            });
+
+            // PO selection handler - enable copy button
+            $('#po-select').on('change', function() {
+                const poId = $(this).val();
+                const $copyBtn = $('#copy-lines-btn');
+                
+                if (poId) {
+                    $copyBtn.prop('disabled', false);
+                } else {
+                    $copyBtn.prop('disabled', true);
+                }
+            });
+
+            // Copy remaining lines button handler
+            $('#copy-lines-btn').on('click', function() {
+                const poId = $('#po-select').val();
+                
+                if (!poId) {
+                    alert('Please select a Purchase Order first');
+                    return;
+                }
+                
+                // Confirm before copying
+                if (confirm('This will copy all remaining lines from the selected PO. Existing lines will be replaced. Continue?')) {
+                    $.get('{{ route("goods-receipt-pos.remaining-lines") }}', { purchase_order_id: poId })
+                        .done(function(data) {
+                            if (data.lines.length > 0) {
+                                // Clear existing lines
+                                $tb.empty();
+                                i = 0;
+                                
+                                // Add copied lines
+                                $.each(data.lines, function(index, line) {
+                                    addLineRow({
+                                        account_id: line.account_id,
+                                        description: line.description,
+                                        qty: line.qty,
+                                        unit_price: line.unit_price,
+                                        tax_code_id: line.tax_code_id
+                                    });
+                                });
+                                
+                                updateTotalAmount();
+                                alert(`Copied ${data.lines.length} lines from PO`);
+                            } else {
+                                alert('No remaining lines found in the selected PO');
+                            }
+                        })
+                        .fail(function() {
+                            alert('Error loading PO lines');
+                        });
+                }
+            });
+
             // Handle prefill data if available
             if (window.prefill) {
                 $tb.empty();
                 i = 0;
                 $('[name=date]').val(window.prefill.date);
                 $('[name=business_partner_id]').val(window.prefill.business_partner_id);
-                $('[name=purchase_order_id]').val(window.prefill.purchase_order_id);
+                $('#vendor-select').trigger('change'); // Trigger vendor change to load POs
+                
+                // Wait for POs to load, then set the selected PO
+                setTimeout(function() {
+                    $('[name=purchase_order_id]').val(window.prefill.purchase_order_id);
+                    $('#po-select').trigger('change');
+                }, 1000);
 
                 if (window.prefill.lines && window.prefill.lines.length > 0) {
                     window.prefill.lines.forEach(function(l) {
@@ -203,13 +296,6 @@
                 } else {
                     addLineRow();
                 }
-
-                // Initialize Select2 for prefilled data
-                $('.select2bs4').select2({
-                    theme: 'bootstrap4',
-                    placeholder: 'Select an option',
-                    allowClear: true
-                });
 
                 updateTotalAmount();
             }

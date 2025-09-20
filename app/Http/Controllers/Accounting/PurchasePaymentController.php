@@ -7,6 +7,7 @@ use App\Models\Accounting\PurchasePayment;
 use App\Models\Accounting\PurchasePaymentLine;
 use App\Services\Accounting\PostingService;
 use App\Services\DocumentNumberingService;
+use App\Services\DocumentClosureService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\Facades\DataTables;
@@ -15,7 +16,8 @@ class PurchasePaymentController extends Controller
 {
     public function __construct(
         private PostingService $posting,
-        private DocumentNumberingService $documentNumberingService
+        private DocumentNumberingService $documentNumberingService,
+        private DocumentClosureService $documentClosureService
     ) {
         $this->middleware(['auth']);
         $this->middleware('permission:ap.payments.view')->only(['index', 'show']);
@@ -100,6 +102,18 @@ class PurchasePaymentController extends Controller
                     $remainingPool -= $alloc;
                 }
             }
+
+            // Attempt to close related Purchase Invoices if fully paid
+            try {
+                $this->documentClosureService->closePurchaseInvoiceByPayment($payment->id, auth()->id());
+            } catch (\Exception $closureException) {
+                // Log closure failure but don't fail the payment creation
+                \Log::warning('Failed to close Purchase Invoices after payment creation', [
+                    'payment_id' => $payment->id,
+                    'error' => $closureException->getMessage()
+                ]);
+            }
+
             return redirect()->route('purchase-payments.show', $payment->id)->with('success', 'Payment created');
         });
     }

@@ -27,6 +27,11 @@
                             <option value="approved">Approved</option>
                             <option value="closed">Closed</option>
                         </select>
+                        <select name="closure_status" class="form-control form-control-sm mr-1">
+                            <option value="">Closure Status</option>
+                            <option value="open">Open</option>
+                            <option value="closed">Closed</option>
+                        </select>
                         <button class="btn btn-sm btn-secondary" type="submit">Apply</button>
                         <a class="btn btn-sm btn-outline-secondary ml-1" id="csv" href="#">CSV</a>
                     </form>
@@ -41,6 +46,7 @@
                                 <th>Vendor</th>
                                 <th>Total</th>
                                 <th>Status</th>
+                                <th>Closure Status</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -81,6 +87,11 @@
                     },
                     {
                         data: 'status'
+                    },
+                    {
+                        data: 'closure_status',
+                        orderable: false,
+                        searchable: false
                     },
                     {
                         data: 'actions',

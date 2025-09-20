@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class GoodsReceiptPO extends Model
 {
     protected $table = 'goods_receipt_po';
-
+    
     protected $fillable = [
         'grn_no',
         'date',

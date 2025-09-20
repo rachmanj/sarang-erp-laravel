@@ -1,5 +1,5 @@
 Purpose: Technical reference for understanding system design and development patterns
-Last Updated: 2025-09-19 (Updated with Product Category CRUD Interface Implementation)
+Last Updated: 2025-09-20 (Updated with Goods Receipt PO System Enhancement Implementation)
 
 ## Architecture Documentation Guidelines
 
@@ -53,7 +53,7 @@ Sarange ERP is a comprehensive Enterprise Resource Planning system built with La
 ## Technology Stack
 
 -   **Backend**: Laravel 12 (PHP 8.2+)
--   **Frontend**: Blade templates with AdminLTE 3.14, jQuery, DataTables
+-   **Frontend**: Blade templates with AdminLTE 3.14, jQuery, DataTables, SweetAlert2
 -   **Database**: MySQL with comprehensive schema (51 migrations)
 -   **Authentication**: Laravel Auth with Spatie Permission package
 -   **PDF Generation**: DomPDF for document printing
@@ -112,7 +112,7 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 -   **Purchase Invoices**: Vendor billing with line items and tax handling (PINV-YYYYMM-######)
 -   **Purchase Payments**: Vendor payment processing with allocation (PP-YYYYMM-######)
 -   **Purchase Orders**: Vendor order management with automatic numbering (PO-YYYYMM-######)
--   **Goods Receipts**: Inventory receipt processing with automatic numbering (GR-YYYYMM-######)
+-   **Goods Receipt PO**: Purchase Order-based inventory receipt processing with automatic numbering (GR-YYYYMM-######)
 -   **AP Aging**: Vendor payment tracking and aging analysis
 -   **AP Balances**: Vendor account balance reporting
 
@@ -185,8 +185,21 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 ### 5. Procurement Management
 
 -   **Purchase Orders**: Vendor order management with approval workflow (PO-YYYYMM-######)
--   **Goods Receipts**: Inventory receipt processing (GR-YYYYMM-######)
+-   **Goods Receipt PO**: Purchase Order-based inventory receipt processing (GR-YYYYMM-######)
 -   **Vendor Management**: Vendor master data with performance tracking
+
+#### 5.1 Goods Receipt PO System Architecture
+
+-   **Vendor-First Workflow**: Users must select vendor before accessing Purchase Orders, ensuring data consistency
+-   **Dynamic PO Filtering**: AJAX-powered Purchase Order dropdown filtered by selected vendor and remaining quantities
+-   **Copy Remaining Lines**: Automated copying of Purchase Order lines with remaining quantities (pending_qty > 0)
+-   **Smart Quantity Calculation**: Automatic calculation of remaining quantities (PO qty - received qty) for accurate line population
+-   **Database Schema**: goods_receipt_po and goods_receipt_po_lines tables with proper foreign key relationships
+-   **Model Structure**: GoodsReceiptPO and GoodsReceiptPOLine models with comprehensive relationships
+-   **Controller Architecture**: GoodsReceiptPOController with AJAX endpoints for vendor-specific PO retrieval and line copying
+-   **Route Structure**: goods-receipt-pos.\* routes with enhanced AJAX endpoints (/vendor-pos, /remaining-lines)
+-   **JavaScript Enhancement**: Dynamic form handling with vendor selection triggering PO filtering and copy functionality
+-   **User Interface**: Professional AdminLTE integration with enhanced form controls and user experience
 
 ### 6. Sales Management
 
@@ -300,14 +313,29 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
     -   Purchase Payments: PP-YYYYMM-######
     -   Sales Receipts: SR-YYYYMM-######
     -   Asset Disposals: DIS-YYYYMM-######
-    -   Goods Receipts: GR-YYYYMM-######
+    -   Goods Receipt PO: GR-YYYYMM-######
     -   Cash Expenses: CEV-YYYYMM-######
     -   Journals: JNL-YYYYMM-######
 -   **Sequence Management**: DocumentSequence model tracks last sequence per document type and month
 -   **Error Handling**: Comprehensive exception handling and validation
 -   **Database Persistence**: Sequence tracking stored in document_sequences table with unique constraints
 
-### 17. Unified Design System
+### 17. Document Closure System
+
+-   **Document Lifecycle Management**: Comprehensive tracking of document status (open/closed) throughout business workflows
+-   **Automatic Closure Logic**: Documents automatically close when subsequent documents fulfill their requirements
+-   **Closure Chain Management**: Purchase Orders closed by Goods Receipt PO, Goods Receipt PO closed by Purchase Invoices, Purchase Invoices closed by Purchase Payments, Sales Orders closed by Delivery Orders, Delivery Orders closed by Sales Invoices, Sales Invoices closed by Sales Receipts
+-   **Partial Closure Support**: Documents can be partially fulfilled by multiple subsequent documents with quantity/amount tracking
+-   **Manual Closure Override**: Permission-based manual closure and reversal capabilities for corrections and exceptions
+-   **Closure Tracking**: Complete audit trail of closure events including closing document type, ID, timestamp, and user attribution
+-   **ERP Parameters Configuration**: User-configurable business rules including overdue thresholds, auto-closure settings, and price difference handling
+-   **Open Items Reporting**: Comprehensive reporting system for monitoring outstanding documents with aging analysis and exception identification
+-   **Database Schema Enhancement**: Added closure_status, closed_by_document_type, closed_by_document_id, closed_at, and closed_by_user_id fields to all document tables
+-   **Service Layer Architecture**: DocumentClosureService for closure logic and OpenItemsService for reporting with comprehensive business rule validation
+-   **UI Integration**: Status indicators in DataTables, closure information in document views, and dedicated Open Items report interface
+-   **Performance Optimization**: Database indexes on closure_status and closed_by fields for efficient querying
+
+### 18. Unified Design System
 
 -   **Consistent UI Patterns**: All create pages follow unified design standards with card-outline styling
 -   **Professional Visual Design**: Enhanced headers with relevant icons, proper color schemes, and visual hierarchy
@@ -365,11 +393,11 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 
 #### Order Management Tables
 
--   `sales_orders` / `sales_order_lines`: Sales order processing with order_type (item/service) and business_partner_id
--   `purchase_orders` / `purchase_order_lines`: Purchase order processing with order_type (item/service) and business_partner_id
--   `goods_receipts` / `goods_receipt_lines`: Inventory receipt with source tracking (source_po_id, source_type) and business_partner_id
+-   `sales_orders` / `sales_order_lines`: Sales order processing with order_type (item/service), business_partner_id, and document closure fields (closure_status, closed_by_document_type, closed_by_document_id, closed_at, closed_by_user_id)
+-   `purchase_orders` / `purchase_order_lines`: Purchase order processing with order_type (item/service), business_partner_id, and document closure fields (closure_status, closed_by_document_type, closed_by_document_id, closed_at, closed_by_user_id)
+-   `goods_receipts` / `goods_receipt_lines`: Inventory receipt with source tracking (source_po_id, source_type), business_partner_id, and document closure fields (closure_status, closed_by_document_type, closed_by_document_id, closed_at, closed_by_user_id)
 -   `sales_invoice_grpo_combinations`: Multi-GRPO Sales Invoice tracking
--   `delivery_orders` / `delivery_order_lines`: Delivery order processing with inventory reservation, revenue recognition, and business_partner_id
+-   `delivery_orders` / `delivery_order_lines`: Delivery order processing with inventory reservation, revenue recognition, business_partner_id, and document closure fields (closure_status, closed_by_document_type, closed_by_document_id, closed_at, closed_by_user_id)
 -   `delivery_tracking`: Delivery tracking with logistics cost and performance metrics
 
 #### Dimension Tables
@@ -412,6 +440,10 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 -   `document_sequences`: Sequence tracking per document type and month with thread-safe operations
 -   `cash_expenses`: Cash expense tracking with automatic numbering (CEV-YYYYMM-######) and creator attribution
 -   `asset_disposals`: Asset disposal transactions with automatic numbering (DIS-YYYYMM-######)
+
+#### Document Closure System Tables
+
+-   `erp_parameters`: System-wide configurable parameters with category-based organization (document_closure, system_settings, price_handling), parameter_key, parameter_name, parameter_value, data_type, description, is_active, and audit fields (created_by, updated_by, timestamps)
 
 #### System Tables
 
@@ -459,6 +491,8 @@ The database schema has been consolidated from 51 to 44 migration files for impr
 -   `/projects/*`: Project management with CRUD operations and SweetAlert2 integration
 -   `/funds/*`: Fund management with CRUD operations and SweetAlert2 integration
 -   `/departments/*`: Department management with CRUD operations and SweetAlert2 integration
+-   `/erp-parameters/*`: ERP Parameters management with CRUD operations, category-based organization, and bulk updates
+-   `/reports/open-items/*`: Open Items reporting with comprehensive document status monitoring, aging analysis, and Excel export
 -   `/reports/*`: Comprehensive reporting suite
 -   `/admin/*`: User and role management
 
@@ -511,10 +545,11 @@ graph TD
 
 ### Permission System
 
--   **Granular Permissions**: 50+ specific permissions across all modules including Phase 4 analytics
+-   **Granular Permissions**: 50+ specific permissions across all modules including Phase 4 analytics and Document Closure System
 -   **Role-Based Access**: Predefined roles (admin, manager, user) with custom roles
 -   **Module-Level Security**: Each module has view/create/update/delete permissions
 -   **Analytics Permissions**: COGS, supplier analytics, business intelligence, and unified analytics access control
+-   **Document Closure Permissions**: manage-erp-parameters for ERP Parameters management, reports.open-items for Open Items reporting access
 -   **Data-Level Security**: Dimension-based data access control
 
 ### Data Protection
@@ -526,8 +561,11 @@ graph TD
 
 ### User Interface Enhancements
 
--   **SweetAlert2 Integration**: Consistent confirmation dialogs and success notifications across all Master Data features
--   **Global Configuration**: Centralized SweetAlert2 configuration with consistent styling and behavior
+-   **SweetAlert2 Confirmation System**: Comprehensive confirmation dialog system for critical operations across entire ERP system
+-   **Global JavaScript Handlers**: Event listeners for data-confirm attributes in forms and buttons with automatic prevention of default actions
+-   **Professional Styling**: Consistent SweetAlert2 design with proper colors (#3085d6 for confirm, #d33 for cancel), question icons, and user-friendly button text
+-   **Approval Workflow Integration**: Seamless integration with Purchase Order and Sales Order approval processes with proper confirmation dialogs
+-   **Global Configuration**: Centralized SweetAlert2 configuration in public/js/sweetalert2-config.js with consistent styling and behavior
 -   **AJAX Response Handling**: Proper JSON responses for all CRUD operations with comprehensive error handling
 -   **DataTable Integration**: Dynamic data loading with search, sorting, and pagination capabilities
 -   **Modal Management**: Consistent modal dialogs for create/edit operations with proper form validation
