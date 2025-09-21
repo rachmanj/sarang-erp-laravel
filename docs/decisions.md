@@ -1378,3 +1378,100 @@ Decision: [Title] - [YYYY-MM-DD]
 **Consequences**: System now has complete functionality across all modules with consistent business partner handling. All forms submit correctly, all controllers validate properly, all views load without errors, and all JavaScript form handling works correctly. System demonstrates 95% production readiness with comprehensive end-to-end testing validation completed.
 
 **Review Date**: 2026-03-21 (after 6 months of production use and comprehensive testing validation)
+
+---
+
+## Decision: Warehouse Selection System Implementation - 2025-09-21
+
+**Context**: Trading companies require comprehensive warehouse selection functionality across all order types (Purchase Orders, Goods Receipt PO, Sales Orders, Delivery Orders) to enable proper warehouse-specific inventory tracking and management. The system needed to support single warehouse selection per order type with specific business logic: destination warehouse for POs, source warehouse for SOs, default to PO's warehouse for GRPOs (but allow changes), and single warehouse for DOs as required fields.
+
+**Options Considered**:
+
+1. **Option A**: Manual warehouse selection without system integration
+
+    - ✅ Pros: Simple implementation, minimal development effort
+    - ❌ Cons: No validation, poor data integrity, manual errors, no business logic enforcement
+
+2. **Option B**: Comprehensive warehouse selection system with database integration and business logic
+
+    - ✅ Pros: Complete validation, data integrity, business logic enforcement, professional user interface, seamless integration
+    - ❌ Cons: Complex implementation, extensive development effort, integration challenges
+
+3. **Option C**: Basic warehouse selection with limited validation
+    - ✅ Pros: Moderate complexity, basic functionality
+    - ❌ Cons: Limited business logic, incomplete integration, poor user experience
+
+**Decision**: Comprehensive warehouse selection system with database integration and business logic (Option B)
+
+**Rationale**:
+
+-   Trading companies require proper warehouse-specific inventory tracking for accurate stock management
+-   Single warehouse selection per order type ensures clear inventory flow and prevents confusion
+-   GRPO defaulting to PO's warehouse but allowing changes provides flexibility while maintaining consistency
+-   Required field validation ensures data completeness and business process integrity
+-   Professional user interface with Select2BS4 integration provides excellent user experience
+-   Database integration with foreign key constraints ensures data integrity and referential consistency
+-   Service layer integration enables proper business logic enforcement and future extensibility
+
+**Implementation**:
+
+-   **Database Schema**: Added warehouse_id foreign key fields to all order tables (purchase_orders, goods_receipt_po, sales_orders, delivery_orders) with proper constraints
+-   **Model Updates**: Updated all order models (PurchaseOrder, GoodsReceiptPO, SalesOrder, DeliveryOrder) with BelongsTo relationships to Warehouse model and proper fillable field configuration
+-   **Controller Enhancement**: Enhanced all order controllers with comprehensive warehouse validation rules, dropdown population logic, and proper error handling
+-   **View Integration**: Implemented professional warehouse selection dropdowns using Select2BS4 in all create/edit forms with active warehouse filtering and proper error handling
+-   **Service Layer Updates**: Updated service methods (PurchaseService, SalesService, DeliveryService, GRPOCopyService) to handle warehouse_id parameter passing and business logic integration
+-   **Business Logic**: Single warehouse selection per order type (destination warehouse for POs, source warehouse for SOs, single warehouse for DOs) with GRPO defaulting to PO's warehouse but allowing manual changes
+-   **Validation**: Comprehensive validation rules ensuring warehouse_id is required and exists in warehouses table
+-   **Testing**: Comprehensive browser testing validation across all order types with confirmed functionality
+
+**Consequences**: System now has enterprise-level warehouse selection system providing comprehensive warehouse management across all order types with proper validation, user interface integration, and business logic support. All order types support single warehouse selection with required field validation, proper foreign key relationships, and seamless integration with existing order management workflows. System enables proper warehouse-specific inventory tracking and management for trading company operations with professional user interface and comprehensive business logic enforcement.
+
+**Review Date**: 2026-03-21 (after 6 months of production use and user feedback)
+
+---
+
+## Decision: Transit Warehouse Filtering Implementation - 2025-09-21
+
+**Context**: Transit warehouses are used exclusively for automatic ITO/ITI (Inventory Transfer Out/Inventory Transfer In) activities and should not be manually selectable by users in order creation forms. The system needed to filter out transit warehouses from manual warehouse selection dropdowns while preserving their functionality for automated inventory transfer operations.
+
+**Options Considered**:
+
+1. **Option A**: Allow transit warehouses in manual selection dropdowns
+
+    - ✅ Pros: Simple implementation, no filtering required
+    - ❌ Cons: User confusion, incorrect warehouse selection, business logic violations, poor user experience
+
+2. **Option B**: Filter out transit warehouses from manual selection dropdowns
+
+    - ✅ Pros: Clean user interface, proper business logic separation, prevents user errors, improved user experience
+    - ❌ Cons: Additional filtering logic required, database query modifications
+
+3. **Option C**: Separate transit warehouse management system
+    - ✅ Pros: Complete separation of concerns
+    - ❌ Cons: Complex implementation, duplicate functionality, maintenance overhead
+
+**Decision**: Filter out transit warehouses from manual selection dropdowns (Option B)
+
+**Rationale**:
+
+-   Transit warehouses serve specific automated functions and should not be manually selectable
+-   Filtering prevents user confusion and incorrect warehouse selection
+-   Clean user interface shows only relevant warehouses for manual selection
+-   Proper business logic separation between manual operations and automated ITO/ITI activities
+-   Transit warehouses follow naming convention (e.g., WH001_TRANSIT for WH001) enabling reliable filtering
+-   Improved user experience with clear warehouse selection options
+-   Maintains transit warehouse functionality for automated operations
+
+**Implementation**:
+
+-   **Database Query Enhancement**: Applied where('name', 'not like', '%Transit%') condition to all warehouse dropdown queries across all order controllers
+-   **Controller Updates**: Updated PurchaseOrderController, GoodsReceiptPOController, SalesOrderController, DeliveryOrderController to exclude transit warehouses from both create and edit methods
+-   **Consistent Filtering**: Applied filtering consistently across all order types ensuring uniform behavior
+-   **User Interface Improvement**: Clean warehouse selection interface showing only regular warehouses (Branch Warehouse, Distribution Center, Main Warehouse, Regional Distribution Center - Updated) while hiding transit warehouses
+-   **Business Logic Separation**: Proper separation between manual warehouse selection for business operations and automatic transit warehouse usage for ITO/ITI activities
+-   **Transit Warehouse Logic**: Transit warehouses follow naming convention and are automatically used in ITO/ITI operations based on source warehouse
+-   **Testing**: Comprehensive browser testing validation across all order types confirming that transit warehouses are properly excluded from manual selection
+
+**Consequences**: System now has enterprise-level warehouse filtering system ensuring proper separation between manual warehouse selection for business operations and automatic transit warehouse usage for ITO/ITI activities. Users experience clean warehouse selection interface with only relevant warehouses available for manual selection while transit warehouse functionality is preserved for automated inventory transfer operations. System provides improved user experience, prevents user errors, and maintains proper business logic separation.
+
+**Review Date**: 2026-03-21 (after 6 months of production use and user feedback)

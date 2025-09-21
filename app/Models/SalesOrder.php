@@ -15,6 +15,7 @@ class SalesOrder extends Model
         'expected_delivery_date',
         'actual_delivery_date',
         'business_partner_id',
+        'warehouse_id',
         'description',
         'notes',
         'terms_conditions',
@@ -61,6 +62,11 @@ class SalesOrder extends Model
     public function businessPartner(): BelongsTo
     {
         return $this->belongsTo(\App\Models\BusinessPartner::class, 'business_partner_id');
+    }
+
+    public function warehouse(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Warehouse::class, 'warehouse_id');
     }
 
     // Backward compatibility method

@@ -100,6 +100,24 @@
                                 <div class="row">
                                     <div class="col-md-6">
                                         <div class="form-group row mb-2">
+                                            <label class="col-sm-3 col-form-label">Warehouse <span
+                                                    class="text-danger">*</span></label>
+                                            <div class="col-sm-9">
+                                                <select name="warehouse_id" id="warehouse-select"
+                                                    class="form-control form-control-sm select2bs4" required>
+                                                    <option value="">-- select warehouse --</option>
+                                                    @foreach ($warehouses as $w)
+                                                        <option value="{{ $w->id }}"
+                                                            {{ old('warehouse_id') == $w->id ? 'selected' : '' }}>
+                                                            {{ $w->name }}
+                                                        </option>
+                                                    @endforeach
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-group row mb-2">
                                             <label class="col-sm-3 col-form-label">Planned Delivery <span
                                                     class="text-danger">*</span></label>
                                             <div class="col-sm-9">

@@ -80,8 +80,9 @@ class DeliveryOrderController extends Controller
             ->get();
 
         $customers = \App\Models\BusinessPartner::where('partner_type', 'customer')->orderBy('name')->get();
+        $warehouses = DB::table('warehouses')->where('is_active', 1)->where('name', 'not like', '%Transit%')->orderBy('name')->get();
 
-        return view('delivery_orders.create', compact('salesOrders', 'salesOrder', 'customers'));
+        return view('delivery_orders.create', compact('salesOrders', 'salesOrder', 'customers', 'warehouses'));
     }
 
     /**
@@ -90,10 +91,11 @@ class DeliveryOrderController extends Controller
     public function store(Request $request)
     {
         Log::info('Delivery Order Store - Request Data:', $request->all());
-        
+
         $data = $request->validate([
             'sales_order_id' => ['required', 'integer', 'exists:sales_orders,id'],
             'business_partner_id' => ['required', 'integer', 'exists:business_partners,id'],
+            'warehouse_id' => ['required', 'integer', 'exists:warehouses,id'],
             'delivery_address' => ['required', 'string', 'max:500'],
             'delivery_contact_person' => ['nullable', 'string', 'max:100'],
             'delivery_phone' => ['nullable', 'string', 'max:20'],
@@ -109,12 +111,12 @@ class DeliveryOrderController extends Controller
                 'sales_order_id' => $data['sales_order_id'],
                 'data' => $data
             ]);
-            
+
             $deliveryOrder = $this->deliveryService->createDeliveryOrderFromSalesOrder(
                 $data['sales_order_id'],
                 $data
             );
-            
+
             Log::info('Delivery Order created successfully', ['delivery_order_id' => $deliveryOrder->id]);
 
             // Attempt to close the Sales Order if Delivery Order quantity is sufficient

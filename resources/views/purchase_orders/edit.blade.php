@@ -129,6 +129,30 @@
                                             </div>
                                         </div>
                                     </div>
+                                    <div class="col-md-4">
+                                        <div class="form-group row mb-2">
+                                            <label class="col-sm-3 col-form-label">Warehouse <span
+                                                    class="text-danger">*</span></label>
+                                            <div class="col-sm-9">
+                                                <select name="warehouse_id"
+                                                    class="form-control form-control-sm select2bs4 @error('warehouse_id') is-invalid @enderror"
+                                                    required>
+                                                    <option value="">-- select warehouse --</option>
+                                                    @foreach ($warehouses as $warehouse)
+                                                        <option value="{{ $warehouse->id }}"
+                                                            {{ old('warehouse_id', $order->warehouse_id) == $warehouse->id ? 'selected' : '' }}>
+                                                            {{ $warehouse->name }}
+                                                        </option>
+                                                    @endforeach
+                                                </select>
+                                                @error('warehouse_id')
+                                                    <span class="invalid-feedback" role="alert">
+                                                        <strong>{{ $message }}</strong>
+                                                    </span>
+                                                @enderror
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <div class="row mt-3">

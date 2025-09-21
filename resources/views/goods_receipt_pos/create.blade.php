@@ -77,6 +77,27 @@
                                     </div>
                                     <div class="col-md-4">
                                         <div class="form-group row mb-2">
+                                            <label class="col-sm-3 col-form-label">Warehouse <span
+                                                    class="text-danger">*</span></label>
+                                            <div class="col-sm-9">
+                                                <select name="warehouse_id" id="warehouse-select"
+                                                    class="form-control form-control-sm select2bs4" required>
+                                                    <option value="">-- select warehouse --</option>
+                                                    @foreach ($warehouses as $w)
+                                                        <option value="{{ $w->id }}"
+                                                            {{ old('warehouse_id') == $w->id ? 'selected' : '' }}>
+                                                            {{ $w->name }}
+                                                        </option>
+                                                    @endforeach
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="row mt-3">
+                                    <div class="col-md-4">
+                                        <div class="form-group row mb-2">
                                             <label class="col-sm-3 col-form-label">Purchase Order</label>
                                             <div class="col-sm-9">
                                                 <div class="input-group input-group-sm">
@@ -366,7 +387,7 @@
                                             description: line.description,
                                             qty: line.qty,
                                             remaining_qty: line
-                                            .qty, // Use the pending_qty as remaining_qty
+                                                .qty, // Use the pending_qty as remaining_qty
                                             unit_price: line.unit_price
                                         });
                                     });
@@ -680,7 +701,7 @@
                 if (items.length === 0) {
                     tbody.append(
                         '<tr><td colspan="8" class="text-center text-muted">No items found in selected PO</td></tr>'
-                        );
+                    );
                     return;
                 }
 

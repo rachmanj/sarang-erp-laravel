@@ -30,8 +30,9 @@ class GoodsReceiptPOController extends Controller
         $accounts = DB::table('accounts')->where('is_postable', 1)->orderBy('code')->get();
         $taxCodes = DB::table('tax_codes')->orderBy('code')->get();
         $categories = DB::table('product_categories')->orderBy('name')->get();
+        $warehouses = DB::table('warehouses')->where('is_active', 1)->where('name', 'not like', '%Transit%')->orderBy('name')->get();
         // Don't load POs initially - will be loaded via AJAX based on vendor selection
-        return view('goods_receipt_pos.create', compact('vendors', 'accounts', 'taxCodes', 'categories'));
+        return view('goods_receipt_pos.create', compact('vendors', 'accounts', 'taxCodes', 'categories', 'warehouses'));
     }
 
     public function store(Request $request)
@@ -39,6 +40,7 @@ class GoodsReceiptPOController extends Controller
         $data = $request->validate([
             'date' => ['required', 'date'],
             'business_partner_id' => ['required', 'integer', 'exists:business_partners,id'],
+            'warehouse_id' => ['required', 'integer', 'exists:warehouses,id'],
             'purchase_order_id' => ['nullable', 'integer', 'exists:purchase_orders,id'],
             'description' => ['nullable', 'string', 'max:255'],
             'lines' => ['required', 'array', 'min:1'],
@@ -52,6 +54,7 @@ class GoodsReceiptPOController extends Controller
                 'grn_no' => null,
                 'date' => $data['date'],
                 'business_partner_id' => $data['business_partner_id'],
+                'warehouse_id' => $data['warehouse_id'],
                 'purchase_order_id' => $data['purchase_order_id'] ?? null,
                 'description' => $data['description'] ?? null,
                 'status' => 'draft',

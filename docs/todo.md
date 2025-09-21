@@ -44,6 +44,8 @@ Include relevant context in brackets to help with future AI-assisted coding:
 
 ## Recently Completed
 
+-   `[done] P0: Warehouse Selection System Implementation [database migration adding warehouse_id fields to all order tables (purchase_orders, goods_receipt_po, sales_orders, delivery_orders), model updates with BelongsTo relationships and fillable fields, controller enhancements with warehouse validation rules and dropdown population, comprehensive view updates with warehouse selection dropdowns in all create/edit forms using Select2BS4, service layer updates for warehouse-specific operations, comprehensive browser testing validation across all order types, proper foreign key constraints, validation rules, UI integration, seamless integration with existing ERP architecture] (completed: 2025-09-21)`
+-   `[done] P0: Transit Warehouse Filtering Implementation [comprehensive transit warehouse filtering by updating all order controllers (PurchaseOrderController, GoodsReceiptPOController, SalesOrderController, DeliveryOrderController) to exclude warehouses with "Transit" in their names from dropdown queries using where('name', 'not like', '%Transit%') condition, applied filtering to both create and edit methods across all order types, comprehensive browser testing validation confirming that only regular warehouses appear in dropdowns while transit warehouses are properly filtered out, enterprise-level warehouse filtering system ensuring proper separation between manual warehouse selection for business operations and automatic transit warehouse usage for ITO/ITI activities] (completed: 2025-09-21)`
 -   `[done] P0: GR/GI System Implementation with Journal Integration [5 new database tables (gr_gi_purposes, gr_gi_headers, gr_gi_lines, gr_gi_account_mappings, gr_gi_journal_entries), comprehensive models with relationships, GRGIService with sophisticated business logic, GRGIController with CRUD operations, complete AdminLTE views (index, create, show, edit), automatic journal entry creation on approval, account mapping based on item categories and purposes, FIFO/LIFO/Average cost valuation methods, SweetAlert2 confirmation dialogs, approval workflow (draft → pending_approval → approved), seamless integration with existing ERP architecture, browser testing validation with confirmed functionality] (completed: 2025-09-21)`
 -   `[done] P0: Comprehensive ERP System Testing and Sales Workflow Implementation [inventory CRUD operations with 15+ items across 5 categories, complete Purchase workflow (PO → GRPO → PI → PP), complete Sales workflow (SO → DO → SI → SR), fixed critical field mapping issues (business_partner_id vs vendor_id/customer_id), resolved DocumentClosureService import issues, created missing SalesReceiptAllocation model, fixed view template references (customers → business_partners), validated complete business cycle functionality using browser MCP testing, achieved 95% production readiness] (completed: 2025-09-21)`
 -   `[done] P1: GRPO Enhanced User Interface Implementation [remaining quantity column addition to GRPO lines table with proper column width adjustments, updated addLineRow JavaScript function to display remaining quantities from PO data, enhanced copy lines functionality to populate remaining quantities from PO pending quantities, implemented PO-based item filtering in item selection modal with loadItemsFromPO function and displayItemsFromPO function, updated item selection handler to populate remaining quantity display, created comprehensive item filtering system that shows only items from selected PO with remaining quantities displayed in modal, browser testing validation with confirmed functionality] (completed: 2025-09-20)`
@@ -124,6 +126,30 @@ Include relevant context in brackets to help with future AI-assisted coding:
 -   `[done] P1: Analyze security implementation [Spatie Permission, 40+ permissions] (completed: 2025-01-15)`
 
 ## Quick Notes
+
+**Warehouse Selection System Implementation Summary (2025-09-21)**:
+
+-   **Complete Database Architecture**: Successfully implemented warehouse_id foreign key fields in all order tables (purchase_orders, goods_receipt_po, sales_orders, delivery_orders) with proper constraints and relationships
+-   **Model Integration**: Updated all order models (PurchaseOrder, GoodsReceiptPO, SalesOrder, DeliveryOrder) with BelongsTo relationships to Warehouse model and proper fillable field configuration
+-   **Controller Enhancement**: Enhanced all order controllers with comprehensive warehouse validation rules, dropdown population logic, and proper error handling for warehouse selection
+-   **View Integration**: Implemented professional warehouse selection dropdowns using Select2BS4 in all create/edit forms with active warehouse filtering and proper error handling
+-   **Service Layer Updates**: Updated service methods (PurchaseService, SalesService, DeliveryService, GRPOCopyService) to handle warehouse_id parameter passing and business logic integration
+-   **Business Logic Implementation**: Single warehouse selection per order type (destination warehouse for POs, source warehouse for SOs, single warehouse for DOs) with GRPO defaulting to PO's warehouse but allowing manual changes
+-   **Transit Warehouse Filtering**: Comprehensive filtering system excluding transit warehouses from manual selection dropdowns since transit warehouses are only used for automatic ITO/ITI activities
+-   **Database Query Optimization**: Applied where('name', 'not like', '%Transit%') condition to all warehouse dropdown queries ensuring clean user interface
+-   **Browser Testing Validation**: Successfully tested warehouse selection functionality across all order types with confirmed dropdown operation, warehouse selection, and form validation
+-   **Production Ready**: Enterprise-level warehouse selection system providing comprehensive warehouse management across all order types with proper validation, user interface integration, and business logic support
+
+**Transit Warehouse Filtering Implementation Summary (2025-09-21)**:
+
+-   **Comprehensive Filtering System**: Successfully implemented transit warehouse filtering across all order controllers (PurchaseOrderController, GoodsReceiptPOController, SalesOrderController, DeliveryOrderController)
+-   **Database Query Enhancement**: Applied where('name', 'not like', '%Transit%') condition to exclude warehouses with "Transit" in their names from all dropdown queries
+-   **Controller Updates**: Updated both create and edit methods across all order types to ensure consistent filtering behavior
+-   **User Experience Improvement**: Clean warehouse selection interface showing only regular warehouses (Branch Warehouse, Distribution Center, Main Warehouse, Regional Distribution Center - Updated) while hiding transit warehouses
+-   **Business Logic Separation**: Proper separation between manual warehouse selection for business operations and automatic transit warehouse usage for ITO/ITI activities
+-   **Transit Warehouse Logic**: Transit warehouses follow naming convention (e.g., WH001_TRANSIT for WH001) and are automatically used in ITO/ITI operations based on source warehouse
+-   **Browser Testing Validation**: Successfully tested filtering functionality across all order types confirming that transit warehouses are properly excluded from manual selection
+-   **Production Ready**: Enterprise-level warehouse filtering system ensuring proper business logic separation and improved user experience
 
 **GR/GI System Implementation with Journal Integration Summary (2025-09-21)**:
 

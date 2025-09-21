@@ -233,7 +233,20 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 -   **Delivery Orders**: Delivery management with inventory reservation and revenue recognition (DO-YYYYMM-######)
 -   **Customer Management**: Customer master data with credit management
 
-### 6.1. GR/GI Management System
+### 6.1. Warehouse Selection System
+
+-   **Comprehensive Warehouse Integration**: Warehouse selection functionality across all order types (Purchase Orders, Goods Receipt PO, Sales Orders, Delivery Orders) with required field validation
+-   **Single Warehouse Selection**: Each order type supports single warehouse selection (destination warehouse for POs, source warehouse for SOs, single warehouse for DOs)
+-   **GRPO Default Logic**: Goods Receipt PO defaults to the original Purchase Order's warehouse but allows manual changes for flexibility
+-   **Transit Warehouse Filtering**: Automatic filtering of transit warehouses from manual selection dropdowns since transit warehouses are only used for automatic ITO/ITI activities
+-   **Database Schema Integration**: warehouse_id foreign key fields added to all order tables with proper constraints and relationships
+-   **Model Relationships**: BelongsTo relationships between order models and Warehouse model with proper fillable field configuration
+-   **Controller Validation**: Comprehensive validation rules ensuring warehouse_id is required and exists in warehouses table
+-   **View Integration**: Professional warehouse selection dropdowns using Select2BS4 with active warehouse filtering and proper error handling
+-   **Service Layer Support**: Service methods updated to handle warehouse_id parameter passing and business logic integration
+-   **Transit Warehouse Logic**: Transit warehouses follow naming convention (e.g., WH001_TRANSIT for WH001) and are automatically used in ITO/ITI operations based on source warehouse
+
+### 6.2. GR/GI Management System
 
 -   **Goods Receipt (GR)**: Non-purchase receiving operations with automatic journal integration
 -   **Goods Issue (GI)**: Non-sales issuing operations with FIFO/LIFO/Average cost valuation
@@ -244,7 +257,7 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 -   **Valuation Methods**: Multiple cost calculation methods (FIFO, LIFO, Average, Manual)
 -   **SweetAlert2 Integration**: Professional confirmation dialogs for critical operations
 
-### 6.1. Delivery Order System
+### 6.3. Delivery Order System
 
 -   **Delivery Lifecycle Management**: Complete delivery process from sales order to completion
 -   **Inventory Reservation**: Automatic stock allocation and reservation upon delivery order approval
@@ -430,11 +443,11 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 
 #### Order Management Tables
 
--   `sales_orders` / `sales_order_lines`: Sales order processing with order_type (item/service), business_partner_id, and document closure fields (closure_status, closed_by_document_type, closed_by_document_id, closed_at, closed_by_user_id)
--   `purchase_orders` / `purchase_order_lines`: Purchase order processing with order_type (item/service), business_partner_id, and document closure fields (closure_status, closed_by_document_type, closed_by_document_id, closed_at, closed_by_user_id)
--   `goods_receipts` / `goods_receipt_lines`: Inventory receipt with source tracking (source_po_id, source_type), business_partner_id, and document closure fields (closure_status, closed_by_document_type, closed_by_document_id, closed_at, closed_by_user_id)
+-   `sales_orders` / `sales_order_lines`: Sales order processing with order_type (item/service), business_partner_id, warehouse_id (single source warehouse), and document closure fields (closure_status, closed_by_document_type, closed_by_document_id, closed_at, closed_by_user_id)
+-   `purchase_orders` / `purchase_order_lines`: Purchase order processing with order_type (item/service), business_partner_id, warehouse_id (single destination warehouse), and document closure fields (closure_status, closed_by_document_type, closed_by_document_id, closed_at, closed_by_user_id)
+-   `goods_receipt_po` / `goods_receipt_po_lines`: Purchase Order-based inventory receipt with source tracking (purchase_order_id), business_partner_id, warehouse_id (defaults to PO's warehouse but allows changes), and document closure fields (closure_status, closed_by_document_type, closed_by_document_id, closed_at, closed_by_user_id)
 -   `sales_invoice_grpo_combinations`: Multi-GRPO Sales Invoice tracking
--   `delivery_orders` / `delivery_order_lines`: Delivery order processing with inventory reservation, revenue recognition, business_partner_id, and document closure fields (closure_status, closed_by_document_type, closed_by_document_id, closed_at, closed_by_user_id)
+-   `delivery_orders` / `delivery_order_lines`: Delivery order processing with inventory reservation, revenue recognition, business_partner_id, warehouse_id (single warehouse), and document closure fields (closure_status, closed_by_document_type, closed_by_document_id, closed_at, closed_by_user_id)
 -   `delivery_tracking`: Delivery tracking with logistics cost and performance metrics
 
 #### GR/GI Management Tables

@@ -82,6 +82,7 @@ class DeliveryService
                     'do_number' => $doNumber,
                     'sales_order_id' => $salesOrder->id,
                     'business_partner_id' => $salesOrder->business_partner_id,
+                    'warehouse_id' => $data['warehouse_id'] ?? $salesOrder->warehouse_id,
                     'delivery_address' => $data['delivery_address'] ?? $customerAddress,
                     'delivery_contact_person' => $data['delivery_contact_person'] ?? $customerContact,
                     'delivery_phone' => $data['delivery_phone'] ?? $customerPhone,

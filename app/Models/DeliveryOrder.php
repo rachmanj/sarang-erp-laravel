@@ -13,6 +13,7 @@ class DeliveryOrder extends Model
         'do_number',
         'sales_order_id',
         'business_partner_id',
+        'warehouse_id',
         'delivery_address',
         'delivery_contact_person',
         'delivery_phone',
@@ -45,6 +46,11 @@ class DeliveryOrder extends Model
     public function businessPartner(): BelongsTo
     {
         return $this->belongsTo(\App\Models\BusinessPartner::class);
+    }
+
+    public function warehouse(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Warehouse::class, 'warehouse_id');
     }
 
     // Backward compatibility method

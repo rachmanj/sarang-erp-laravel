@@ -40,6 +40,7 @@ class PurchaseService
                     'date' => $data['date'],
                     'expected_delivery_date' => $data['expected_delivery_date'] ?? null,
                     'business_partner_id' => $data['business_partner_id'],
+                    'warehouse_id' => $data['warehouse_id'],
                     'description' => $data['description'] ?? null,
                     'notes' => $data['notes'] ?? null,
                     'terms_conditions' => $data['terms_conditions'] ?? null,
@@ -67,7 +68,7 @@ class PurchaseService
             foreach ($data['lines'] as $index => $lineData) {
                 try {
                     Log::info("Processing line {$index} with data:", $lineData);
-                    
+
                     $originalAmount = $lineData['qty'] * $lineData['unit_price'];
                     $vatAmount = $originalAmount * ($lineData['vat_rate'] / 100);
                     $wtaxAmount = $originalAmount * ($lineData['wtax_rate'] / 100);

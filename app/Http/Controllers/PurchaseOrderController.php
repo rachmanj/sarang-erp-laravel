@@ -53,24 +53,26 @@ class PurchaseOrderController extends Controller
         $accounts = DB::table('accounts')->where('is_postable', 1)->orderBy('code')->get();
         $taxCodes = DB::table('tax_codes')->orderBy('code')->get();
         $inventoryItems = InventoryItem::active()->orderBy('name')->get();
+        $warehouses = DB::table('warehouses')->where('is_active', 1)->where('name', 'not like', '%Transit%')->orderBy('name')->get();
 
         // Generate PO number for display
         $documentNumberingService = app(DocumentNumberingService::class);
         $poNumber = $documentNumberingService->generateNumber('purchase_order', now()->format('Y-m-d'));
 
-        return view('purchase_orders.create', compact('vendors', 'accounts', 'taxCodes', 'inventoryItems', 'poNumber'));
+        return view('purchase_orders.create', compact('vendors', 'accounts', 'taxCodes', 'inventoryItems', 'warehouses', 'poNumber'));
     }
 
     public function store(Request $request)
     {
         Log::info('Purchase Order store method called with data:', $request->all());
-        
+
         $data = $request->validate([
             'order_no' => ['required', 'string', 'max:50'],
             'date' => ['required', 'date'],
             'reference_no' => ['nullable', 'string', 'max:100'],
             'expected_delivery_date' => ['nullable', 'date'],
             'business_partner_id' => ['required', 'integer', 'exists:business_partners,id'],
+            'warehouse_id' => ['required', 'integer', 'exists:warehouses,id'],
             'description' => ['nullable', 'string', 'max:255'],
             'notes' => ['nullable', 'string'],
             'terms_conditions' => ['nullable', 'string'],
@@ -125,8 +127,9 @@ class PurchaseOrderController extends Controller
         $accounts = DB::table('accounts')->where('is_postable', 1)->orderBy('code')->get();
         $taxCodes = DB::table('tax_codes')->orderBy('code')->get();
         $inventoryItems = InventoryItem::active()->orderBy('name')->get();
+        $warehouses = DB::table('warehouses')->where('is_active', 1)->where('name', 'not like', '%Transit%')->orderBy('name')->get();
 
-        return view('purchase_orders.edit', compact('order', 'vendors', 'accounts', 'taxCodes', 'inventoryItems'));
+        return view('purchase_orders.edit', compact('order', 'vendors', 'accounts', 'taxCodes', 'inventoryItems', 'warehouses'));
     }
 
     public function update(Request $request, int $id)
@@ -145,6 +148,7 @@ class PurchaseOrderController extends Controller
             'reference_no' => ['nullable', 'string', 'max:100'],
             'expected_delivery_date' => ['nullable', 'date'],
             'business_partner_id' => ['required', 'integer', 'exists:business_partners,id'],
+            'warehouse_id' => ['required', 'integer', 'exists:warehouses,id'],
             'description' => ['nullable', 'string', 'max:255'],
             'notes' => ['nullable', 'string'],
             'terms_conditions' => ['nullable', 'string'],

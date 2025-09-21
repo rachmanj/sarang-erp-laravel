@@ -44,12 +44,13 @@ class SalesOrderController extends Controller
         $accounts = DB::table('accounts')->where('is_postable', 1)->orderBy('code')->get();
         $taxCodes = DB::table('tax_codes')->orderBy('code')->get();
         $inventoryItems = InventoryItem::active()->orderBy('name')->get();
+        $warehouses = DB::table('warehouses')->where('is_active', 1)->where('name', 'not like', '%Transit%')->orderBy('name')->get();
 
         // Generate SO number for display
         $documentNumberingService = app(DocumentNumberingService::class);
         $soNumber = $documentNumberingService->generateNumber('sales_order', now()->format('Y-m-d'));
 
-        return view('sales_orders.create', compact('customers', 'accounts', 'taxCodes', 'inventoryItems', 'soNumber'));
+        return view('sales_orders.create', compact('customers', 'accounts', 'taxCodes', 'inventoryItems', 'warehouses', 'soNumber'));
     }
 
     public function store(Request $request)
@@ -60,6 +61,7 @@ class SalesOrderController extends Controller
             'reference_no' => ['nullable', 'string', 'max:100'],
             'expected_delivery_date' => ['nullable', 'date'],
             'business_partner_id' => ['required', 'integer', 'exists:business_partners,id'],
+            'warehouse_id' => ['required', 'integer', 'exists:warehouses,id'],
             'description' => ['nullable', 'string', 'max:255'],
             'notes' => ['nullable', 'string'],
             'terms_conditions' => ['nullable', 'string'],
