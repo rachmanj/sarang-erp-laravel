@@ -25,6 +25,13 @@ class RoleController extends Controller
         return view('admin.roles.create', compact('permissions', 'groupedPermissions'));
     }
 
+    public function show(Role $role)
+    {
+        $this->authorize('roles.view');
+        $role->load('permissions', 'users');
+        return view('admin.roles.show', compact('role'));
+    }
+
     public function data(Request $request)
     {
         $this->authorize('roles.view');

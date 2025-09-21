@@ -99,6 +99,19 @@ class RolePermissionSeeder extends Seeder
             'inventory.adjust',
             'inventory.transfer',
             'inventory.reports',
+            // Warehouse permissions
+            'warehouse.view',
+            'warehouse.create',
+            'warehouse.update',
+            'warehouse.delete',
+            'warehouse.transfer',
+
+            // GR/GI Management
+            'gr-gi.view',
+            'gr-gi.create',
+            'gr-gi.update',
+            'gr-gi.delete',
+            'gr-gi.approve',
         ];
 
         foreach ($permissions as $perm) {

@@ -124,8 +124,9 @@ Route::middleware('auth')->group(function () {
         // Roles
         Route::get('/roles', [AdminRoleController::class, 'index'])->name('admin.roles.index');
         Route::get('/roles/create', [AdminRoleController::class, 'create'])->name('admin.roles.create');
-        Route::get('/roles/{role}/edit', [AdminRoleController::class, 'edit'])->name('admin.roles.edit');
         Route::get('/roles/data', [AdminRoleController::class, 'data'])->name('admin.roles.data');
+        Route::get('/roles/{role}', [AdminRoleController::class, 'show'])->name('admin.roles.show');
+        Route::get('/roles/{role}/edit', [AdminRoleController::class, 'edit'])->name('admin.roles.edit');
         Route::post('/roles', [AdminRoleController::class, 'store'])->name('admin.roles.store');
         Route::patch('/roles/{role}', [AdminRoleController::class, 'update'])->name('admin.roles.update');
         Route::delete('/roles/{role}', [AdminRoleController::class, 'destroy'])->name('admin.roles.destroy');
@@ -324,20 +325,48 @@ Route::middleware('auth')->group(function () {
     });
 
     // Warehouse Management
-    Route::prefix('warehouses')->middleware(['permission:inventory.view'])->group(function () {
+    Route::prefix('warehouses')->middleware(['permission:warehouse.view'])->group(function () {
         Route::get('/', [WarehouseController::class, 'index'])->name('warehouses.index');
-        Route::get('/create', [WarehouseController::class, 'create'])->middleware('permission:inventory.create')->name('warehouses.create');
-        Route::post('/', [WarehouseController::class, 'store'])->middleware('permission:inventory.create')->name('warehouses.store');
-        Route::get('/{warehouse}', [WarehouseController::class, 'show'])->name('warehouses.show');
-        Route::get('/{warehouse}/edit', [WarehouseController::class, 'edit'])->middleware('permission:inventory.update')->name('warehouses.edit');
-        Route::patch('/{warehouse}', [WarehouseController::class, 'update'])->middleware('permission:inventory.update')->name('warehouses.update');
-        Route::delete('/{warehouse}', [WarehouseController::class, 'destroy'])->middleware('permission:inventory.delete')->name('warehouses.destroy');
+        Route::get('/create', [WarehouseController::class, 'create'])->middleware('permission:warehouse.create')->name('warehouses.create');
+        Route::post('/', [WarehouseController::class, 'store'])->middleware('permission:warehouse.create')->name('warehouses.store');
 
-        // Warehouse Stock Management
+        // Warehouse Stock Management - Must be before /{warehouse} route
         Route::get('/api/warehouses', [WarehouseController::class, 'getWarehouses'])->name('warehouses.get-warehouses');
         Route::get('/api/items/{itemId}/stock', [WarehouseController::class, 'getItemStock'])->name('warehouses.get-item-stock');
-        Route::post('/transfer-stock', [WarehouseController::class, 'transferStock'])->middleware('permission:inventory.transfer')->name('warehouses.transfer-stock');
-        Route::get('/low-stock/{warehouse?}', [WarehouseController::class, 'lowStock'])->name('warehouses.low-stock');
+        Route::post('/transfer-stock', [WarehouseController::class, 'transferStock'])->middleware('permission:warehouse.transfer')->name('warehouses.transfer-stock');
+        Route::post('/transfer-out', [WarehouseController::class, 'createTransferOut'])->middleware('permission:warehouse.transfer')->name('warehouses.transfer-out');
+        Route::post('/transfer-in', [WarehouseController::class, 'createTransferIn'])->middleware('permission:warehouse.transfer')->name('warehouses.transfer-in');
+        Route::get('/pending-transfers', [WarehouseController::class, 'getPendingTransfers'])->name('warehouses.pending-transfers');
+        Route::get('/pending-transfers-page', [WarehouseController::class, 'pendingTransfersPage'])->name('warehouses.pending-transfers-page');
+        Route::get('/transfer-history', [WarehouseController::class, 'transferHistory'])->name('warehouses.transfer-history');
+        Route::get('/low-stock', [WarehouseController::class, 'lowStock'])->name('warehouses.low-stock');
+        Route::get('/low-stock/{warehouse}', [WarehouseController::class, 'lowStock'])->name('warehouses.low-stock-specific');
+
+        // Warehouse CRUD routes - Must be after specific routes
+        Route::get('/{warehouse}', [WarehouseController::class, 'show'])->name('warehouses.show');
+        Route::get('/{warehouse}/edit', [WarehouseController::class, 'edit'])->middleware('permission:warehouse.update')->name('warehouses.edit');
+        Route::patch('/{warehouse}', [WarehouseController::class, 'update'])->middleware('permission:warehouse.update')->name('warehouses.update');
+        Route::delete('/{warehouse}', [WarehouseController::class, 'destroy'])->middleware('permission:warehouse.delete')->name('warehouses.destroy');
+    });
+
+    // GR/GI routes
+    Route::prefix('gr-gi')->middleware(['auth'])->group(function () {
+        Route::get('/', [App\Http\Controllers\GRGIController::class, 'index'])->name('gr-gi.index');
+        Route::get('/create', [App\Http\Controllers\GRGIController::class, 'create'])->name('gr-gi.create');
+        Route::post('/', [App\Http\Controllers\GRGIController::class, 'store'])->name('gr-gi.store');
+        Route::get('/{grGi}', [App\Http\Controllers\GRGIController::class, 'show'])->name('gr-gi.show');
+        Route::get('/{grGi}/edit', [App\Http\Controllers\GRGIController::class, 'edit'])->name('gr-gi.edit');
+        Route::patch('/{grGi}', [App\Http\Controllers\GRGIController::class, 'update'])->name('gr-gi.update');
+        Route::post('/{grGi}/submit', [App\Http\Controllers\GRGIController::class, 'submit'])->name('gr-gi.submit');
+        Route::post('/{grGi}/approve', [App\Http\Controllers\GRGIController::class, 'approve'])->name('gr-gi.approve');
+        Route::post('/{grGi}/cancel', [App\Http\Controllers\GRGIController::class, 'cancel'])->name('gr-gi.cancel');
+
+        // API routes
+        Route::get('/api/purposes', [App\Http\Controllers\GRGIController::class, 'getPurposes'])->name('gr-gi.purposes');
+        Route::get('/api/account-mappings', [App\Http\Controllers\GRGIController::class, 'getAccountMappings'])->name('gr-gi.account-mappings');
+        Route::post('/api/calculate-valuation', [App\Http\Controllers\GRGIController::class, 'calculateValuation'])->name('gr-gi.calculate-valuation');
+        Route::get('/api/items', [App\Http\Controllers\GRGIController::class, 'getItems'])->name('gr-gi.items');
+        Route::get('/api/warehouses', [App\Http\Controllers\GRGIController::class, 'getWarehouses'])->name('gr-gi.warehouses');
     });
 
     // Audit Log Management

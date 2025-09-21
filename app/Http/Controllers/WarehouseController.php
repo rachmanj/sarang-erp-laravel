@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Warehouse;
+use App\Models\InventoryTransaction;
 use App\Services\WarehouseService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -174,6 +175,92 @@ class WarehouseController extends Controller
     }
 
     /**
+     * Create Inventory Transfer Out (ITO)
+     */
+    public function createTransferOut(Request $request)
+    {
+        $this->authorize('warehouse.transfer');
+
+        $data = $request->validate([
+            'item_id' => ['required', 'integer', 'exists:inventory_items,id'],
+            'from_warehouse_id' => ['required', 'integer', 'exists:warehouses,id'],
+            'to_warehouse_id' => ['required', 'integer', 'exists:warehouses,id', 'different:from_warehouse_id'],
+            'quantity' => ['required', 'integer', 'min:1'],
+            'notes' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        try {
+            $transferOutId = $this->warehouseService->createTransferOut(
+                $data['item_id'],
+                $data['from_warehouse_id'],
+                $data['to_warehouse_id'],
+                $data['quantity'],
+                $data['notes']
+            );
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Inventory Transfer Out (ITO) created successfully',
+                'transfer_out_id' => $transferOutId
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 400);
+        }
+    }
+
+    /**
+     * Create Inventory Transfer In (ITI)
+     */
+    public function createTransferIn(Request $request)
+    {
+        $this->authorize('warehouse.transfer');
+
+        $data = $request->validate([
+            'transfer_out_id' => ['required', 'integer', 'exists:inventory_transactions,id'],
+            'received_quantity' => ['nullable', 'integer', 'min:1'],
+            'notes' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        try {
+            $transferInId = $this->warehouseService->createTransferIn(
+                $data['transfer_out_id'],
+                $data['received_quantity'],
+                $data['notes']
+            );
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Inventory Transfer In (ITI) completed successfully',
+                'transfer_in_id' => $transferInId
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 400);
+        }
+    }
+
+    /**
+     * Get pending transfers (items in transit)
+     */
+    public function getPendingTransfers(Request $request)
+    {
+        $this->authorize('warehouse.view');
+
+        $warehouseId = $request->get('warehouse_id');
+        $pendingTransfers = $this->warehouseService->getPendingTransfers($warehouseId);
+
+        return response()->json($pendingTransfers);
+    }
+
+    /**
+     * Show pending transfers page
+     */
+    public function pendingTransfersPage()
+    {
+        $this->authorize('warehouse.view');
+        return view('warehouses.pending-transfers');
+    }
+
+    /**
      * Get low stock items for a warehouse.
      */
     public function lowStock(int $warehouseId = null)
@@ -182,5 +269,39 @@ class WarehouseController extends Controller
         $lowStockItems = $this->warehouseService->getLowStockItems($warehouseId);
 
         return view('warehouses.low-stock', compact('warehouse', 'lowStockItems'));
+    }
+
+    /**
+     * Get transfer history for warehouses.
+     */
+    public function transferHistory(Request $request)
+    {
+        $query = InventoryTransaction::with(['item', 'warehouse', 'creator'])
+            ->where('transaction_type', 'transfer')
+            ->where('reference_type', 'warehouse_transfer')
+            ->orderBy('created_at', 'desc');
+
+        // Filter by warehouse if specified
+        if ($request->has('warehouse_id')) {
+            $query->where('warehouse_id', $request->warehouse_id);
+        }
+
+        // Filter by item if specified
+        if ($request->has('item_id')) {
+            $query->where('item_id', $request->item_id);
+        }
+
+        // Filter by date range
+        if ($request->has('date_from')) {
+            $query->where('transaction_date', '>=', $request->date_from);
+        }
+
+        if ($request->has('date_to')) {
+            $query->where('transaction_date', '<=', $request->date_to);
+        }
+
+        $transfers = $query->paginate(20);
+
+        return view('warehouses.transfer-history', compact('transfers'));
     }
 }

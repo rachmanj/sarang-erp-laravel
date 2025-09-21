@@ -1,5 +1,5 @@
 Purpose: Technical reference for understanding system design and development patterns
-Last Updated: 2025-09-21 (Updated with Comprehensive ERP System Testing and Sales Workflow Implementation)
+Last Updated: 2025-09-21 (Updated with GR/GI System Implementation and Journal Integration)
 
 ## Architecture Documentation Guidelines
 
@@ -233,6 +233,17 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 -   **Delivery Orders**: Delivery management with inventory reservation and revenue recognition (DO-YYYYMM-######)
 -   **Customer Management**: Customer master data with credit management
 
+### 6.1. GR/GI Management System
+
+-   **Goods Receipt (GR)**: Non-purchase receiving operations with automatic journal integration
+-   **Goods Issue (GI)**: Non-sales issuing operations with FIFO/LIFO/Average cost valuation
+-   **Purpose Management**: Configurable GR/GI purposes (Customer Return, Donation, Sample, etc.)
+-   **Account Mapping**: Automatic account mapping based on item categories and purposes
+-   **Approval Workflow**: Draft → Pending Approval → Approved status progression
+-   **Journal Integration**: Automatic journal entry creation on document approval
+-   **Valuation Methods**: Multiple cost calculation methods (FIFO, LIFO, Average, Manual)
+-   **SweetAlert2 Integration**: Professional confirmation dialogs for critical operations
+
 ### 6.1. Delivery Order System
 
 -   **Delivery Lifecycle Management**: Complete delivery process from sales order to completion
@@ -426,6 +437,14 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 -   `delivery_orders` / `delivery_order_lines`: Delivery order processing with inventory reservation, revenue recognition, business_partner_id, and document closure fields (closure_status, closed_by_document_type, closed_by_document_id, closed_at, closed_by_user_id)
 -   `delivery_tracking`: Delivery tracking with logistics cost and performance metrics
 
+#### GR/GI Management Tables
+
+-   `gr_gi_purposes`: GR/GI purpose definitions with type (goods_receipt/goods_issue), code, name, description, and status
+-   `gr_gi_headers`: GR/GI document headers with document_number, document_type, purpose_id, warehouse_id, transaction_date, reference_number, notes, total_amount, status, approval workflow fields (approved_by, approved_at, cancelled_by, cancelled_at), and audit fields
+-   `gr_gi_lines`: GR/GI line items with header_id, item_id, quantity, unit_price, total_amount, and notes
+-   `gr_gi_account_mappings`: Account mapping configuration linking purposes and item categories to debit/credit accounts for automatic journal entry generation
+-   `gr_gi_journal_entries`: Journal entry tracking linking GR/GI documents to generated journal entries for audit trail and reconciliation
+
 #### Dimension Tables
 
 -   `projects`: Project dimension for cost tracking
@@ -508,6 +527,7 @@ The database schema has been consolidated from 51 to 44 migration files for impr
 -   `/inventory/*`: Enhanced inventory management with CRUD operations, stock management, reports, price level management, and audit trails
 -   `/product-categories/*`: Product category management with CRUD operations, account mapping, hierarchical support, and audit integration
 -   `/warehouses/*`: Multi-warehouse management with CRUD operations, stock transfers, and warehouse-specific reporting
+-   `/gr-gi/*`: GR/GI management with CRUD operations, approval workflow, journal integration, and account mapping
 -   `/audit-logs/*`: System-wide audit trail management with filtering and search capabilities
 -   `/tax/*`: Indonesian tax compliance management with transactions, periods, reports, settings
 -   `/cogs/*`: Cost of Goods Sold management with cost allocation, margin analysis, optimization
@@ -571,11 +591,12 @@ graph TD
 
 ### Permission System
 
--   **Granular Permissions**: 50+ specific permissions across all modules including Phase 4 analytics and Document Closure System
+-   **Granular Permissions**: 55+ specific permissions across all modules including Phase 4 analytics, Document Closure System, and GR/GI Management
 -   **Role-Based Access**: Predefined roles (admin, manager, user) with custom roles
 -   **Module-Level Security**: Each module has view/create/update/delete permissions
 -   **Analytics Permissions**: COGS, supplier analytics, business intelligence, and unified analytics access control
 -   **Document Closure Permissions**: manage-erp-parameters for ERP Parameters management, reports.open-items for Open Items reporting access
+-   **GR/GI Permissions**: gr-gi.view/create/update/delete/approve for comprehensive GR/GI management access control
 -   **Data-Level Security**: Dimension-based data access control
 
 ### Data Protection

@@ -15,10 +15,12 @@ class Warehouse extends Model
         'phone',
         'email',
         'is_active',
+        'is_transit',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
+        'is_transit' => 'boolean',
     ];
 
     // Relationships
@@ -41,6 +43,28 @@ class Warehouse extends Model
     public function scopeActive($query)
     {
         return $query->where('is_active', true);
+    }
+
+    public function scopeTransit($query)
+    {
+        return $query->where('is_transit', true);
+    }
+
+    public function scopePhysical($query)
+    {
+        return $query->where('is_transit', false);
+    }
+
+    // Get the transit warehouse for this physical warehouse
+    public function getTransitWarehouse()
+    {
+        return self::where('code', $this->code . '_TRANSIT')->first();
+    }
+
+    // Check if this warehouse has a transit warehouse
+    public function hasTransitWarehouse()
+    {
+        return self::where('code', $this->code . '_TRANSIT')->exists();
     }
 
     // Accessors

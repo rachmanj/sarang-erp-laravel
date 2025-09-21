@@ -395,7 +395,7 @@ class InventoryController extends Controller
     {
         return response()->json(
             InventoryItem::active()
-                ->select('id', 'code', 'name', 'unit_of_measure', 'selling_price', 'current_stock')
+                ->select('id', 'code', 'name', 'unit_of_measure', 'selling_price')
                 ->orderBy('name')
                 ->get()
         );

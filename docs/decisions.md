@@ -1,5 +1,5 @@
 **Purpose**: Record technical decisions and rationale for future reference
-**Last Updated**: 2025-09-21 (Added Comprehensive ERP System Testing and Field Mapping Resolution decision record)
+**Last Updated**: 2025-09-21 (Added GR/GI System Implementation with Journal Integration decision record)
 
 # Technical Decision Records
 
@@ -29,6 +29,60 @@ Decision: [Title] - [YYYY-MM-DD]
 ---
 
 ## Recent Decisions
+
+### Decision: GR/GI System Implementation with Journal Integration - 2025-09-21
+
+**Context**: Trading companies require comprehensive Goods Receipt (GR) and Goods Issue (GI) system for non-purchase receiving and non-sales issuing operations with automatic journal entry integration, account mapping logic, and multiple valuation methods for proper inventory management and financial integration.
+
+**Options Considered**:
+
+1. **Option A**: Basic GR/GI system without journal integration
+
+    - ✅ Pros: Simple implementation, minimal development effort
+    - ❌ Cons: Manual journal entries, high error risk, poor financial integration, audit issues
+
+2. **Option B**: Comprehensive GR/GI system with automatic journal integration and sophisticated business logic
+
+    - ✅ Pros: Automatic journal entries, account mapping, multiple valuation methods, comprehensive approval workflow, professional user interface
+    - ❌ Cons: Complex implementation, extensive development effort, integration challenges
+
+3. **Option C**: Third-party GR/GI integration
+    - ✅ Pros: Proven solution, reduced development effort
+    - ❌ Cons: External dependency, ongoing costs, limited customization, integration complexity
+
+**Decision**: Comprehensive GR/GI system with automatic journal integration and sophisticated business logic (Option B)
+
+**Rationale**:
+
+-   Trading companies require sophisticated inventory management for non-purchase/non-sales operations
+-   Automatic journal integration ensures proper financial accounting and audit trail
+-   Account mapping based on item categories and purposes provides flexible configuration
+-   Multiple valuation methods (FIFO, LIFO, Average, Manual) support various business scenarios
+-   Comprehensive approval workflow ensures proper authorization and status tracking
+-   Professional user interface with SweetAlert2 integration provides excellent user experience
+-   Better integration with existing ERP architecture and business processes
+-   Cost-effective long-term solution despite higher initial development effort
+
+**Implementation**:
+
+-   **Database Schema**: 5 new tables (gr_gi_purposes, gr_gi_headers, gr_gi_lines, gr_gi_account_mappings, gr_gi_journal_entries) with comprehensive relationships
+-   **Models**: GRGIPurpose, GRGIHeader, GRGILine, GRGIAccountMapping, GRGIJournalEntry with proper relationships and business logic
+-   **Service Layer**: GRGIService with automatic journal entry generation, account mapping logic, valuation methods, and approval workflow management
+-   **Controller**: GRGIController with full CRUD operations, approval/cancellation workflows, API endpoints, and comprehensive error handling
+-   **Views**: Complete AdminLTE views (index, create, show, edit) with SweetAlert2 confirmation dialogs and responsive design
+-   **Account Mapping**: Automatic account mapping (GR: debit=item category auto, credit=manual; GI: debit=manual, credit=item category auto)
+-   **Valuation Methods**: FIFO, LIFO, Average cost, and Manual entry for comprehensive inventory valuation
+-   **Approval Workflow**: Complete status progression (draft → pending_approval → approved) with cancellation tracking
+-   **Routes**: Complete route setup with middleware protection and permission-based access control (gr-gi.view/create/update/delete/approve)
+-   **Menu Integration**: Added GR/GI Management to sidebar navigation under Inventory section
+-   **Seeders**: GRGIPurposeSeeder with 6 GR types and 8 GI types, GRGIAccountMappingSeeder with default account mappings
+-   **Testing**: Browser testing validation confirms complete workflow functionality
+
+**Consequences**: System now has enterprise-level GR/GI system providing comprehensive non-purchase/non-sales inventory management with automatic journal integration. Implementation demonstrates sophisticated accounting architecture with automatic account mapping, multiple valuation methods with automatic cost calculation, comprehensive approval workflow with status tracking, and seamless integration with existing journal posting system. System provides complete audit trail, professional user interface with SweetAlert2 confirmations, and comprehensive business logic enabling proper inventory management for trading company operations with automatic financial integration.
+
+**Review Date**: 2026-03-21 (after 6 months of production use and user feedback)
+
+---
 
 ### Decision: Document Closure System Architecture Implementation - 2025-09-20
 

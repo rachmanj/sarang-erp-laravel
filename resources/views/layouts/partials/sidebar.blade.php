@@ -27,9 +27,12 @@
                 <li class="nav-header">MAIN</li>
 
                 <!-- 1. Inventory Group -->
-                @canany(['inventory.view', 'inventory.create', 'inventory.update'])
+                @canany(['inventory.view', 'inventory.create', 'inventory.update', 'warehouse.view', 'gr-gi.view'])
                     @php
-                        $inventoryActive = request()->routeIs('inventory.*');
+                        $inventoryActive =
+                            request()->routeIs('inventory.*') ||
+                            request()->routeIs('warehouses.*') ||
+                            request()->routeIs('gr-gi.*');
                     @endphp
                     <li class="nav-item {{ $inventoryActive ? 'menu-is-opening menu-open' : '' }}">
                         <a href="#" class="nav-link {{ $inventoryActive ? 'active' : '' }}">
@@ -73,6 +76,24 @@
                                         class="nav-link {{ request()->routeIs('inventory.valuation-report') ? 'active' : '' }}">
                                         <i class="far fa-circle nav-icon"></i>
                                         <p>Valuation Report</p>
+                                    </a>
+                                </li>
+                            @endcan
+                            @can('warehouse.view')
+                                <li class="nav-item">
+                                    <a href="{{ route('warehouses.index') }}"
+                                        class="nav-link {{ request()->routeIs('warehouses.*') ? 'active' : '' }}">
+                                        <i class="far fa-circle nav-icon"></i>
+                                        <p>Warehouses</p>
+                                    </a>
+                                </li>
+                            @endcan
+                            @can('gr-gi.view')
+                                <li class="nav-item">
+                                    <a href="{{ route('gr-gi.index') }}"
+                                        class="nav-link {{ request()->routeIs('gr-gi.*') ? 'active' : '' }}">
+                                        <i class="far fa-circle nav-icon"></i>
+                                        <p>GR/GI Management</p>
                                     </a>
                                 </li>
                             @endcan
