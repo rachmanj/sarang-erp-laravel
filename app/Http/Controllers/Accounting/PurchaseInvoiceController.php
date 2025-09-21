@@ -57,7 +57,31 @@ class PurchaseInvoiceController extends Controller
         ]);
 
         return DB::transaction(function () use ($data, $request) {
-            $invoice = PurchaseInvoice::create([
+            // Log the data being used to create the invoice
+            \Log::info('Creating Purchase Invoice with data:', [
+                'date' => $data['date'],
+                'business_partner_id' => $data['business_partner_id'],
+                'purchase_order_id' => $request->input('purchase_order_id'),
+                'goods_receipt_id' => $request->input('goods_receipt_id'),
+                'description' => $data['description'] ?? null
+            ]);
+            
+            \Log::info('Creating Purchase Invoice with data:', [
+                'date' => $data['date'],
+                'business_partner_id' => $data['business_partner_id'] ?? null,
+                'purchase_order_id' => $request->input('purchase_order_id'),
+                'goods_receipt_id' => $request->input('goods_receipt_id'),
+                'description' => $data['description'] ?? null
+            ]);
+            
+            // Make sure business_partner_id is set
+            if (!isset($data['business_partner_id'])) {
+                \Log::error('Missing business_partner_id in request data', $data);
+                throw new \Exception('Business partner is required');
+            }
+            
+            // Create invoice data array with all required fields
+            $invoiceData = [
                 'invoice_no' => null,
                 'date' => $data['date'],
                 'business_partner_id' => $data['business_partner_id'],
@@ -66,7 +90,11 @@ class PurchaseInvoiceController extends Controller
                 'description' => $data['description'] ?? null,
                 'status' => 'draft',
                 'total_amount' => 0,
-            ]);
+            ];
+            
+            \Log::info('Creating invoice with data:', $invoiceData);
+            
+            $invoice = PurchaseInvoice::create($invoiceData);
 
             $invoiceNo = $this->documentNumberingService->generateNumber('purchase_invoice', $data['date']);
             $invoice->update(['invoice_no' => $invoiceNo]);

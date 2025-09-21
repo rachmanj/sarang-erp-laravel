@@ -85,7 +85,8 @@
                                                         <option value="">-- select vendor first --</option>
                                                     </select>
                                                     <div class="input-group-append">
-                                                        <button type="button" id="copy-lines-btn" class="btn btn-sm btn-success" disabled>
+                                                        <button type="button" id="copy-lines-btn"
+                                                            class="btn btn-sm btn-success" disabled>
                                                             <i class="fas fa-copy"></i> Copy Lines
                                                         </button>
                                                     </div>
@@ -110,22 +111,20 @@
                                             <table class="table table-sm table-striped mb-0" id="lines">
                                                 <thead>
                                                     <tr>
-                                                        <th style="width: 24%">Account <span class="text-danger">*</span>
+                                                        <th style="width: 25%">Item/Account <span
+                                                                class="text-danger">*</span>
                                                         </th>
-                                                        <th style="width: 28%">Description</th>
-                                                        <th style="width: 12%">Qty <span class="text-danger">*</span></th>
-                                                        <th style="width: 16%">Unit Price <span class="text-danger">*</span>
-                                                        </th>
-                                                        <th style="width: 12%">Tax</th>
-                                                        <th style="width: 8%">Actions</th>
+                                                        <th style="width: 30%">Description</th>
+                                                        <th style="width: 15%">Remaining Qty</th>
+                                                        <th style="width: 15%">Qty <span class="text-danger">*</span></th>
+                                                        <th style="width: 15%">Actions</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody></tbody>
                                                 <tfoot>
                                                     <tr>
-                                                        <th colspan="3" class="text-right">Total:</th>
-                                                        <th class="text-right" id="total-amount">0.00</th>
-                                                        <th colspan="2"></th>
+                                                        <th colspan="4" class="text-right">Total Lines:</th>
+                                                        <th class="text-right" id="total-lines">0</th>
                                                     </tr>
                                                 </tfoot>
                                             </table>
@@ -136,10 +135,11 @@
                             <div class="card-footer">
                                 <div class="row">
                                     <div class="col-md-6">
-                                        <button class="btn btn-primary" type="submit">
+                                        <button class="btn btn-primary" type="submit" id="save-grpo-btn">
                                             <i class="fas fa-save mr-1"></i> Save GRPO
                                         </button>
-                                        <a href="{{ route('goods-receipt-pos.index') }}" class="btn btn-default">
+                                        <a href="{{ route('goods-receipt-pos.index') }}" class="btn btn-default"
+                                            id="cancel-btn">
                                             <i class="fas fa-times mr-1"></i> Cancel
                                         </a>
                                     </div>
@@ -156,6 +156,74 @@
             </div>
         </div>
     </section>
+
+    <!-- Item Selection Modal -->
+    <div class="modal fade" id="itemSelectModal" tabindex="-1" role="dialog" aria-labelledby="itemSelectModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-xl" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="itemSelectModalLabel">
+                        <i class="fas fa-search mr-1"></i> Select Item
+                    </h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <!-- Search Filters -->
+                    <div class="row mb-3">
+                        <div class="col-md-3">
+                            <input type="text" id="searchCode" class="form-control form-control-sm"
+                                placeholder="Item Code">
+                        </div>
+                        <div class="col-md-3">
+                            <input type="text" id="searchName" class="form-control form-control-sm"
+                                placeholder="Item Name">
+                        </div>
+                        <div class="col-md-3">
+                            <select id="searchCategory" class="form-control form-control-sm">
+                                <option value="">All Categories</option>
+                                @foreach ($categories as $category)
+                                    <option value="{{ $category->id }}">{{ $category->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <button type="button" class="btn btn-primary btn-sm" onclick="loadItems()">
+                                <i class="fas fa-search"></i> Search
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Items Table -->
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped" id="itemsTable">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Code</th>
+                                    <th>Name</th>
+                                    <th>Category</th>
+                                    <th>Type</th>
+                                    <th>Unit Price</th>
+                                    <th>Stock</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    <div class="d-flex justify-content-between align-items-center mt-3">
+                        <div id="searchResultsCount"></div>
+                        <nav id="paginationContainer"></nav>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 @endsection
 
 @push('scripts')
@@ -176,17 +244,36 @@
             // Add first line
             $('#add-line').on('click', function() {
                 addLineRow();
+                toastr.success('New line added successfully');
             }).trigger('click');
 
-            // Remove line
+            // Remove line with SweetAlert2 confirmation
             $tb.on('click', '.rm', function() {
-                $(this).closest('tr').remove();
-                updateTotalAmount();
+                const $row = $(this).closest('tr');
+                const lineNumber = $tb.find('tr').index($row) + 1;
+
+                Swal.fire({
+                    title: 'Delete Line?',
+                    text: `Are you sure you want to delete line ${lineNumber}?`,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#d33',
+                    cancelButtonColor: '#3085d6',
+                    confirmButtonText: 'Yes, delete it!',
+                    cancelButtonText: 'Cancel',
+                    reverseButtons: true
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        $row.remove();
+                        updateTotalLines();
+                        toastr.success(`Line ${lineNumber} deleted successfully`);
+                    }
+                });
             });
 
-            // Update total when unit price or quantity changes
-            $(document).on('input', '.qty-input, .price-input', function() {
-                updateTotalAmount();
+            // Update total lines when quantity changes
+            $(document).on('input', '.qty-input', function() {
+                updateTotalLines();
             });
 
             // Vendor selection handler - load POs for selected vendor
@@ -194,30 +281,36 @@
                 const vendorId = $(this).val();
                 const $poSelect = $('#po-select');
                 const $copyBtn = $('#copy-lines-btn');
-                
+
                 if (vendorId) {
                     // Enable PO select and load vendor's POs
                     $poSelect.prop('disabled', false);
                     $poSelect.empty().append('<option value="">-- loading POs --</option>');
-                    
-                    $.get('{{ route("goods-receipt-pos.vendor-pos") }}', { business_partner_id: vendorId })
+
+                    $.get('{{ route('goods-receipt-pos.vendor-pos') }}', {
+                            business_partner_id: vendorId
+                        })
                         .done(function(data) {
                             $poSelect.empty().append('<option value="">-- select PO --</option>');
-                            
+
                             if (data.purchase_orders.length > 0) {
                                 $.each(data.purchase_orders, function(index, po) {
-                                    $poSelect.append(`<option value="${po.id}">${po.order_no} (${po.date}) - ${po.remaining_lines_count} lines</option>`);
+                                    $poSelect.append(
+                                        `<option value="${po.id}">${po.order_no} (${po.date}) - ${po.remaining_lines_count} lines</option>`
+                                    );
                                 });
                             } else {
                                 $poSelect.append('<option value="">-- no open POs found --</option>');
                             }
                         })
                         .fail(function() {
-                            $poSelect.empty().append('<option value="">-- error loading POs --</option>');
+                            $poSelect.empty().append(
+                                '<option value="">-- error loading POs --</option>');
                         });
                 } else {
                     // Disable PO select and copy button
-                    $poSelect.prop('disabled', true).empty().append('<option value="">-- select vendor first --</option>');
+                    $poSelect.prop('disabled', true).empty().append(
+                        '<option value="">-- select vendor first --</option>');
                     $copyBtn.prop('disabled', true);
                 }
             });
@@ -226,7 +319,7 @@
             $('#po-select').on('change', function() {
                 const poId = $(this).val();
                 const $copyBtn = $('#copy-lines-btn');
-                
+
                 if (poId) {
                     $copyBtn.prop('disabled', false);
                 } else {
@@ -234,45 +327,64 @@
                 }
             });
 
-            // Copy remaining lines button handler
+            // Copy remaining lines button handler with SweetAlert2 confirmation
             $('#copy-lines-btn').on('click', function() {
                 const poId = $('#po-select').val();
-                
+
                 if (!poId) {
-                    alert('Please select a Purchase Order first');
+                    toastr.error('Please select a Purchase Order first');
                     return;
                 }
-                
-                // Confirm before copying
-                if (confirm('This will copy all remaining lines from the selected PO. Existing lines will be replaced. Continue?')) {
-                    $.get('{{ route("goods-receipt-pos.remaining-lines") }}', { purchase_order_id: poId })
-                        .done(function(data) {
-                            if (data.lines.length > 0) {
-                                // Clear existing lines
-                                $tb.empty();
-                                i = 0;
-                                
-                                // Add copied lines
-                                $.each(data.lines, function(index, line) {
-                                    addLineRow({
-                                        account_id: line.account_id,
-                                        description: line.description,
-                                        qty: line.qty,
-                                        unit_price: line.unit_price,
-                                        tax_code_id: line.tax_code_id
+
+                // Confirm before copying with SweetAlert2
+                Swal.fire({
+                    title: 'Copy Lines from PO?',
+                    text: 'This will copy all remaining lines from the selected PO. Existing lines will be replaced.',
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonColor: '#28a745',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: 'Yes, copy lines!',
+                    cancelButtonText: 'Cancel',
+                    reverseButtons: true
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        $.get('{{ route('goods-receipt-pos.remaining-lines') }}', {
+                                purchase_order_id: poId
+                            })
+                            .done(function(data) {
+                                if (data.lines.length > 0) {
+                                    // Clear existing lines
+                                    $tb.empty();
+                                    i = 0;
+
+                                    // Add copied lines
+                                    $.each(data.lines, function(index, line) {
+                                        addLineRow({
+                                            item_id: line.item_id,
+                                            item_display: line.item_display,
+                                            description: line.description,
+                                            qty: line.qty,
+                                            remaining_qty: line
+                                            .qty, // Use the pending_qty as remaining_qty
+                                            unit_price: line.unit_price
+                                        });
                                     });
-                                });
-                                
-                                updateTotalAmount();
-                                alert(`Copied ${data.lines.length} lines from PO`);
-                            } else {
-                                alert('No remaining lines found in the selected PO');
-                            }
-                        })
-                        .fail(function() {
-                            alert('Error loading PO lines');
-                        });
-                }
+
+                                    updateTotalLines();
+                                    toastr.success(
+                                        `Successfully copied ${data.lines.length} lines from PO`
+                                    );
+                                } else {
+                                    toastr.warning(
+                                        'No remaining lines found in the selected PO');
+                                }
+                            })
+                            .fail(function() {
+                                toastr.error('Error loading PO lines. Please try again.');
+                            });
+                    }
+                });
             });
 
             // Handle prefill data if available
@@ -282,7 +394,7 @@
                 $('[name=date]').val(window.prefill.date);
                 $('[name=business_partner_id]').val(window.prefill.business_partner_id);
                 $('#vendor-select').trigger('change'); // Trigger vendor change to load POs
-                
+
                 // Wait for POs to load, then set the selected PO
                 setTimeout(function() {
                     $('[name=purchase_order_id]').val(window.prefill.purchase_order_id);
@@ -306,36 +418,28 @@
 
                 tr.innerHTML = `
                     <td>
-                        <select name="lines[${lineIdx}][account_id]" class="form-control form-control-sm select2bs4" required>
-                            <option value="">-- select account --</option>
-                            @foreach ($accounts as $a)
-                                <option value="{{ $a->id }}" ${data.account_id == {{ $a->id }} ? 'selected' : ''}>
-                                    {{ $a->code }} - {{ $a->name }}
-                                </option>
-                            @endforeach
-                        </select>
+                        <div class="input-group">
+                            <input type="text" name="lines[${lineIdx}][item_display]" class="form-control form-control-sm item-display" 
+                                value="${data.item_display || ''}" placeholder="-- select item --" readonly>
+                            <input type="hidden" name="lines[${lineIdx}][item_id]" class="item-id" value="${data.item_id || ''}">
+                            <div class="input-group-append">
+                                <button type="button" class="btn btn-outline-secondary btn-sm item-search-btn" 
+                                        data-line-idx="${lineIdx}">
+                                    <i class="fas fa-search"></i>
+                                </button>
+                            </div>
+                        </div>
                     </td>
                     <td>
                         <input type="text" name="lines[${lineIdx}][description]" class="form-control form-control-sm" 
                             value="${data.description || ''}" placeholder="Description">
                     </td>
+                    <td class="text-right">
+                        <span class="remaining-qty">${data.remaining_qty || '0.00'}</span>
+                    </td>
                     <td>
                         <input type="number" step="0.01" min="0.01" name="lines[${lineIdx}][qty]" 
                             class="form-control form-control-sm text-right qty-input" value="${data.qty || 1}" required>
-                    </td>
-                    <td>
-                        <input type="number" step="0.01" min="0" name="lines[${lineIdx}][unit_price]" 
-                            class="form-control form-control-sm text-right price-input" value="${data.unit_price || 0}" required>
-                    </td>
-                    <td>
-                        <select name="lines[${lineIdx}][tax_code_id]" class="form-control form-control-sm select2bs4">
-                            <option value="">-- none --</option>
-                            @foreach ($taxCodes as $t)
-                                <option value="{{ $t->id }}" ${data.tax_code_id == {{ $t->id }} ? 'selected' : ''}>
-                                    {{ $t->code }}
-                                </option>
-                            @endforeach
-                        </select>
                     </td>
                     <td class="text-center">
                         <button type="button" class="btn btn-xs btn-danger rm">
@@ -345,32 +449,303 @@
                 `;
 
                 $tb.append(tr);
-
-                // Initialize Select2BS4 for the newly added select elements
-                $(tr).find('.select2bs4').select2({
-                    theme: 'bootstrap4',
-                    placeholder: 'Select an option',
-                    allowClear: true
-                });
-
-                updateTotalAmount();
+                updateTotalLines();
             }
 
-            function updateTotalAmount() {
-                let total = 0;
+            function updateTotalLines() {
+                const totalLines = $('#lines tbody tr').length;
+                $('#total-lines').text(totalLines);
+            }
 
-                // Calculate total from all line items
+            // Cancel button with SweetAlert2 confirmation
+            $('#cancel-btn').on('click', function(e) {
+                e.preventDefault();
+
+                // Check if form has any data
+                const hasData = $('[name="business_partner_id"]').val() ||
+                    $('#lines tbody tr').length > 0 ||
+                    $('[name="date"]').val() !== '{{ now()->toDateString() }}';
+
+                if (hasData) {
+                    Swal.fire({
+                        title: 'Cancel GRPO Creation?',
+                        text: 'You have unsaved changes. Are you sure you want to cancel?',
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonColor: '#d33',
+                        cancelButtonColor: '#3085d6',
+                        confirmButtonText: 'Yes, cancel!',
+                        cancelButtonText: 'Continue editing',
+                        reverseButtons: true
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            window.location.href = '{{ route('goods-receipt-pos.index') }}';
+                        }
+                    });
+                } else {
+                    window.location.href = '{{ route('goods-receipt-pos.index') }}';
+                }
+            });
+
+            // Save button with SweetAlert2 confirmation
+            $('#save-grpo-btn').on('click', function(e) {
+                e.preventDefault();
+
+                // Basic validation
+                if (!$('[name="business_partner_id"]').val()) {
+                    toastr.error('Please select a vendor');
+                    return;
+                }
+
+                if ($('#lines tbody tr').length === 0) {
+                    toastr.error('Please add at least one line item');
+                    return;
+                }
+
+                // Check if all required fields are filled
+                let hasErrors = false;
                 $('#lines tbody tr').each(function() {
-                    const qty = parseFloat($(this).find('.qty-input').val() || 0);
-                    const price = parseFloat($(this).find('.price-input').val() || 0);
-                    total += qty * price;
+                    const $row = $(this);
+                    if (!$row.find('.item-id').val()) {
+                        toastr.error('Please select an item for all lines');
+                        hasErrors = true;
+                        return false;
+                    }
+                    if (!$row.find('.qty-input').val() || parseFloat($row.find('.qty-input')
+                            .val()) <= 0) {
+                        toastr.error('Please enter valid quantities for all lines');
+                        hasErrors = true;
+                        return false;
+                    }
                 });
 
-                // Update total display with Indonesian number formatting
-                $('#total-amount').text(total.toLocaleString('id-ID', {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2
+                if (hasErrors) return;
+
+                // Show confirmation dialog
+                Swal.fire({
+                    title: 'Save GRPO?',
+                    text: 'Are you sure you want to save this Goods Receipt PO?',
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonColor: '#28a745',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: 'Yes, save it!',
+                    cancelButtonText: 'Cancel',
+                    reverseButtons: true
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        // Submit the form
+                        $('#grpo-form').submit();
+                    }
+                });
+            });
+
+            // Item search modal functionality (similar to PO)
+            $(document).on('click', '.item-search-btn', function() {
+                window.currentLineIdx = $(this).data('line-idx');
+                $('#itemSelectModal').modal('show');
+
+                // Check if a PO is selected to filter items
+                const poId = $('#po-select').val();
+                if (poId) {
+                    loadItemsFromPO(poId);
+                } else {
+                    loadItems();
+                }
+            });
+
+            // Item selection handler
+            $(document).on('click', '.select-item-btn', function() {
+                const itemId = $(this).data('item-id');
+                const itemCode = $(this).data('item-code');
+                const itemName = $(this).data('item-name');
+                const itemPrice = $(this).data('item-price');
+                const remainingQty = $(this).data('remaining-qty') || 0;
+
+                // Update the display and hidden input fields
+                const itemDisplayInput = $(`input[name="lines[${window.currentLineIdx}][item_display]"]`);
+                const itemIdInput = $(`input[name="lines[${window.currentLineIdx}][item_id]"]`);
+
+                itemDisplayInput.val(`${itemCode} - ${itemName}`);
+                itemIdInput.val(itemId);
+
+                // Update remaining quantity display
+                const remainingQtySpan = $(`input[name="lines[${window.currentLineIdx}][item_display]"]`)
+                    .closest('tr').find('.remaining-qty');
+                remainingQtySpan.text(parseFloat(remainingQty).toLocaleString('id-ID', {
+                    minimumFractionDigits: 2
                 }));
+
+                // Update total lines count
+                updateTotalLines();
+
+                $('#itemSelectModal').modal('hide');
+                toastr.success(`Item "${itemCode} - ${itemName}" selected successfully`);
+            });
+
+            // Modal functionality
+            function loadItems(page = 1) {
+                const searchData = {
+                    code: $('#searchCode').val(),
+                    name: $('#searchName').val(),
+                    category_id: $('#searchCategory').val(),
+                    per_page: 20,
+                    page: page
+                };
+
+                $.ajax({
+                    url: '{{ route('inventory.search') }}',
+                    method: 'GET',
+                    data: searchData,
+                    success: function(response) {
+                        displayItems(response.items);
+                        updatePagination(response.pagination);
+                        updateSearchResultsCount(response.pagination.total);
+                    },
+                    error: function(xhr) {
+                        console.error('Error loading items:', xhr.responseText);
+                        toastr.error('Error loading items. Please try again.');
+                    }
+                });
+            }
+
+            function loadItemsFromPO(poId) {
+                $.ajax({
+                    url: '{{ route('goods-receipt-pos.remaining-lines') }}',
+                    method: 'GET',
+                    data: {
+                        purchase_order_id: poId
+                    },
+                    success: function(response) {
+                        // Convert PO lines to item format for display
+                        const items = response.lines.map(line => ({
+                            id: line.item_id,
+                            code: line.item_code,
+                            name: line.item_name,
+                            category: 'From PO',
+                            type: 'item',
+                            unit_price: line.unit_price,
+                            stock: line.qty, // Use remaining qty as stock
+                            remaining_qty: line.qty
+                        }));
+
+                        displayItemsFromPO(items);
+                        updateSearchResultsCount(items.length);
+                    },
+                    error: function(xhr) {
+                        console.error('Error loading PO items:', xhr.responseText);
+                        toastr.error('Error loading items from PO. Please try again.');
+                    }
+                });
+            }
+
+            function displayItems(items) {
+                const tbody = $('#itemsTable tbody');
+                tbody.empty();
+
+                if (items.length === 0) {
+                    tbody.append('<tr><td colspan="8" class="text-center text-muted">No items found</td></tr>');
+                    return;
+                }
+
+                items.forEach((item, index) => {
+                    const row = `
+                        <tr>
+                            <td>${index + 1}</td>
+                            <td><strong>${item.code}</strong></td>
+                            <td>${item.name}</td>
+                            <td>${item.category ? item.category.name : '-'}</td>
+                            <td>${item.item_type}</td>
+                            <td class="text-right">${parseFloat(item.unit_price || 0).toLocaleString('id-ID', {minimumFractionDigits: 2})}</td>
+                            <td class="text-right">${parseFloat(item.stock_qty || 0).toLocaleString('id-ID', {minimumFractionDigits: 2})}</td>
+                            <td class="text-center">
+                                <button type="button" class="btn btn-xs btn-success select-item-btn" 
+                                        data-item-id="${item.id}" 
+                                        data-item-code="${item.code}" 
+                                        data-item-name="${item.name}" 
+                                        data-item-price="${item.unit_price || 0}">
+                                    <i class="fas fa-check"></i> Select
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                    tbody.append(row);
+                });
+            }
+
+            function displayItemsFromPO(items) {
+                const tbody = $('#itemsTable tbody');
+                tbody.empty();
+
+                if (items.length === 0) {
+                    tbody.append(
+                        '<tr><td colspan="8" class="text-center text-muted">No items found in selected PO</td></tr>'
+                        );
+                    return;
+                }
+
+                items.forEach((item, index) => {
+                    const row = `
+                        <tr>
+                            <td>${index + 1}</td>
+                            <td><strong>${item.code}</strong></td>
+                            <td>${item.name}</td>
+                            <td>${item.category}</td>
+                            <td>${item.type}</td>
+                            <td class="text-right">${parseFloat(item.unit_price || 0).toLocaleString('id-ID', {minimumFractionDigits: 2})}</td>
+                            <td class="text-right">${parseFloat(item.remaining_qty || 0).toLocaleString('id-ID', {minimumFractionDigits: 2})}</td>
+                            <td class="text-center">
+                                <button type="button" class="btn btn-xs btn-success select-item-btn" 
+                                        data-item-id="${item.id}" 
+                                        data-item-code="${item.code}" 
+                                        data-item-name="${item.name}" 
+                                        data-item-price="${item.unit_price || 0}"
+                                        data-remaining-qty="${item.remaining_qty || 0}">
+                                    <i class="fas fa-check"></i> Select
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                    tbody.append(row);
+                });
+            }
+
+            function updatePagination(pagination) {
+                const container = $('#paginationContainer');
+                container.empty();
+
+                if (pagination.last_page <= 1) return;
+
+                let paginationHtml = '<ul class="pagination pagination-sm">';
+
+                // Previous button
+                if (pagination.current_page > 1) {
+                    paginationHtml +=
+                        `<li class="page-item"><a class="page-link" href="#" onclick="loadItems(${pagination.current_page - 1})">Previous</a></li>`;
+                }
+
+                // Page numbers
+                for (let i = 1; i <= pagination.last_page; i++) {
+                    if (i === pagination.current_page) {
+                        paginationHtml += `<li class="page-item active"><span class="page-link">${i}</span></li>`;
+                    } else {
+                        paginationHtml +=
+                            `<li class="page-item"><a class="page-link" href="#" onclick="loadItems(${i})">${i}</a></li>`;
+                    }
+                }
+
+                // Next button
+                if (pagination.current_page < pagination.last_page) {
+                    paginationHtml +=
+                        `<li class="page-item"><a class="page-link" href="#" onclick="loadItems(${pagination.current_page + 1})">Next</a></li>`;
+                }
+
+                paginationHtml += '</ul>';
+                container.html(paginationHtml);
+            }
+
+            function updateSearchResultsCount(total) {
+                $('#searchResultsCount').text(`Showing ${total} items`);
             }
         });
     </script>

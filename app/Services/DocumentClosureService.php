@@ -4,12 +4,13 @@ namespace App\Services;
 
 use App\Models\PurchaseOrder;
 use App\Models\GoodsReceipt;
-use App\Models\PurchaseInvoice;
-use App\Models\PurchasePayment;
+use App\Models\Accounting\PurchaseInvoice;
+use App\Models\Accounting\PurchasePayment;
 use App\Models\SalesOrder;
 use App\Models\DeliveryOrder;
-use App\Models\SalesInvoice;
-use App\Models\SalesReceipt;
+use App\Models\Accounting\SalesInvoice;
+use App\Models\Accounting\SalesReceipt;
+use App\Models\Accounting\SalesReceiptAllocation;
 use App\Models\ErpParameter;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
@@ -113,6 +114,38 @@ class DocumentClosureService
     }
 
     /**
+     * Close Sales Invoices when Sales Receipt is created
+     */
+    public function closeSalesInvoiceByReceipt($receiptId, $userId = null)
+    {
+        $receipt = SalesReceipt::findOrFail($receiptId);
+
+        // Get all posted sales invoices for this customer that are not fully paid
+        $invoices = SalesInvoice::where('business_partner_id', $receipt->business_partner_id)
+            ->where('status', 'posted')
+            ->get();
+
+        foreach ($invoices as $invoice) {
+            // Calculate remaining amount for this invoice
+            $allocatedAmount = SalesReceiptAllocation::where('invoice_id', $invoice->id)->sum('amount');
+            $remainingAmount = $invoice->total_amount - $allocatedAmount;
+
+            if ($remainingAmount <= 0) {
+                // Invoice is fully paid, close it
+                $invoice->update([
+                    'closure_status' => 'closed',
+                    'closed_by_document_type' => 'sales_receipt',
+                    'closed_by_document_id' => $receiptId,
+                    'closed_at' => now(),
+                    'closed_by_user_id' => $userId ?? Auth::id()
+                ]);
+            }
+        }
+
+        return true;
+    }
+
+    /**
      * Close a Delivery Order when Sales Invoice is created
      */
     public function closeDeliveryOrder($doId, $siId, $userId = null)
@@ -158,6 +191,43 @@ class DocumentClosureService
         }
 
         return false;
+    }
+
+    /**
+     * Close Purchase Invoices by Payment
+     * 
+     * Checks all invoices associated with a payment and closes them if fully paid
+     */
+    public function closePurchaseInvoiceByPayment($paymentId, $userId = null)
+    {
+        $payment = PurchasePayment::findOrFail($paymentId);
+        $allocations = DB::table('purchase_payment_allocations')
+            ->where('payment_id', $paymentId)
+            ->get();
+
+        $closedCount = 0;
+
+        foreach ($allocations as $allocation) {
+            // Check if this invoice is fully paid
+            $invoice = PurchaseInvoice::findOrFail($allocation->invoice_id);
+            $totalPaid = DB::table('purchase_payment_allocations')
+                ->where('invoice_id', $invoice->id)
+                ->sum('amount');
+
+            // If total paid amount equals or exceeds invoice amount, close it
+            if ($totalPaid >= $invoice->total_amount) {
+                $invoice->update([
+                    'closure_status' => 'closed',
+                    'closed_by_document_type' => 'purchase_payment',
+                    'closed_by_document_id' => $paymentId,
+                    'closed_at' => now(),
+                    'closed_by_user_id' => $userId ?? Auth::id()
+                ]);
+                $closedCount++;
+            }
+        }
+
+        return $closedCount;
     }
 
     /**

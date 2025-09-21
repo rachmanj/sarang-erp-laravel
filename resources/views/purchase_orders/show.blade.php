@@ -1,11 +1,30 @@
 @extends('layouts.main')
+
+@section('title_page')
+    Purchase Order {{ $order->order_no ?? '#' . $order->id }}
+@endsection
+
+@section('breadcrumb_title')
+    <li class="breadcrumb-item"><a href="/dashboard">Dashboard</a></li>
+    <li class="breadcrumb-item"><a href="{{ route('purchase-orders.index') }}">Purchase Orders</a></li>
+    <li class="breadcrumb-item active">{{ $order->order_no ?? '#' . $order->id }}</li>
+@endsection
+
 @section('content')
-    <section class="content">
-        <div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
             <div class="card">
-                <div class="card-header d-flex justify-content-between">
-                    <h3 class="card-title">Purchase Order {{ $order->order_no ?? '#' . $order->id }}</h3>
+                <div class="card-header d-flex justify-content-between align-items-center">
                     <div>
+                        <h3 class="card-title">
+                            <i class="fas fa-shopping-cart mr-1"></i>
+                            Purchase Order {{ $order->order_no ?? '#' . $order->id }}
+                        </h3>
+                    </div>
+                    <div>
+                        <a href="{{ route('purchase-orders.index') }}" class="btn btn-sm btn-secondary mr-1">
+                            <i class="fas fa-arrow-left"></i> Back to Purchase Orders
+                        </a>
                         <form method="post" action="{{ route('purchase-orders.approve', $order->id) }}" class="d-inline"
                             data-confirm="Approve this Purchase Order?">
                             @csrf<button class="btn btn-sm btn-primary" aria-label="Approve Purchase Order"
@@ -28,7 +47,7 @@
                             <div>{{ $order->date }}</div>
                         </div>
                         <div class="col-md-3"><b>Vendor</b>
-                            <div>#{{ $order->business_partner_id }}</div>
+                            <div>{{ $order->businessPartner->name ?? '#' . $order->business_partner_id }}</div>
                         </div>
                         <div class="col-md-3"><b>Status</b>
                             <div>{{ strtoupper($order->status) }}</div>
@@ -46,31 +65,46 @@
                         $orderedQty = (float) DB::table('purchase_order_lines')
                             ->where('order_id', $order->id)
                             ->sum('qty');
-                        $receivedQty = (float) DB::table('goods_receipt_lines as grl')
-                            ->join('goods_receipts as grn', 'grn.id', '=', 'grl.grn_id')
+                        $receivedQty = (float) DB::table('goods_receipt_po_lines as grl')
+                            ->join('goods_receipt_po as grn', 'grn.id', '=', 'grl.grpo_id')
                             ->where('grn.purchase_order_id', $order->id)
                             ->sum('grl.qty');
                     @endphp
                     <p><b>Ordered vs Received:</b> {{ number_format($orderedQty, 2) }} ordered |
                         {{ number_format($receivedQty, 2) }} received</p>
+
                     <div class="table-responsive">
-                        <table class="table table-bordered">
+                        <table class="table table-bordered table-striped">
                             <thead>
                                 <tr>
-                                    <th>Account</th>
+                                    <th>Item/Account</th>
                                     <th>Description</th>
                                     <th class="text-right">Qty</th>
                                     <th class="text-right">Unit Price</th>
+                                    <th class="text-right">VAT</th>
+                                    <th class="text-right">WTax</th>
                                     <th class="text-right">Amount</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach ($order->lines as $l)
                                     <tr>
-                                        <td>#{{ $l->account_id }}</td>
+                                        <td>
+                                            @if ($l->inventory_item_id && $l->inventoryItem)
+                                                <strong>{{ $l->inventoryItem->code }}</strong><br>
+                                                <small class="text-muted">{{ $l->inventoryItem->name }}</small>
+                                            @elseif($l->item_code)
+                                                <strong>{{ $l->item_code }}</strong><br>
+                                                <small class="text-muted">{{ $l->item_name }}</small>
+                                            @else
+                                                <span class="text-muted">#{{ $l->account_id }}</span>
+                                            @endif
+                                        </td>
                                         <td>{{ $l->description }}</td>
                                         <td class="text-right">{{ number_format($l->qty, 2) }}</td>
                                         <td class="text-right">{{ number_format($l->unit_price, 2) }}</td>
+                                        <td class="text-right">{{ $l->vat_rate ?? 0 }}%</td>
+                                        <td class="text-right">{{ $l->wtax_rate ?? 0 }}%</td>
                                         <td class="text-right">{{ number_format($l->amount, 2) }}</td>
                                     </tr>
                                 @endforeach
@@ -80,5 +114,5 @@
                 </div>
             </div>
         </div>
-    </section>
+    </div>
 @endsection

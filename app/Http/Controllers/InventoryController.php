@@ -5,16 +5,26 @@ namespace App\Http\Controllers;
 use App\Models\InventoryItem;
 use App\Models\InventoryTransaction;
 use App\Models\InventoryValuation;
+use App\Models\InventoryItemUnit;
+use App\Models\UnitOfMeasure;
 use App\Models\ProductCategory;
 use App\Models\Warehouse;
 use App\Services\AuditLogService;
 use App\Services\PriceLevelService;
+use App\Services\UnitConversionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 
 class InventoryController extends Controller
 {
+    protected $unitConversionService;
+
+    public function __construct(UnitConversionService $unitConversionService)
+    {
+        $this->unitConversionService = $unitConversionService;
+    }
     public function index()
     {
         $items = InventoryItem::with('category')
@@ -84,81 +94,106 @@ class InventoryController extends Controller
 
     public function store(Request $request)
     {
-        $data = $request->validate([
-            'code' => ['required', 'string', 'max:50', 'unique:inventory_items,code'],
-            'name' => ['required', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
-            'category_id' => ['required', 'integer', 'exists:product_categories,id'],
-            'default_warehouse_id' => ['nullable', 'integer', 'exists:warehouses,id'],
-            'unit_of_measure' => ['required', 'string', 'max:50'],
-            'purchase_price' => ['required', 'numeric', 'min:0'],
-            'selling_price' => ['required', 'numeric', 'min:0'],
-            'selling_price_level_2' => ['nullable', 'numeric', 'min:0'],
-            'selling_price_level_3' => ['nullable', 'numeric', 'min:0'],
-            'price_level_2_percentage' => ['nullable', 'numeric', 'min:0', 'max:1000'],
-            'price_level_3_percentage' => ['nullable', 'numeric', 'min:0', 'max:1000'],
-            'min_stock_level' => ['required', 'integer', 'min:0'],
-            'max_stock_level' => ['required', 'integer', 'min:0'],
-            'reorder_point' => ['required', 'integer', 'min:0'],
-            'item_type' => ['required', 'in:item,service'],
-            'valuation_method' => ['required', 'in:fifo,lifo,weighted_average'],
-            'is_active' => ['boolean'],
-        ]);
+        try {
+            Log::info('Inventory store method called with data:', $request->all());
 
-        $data['is_active'] = $request->has('is_active');
+            // Base validation rules
+            $rules = [
+                'code' => ['required', 'string', 'max:50', 'unique:inventory_items,code'],
+                'name' => ['required', 'string', 'max:255'],
+                'description' => ['nullable', 'string'],
+                'category_id' => ['required', 'integer', 'exists:product_categories,id'],
+                'default_warehouse_id' => ['nullable', 'integer', 'exists:warehouses,id'],
+                'unit_of_measure' => ['required', 'string', 'max:50'],
+                'purchase_price' => ['required', 'numeric', 'min:0'],
+                'selling_price' => ['required', 'numeric', 'min:0'],
+                'selling_price_level_2' => ['nullable', 'numeric', 'min:0'],
+                'selling_price_level_3' => ['nullable', 'numeric', 'min:0'],
+                'price_level_2_percentage' => ['nullable', 'numeric', 'min:0', 'max:1000'],
+                'price_level_3_percentage' => ['nullable', 'numeric', 'min:0', 'max:1000'],
+                'item_type' => ['required', 'in:item,service'],
+                'valuation_method' => ['required', 'in:fifo,lifo,weighted_average'],
+                'is_active' => ['nullable'],
+            ];
 
-        return DB::transaction(function () use ($data, $request) {
-            $item = InventoryItem::create($data);
-
-            // Log the creation
-            app(AuditLogService::class)->logInventoryItem(
-                'created',
-                $item->id,
-                null,
-                $item->getAttributes(),
-                "Inventory item '{$item->name}' created"
-            );
-
-            // Create initial stock transaction if initial stock is provided
-            if ($request->has('initial_stock') && $request->initial_stock > 0) {
-                $initialStock = $request->initial_stock;
-                $transaction = InventoryTransaction::create([
-                    'item_id' => $item->id,
-                    'warehouse_id' => $item->default_warehouse_id,
-                    'transaction_type' => 'adjustment',
-                    'quantity' => $initialStock,
-                    'unit_cost' => $data['purchase_price'],
-                    'total_cost' => $initialStock * $data['purchase_price'],
-                    'reference_type' => 'initial_stock',
-                    'reference_id' => null,
-                    'transaction_date' => now()->toDateString(),
-                    'notes' => 'Initial stock entry',
-                    'created_by' => Auth::id(),
-                ]);
-
-                // Log the transaction
-                app(AuditLogService::class)->logInventoryTransaction(
-                    'created',
-                    $transaction->id,
-                    null,
-                    $transaction->getAttributes(),
-                    "Initial stock entry: {$initialStock} units"
-                );
-
-                // Create initial valuation
-                InventoryValuation::create([
-                    'item_id' => $item->id,
-                    'valuation_date' => now()->toDateString(),
-                    'quantity_on_hand' => $initialStock,
-                    'unit_cost' => $data['purchase_price'],
-                    'total_value' => $initialStock * $data['purchase_price'],
-                    'valuation_method' => $data['valuation_method'],
-                ]);
+            // Add stock level validation only for physical items
+            if ($request->input('item_type') === 'item') {
+                $rules['min_stock_level'] = ['required', 'integer', 'min:0'];
+                $rules['max_stock_level'] = ['required', 'integer', 'min:0'];
+                $rules['reorder_point'] = ['required', 'integer', 'min:0'];
+            } else {
+                $rules['min_stock_level'] = ['nullable', 'integer', 'min:0'];
+                $rules['max_stock_level'] = ['nullable', 'integer', 'min:0'];
+                $rules['reorder_point'] = ['nullable', 'integer', 'min:0'];
             }
 
-            return redirect()->route('inventory.show', $item->id)
-                ->with('success', 'Inventory item created successfully');
-        });
+            $data = $request->validate($rules);
+
+            Log::info('Validation passed. Validated data:', $data);
+
+            // Convert checkbox "on" value to boolean true
+            $data['is_active'] = $request->has('is_active') ? true : false;
+
+            return DB::transaction(function () use ($data, $request) {
+                Log::info('Starting DB transaction to create inventory item');
+                $item = InventoryItem::create($data);
+                Log::info('Inventory item created with ID: ' . ($item->id ?? 'null'));
+
+                // Log the creation
+                app(AuditLogService::class)->logInventoryItem(
+                    'created',
+                    $item->id,
+                    null,
+                    $item->getAttributes(),
+                    "Inventory item '{$item->name}' created"
+                );
+
+                // Create initial stock transaction if initial stock is provided
+                if ($request->has('initial_stock') && $request->initial_stock > 0) {
+                    $initialStock = $request->initial_stock;
+                    $transaction = InventoryTransaction::create([
+                        'item_id' => $item->id,
+                        'warehouse_id' => $item->default_warehouse_id,
+                        'transaction_type' => 'adjustment',
+                        'quantity' => $initialStock,
+                        'unit_cost' => $data['purchase_price'],
+                        'total_cost' => $initialStock * $data['purchase_price'],
+                        'reference_type' => 'initial_stock',
+                        'reference_id' => null,
+                        'transaction_date' => now()->toDateString(),
+                        'notes' => 'Initial stock entry',
+                        'created_by' => Auth::id(),
+                    ]);
+
+                    // Log the transaction
+                    app(AuditLogService::class)->logInventoryTransaction(
+                        'created',
+                        $transaction->id,
+                        null,
+                        $transaction->getAttributes(),
+                        "Initial stock entry: {$initialStock} units"
+                    );
+
+                    // Create initial valuation
+                    InventoryValuation::create([
+                        'item_id' => $item->id,
+                        'valuation_date' => now()->toDateString(),
+                        'quantity_on_hand' => $initialStock,
+                        'unit_cost' => $data['purchase_price'],
+                        'total_value' => $initialStock * $data['purchase_price'],
+                        'valuation_method' => $data['valuation_method'],
+                    ]);
+                }
+
+                Log::info('Transaction completed successfully, redirecting to show page');
+                return redirect()->route('inventory.show', $item->id)
+                    ->with('success', 'Inventory item created successfully');
+            });
+        } catch (\Exception $e) {
+            Log::error('Error creating inventory item: ' . $e->getMessage());
+            Log::error($e->getTraceAsString());
+            return back()->withInput()->withErrors(['error' => 'Failed to create inventory item: ' . $e->getMessage()]);
+        }
     }
 
     public function show(int $id)
@@ -209,7 +244,7 @@ class InventoryController extends Controller
             'reorder_point' => ['required', 'integer', 'min:0'],
             'item_type' => ['required', 'in:item,service'],
             'valuation_method' => ['required', 'in:fifo,lifo,weighted_average'],
-            'is_active' => ['boolean'],
+            'is_active' => ['nullable'],
         ]);
 
         $data['is_active'] = $request->has('is_active');
@@ -599,5 +634,129 @@ class InventoryController extends Controller
         }
 
         return $totalQuantity > 0 ? $totalCost / $totalQuantity : 0;
+    }
+
+    // Unit Management Methods
+    public function manageUnits(InventoryItem $inventoryItem)
+    {
+        $inventoryItem->load(['itemUnits.unit']);
+        // Only load baseUnit if it exists
+        if ($inventoryItem->itemUnits()->where('is_base_unit', true)->exists()) {
+            $inventoryItem->load('baseUnit.unit');
+        }
+
+        $availableUnits = UnitOfMeasure::active()->orderBy('unit_type')->orderBy('name')->get();
+        $unitTypes = $this->unitConversionService->getUnitTypes();
+
+        return view('inventory.units.manage', compact('inventoryItem', 'availableUnits', 'unitTypes'));
+    }
+
+    public function addUnit(Request $request, InventoryItem $inventoryItem)
+    {
+        $request->validate([
+            'unit_id' => 'required|exists:units_of_measure,id',
+            'conversion_quantity' => 'required|numeric|min:0.01',
+            'purchase_price' => 'required|numeric|min:0',
+            'selling_price' => 'required|numeric|min:0',
+            'selling_price_level_2' => 'nullable|numeric|min:0',
+            'selling_price_level_3' => 'nullable|numeric|min:0',
+            'is_base_unit' => 'boolean',
+        ]);
+
+        // Validate unit type compatibility
+        if (!$this->unitConversionService->validateUnitTypeForItem($inventoryItem->id, $request->unit_id)) {
+            return back()->withErrors(['unit_id' => 'Unit type is not compatible with existing units for this item.']);
+        }
+
+        // Check if unit already exists for this item
+        if ($inventoryItem->itemUnits()->where('unit_id', $request->unit_id)->exists()) {
+            return back()->withErrors(['unit_id' => 'This unit is already configured for this item.']);
+        }
+
+        // If setting as base unit, ensure only one base unit per item
+        if ($request->is_base_unit) {
+            $inventoryItem->itemUnits()->update(['is_base_unit' => false]);
+        }
+
+        $itemUnit = $this->unitConversionService->createItemUnit($inventoryItem->id, $request->unit_id, [
+            'is_base_unit' => $request->is_base_unit ?? false,
+            'conversion_quantity' => $request->conversion_quantity,
+            'purchase_price' => $request->purchase_price,
+            'selling_price' => $request->selling_price,
+            'selling_price_level_2' => $request->selling_price_level_2,
+            'selling_price_level_3' => $request->selling_price_level_3,
+        ]);
+
+        return redirect()->route('inventory-items.units.index', $inventoryItem)
+            ->with('success', 'Unit added successfully.');
+    }
+
+    public function updateUnit(Request $request, InventoryItem $inventoryItem, InventoryItemUnit $itemUnit)
+    {
+        $request->validate([
+            'purchase_price' => 'required|numeric|min:0',
+            'selling_price' => 'required|numeric|min:0',
+            'selling_price_level_2' => 'nullable|numeric|min:0',
+            'selling_price_level_3' => 'nullable|numeric|min:0',
+            'is_active' => 'boolean',
+        ]);
+
+        $itemUnit->update($request->only([
+            'purchase_price',
+            'selling_price',
+            'selling_price_level_2',
+            'selling_price_level_3',
+            'is_active'
+        ]));
+
+        return redirect()->route('inventory-items.units.index', $inventoryItem)
+            ->with('success', 'Unit updated successfully.');
+    }
+
+    public function removeUnit(InventoryItem $inventoryItem, InventoryItemUnit $itemUnit)
+    {
+        // Prevent removing the last unit
+        if ($inventoryItem->itemUnits()->count() <= 1) {
+            return back()->withErrors(['error' => 'Cannot remove the last unit from an item.']);
+        }
+
+        // Prevent removing the base unit if there are other units
+        if ($itemUnit->is_base_unit && $inventoryItem->itemUnits()->where('id', '!=', $itemUnit->id)->count() > 0) {
+            return back()->withErrors(['error' => 'Cannot remove the base unit. Set another unit as base first.']);
+        }
+
+        $itemUnit->delete();
+
+        return redirect()->route('inventory-items.units.index', $inventoryItem)
+            ->with('success', 'Unit removed successfully.');
+    }
+
+    public function setBaseUnit(Request $request, InventoryItem $inventoryItem)
+    {
+        $request->validate([
+            'unit_id' => 'required|exists:inventory_item_units,unit_id,id,' . $inventoryItem->id,
+        ]);
+
+        $this->unitConversionService->setBaseUnit($inventoryItem->id, $request->unit_id);
+
+        return redirect()->route('inventory-items.units.index', $inventoryItem)
+            ->with('success', 'Base unit updated successfully.');
+    }
+
+    // API Methods for AJAX
+    public function getItemUnits(Request $request)
+    {
+        $itemId = $request->get('item_id');
+        $units = $this->unitConversionService->getAvailableUnitsForItem($itemId);
+
+        return response()->json($units);
+    }
+
+    public function getUnitsByType(Request $request)
+    {
+        $type = $request->get('type');
+        $units = $this->unitConversionService->getUnitsByType($type);
+
+        return response()->json($units);
     }
 }

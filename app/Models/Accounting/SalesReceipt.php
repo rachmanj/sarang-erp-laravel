@@ -12,7 +12,7 @@ class SalesReceipt extends Model
     protected $fillable = [
         'receipt_no',
         'date',
-        'customer_id',
+        'business_partner_id',
         'description',
         'total_amount',
         'status',

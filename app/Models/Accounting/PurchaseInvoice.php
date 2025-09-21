@@ -12,13 +12,15 @@ class PurchaseInvoice extends Model
     protected $fillable = [
         'invoice_no',
         'date',
-        'vendor_id',
+        'business_partner_id', // Changed from vendor_id to match controller
         'purchase_order_id',
         'goods_receipt_id',
         'description',
         'total_amount',
         'status',
         'posted_at',
+        'terms_days',
+        'due_date',
     ];
 
     protected $casts = [

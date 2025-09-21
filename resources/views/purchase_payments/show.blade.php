@@ -43,7 +43,9 @@
                         </div>
                         <div class="card-body">
                             <p>Date: {{ $payment->date }}</p>
-                            <p>Vendor: {{ optional(DB::table('vendors')->find($payment->vendor_id))->name }}</p>
+                            <p>Vendor:
+                                {{ optional(DB::table('business_partners')->find($payment->business_partner_id))->name }}
+                            </p>
                             <p>Description: {{ $payment->description }}</p>
                             <hr>
                             <table class="table table-striped">

@@ -11,24 +11,173 @@ use App\Models\SupplierPerformance;
 use App\Models\Accounting\Account;
 use App\Services\InventoryService;
 use App\Services\DocumentNumberingService;
+use App\Services\UnitConversionService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 
 class PurchaseService
 {
     protected $inventoryService;
     protected $documentNumberingService;
+    protected $unitConversionService;
 
-    public function __construct(InventoryService $inventoryService, DocumentNumberingService $documentNumberingService)
+    public function __construct(InventoryService $inventoryService, DocumentNumberingService $documentNumberingService, UnitConversionService $unitConversionService)
     {
         $this->inventoryService = $inventoryService;
         $this->documentNumberingService = $documentNumberingService;
+        $this->unitConversionService = $unitConversionService;
     }
 
     public function createPurchaseOrder($data)
     {
         return DB::transaction(function () use ($data) {
-            $po = PurchaseOrder::create([
+            Log::info('Starting DB transaction to create Purchase Order');
+            try {
+                $po = PurchaseOrder::create([
+                    'order_no' => $data['order_no'],
+                    'reference_no' => $data['reference_no'] ?? null,
+                    'date' => $data['date'],
+                    'expected_delivery_date' => $data['expected_delivery_date'] ?? null,
+                    'business_partner_id' => $data['business_partner_id'],
+                    'description' => $data['description'] ?? null,
+                    'notes' => $data['notes'] ?? null,
+                    'terms_conditions' => $data['terms_conditions'] ?? null,
+                    'payment_terms' => $data['payment_terms'] ?? null,
+                    'delivery_method' => $data['delivery_method'] ?? null,
+                    'freight_cost' => $data['freight_cost'] ?? 0,
+                    'handling_cost' => $data['handling_cost'] ?? 0,
+                    'insurance_cost' => $data['insurance_cost'] ?? 0,
+                    'order_type' => $data['order_type'] ?? 'item',
+                    'status' => 'draft',
+                    'approval_status' => 'pending',
+                    'created_by' => Auth::id(),
+                ]);
+                Log::info('Purchase Order header created with ID: ' . ($po->id ?? 'null'));
+            } catch (\Exception $e) {
+                Log::error('Error creating Purchase Order header: ' . $e->getMessage());
+                Log::error($e->getTraceAsString());
+                throw $e;
+            }
+
+            $totalAmount = 0;
+            $totalFreightCost = 0;
+            $totalHandlingCost = 0;
+
+            foreach ($data['lines'] as $index => $lineData) {
+                try {
+                    Log::info("Processing line {$index} with data:", $lineData);
+                    
+                    $originalAmount = $lineData['qty'] * $lineData['unit_price'];
+                    $vatAmount = $originalAmount * ($lineData['vat_rate'] / 100);
+                    $wtaxAmount = $originalAmount * ($lineData['wtax_rate'] / 100);
+                    $amount = $originalAmount + $vatAmount - $wtaxAmount;
+
+                    $totalAmount += $amount;
+
+                    // Determine if this is an inventory item or account based on order type
+                    $inventoryItemId = null;
+                    $accountId = null;
+
+                    if ($data['order_type'] === 'item') {
+                        $inventoryItemId = $lineData['item_id'];
+                        // For inventory items, use a default inventory account
+                        // You can modify this to get the account from inventory item if it has one
+                        $accountId = $this->getDefaultInventoryAccount();
+                        Log::info("Line {$index} is inventory item with ID: {$inventoryItemId}, using account ID: {$accountId}");
+                    } else {
+                        $accountId = $lineData['item_id'];
+                        Log::info("Line {$index} is service with account ID: {$accountId}");
+                    }
+
+                    // Process unit conversion if order_unit_id is provided
+                    $baseQuantity = $lineData['qty'];
+                    $conversionFactor = 1;
+
+                    if (isset($lineData['order_unit_id']) && $lineData['order_unit_id'] && $inventoryItemId) {
+                        Log::info("Processing unit conversion for line {$index}");
+                        $processedLine = $this->unitConversionService->processOrderLine($lineData, $inventoryItemId);
+                        $baseQuantity = $processedLine['base_quantity'] ?? $lineData['qty'];
+                        $conversionFactor = $processedLine['unit_conversion_factor'] ?? 1;
+                        Log::info("Unit conversion result: baseQty={$baseQuantity}, factor={$conversionFactor}");
+                    }
+
+                    Log::info("Creating purchase order line for PO ID: {$po->id}");
+                    $line = PurchaseOrderLine::create([
+                        'order_id' => $po->id,
+                        'account_id' => $accountId,
+                        'inventory_item_id' => $inventoryItemId,
+                        'item_code' => null,
+                        'item_name' => null,
+                        'unit_of_measure' => null,
+                        'order_unit_id' => $lineData['order_unit_id'] ?? null,
+                        'description' => $lineData['description'] ?? null,
+                        'qty' => $lineData['qty'],
+                        'base_quantity' => $baseQuantity,
+                        'unit_conversion_factor' => $conversionFactor,
+                        'received_qty' => 0,
+                        'pending_qty' => $lineData['qty'],
+                        'unit_price' => $lineData['unit_price'],
+                        'amount' => $amount,
+                        'freight_cost' => 0,
+                        'handling_cost' => 0,
+                        'tax_code_id' => null,
+                        'vat_rate' => $lineData['vat_rate'],
+                        'wtax_rate' => $lineData['wtax_rate'],
+                        'notes' => $lineData['notes'] ?? null,
+                        'status' => 'pending',
+                    ]);
+                    Log::info("Purchase order line created with ID: " . ($line->id ?? 'null'));
+                } catch (\Exception $e) {
+                    Log::error("Error creating purchase order line {$index}: " . $e->getMessage());
+                    Log::error($e->getTraceAsString());
+                    throw $e;
+                }
+            }
+
+            // Update totals
+            try {
+                Log::info("Updating Purchase Order totals: amount={$totalAmount}, freight={$totalFreightCost}, handling={$totalHandlingCost}");
+                $po->update([
+                    'total_amount' => $totalAmount,
+                    'freight_cost' => $totalFreightCost,
+                    'handling_cost' => $totalHandlingCost,
+                ]);
+                Log::info("Purchase Order totals updated successfully");
+            } catch (\Exception $e) {
+                Log::error("Error updating Purchase Order totals: " . $e->getMessage());
+                Log::error($e->getTraceAsString());
+                throw $e;
+            }
+
+            // Create approval workflow
+            try {
+                Log::info("Creating approval workflow for Purchase Order ID: {$po->id}");
+                $this->createApprovalWorkflow($po);
+                Log::info("Approval workflow created successfully");
+            } catch (\Exception $e) {
+                Log::error("Error creating approval workflow: " . $e->getMessage());
+                Log::error($e->getTraceAsString());
+                throw $e;
+            }
+
+            Log::info("Purchase Order creation completed successfully, returning PO with ID: {$po->id}");
+            return $po;
+        });
+    }
+
+    public function updatePurchaseOrder($id, $data)
+    {
+        return DB::transaction(function () use ($id, $data) {
+            $po = PurchaseOrder::findOrFail($id);
+
+            // Only allow updating draft purchase orders
+            if ($po->status !== 'draft') {
+                throw new \Exception('Only draft purchase orders can be updated.');
+            }
+
+            // Update the purchase order
+            $po->update([
                 'order_no' => $data['order_no'],
                 'reference_no' => $data['reference_no'] ?? null,
                 'date' => $data['date'],
@@ -43,68 +192,41 @@ class PurchaseService
                 'handling_cost' => $data['handling_cost'] ?? 0,
                 'insurance_cost' => $data['insurance_cost'] ?? 0,
                 'order_type' => $data['order_type'] ?? 'item',
-                'status' => 'draft',
-                'approval_status' => 'pending',
-                'created_by' => Auth::id(),
             ]);
 
+            // Delete existing lines
+            $po->lines()->delete();
+
+            // Create new lines
             $totalAmount = 0;
-            $totalFreightCost = 0;
-            $totalHandlingCost = 0;
-
             foreach ($data['lines'] as $lineData) {
-                $originalAmount = $lineData['qty'] * $lineData['unit_price'];
-                $vatAmount = $originalAmount * ($lineData['vat_rate'] / 100);
-                $wtaxAmount = $originalAmount * ($lineData['wtax_rate'] / 100);
-                $amount = $originalAmount + $vatAmount - $wtaxAmount;
-
-                $totalAmount += $amount;
-
-                // Determine if this is an inventory item or account based on order type
-                $inventoryItemId = null;
-                $accountId = null;
-
-                if ($data['order_type'] === 'item') {
-                    $inventoryItemId = $lineData['item_id'];
-                    // For inventory items, use a default inventory account
-                    // You can modify this to get the account from inventory item if it has one
-                    $accountId = $this->getDefaultInventoryAccount();
+                // Process unit conversion if order_unit_id is provided
+                if (isset($lineData['order_unit_id']) && $lineData['order_unit_id']) {
+                    $processedLine = $this->unitConversionService->processOrderLine($lineData, $lineData['item_id']);
                 } else {
-                    $accountId = $lineData['item_id'];
+                    $processedLine = $lineData;
                 }
 
-                PurchaseOrderLine::create([
-                    'order_id' => $po->id,
-                    'account_id' => $accountId,
-                    'inventory_item_id' => $inventoryItemId,
-                    'item_code' => null,
-                    'item_name' => null,
-                    'unit_of_measure' => null,
-                    'description' => $lineData['description'] ?? null,
-                    'qty' => $lineData['qty'],
-                    'received_qty' => 0,
-                    'pending_qty' => $lineData['qty'],
-                    'unit_price' => $lineData['unit_price'],
-                    'amount' => $amount,
-                    'freight_cost' => 0,
-                    'handling_cost' => 0,
-                    'tax_code_id' => null,
-                    'vat_rate' => $lineData['vat_rate'],
-                    'wtax_rate' => $lineData['wtax_rate'],
-                    'notes' => $lineData['notes'] ?? null,
-                    'status' => 'pending',
+                $line = PurchaseOrderLine::create([
+                    'purchase_order_id' => $po->id,
+                    'item_id' => $processedLine['item_id'],
+                    'account_id' => $processedLine['account_id'] ?? null,
+                    'description' => $processedLine['description'],
+                    'qty' => $processedLine['qty'],
+                    'unit_price' => $processedLine['unit_price'],
+                    'order_unit_id' => $processedLine['order_unit_id'] ?? null,
+                    'base_quantity' => $processedLine['base_quantity'] ?? $processedLine['qty'],
+                    'unit_conversion_factor' => $processedLine['unit_conversion_factor'] ?? 1,
+                    'vat_rate' => $processedLine['vat_rate'],
+                    'wtax_rate' => $processedLine['wtax_rate'],
+                    'notes' => $processedLine['notes'] ?? null,
                 ]);
+
+                $totalAmount += $line->amount;
             }
 
-            // Update totals
-            $po->update([
-                'total_amount' => $totalAmount,
-                'freight_cost' => $totalFreightCost,
-                'handling_cost' => $totalHandlingCost,
-            ]);
-
-            // Create approval workflow
-            $this->createApprovalWorkflow($po);
+            // Update total amount
+            $po->update(['total_amount' => $totalAmount]);
 
             return $po;
         });

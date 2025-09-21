@@ -9,6 +9,8 @@ use App\Services\DeliveryService;
 use App\Services\DocumentClosureService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class DeliveryOrderController extends Controller
 {
@@ -77,7 +79,9 @@ class DeliveryOrderController extends Controller
             ->orderBy('created_at', 'desc')
             ->get();
 
-        return view('delivery_orders.create', compact('salesOrders', 'salesOrder'));
+        $customers = \App\Models\BusinessPartner::where('partner_type', 'customer')->orderBy('name')->get();
+
+        return view('delivery_orders.create', compact('salesOrders', 'salesOrder', 'customers'));
     }
 
     /**
@@ -85,8 +89,11 @@ class DeliveryOrderController extends Controller
      */
     public function store(Request $request)
     {
+        Log::info('Delivery Order Store - Request Data:', $request->all());
+        
         $data = $request->validate([
             'sales_order_id' => ['required', 'integer', 'exists:sales_orders,id'],
+            'business_partner_id' => ['required', 'integer', 'exists:business_partners,id'],
             'delivery_address' => ['required', 'string', 'max:500'],
             'delivery_contact_person' => ['nullable', 'string', 'max:100'],
             'delivery_phone' => ['nullable', 'string', 'max:20'],
@@ -98,16 +105,23 @@ class DeliveryOrderController extends Controller
         ]);
 
         try {
+            Log::info('Calling DeliveryService::createDeliveryOrderFromSalesOrder', [
+                'sales_order_id' => $data['sales_order_id'],
+                'data' => $data
+            ]);
+            
             $deliveryOrder = $this->deliveryService->createDeliveryOrderFromSalesOrder(
                 $data['sales_order_id'],
                 $data
             );
+            
+            Log::info('Delivery Order created successfully', ['delivery_order_id' => $deliveryOrder->id]);
 
             // Attempt to close the Sales Order if Delivery Order quantity is sufficient
             try {
                 $this->documentClosureService->closeSalesOrder($data['sales_order_id'], $deliveryOrder->id, Auth::id());
             } catch (\Exception $closureException) {
-                \Log::warning('Failed to close Sales Order after Delivery Order creation', [
+                Log::warning('Failed to close Sales Order after Delivery Order creation', [
                     'so_id' => $data['sales_order_id'],
                     'do_id' => $deliveryOrder->id,
                     'error' => $closureException->getMessage()
@@ -124,8 +138,40 @@ class DeliveryOrderController extends Controller
     }
 
     /**
-     * Display the specified resource.
+     * Create Sales Invoice from Delivery Order
      */
+    public function createInvoice(DeliveryOrder $deliveryOrder)
+    {
+        // Check if delivery order is completed
+        if ($deliveryOrder->status !== 'delivered') {
+            return redirect()->back()->with('error', 'Only delivered delivery orders can be converted to Sales Invoice');
+        }
+
+        $accounts = DB::table('accounts')->where('is_postable', 1)->orderBy('code')->get();
+        $customers = DB::table('business_partners')->where('partner_type', 'customer')->orderBy('name')->get();
+        $taxCodes = DB::table('tax_codes')->orderBy('code')->get();
+        $projects = DB::table('projects')->orderBy('name')->get();
+        $departments = DB::table('departments')->orderBy('name')->get();
+
+        $prefill = [
+            'date' => now()->toDateString(),
+            'business_partner_id' => $deliveryOrder->business_partner_id,
+            'description' => 'From DO ' . ($deliveryOrder->do_number ?: ('#' . $deliveryOrder->id)),
+            'lines' => $deliveryOrder->lines->map(function ($l) {
+                return [
+                    'account_id' => (int)$l->account_id,
+                    'description' => $l->description,
+                    'qty' => (float)$l->delivered_qty,
+                    'unit_price' => (float)$l->unit_price,
+                    'tax_code_id' => null,
+                    'total_amount' => $l->delivered_qty * $l->unit_price,
+                ];
+            }),
+        ];
+
+        return view('sales_invoices.create', compact('deliveryOrder', 'accounts', 'customers', 'taxCodes', 'projects', 'departments', 'prefill'));
+    }
+
     public function show(DeliveryOrder $deliveryOrder)
     {
         $deliveryOrder->load([

@@ -64,6 +64,27 @@
                             </div>
                             <div class="col-md-6">
                                 <div class="form-group">
+                                    <label for="default_warehouse_id">Default Warehouse</label>
+                                    <select class="form-control @error('default_warehouse_id') is-invalid @enderror"
+                                        id="default_warehouse_id" name="default_warehouse_id">
+                                        <option value="">Select Warehouse (Optional)</option>
+                                        @foreach ($warehouses as $warehouse)
+                                            <option value="{{ $warehouse->id }}"
+                                                {{ old('default_warehouse_id') == $warehouse->id ? 'selected' : '' }}>
+                                                {{ $warehouse->name }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                    @error('default_warehouse_id')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
                                     <label for="unit_of_measure">Unit of Measure <span class="text-danger">*</span></label>
                                     <input type="text"
                                         class="form-control @error('unit_of_measure') is-invalid @enderror"

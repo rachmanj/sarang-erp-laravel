@@ -45,26 +45,59 @@
                                             <label class="col-sm-3 col-form-label">Sales Order <span
                                                     class="text-danger">*</span></label>
                                             <div class="col-sm-9">
-                                                <select name="sales_order_id"
-                                                    class="form-control form-control-sm select2bs4" id="sales_order_id"
-                                                    required>
-                                                    <option value="">-- select sales order --</option>
-                                                    @foreach ($salesOrders as $so)
-                                                        <option value="{{ $so->id }}"
-                                                            {{ $salesOrder && $salesOrder->id == $so->id ? 'selected' : '' }}
-                                                            data-customer-name="{{ $so->customer->name }}"
-                                                            data-customer-address="{{ $so->customer->address }}"
-                                                            data-customer-contact="{{ $so->customer->contact_person }}"
-                                                            data-customer-phone="{{ $so->customer->phone }}"
-                                                            data-expected-delivery="{{ $so->expected_delivery_date }}">
-                                                            {{ $so->order_no }} - {{ $so->customer->name }}
-                                                            ({{ $so->date }})
+                                                <div class="input-group input-group-sm">
+                                                    <select name="sales_order_id"
+                                                        class="form-control form-control-sm select2bs4" id="sales_order_id"
+                                                        required>
+                                                        <option value="">-- select sales order --</option>
+                                                        @foreach ($salesOrders as $so)
+                                                            <option value="{{ $so->id }}"
+                                                                {{ $salesOrder && $salesOrder->id == $so->id ? 'selected' : '' }}
+                                                                data-customer-id="{{ $so->business_partner_id }}"
+                                                                data-customer-name="{{ $so->customer->name }}"
+                                                                data-customer-address="{{ $so->customer->address }}"
+                                                                data-customer-contact="{{ $so->customer->contact_person }}"
+                                                                data-customer-phone="{{ $so->customer->phone }}"
+                                                                data-expected-delivery="{{ $so->expected_delivery_date }}">
+                                                                {{ $so->order_no }} - {{ $so->customer->name }}
+                                                                ({{ $so->date }})
+                                                            </option>
+                                                        @endforeach
+                                                    </select>
+                                                    <div class="input-group-append">
+                                                        <button type="button" id="copy-lines-btn"
+                                                            class="btn btn-sm btn-success"
+                                                            {{ $salesOrder ? '' : 'disabled' }}>
+                                                            <i class="fas fa-copy"></i> Copy Lines
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-group row mb-2">
+                                            <label class="col-sm-3 col-form-label">Customer <span
+                                                    class="text-danger">*</span></label>
+                                            <div class="col-sm-9">
+                                                <select name="business_partner_id" id="customer-select"
+                                                    class="form-control form-control-sm select2bs4" required>
+                                                    <option value="">-- select customer --</option>
+                                                    @foreach ($customers as $c)
+                                                        <option value="{{ $c->id }}"
+                                                            {{ old('business_partner_id', $salesOrder ? $salesOrder->business_partner_id : '') == $c->id ? 'selected' : '' }}
+                                                            data-address="{{ $c->address }}"
+                                                            data-contact="{{ $c->contact_person }}"
+                                                            data-phone="{{ $c->phone }}">
+                                                            {{ $c->name }}
                                                         </option>
                                                     @endforeach
                                                 </select>
                                             </div>
                                         </div>
                                     </div>
+                                </div>
+                                <div class="row">
                                     <div class="col-md-6">
                                         <div class="form-group row mb-2">
                                             <label class="col-sm-3 col-form-label">Planned Delivery <span
@@ -268,11 +301,50 @@
             $('#sales_order_id').on('change', function() {
                 var selectedOption = $(this).find('option:selected');
                 if (selectedOption.val()) {
+                    // Set customer dropdown to match the sales order's customer
+                    var customerId = selectedOption.data('customer-id');
+                    if (customerId) {
+                        $('#customer-select').val(customerId).trigger('change');
+                    }
+
+                    // Fill in delivery details
                     $('textarea[name="delivery_address"]').val(selectedOption.data('customer-address'));
                     $('input[name="delivery_contact_person"]').val(selectedOption.data('customer-contact'));
                     $('input[name="delivery_phone"]').val(selectedOption.data('customer-phone'));
                     $('input[name="planned_delivery_date"]').val(selectedOption.data('expected-delivery'));
+
+                    // Enable copy lines button
+                    $('#copy-lines-btn').prop('disabled', false);
+                } else {
+                    // Disable copy lines button if no sales order selected
+                    $('#copy-lines-btn').prop('disabled', true);
                 }
+            });
+
+            // Auto-fill delivery details when customer is selected
+            $('#customer-select').on('change', function() {
+                var selectedOption = $(this).find('option:selected');
+                if (selectedOption.val()) {
+                    // Only update if no sales order is selected or fields are empty
+                    if (!$('#sales_order_id').val() || !$('textarea[name="delivery_address"]').val()) {
+                        $('textarea[name="delivery_address"]').val(selectedOption.data('address'));
+                        $('input[name="delivery_contact_person"]').val(selectedOption.data('contact'));
+                        $('input[name="delivery_phone"]').val(selectedOption.data('phone'));
+                    }
+                }
+            });
+
+            // Handle Copy Lines button click
+            $('#copy-lines-btn').on('click', function() {
+                var salesOrderId = $('#sales_order_id').val();
+                if (!salesOrderId) {
+                    toastr.error('Please select a Sales Order first');
+                    return;
+                }
+
+                // Redirect to create page with sales_order_id parameter
+                window.location.href = "{{ route('delivery-orders.create') }}?sales_order_id=" +
+                    salesOrderId;
             });
         });
     </script>

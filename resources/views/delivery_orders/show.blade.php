@@ -166,7 +166,7 @@
                             @endif
 
                             <!-- Complete Delivery Action -->
-                            @if ($deliveryOrder->status === 'delivered' && $deliveryOrder->approval_status === 'approved')
+                            @if ($deliveryOrder->status === 'in_transit' && $deliveryOrder->approval_status === 'approved')
                                 <div class="row mt-3">
                                     <div class="col-md-12">
                                         <form method="post"
@@ -183,6 +183,18 @@
                                                 <i class="fas fa-check-circle"></i> Complete Delivery & Recognize Revenue
                                             </button>
                                         </form>
+                                    </div>
+                                </div>
+                            @endif
+                            
+                            <!-- Create Invoice Action -->
+                            @if ($deliveryOrder->status === 'delivered' && $deliveryOrder->approval_status === 'approved')
+                                <div class="row mt-3">
+                                    <div class="col-md-12">
+                                        <a href="{{ route('delivery-orders.create-invoice', $deliveryOrder) }}" 
+                                           class="btn btn-success">
+                                            <i class="fas fa-file-invoice-dollar"></i> Create Invoice from Delivery Order
+                                        </a>
                                     </div>
                                 </div>
                             @endif

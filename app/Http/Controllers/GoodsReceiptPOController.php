@@ -29,8 +29,9 @@ class GoodsReceiptPOController extends Controller
         $vendors = DB::table('business_partners')->where('partner_type', 'supplier')->orderBy('name')->get();
         $accounts = DB::table('accounts')->where('is_postable', 1)->orderBy('code')->get();
         $taxCodes = DB::table('tax_codes')->orderBy('code')->get();
+        $categories = DB::table('product_categories')->orderBy('name')->get();
         // Don't load POs initially - will be loaded via AJAX based on vendor selection
-        return view('goods_receipt_pos.create', compact('vendors', 'accounts', 'taxCodes'));
+        return view('goods_receipt_pos.create', compact('vendors', 'accounts', 'taxCodes', 'categories'));
     }
 
     public function store(Request $request)
@@ -41,11 +42,9 @@ class GoodsReceiptPOController extends Controller
             'purchase_order_id' => ['nullable', 'integer', 'exists:purchase_orders,id'],
             'description' => ['nullable', 'string', 'max:255'],
             'lines' => ['required', 'array', 'min:1'],
-            'lines.*.account_id' => ['required', 'integer', 'exists:accounts,id'],
+            'lines.*.item_id' => ['required', 'integer', 'exists:inventory_items,id'],
             'lines.*.description' => ['nullable', 'string', 'max:255'],
             'lines.*.qty' => ['required', 'numeric', 'min:0.01'],
-            'lines.*.unit_price' => ['required', 'numeric', 'min:0'],
-            'lines.*.tax_code_id' => ['nullable', 'integer', 'exists:tax_codes,id'],
         ]);
 
         return DB::transaction(function () use ($data) {
@@ -60,21 +59,15 @@ class GoodsReceiptPOController extends Controller
             ]);
             $grpoNo = $this->documentNumberingService->generateNumber('goods_receipt', $data['date']);
             $grpo->update(['grn_no' => $grpoNo]);
-            $total = 0;
             foreach ($data['lines'] as $l) {
-                $amount = (float)$l['qty'] * (float)$l['unit_price'];
-                $total += $amount;
                 GoodsReceiptPOLine::create([
                     'grpo_id' => $grpo->id,
-                    'account_id' => $l['account_id'],
+                    'item_id' => $l['item_id'],
+                    'account_id' => 0, // Set a default account_id to avoid the error
                     'description' => $l['description'] ?? null,
                     'qty' => (float)$l['qty'],
-                    'unit_price' => (float)$l['unit_price'],
-                    'amount' => $amount,
-                    'tax_code_id' => $l['tax_code_id'] ?? null,
                 ]);
             }
-            $grpo->update(['total_amount' => $total]);
             return redirect()->route('goods-receipt-pos.show', $grpo->id)->with('success', 'Goods Receipt PO created');
         });
     }
@@ -101,6 +94,8 @@ class GoodsReceiptPOController extends Controller
         $accounts = DB::table('accounts')->where('is_postable', 1)->orderBy('code')->get();
         $vendors = DB::table('business_partners')->where('partner_type', 'supplier')->orderBy('name')->get();
         $taxCodes = DB::table('tax_codes')->orderBy('code')->get();
+        $projects = DB::table('projects')->orderBy('name')->get();
+        $departments = DB::table('departments')->orderBy('name')->get();
         $prefill = [
             'date' => now()->toDateString(),
             'business_partner_id' => $grpo->business_partner_id,
@@ -115,7 +110,7 @@ class GoodsReceiptPOController extends Controller
                 ];
             })->toArray(),
         ];
-        return view('purchase_invoices.create', compact('accounts', 'vendors', 'taxCodes') + ['prefill' => $prefill, 'goods_receipt_po_id' => $grpo->id]);
+        return view('purchase_invoices.create', compact('accounts', 'vendors', 'taxCodes', 'projects', 'departments') + ['prefill' => $prefill, 'goods_receipt_po_id' => $grpo->id]);
     }
 
     /**
@@ -201,14 +196,14 @@ class GoodsReceiptPOController extends Controller
     public function getVendorPOs(Request $request)
     {
         $vendorId = $request->input('business_partner_id');
-        
+
         if (!$vendorId) {
             return response()->json(['purchase_orders' => []]);
         }
 
         $pos = PurchaseOrder::with(['lines'])
             ->where('business_partner_id', $vendorId)
-            ->where('status', 'approved')
+            ->whereIn('status', ['approved', 'ordered'])
             ->where('order_type', 'item')
             ->get()
             ->filter(function ($po) {
@@ -234,27 +229,28 @@ class GoodsReceiptPOController extends Controller
     public function getRemainingPOLines(Request $request)
     {
         $poId = $request->input('purchase_order_id');
-        
+
         if (!$poId) {
             return response()->json(['lines' => []]);
         }
 
-        $po = PurchaseOrder::with(['lines.account', 'lines.taxCode'])->findOrFail($poId);
-        
+        $po = PurchaseOrder::with(['lines.inventoryItem'])->findOrFail($poId);
+
         $remainingLines = $po->lines
             ->where('pending_qty', '>', 0)
             ->map(function ($line) {
+                $itemCode = $line->item_code ?: ($line->inventoryItem->code ?? '');
+                $itemName = $line->item_name ?: ($line->inventoryItem->name ?? '');
+
                 return [
                     'id' => $line->id,
-                    'account_id' => $line->account_id,
-                    'account_code' => $line->account->code ?? '',
-                    'account_name' => $line->account->name ?? '',
+                    'item_id' => $line->inventory_item_id,
+                    'item_display' => $itemCode && $itemName ? "{$itemCode} - {$itemName}" : '',
+                    'item_code' => $itemCode,
+                    'item_name' => $itemName,
                     'description' => $line->description,
                     'qty' => $line->pending_qty, // Use remaining quantity
                     'unit_price' => $line->unit_price,
-                    'amount' => $line->pending_qty * $line->unit_price,
-                    'tax_code_id' => $line->tax_code_id,
-                    'tax_code' => $line->taxCode->code ?? '',
                 ];
             });
 

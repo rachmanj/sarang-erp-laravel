@@ -14,8 +14,11 @@ class SalesOrderLine extends Model
         'item_code',
         'item_name',
         'unit_of_measure',
+        'order_unit_id',
         'description',
         'qty',
+        'base_quantity',
+        'unit_conversion_factor',
         'delivered_qty',
         'pending_qty',
         'unit_price',
@@ -35,6 +38,8 @@ class SalesOrderLine extends Model
 
     protected $casts = [
         'qty' => 'decimal:2',
+        'base_quantity' => 'decimal:2',
+        'unit_conversion_factor' => 'decimal:2',
         'delivered_qty' => 'decimal:2',
         'pending_qty' => 'decimal:2',
         'unit_price' => 'decimal:2',
@@ -70,6 +75,11 @@ class SalesOrderLine extends Model
         return $this->belongsTo(\App\Models\Master\TaxCode::class, 'tax_code_id');
     }
 
+    public function orderUnit(): BelongsTo
+    {
+        return $this->belongsTo(UnitOfMeasure::class, 'order_unit_id');
+    }
+
     // Accessors
     public function getNetAmountAttribute()
     {
@@ -79,6 +89,33 @@ class SalesOrderLine extends Model
     public function getTotalCostAttribute()
     {
         return $this->amount + $this->freight_cost + $this->handling_cost;
+    }
+
+    // Unit conversion helper methods
+    public function calculateBaseQuantity(): float
+    {
+        if ($this->unit_conversion_factor && $this->unit_conversion_factor > 0) {
+            return $this->qty * $this->unit_conversion_factor;
+        }
+        return $this->qty;
+    }
+
+    public function getBaseUnitPrice(): float
+    {
+        if ($this->unit_conversion_factor && $this->unit_conversion_factor > 0) {
+            return $this->unit_price / $this->unit_conversion_factor;
+        }
+        return $this->unit_price;
+    }
+
+    public function updateBaseQuantity(): void
+    {
+        $this->base_quantity = $this->calculateBaseQuantity();
+    }
+
+    public function getUnitDisplayName(): string
+    {
+        return $this->orderUnit ? $this->orderUnit->display_name : $this->unit_of_measure;
     }
 
     public function getDeliveryProgressAttribute()

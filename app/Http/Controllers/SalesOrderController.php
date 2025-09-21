@@ -187,6 +187,8 @@ class SalesOrderController extends Controller
         $accounts = DB::table('accounts')->where('is_postable', 1)->orderBy('code')->get();
         $customers = DB::table('business_partners')->where('partner_type', 'customer')->orderBy('name')->get();
         $taxCodes = DB::table('tax_codes')->orderBy('code')->get();
+        $projects = DB::table('projects')->orderBy('code')->get();
+        $departments = DB::table('departments')->orderBy('name')->get();
         $prefill = [
             'date' => now()->toDateString(),
             'business_partner_id' => $order->business_partner_id,
@@ -201,7 +203,7 @@ class SalesOrderController extends Controller
                 ];
             })->toArray(),
         ];
-        return view('sales_invoices.create', compact('accounts', 'customers', 'taxCodes') + ['prefill' => $prefill, 'sales_order_id' => $order->id]);
+        return view('sales_invoices.create', compact('accounts', 'customers', 'taxCodes', 'projects', 'departments') + ['prefill' => $prefill, 'sales_order_id' => $order->id]);
     }
 
     public function checkCreditLimit(Request $request)

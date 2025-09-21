@@ -42,7 +42,9 @@
                         </div>
                         <div class="card-body">
                             <p>Date: {{ $invoice->date }}</p>
-                            <p>Customer: {{ optional(DB::table('customers')->find($invoice->customer_id))->name }}</p>
+                            <p>Customer:
+                                {{ optional(DB::table('business_partners')->find($invoice->business_partner_id))->name }}
+                            </p>
                             <p>Description: {{ $invoice->description }}</p>
                             @if (!empty($invoice->sales_order_id))
                                 <p><strong>Related:</strong> <a

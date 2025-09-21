@@ -14,9 +14,11 @@ use App\Services\GRPOCopyService;
 use App\Services\PurchaseInvoiceCopyService;
 use App\Services\DocumentClosureService;
 use App\Services\DocumentNumberingService;
+use App\Services\UnitConversionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 
 class PurchaseOrderController extends Controller
 {
@@ -24,17 +26,20 @@ class PurchaseOrderController extends Controller
     protected $grpoCopyService;
     protected $purchaseInvoiceCopyService;
     protected $documentClosureService;
+    protected $unitConversionService;
 
     public function __construct(
         PurchaseService $purchaseService,
         GRPOCopyService $grpoCopyService,
         PurchaseInvoiceCopyService $purchaseInvoiceCopyService,
-        DocumentClosureService $documentClosureService
+        DocumentClosureService $documentClosureService,
+        UnitConversionService $unitConversionService
     ) {
         $this->purchaseService = $purchaseService;
         $this->grpoCopyService = $grpoCopyService;
         $this->purchaseInvoiceCopyService = $purchaseInvoiceCopyService;
         $this->documentClosureService = $documentClosureService;
+        $this->unitConversionService = $unitConversionService;
     }
 
     public function index()
@@ -58,6 +63,8 @@ class PurchaseOrderController extends Controller
 
     public function store(Request $request)
     {
+        Log::info('Purchase Order store method called with data:', $request->all());
+        
         $data = $request->validate([
             'order_no' => ['required', 'string', 'max:50'],
             'date' => ['required', 'date'],
@@ -78,14 +85,19 @@ class PurchaseOrderController extends Controller
             'lines.*.description' => ['nullable', 'string', 'max:255'],
             'lines.*.qty' => ['required', 'numeric', 'min:0.01'],
             'lines.*.unit_price' => ['required', 'numeric', 'min:0'],
+            'lines.*.order_unit_id' => ['nullable', 'integer', 'exists:units_of_measure,id'],
             'lines.*.vat_rate' => ['required', 'numeric', 'min:0', 'max:100'],
             'lines.*.wtax_rate' => ['required', 'numeric', 'min:0', 'max:100'],
             'lines.*.notes' => ['nullable', 'string'],
         ]);
 
+        Log::info('Purchase Order validation passed. Validated data:', $data);
+
         try {
+            Log::info('Calling purchaseService->createPurchaseOrder()');
             $po = $this->purchaseService->createPurchaseOrder($data);
-            return redirect()->route('purchase-orders.show', $po->id)
+            Log::info('Purchase Order created successfully with ID: ' . ($po->id ?? 'null'));
+            return redirect()->route('purchase-orders.index')
                 ->with('success', 'Purchase Order created successfully');
         } catch (\Exception $e) {
             return back()->withInput()->with('error', 'Error creating purchase order: ' . $e->getMessage());
@@ -94,9 +106,72 @@ class PurchaseOrderController extends Controller
 
     public function show(int $id)
     {
-        $order = PurchaseOrder::with(['lines', 'businessPartner', 'approvals.user', 'approvedBy', 'createdBy'])
+        $order = PurchaseOrder::with(['lines.inventoryItem', 'businessPartner', 'approvals.user', 'approvedBy', 'createdBy'])
             ->findOrFail($id);
         return view('purchase_orders.show', compact('order'));
+    }
+
+    public function edit(int $id)
+    {
+        $order = PurchaseOrder::with(['lines.inventoryItem', 'businessPartner'])->findOrFail($id);
+
+        // Only allow editing of draft purchase orders
+        if ($order->status !== 'draft') {
+            return redirect()->route('purchase-orders.show', $id)
+                ->with('error', 'Only draft purchase orders can be edited.');
+        }
+
+        $vendors = DB::table('business_partners')->where('partner_type', 'supplier')->orderBy('name')->get();
+        $accounts = DB::table('accounts')->where('is_postable', 1)->orderBy('code')->get();
+        $taxCodes = DB::table('tax_codes')->orderBy('code')->get();
+        $inventoryItems = InventoryItem::active()->orderBy('name')->get();
+
+        return view('purchase_orders.edit', compact('order', 'vendors', 'accounts', 'taxCodes', 'inventoryItems'));
+    }
+
+    public function update(Request $request, int $id)
+    {
+        $order = PurchaseOrder::findOrFail($id);
+
+        // Only allow updating of draft purchase orders
+        if ($order->status !== 'draft') {
+            return redirect()->route('purchase-orders.show', $id)
+                ->with('error', 'Only draft purchase orders can be updated.');
+        }
+
+        $data = $request->validate([
+            'order_no' => ['required', 'string', 'max:50'],
+            'date' => ['required', 'date'],
+            'reference_no' => ['nullable', 'string', 'max:100'],
+            'expected_delivery_date' => ['nullable', 'date'],
+            'business_partner_id' => ['required', 'integer', 'exists:business_partners,id'],
+            'description' => ['nullable', 'string', 'max:255'],
+            'notes' => ['nullable', 'string'],
+            'terms_conditions' => ['nullable', 'string'],
+            'payment_terms' => ['nullable', 'string', 'max:100'],
+            'delivery_method' => ['nullable', 'string', 'max:100'],
+            'freight_cost' => ['nullable', 'numeric', 'min:0'],
+            'handling_cost' => ['nullable', 'numeric', 'min:0'],
+            'insurance_cost' => ['nullable', 'numeric', 'min:0'],
+            'order_type' => ['required', 'in:item,service'],
+            'lines' => ['required', 'array', 'min:1'],
+            'lines.*.item_id' => ['required', 'integer'],
+            'lines.*.description' => ['nullable', 'string', 'max:255'],
+            'lines.*.qty' => ['required', 'numeric', 'min:0.01'],
+            'lines.*.unit_price' => ['required', 'numeric', 'min:0'],
+            'lines.*.order_unit_id' => ['nullable', 'integer', 'exists:units_of_measure,id'],
+            'lines.*.vat_rate' => ['required', 'numeric', 'min:0', 'max:100'],
+            'lines.*.wtax_rate' => ['required', 'numeric', 'min:0', 'max:100'],
+            'lines.*.notes' => ['nullable', 'string'],
+        ]);
+
+        try {
+            $this->purchaseService->updatePurchaseOrder($id, $data);
+            return redirect()->route('purchase-orders.show', $id)
+                ->with('success', 'Purchase Order updated successfully');
+        } catch (\Exception $e) {
+            return back()->withInput()->with('error', 'Error updating purchase order: ' . $e->getMessage());
+        }
     }
 
 
@@ -352,7 +427,7 @@ class PurchaseOrderController extends Controller
                 $this->documentClosureService->closePurchaseOrder($po->id, $grpo->id, Auth::id());
             } catch (\Exception $closureException) {
                 // Log closure failure but don't fail the GRPO creation
-                \Log::warning('Failed to close Purchase Order after GRPO creation', [
+                Log::warning('Failed to close Purchase Order after GRPO creation', [
                     'po_id' => $po->id,
                     'grpo_id' => $grpo->id,
                     'error' => $closureException->getMessage()
@@ -385,7 +460,7 @@ class PurchaseOrderController extends Controller
                 $this->documentClosureService->closePurchaseOrder($po->id, $invoice->id, Auth::id());
             } catch (\Exception $closureException) {
                 // Log closure failure but don't fail the PI creation
-                \Log::warning('Failed to close Purchase Order after PI creation', [
+                Log::warning('Failed to close Purchase Order after PI creation', [
                     'po_id' => $po->id,
                     'pi_id' => $invoice->id,
                     'error' => $closureException->getMessage()
@@ -445,5 +520,36 @@ class PurchaseOrderController extends Controller
         $availableLines = $this->grpoCopyService->getAvailableLines($po);
 
         return response()->json(['lines' => $availableLines]);
+    }
+
+    // Unit Conversion API Methods
+    public function getItemUnits(Request $request)
+    {
+        $itemId = $request->get('item_id');
+        $units = $this->unitConversionService->getAvailableUnitsForItem($itemId);
+
+        return response()->json($units);
+    }
+
+    public function getConversionPreview(Request $request)
+    {
+        $itemId = $request->get('item_id');
+        $fromUnitId = $request->get('from_unit_id');
+        $quantity = $request->get('quantity', 1);
+
+        $preview = $this->unitConversionService->getItemConversionPreview($itemId, $fromUnitId, $quantity);
+
+        return response()->json([
+            'preview' => $preview,
+            'valid' => $preview !== null
+        ]);
+    }
+
+    public function getUnitsByType(Request $request)
+    {
+        $type = $request->get('type');
+        $units = $this->unitConversionService->getUnitsByType($type);
+
+        return response()->json($units);
     }
 }

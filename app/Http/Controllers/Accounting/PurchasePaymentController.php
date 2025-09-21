@@ -246,7 +246,7 @@ class PurchasePaymentController extends Controller
         if ($pool > 0) {
             $open = DB::table('purchase_invoices as pi')
                 ->leftJoin('purchase_payment_allocations as ppa', 'ppa.invoice_id', '=', 'pi.id')
-                ->leftJoin('business_partners as v', 'v.id', '=', 'pi.vendor_id')
+                ->leftJoin('business_partners as v', 'v.id', '=', 'pi.business_partner_id')
                 ->select('pi.id', 'pi.invoice_no', 'pi.total_amount', DB::raw('COALESCE(SUM(ppa.amount),0) as allocated'), DB::raw('COALESCE(pi.due_date, pi.date) as eff_date'))
                 ->where('pi.business_partner_id', (int)$request->input('business_partner_id'))
                 ->where('pi.status', 'posted')

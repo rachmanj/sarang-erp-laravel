@@ -103,6 +103,6 @@ Periodically (when todo.md gets cluttered):
 -   Update multiple files when changes affect multiple areas
 -   Maintain consistency between memory, architecture, and task tracking
 
-After making change, test it in the browser at http://localhost:8000 using browser MCP, assume the server is already running
+After making change, test it in the browser using playwright MCP, assume the server is already running
 
 Remember: These documents should provide comprehensive context for future development and AI assistance, evolving as living documentation that stays current with your codebase.

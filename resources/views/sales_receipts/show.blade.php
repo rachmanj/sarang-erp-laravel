@@ -43,7 +43,9 @@
                         </div>
                         <div class="card-body">
                             <p>Date: {{ $receipt->date }}</p>
-                            <p>Customer: {{ optional(DB::table('customers')->find($receipt->customer_id))->name }}</p>
+                            <p>Customer:
+                                {{ optional(DB::table('business_partners')->find($receipt->business_partner_id))->name }}
+                            </p>
                             <p>Description: {{ $receipt->description }}</p>
                             <hr>
                             <table class="table table-striped">

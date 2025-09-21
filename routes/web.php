@@ -506,3 +506,6 @@ Route::middleware('guest')->group(function () {
 });
 
 Route::post('logout', [\App\Http\Controllers\Auth\AuthenticatedSessionController::class, 'destroy'])->name('logout');
+
+// Include master data routes
+require __DIR__ . '/web/master_data.php';

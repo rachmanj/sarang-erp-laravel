@@ -123,6 +123,7 @@ Route::prefix('delivery-orders')->group(function () {
     Route::post('/{deliveryOrder}/update-delivery', [DeliveryOrderController::class, 'updateDelivery'])->name('delivery-orders.update-delivery');
     Route::post('/{deliveryOrder}/complete-delivery', [DeliveryOrderController::class, 'completeDelivery'])->name('delivery-orders.complete-delivery');
     Route::get('/{deliveryOrder}/print', [DeliveryOrderController::class, 'print'])->name('delivery-orders.print');
+    Route::get('/{deliveryOrder}/create-invoice', [DeliveryOrderController::class, 'createInvoice'])->name('delivery-orders.create-invoice');
 });
 
 // Purchase Orders
@@ -168,8 +169,14 @@ Route::prefix('purchase-orders')->group(function () {
                 }
             })
             ->addColumn('actions', function ($r) {
-                $url = route('purchase-orders.show', $r->id);
-                return '<a class="btn btn-xs btn-info" href="' . $url . '">View</a>';
+                $actions = '<a class="btn btn-xs btn-info" href="' . route('purchase-orders.show', $r->id) . '">View</a>';
+
+                // Add edit button only for draft status
+                if ($r->status === 'draft') {
+                    $actions .= ' <a class="btn btn-xs btn-warning" href="' . route('purchase-orders.edit', $r->id) . '">Edit</a>';
+                }
+
+                return $actions;
             })
             ->rawColumns(['actions', 'closure_status'])->toJson();
     })->name('purchase-orders.data');
@@ -205,12 +212,19 @@ Route::prefix('purchase-orders')->group(function () {
     Route::get('/create', [PurchaseOrderController::class, 'create'])->name('purchase-orders.create');
     Route::post('/', [PurchaseOrderController::class, 'store'])->name('purchase-orders.store');
     Route::get('/{id}', [PurchaseOrderController::class, 'show'])->name('purchase-orders.show');
+    Route::get('/{id}/edit', [PurchaseOrderController::class, 'edit'])->name('purchase-orders.edit');
+    Route::patch('/{id}', [PurchaseOrderController::class, 'update'])->name('purchase-orders.update');
     Route::get('/{id}/create-invoice', [PurchaseOrderController::class, 'createInvoice'])->name('purchase-orders.create-invoice');
     Route::get('/{id}/create-assets', [PurchaseOrderController::class, 'createAssets'])->name('purchase-orders.create-assets');
     Route::post('/{id}/store-assets', [PurchaseOrderController::class, 'storeAssets'])->name('purchase-orders.store-assets');
     Route::get('/asset-categories', [PurchaseOrderController::class, 'getAssetCategories'])->name('purchase-orders.asset-categories');
     Route::post('/{id}/approve', [PurchaseOrderController::class, 'approve'])->name('purchase-orders.approve');
     Route::post('/{id}/close', [PurchaseOrderController::class, 'close'])->name('purchase-orders.close');
+
+    // Unit Conversion API Routes
+    Route::get('/api/item-units', [PurchaseOrderController::class, 'getItemUnits'])->name('purchase-orders.api.item-units');
+    Route::get('/api/conversion-preview', [PurchaseOrderController::class, 'getConversionPreview'])->name('purchase-orders.api.conversion-preview');
+    Route::get('/api/units-by-type', [PurchaseOrderController::class, 'getUnitsByType'])->name('purchase-orders.api.units-by-type');
 });
 
 // Goods Receipt PO
@@ -278,11 +292,13 @@ Route::prefix('goods-receipt-pos')->group(function () {
     })->name('goods-receipt-pos.csv');
     Route::get('/create', [GoodsReceiptPOController::class, 'create'])->name('goods-receipt-pos.create');
     Route::post('/', [GoodsReceiptPOController::class, 'store'])->name('goods-receipt-pos.store');
+
+    // AJAX endpoints for enhanced functionality (must come before parameterized routes)
+    Route::get('/vendor-pos', [GoodsReceiptPOController::class, 'getVendorPOs'])->name('goods-receipt-pos.vendor-pos');
+    Route::get('/remaining-lines', [GoodsReceiptPOController::class, 'getRemainingPOLines'])->name('goods-receipt-pos.remaining-lines');
+
+    // Parameterized routes (must come after specific routes)
     Route::get('/{id}', [GoodsReceiptPOController::class, 'show'])->name('goods-receipt-pos.show');
     Route::get('/{id}/create-invoice', [GoodsReceiptPOController::class, 'createInvoice'])->name('goods-receipt-pos.create-invoice');
     Route::post('/{id}/receive', [GoodsReceiptPOController::class, 'receive'])->name('goods-receipt-pos.receive');
-    
-    // New AJAX endpoints for enhanced functionality
-    Route::get('/vendor-pos', [GoodsReceiptPOController::class, 'getVendorPOs'])->name('goods-receipt-pos.vendor-pos');
-    Route::get('/remaining-lines', [GoodsReceiptPOController::class, 'getRemainingPOLines'])->name('goods-receipt-pos.remaining-lines');
 });

@@ -13,6 +13,10 @@
         data-item-name="{{ $item->name }}" title="Transfer Stock">
         <i class="fas fa-exchange-alt"></i>
     </button>
+    <a href="{{ route('inventory-items.units.index', $item->id) }}" class="btn btn-sm btn-secondary"
+        title="Manage Units">
+        <i class="fas fa-cubes"></i>
+    </a>
     @if ($item->transactions()->count() == 0)
         <button class="btn btn-sm btn-danger btn-delete-item" data-item-id="{{ $item->id }}"
             data-item-name="{{ $item->name }}" title="Delete">

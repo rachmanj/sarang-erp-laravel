@@ -209,9 +209,10 @@
                                                         <th style="width: 20%">Item/Account <span
                                                                 class="text-danger">*</span>
                                                         </th>
-                                                        <th style="width: 20%">Description</th>
-                                                        <th style="width: 10%">Qty <span class="text-danger">*</span></th>
-                                                        <th style="width: 12%">Unit Price <span
+                                                        <th style="width: 15%">Description</th>
+                                                        <th style="width: 8%">Qty <span class="text-danger">*</span></th>
+                                                        <th style="width: 10%">Unit</th>
+                                                        <th style="width: 10%">Unit Price <span
                                                                 class="text-danger">*</span>
                                                         </th>
                                                         <th style="width: 8%">VAT</th>
@@ -411,10 +412,9 @@
                 tr.innerHTML = `
                     <td>
                         <div class="input-group">
-                            <select name="lines[${lineIdx}][item_id]" class="form-control form-control-sm item-select" required>
-                                <option value="">-- select ${orderType === 'item' ? 'item' : 'account'} --</option>
-                                ${getItemOptions(orderType, data.item_id)}
-                            </select>
+                            <input type="text" name="lines[${lineIdx}][item_display]" class="form-control form-control-sm item-display" 
+                                value="${data.item_display || ''}" placeholder="-- select ${orderType === 'item' ? 'item' : 'account'} --" readonly>
+                            <input type="hidden" name="lines[${lineIdx}][item_id]" class="item-id" value="${data.item_id || ''}">
                             <div class="input-group-append">
                                 <button type="button" class="btn btn-outline-secondary btn-sm item-search-btn" 
                                         data-line-idx="${lineIdx}" data-order-type="${orderType}">
@@ -432,18 +432,24 @@
                             class="form-control form-control-sm text-right qty-input" value="${data.qty || 1}" required>
                     </td>
                     <td>
+                        <select name="lines[${lineIdx}][order_unit_id]" class="form-control form-control-sm unit-select select2bs4" data-line-idx="${lineIdx}">
+                            <option value="">Select Unit</option>
+                        </select>
+                        <div class="conversion-preview mt-1" style="font-size: 0.75rem; color: #6c757d;"></div>
+                    </td>
+                    <td>
                         <input type="number" step="0.01" min="0" name="lines[${lineIdx}][unit_price]" 
                             class="form-control form-control-sm text-right price-input" value="${data.unit_price || 0}" required>
                     </td>
                     <td>
-                        <select name="lines[${lineIdx}][vat_rate]" class="form-control form-control-sm vat-select">
+                        <select name="lines[${lineIdx}][vat_rate]" class="form-control form-control-sm vat-select select2bs4">
                             <option value="0" ${data.vat_rate == 0 ? 'selected' : ''}>No</option>
                             <option value="11" ${data.vat_rate == 11 ? 'selected' : ''}>11%</option>
                             <option value="12" ${data.vat_rate == 12 ? 'selected' : ''}>12%</option>
                         </select>
                     </td>
                     <td>
-                        <select name="lines[${lineIdx}][wtax_rate]" class="form-control form-control-sm wtax-select">
+                        <select name="lines[${lineIdx}][wtax_rate]" class="form-control form-control-sm wtax-select select2bs4">
                             <option value="0" ${data.wtax_rate == 0 ? 'selected' : ''}>No</option>
                             <option value="2" ${data.wtax_rate == 2 ? 'selected' : ''}>2%</option>
                         </select>
@@ -460,7 +466,7 @@
 
                 $tb.append(tr);
 
-                // Initialize Select2BS4 for the newly added select elements
+                // Initialize Select2BS4 for the newly added select elements (VAT and WTax only)
                 $(tr).find('.select2bs4').select2({
                     theme: 'bootstrap4',
                     placeholder: 'Select an option',
@@ -471,35 +477,19 @@
                 updateTotals();
             }
 
-            function getItemOptions(orderType, selectedId) {
-                if (orderType === 'item') {
-                    return window.inventoryItems.map(item =>
-                        `<option value="${item.id}" ${selectedId == item.id ? 'selected' : ''}>${item.code} - ${item.name}</option>`
-                    ).join('');
-                } else {
-                    return window.accounts.map(account =>
-                        `<option value="${account.id}" ${selectedId == account.id ? 'selected' : ''}>${account.code} - ${account.name}</option>`
-                    ).join('');
-                }
-            }
 
             function updateAllLineDropdowns() {
                 const orderType = $('#order_type').val() || 'item';
                 $('#lines tbody tr').each(function() {
-                    const $select = $(this).find('.item-select');
-                    const currentValue = $select.val();
+                    const $displayInput = $(this).find('.item-display');
+                    const $searchBtn = $(this).find('.item-search-btn');
 
-                    $select.empty();
-                    $select.append(
-                        `<option value="">-- select ${orderType === 'item' ? 'item' : 'account'} --</option>`
-                    );
-                    $select.append(getItemOptions(orderType));
+                    // Update placeholder text
+                    $displayInput.attr('placeholder',
+                        `-- select ${orderType === 'item' ? 'item' : 'account'} --`);
 
-                    if (currentValue) {
-                        $select.val(currentValue);
-                    }
-
-                    $select.trigger('change');
+                    // Update search button data attribute
+                    $searchBtn.attr('data-order-type', orderType);
                 });
             }
 
@@ -704,23 +694,104 @@
                 const itemName = $(this).data('item-name');
                 const itemPrice = $(this).data('item-price');
 
-                // Update the select dropdown
-                const selectElement = $(`select[name="lines[${window.currentLineIdx}][item_id]"]`);
-                selectElement.empty();
-                selectElement.append(
-                    `<option value="${itemId}" selected>${itemCode} - ${itemName}</option>`);
+                // Update the input field and hidden field
+                const displayInput = $(`input[name="lines[${window.currentLineIdx}][item_display]"]`);
+                const hiddenInput = $(`input[name="lines[${window.currentLineIdx}][item_id]"]`);
+
+                displayInput.val(`${itemCode} - ${itemName}`);
+                hiddenInput.val(itemId);
 
                 // Update the price field
-                const priceInput = selectElement.closest('tr').find('.price-input');
+                const priceInput = displayInput.closest('tr').find('.price-input');
                 priceInput.val(itemPrice);
 
                 // Update line amount
-                updateLineAmount(selectElement.closest('tr'));
+                updateLineAmount(displayInput.closest('tr'));
                 updateTotals();
+
+                // Load units for selected item
+                loadItemUnits(itemId, displayInput.closest('tr'));
 
                 // Close modal
                 $('#itemSelectionModal').modal('hide');
             });
+
+            // Unit selection change handler
+            $tb.on('change', '.unit-select', function() {
+                const $row = $(this).closest('tr');
+                const unitId = $(this).val();
+                const itemId = $row.find('.item-id').val();
+                const quantity = parseFloat($row.find('.qty-input').val()) || 1;
+
+                if (unitId && itemId) {
+                    showConversionPreview(itemId, unitId, quantity, $row);
+                } else {
+                    $row.find('.conversion-preview').text('');
+                }
+            });
+
+            // Quantity change handler for conversion preview
+            $tb.on('input', '.qty-input', function() {
+                const $row = $(this).closest('tr');
+                const unitId = $row.find('.unit-select').val();
+                const itemId = $row.find('.item-id').val();
+                const quantity = parseFloat($(this).val()) || 1;
+
+                if (unitId && itemId) {
+                    showConversionPreview(itemId, unitId, quantity, $row);
+                }
+            });
         });
+
+        // Function to load units for an item
+        function loadItemUnits(itemId, $row) {
+            if (!itemId) return;
+
+            const $unitSelect = $row.find('.unit-select');
+            $unitSelect.empty().append('<option value="">Loading units...</option>');
+
+            $.get('{{ route('purchase-orders.api.item-units') }}', {
+                    item_id: itemId
+                })
+                .done(function(units) {
+                    $unitSelect.empty().append('<option value="">Select Unit</option>');
+
+                    units.forEach(function(unit) {
+                        const selected = unit.is_base_unit ? 'selected' : '';
+                        $unitSelect.append(
+                            `<option value="${unit.id}" ${selected}>${unit.display_name}</option>`);
+                    });
+
+                    // Initialize Select2 for the new select
+                    $unitSelect.select2({
+                        placeholder: 'Select Unit',
+                        allowClear: true,
+                        width: '100%'
+                    });
+                })
+                .fail(function() {
+                    $unitSelect.empty().append('<option value="">Error loading units</option>');
+                });
+        }
+
+        // Function to show conversion preview
+        function showConversionPreview(itemId, unitId, quantity, $row) {
+            $.get('{{ route('purchase-orders.api.conversion-preview') }}', {
+                    item_id: itemId,
+                    from_unit_id: unitId,
+                    quantity: quantity
+                })
+                .done(function(response) {
+                    const $preview = $row.find('.conversion-preview');
+                    if (response.valid && response.preview) {
+                        $preview.text(response.preview).show();
+                    } else {
+                        $preview.text('').hide();
+                    }
+                })
+                .fail(function() {
+                    $row.find('.conversion-preview').text('').hide();
+                });
+        }
     </script>
 @endpush
