@@ -13,8 +13,10 @@ class ReportService
         $lines = DB::table('journal_lines as jl')
             ->join('journals as j', 'j.id', '=', 'jl.journal_id')
             ->join('accounts as a', 'a.id', '=', 'jl.account_id')
+            ->leftJoin('currencies as c', 'c.id', '=', 'jl.currency_id')
             ->whereDate('j.date', '<=', $date)
-            ->selectRaw('a.id, a.code, a.name, a.type, SUM(jl.debit) as debit, SUM(jl.credit) as credit')
+            ->selectRaw('a.id, a.code, a.name, a.type, SUM(jl.debit) as debit, SUM(jl.credit) as credit, 
+                        GROUP_CONCAT(DISTINCT c.code ORDER BY c.code SEPARATOR ", ") as currencies')
             ->groupBy('a.id', 'a.code', 'a.name', 'a.type')
             ->orderBy('a.code')
             ->get();
@@ -29,6 +31,7 @@ class ReportService
                 'debit' => (float)$r->debit,
                 'credit' => (float)$r->credit,
                 'balance' => $balance,
+                'currencies' => $r->currencies ?: 'IDR', // Default to IDR if no currency info
             ];
         })->toArray();
 
@@ -47,7 +50,20 @@ class ReportService
         $query = DB::table('journal_lines as jl')
             ->join('journals as j', 'j.id', '=', 'jl.journal_id')
             ->join('accounts as a', 'a.id', '=', 'jl.account_id')
-            ->select('j.date', 'j.description as journal_desc', 'a.code as account_code', 'a.name as account_name', 'jl.debit', 'jl.credit', 'jl.memo');
+            ->leftJoin('currencies as c', 'c.id', '=', 'jl.currency_id')
+            ->select(
+                'j.date',
+                'j.description as journal_desc',
+                'a.code as account_code',
+                'a.name as account_name',
+                'jl.debit',
+                'jl.credit',
+                'jl.memo',
+                'c.code as currency_code',
+                'jl.exchange_rate',
+                'jl.debit_foreign',
+                'jl.credit_foreign'
+            );
 
         if (!empty($filters['account_id'])) {
             $query->where('a.id', $filters['account_id']);
@@ -81,6 +97,10 @@ class ReportService
                     'debit' => (float)$r->debit,
                     'credit' => (float)$r->credit,
                     'memo' => $r->memo,
+                    'currency_code' => $r->currency_code ?: 'IDR',
+                    'exchange_rate' => (float)$r->exchange_rate ?: 1.000000,
+                    'debit_foreign' => (float)$r->debit_foreign,
+                    'credit_foreign' => (float)$r->credit_foreign,
                 ];
             }, $rows),
         ];
@@ -273,18 +293,18 @@ class ReportService
     public function getArBalances(): array
     {
         $inv = DB::table('sales_invoices')->where('status', 'posted')
-            ->select('customer_id', DB::raw('SUM(total_amount) as total'))
-            ->groupBy('customer_id')->pluck('total', 'customer_id');
+            ->select('business_partner_id', DB::raw('SUM(total_amount) as total'))
+            ->groupBy('business_partner_id')->pluck('total', 'business_partner_id');
         $rcp = DB::table('sales_receipts')->where('status', 'posted')
-            ->select('customer_id', DB::raw('SUM(total_amount) as total'))
-            ->groupBy('customer_id')->pluck('total', 'customer_id');
+            ->select('business_partner_id', DB::raw('SUM(total_amount) as total'))
+            ->groupBy('business_partner_id')->pluck('total', 'business_partner_id');
         $rows = [];
-        $customerIds = array_unique(array_merge(array_keys($inv->toArray()), array_keys($rcp->toArray())));
-        foreach ($customerIds as $cid) {
-            $invt = (float) ($inv[$cid] ?? 0);
-            $rcpt = (float) ($rcp[$cid] ?? 0);
-            $name = DB::table('customers')->where('id', $cid)->value('name');
-            $rows[] = ['customer_id' => (int)$cid, 'customer_name' => $name, 'invoices' => $invt, 'receipts' => $rcpt, 'balance' => round($invt - $rcpt, 2)];
+        $partnerIds = array_unique(array_merge(array_keys($inv->toArray()), array_keys($rcp->toArray())));
+        foreach ($partnerIds as $pid) {
+            $invt = (float) ($inv[$pid] ?? 0);
+            $rcpt = (float) ($rcp[$pid] ?? 0);
+            $name = DB::table('business_partners')->where('id', $pid)->value('name');
+            $rows[] = ['customer_id' => (int)$pid, 'customer_name' => $name, 'invoices' => $invt, 'receipts' => $rcpt, 'balance' => round($invt - $rcpt, 2)];
         }
         return ['rows' => $rows, 'totals' => [
             'invoices' => array_sum(array_column($rows, 'invoices')),
@@ -296,18 +316,18 @@ class ReportService
     public function getApBalances(): array
     {
         $inv = DB::table('purchase_invoices')->where('status', 'posted')
-            ->select('vendor_id', DB::raw('SUM(total_amount) as total'))
-            ->groupBy('vendor_id')->pluck('total', 'vendor_id');
+            ->select('business_partner_id', DB::raw('SUM(total_amount) as total'))
+            ->groupBy('business_partner_id')->pluck('total', 'business_partner_id');
         $pay = DB::table('purchase_payments')->where('status', 'posted')
-            ->select('vendor_id', DB::raw('SUM(total_amount) as total'))
-            ->groupBy('vendor_id')->pluck('total', 'vendor_id');
+            ->select('business_partner_id', DB::raw('SUM(total_amount) as total'))
+            ->groupBy('business_partner_id')->pluck('total', 'business_partner_id');
         $rows = [];
-        $vendorIds = array_unique(array_merge(array_keys($inv->toArray()), array_keys($pay->toArray())));
-        foreach ($vendorIds as $vid) {
-            $invt = (float) ($inv[$vid] ?? 0);
-            $payt = (float) ($pay[$vid] ?? 0);
-            $name = DB::table('vendors')->where('id', $vid)->value('name');
-            $rows[] = ['vendor_id' => (int)$vid, 'vendor_name' => $name, 'invoices' => $invt, 'payments' => $payt, 'balance' => round($invt - $payt, 2)];
+        $partnerIds = array_unique(array_merge(array_keys($inv->toArray()), array_keys($pay->toArray())));
+        foreach ($partnerIds as $pid) {
+            $invt = (float) ($inv[$pid] ?? 0);
+            $payt = (float) ($pay[$pid] ?? 0);
+            $name = DB::table('business_partners')->where('id', $pid)->value('name');
+            $rows[] = ['vendor_id' => (int)$pid, 'vendor_name' => $name, 'invoices' => $invt, 'payments' => $payt, 'balance' => round($invt - $payt, 2)];
         }
         return ['rows' => $rows, 'totals' => [
             'invoices' => array_sum(array_column($rows, 'invoices')),

@@ -23,8 +23,12 @@
                     <th>Date</th>
                     <th>Journal</th>
                     <th>Account</th>
-                    <th>Debit</th>
-                    <th>Credit</th>
+                    <th>Currency</th>
+                    <th>Debit (IDR)</th>
+                    <th>Credit (IDR)</th>
+                    <th>Debit (FC)</th>
+                    <th>Credit (FC)</th>
+                    <th>Rate</th>
                     <th>Memo</th>
                 </tr>
             </thead>
@@ -45,7 +49,7 @@
             data.rows.forEach(r => {
                 const tr = document.createElement('tr');
                 tr.innerHTML =
-                    `<td>${r.date}</td><td>${r.journal_desc ?? ''}</td><td>${r.account_code} - ${r.account_name}</td><td>${r.debit.toFixed(2)}</td><td>${r.credit.toFixed(2)}</td><td>${r.memo ?? ''}</td>`;
+                    `<td>${r.date}</td><td>${r.journal_desc ?? ''}</td><td>${r.account_code} - ${r.account_name}</td><td>${r.currency_code || 'IDR'}</td><td>${r.debit.toFixed(2)}</td><td>${r.credit.toFixed(2)}</td><td>${r.debit_foreign.toFixed(2)}</td><td>${r.credit_foreign.toFixed(2)}</td><td>${r.exchange_rate.toFixed(6)}</td><td>${r.memo ?? ''}</td>`;
                 tbody.appendChild(tr);
             });
         }

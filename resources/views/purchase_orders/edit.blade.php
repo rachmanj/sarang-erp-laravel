@@ -256,7 +256,7 @@
                                                                 <input type="number" step="0.01" min="0.01"
                                                                     name="lines[{{ $index }}][qty]"
                                                                     class="form-control form-control-sm text-right qty-input"
-                                                                    value="{{ old('lines.' . $index . '.qty', $line->quantity) }}"
+                                                                    value="{{ old('lines.' . $index . '.qty', $line->qty) }}"
                                                                     required>
                                                             </td>
                                                             <td>
@@ -279,13 +279,13 @@
                                                                 <select name="lines[{{ $index }}][vat_rate]"
                                                                     class="form-control form-control-sm vat-select select2bs4">
                                                                     <option value="0"
-                                                                        {{ old('lines.' . $index . '.vat_rate', $line->vat_percent) == 0 ? 'selected' : '' }}>
+                                                                        {{ old('lines.' . $index . '.vat_rate', $line->vat_rate) == 0 ? 'selected' : '' }}>
                                                                         No</option>
                                                                     <option value="11"
-                                                                        {{ old('lines.' . $index . '.vat_rate', $line->vat_percent) == 11 ? 'selected' : '' }}>
+                                                                        {{ old('lines.' . $index . '.vat_rate', $line->vat_rate == 0 ? 11 : $line->vat_rate) == 11 ? 'selected' : '' }}>
                                                                         11%</option>
                                                                     <option value="12"
-                                                                        {{ old('lines.' . $index . '.vat_rate', $line->vat_percent) == 12 ? 'selected' : '' }}>
+                                                                        {{ old('lines.' . $index . '.vat_rate', $line->vat_rate) == 12 ? 'selected' : '' }}>
                                                                         12%</option>
                                                                 </select>
                                                             </td>
@@ -293,16 +293,16 @@
                                                                 <select name="lines[{{ $index }}][wtax_rate]"
                                                                     class="form-control form-control-sm wtax-select select2bs4">
                                                                     <option value="0"
-                                                                        {{ old('lines.' . $index . '.wtax_rate', $line->wtax_percent) == 0 ? 'selected' : '' }}>
+                                                                        {{ old('lines.' . $index . '.wtax_rate', $line->wtax_rate) == 0 ? 'selected' : '' }}>
                                                                         No</option>
                                                                     <option value="2"
-                                                                        {{ old('lines.' . $index . '.wtax_rate', $line->wtax_percent) == 2 ? 'selected' : '' }}>
+                                                                        {{ old('lines.' . $index . '.wtax_rate', $line->wtax_rate) == 2 ? 'selected' : '' }}>
                                                                         2%</option>
                                                                 </select>
                                                             </td>
                                                             <td class="text-right">
                                                                 <span
-                                                                    class="line-amount">{{ number_format($line->quantity * $line->unit_price + ($line->quantity * $line->unit_price * $line->vat_percent) / 100 - ($line->quantity * $line->unit_price * $line->wtax_percent) / 100, 2) }}</span>
+                                                                    class="line-amount">{{ number_format($line->qty * $line->unit_price + ($line->qty * $line->unit_price * $line->vat_rate) / 100 - ($line->qty * $line->unit_price * $line->wtax_rate) / 100, 2) }}</span>
                                                             </td>
                                                             <td class="text-center">
                                                                 <button type="button" class="btn btn-xs btn-danger rm">
@@ -314,16 +314,23 @@
                                                 </tbody>
                                                 <tfoot>
                                                     <tr>
-                                                        <th colspan="3" class="text-right">Original Amount:</th>
+                                                        <th colspan="7" class="text-right">Original Amount:</th>
                                                         <th class="text-right" id="original-amount">0.00</th>
-                                                        <th class="text-right" id="total-vat">0.00</th>
-                                                        <th class="text-right" id="total-wtax">0.00</th>
-                                                        <th class="text-right" id="total-amount">0.00</th>
                                                         <th></th>
                                                     </tr>
                                                     <tr>
-                                                        <th colspan="3" class="text-right">Amount Due:</th>
-                                                        <th colspan="4" class="text-right" id="amount-due">0.00</th>
+                                                        <th colspan="7" class="text-right">VAT:</th>
+                                                        <th class="text-right" id="total-vat">0.00</th>
+                                                        <th></th>
+                                                    </tr>
+                                                    <tr>
+                                                        <th colspan="7" class="text-right">WTax:</th>
+                                                        <th class="text-right" id="total-wtax">0.00</th>
+                                                        <th></th>
+                                                    </tr>
+                                                    <tr>
+                                                        <th colspan="7" class="text-right">Amount Due:</th>
+                                                        <th class="text-right" id="amount-due">0.00</th>
                                                         <th></th>
                                                     </tr>
                                                 </tfoot>
@@ -361,7 +368,7 @@
     <!-- Item Selection Modal -->
     <div class="modal fade" id="itemSelectionModal" tabindex="-1" role="dialog"
         aria-labelledby="itemSelectionModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-xl" role="document">
+        <div class="modal-dialog modal-xxl" role="document">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="itemSelectionModalLabel">Select Item</h5>
@@ -402,7 +409,7 @@
                                     <th>Type</th>
                                     <th>Unit</th>
                                     <th>Price</th>
-                                    <th>Action</th>
+                                    <th width="3%">Action</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -610,8 +617,8 @@
                     </td>
                     <td>
                         <select name="lines[${lineIdx}][vat_rate]" class="form-control form-control-sm vat-select select2bs4">
-                            <option value="0" ${data.vat_rate == 0 ? 'selected' : ''}>No</option>
-                            <option value="11" ${data.vat_rate == 11 ? 'selected' : ''}>11%</option>
+                            <option value="0" ${(data.vat_rate || 11) == 0 ? 'selected' : ''}>No</option>
+                            <option value="11" ${(data.vat_rate || 11) == 11 ? 'selected' : ''}>11%</option>
                             <option value="12" ${data.vat_rate == 12 ? 'selected' : ''}>12%</option>
                         </select>
                     </td>
@@ -790,7 +797,7 @@
                                         data-item-code="${item.code}" 
                                         data-item-name="${item.name}" 
                                         data-item-price="${item.price}">
-                                    Select
+                                    <i class="fas fa-check"></i>
                                 </button>
                             </td>
                         </tr>

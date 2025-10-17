@@ -12,18 +12,23 @@ use App\Models\CustomerPricingTier;
 use App\Models\CustomerPerformance;
 use App\Services\InventoryService;
 use App\Services\DocumentNumberingService;
+use App\Services\ApprovalWorkflowService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
+use Exception;
 
 class SalesService
 {
     protected $inventoryService;
     protected $documentNumberingService;
+    protected $approvalWorkflowService;
 
-    public function __construct(InventoryService $inventoryService, DocumentNumberingService $documentNumberingService)
+    public function __construct(InventoryService $inventoryService, DocumentNumberingService $documentNumberingService, ApprovalWorkflowService $approvalWorkflowService)
     {
         $this->inventoryService = $inventoryService;
         $this->documentNumberingService = $documentNumberingService;
+        $this->approvalWorkflowService = $approvalWorkflowService;
     }
 
     public function createSalesOrder($data)
@@ -38,6 +43,8 @@ class SalesService
                 'date' => $data['date'],
                 'expected_delivery_date' => $data['expected_delivery_date'] ?? null,
                 'business_partner_id' => $data['business_partner_id'],
+                'currency_id' => $data['currency_id'] ?? 1,
+                'exchange_rate' => $data['exchange_rate'] ?? 1.000000,
                 'warehouse_id' => $data['warehouse_id'],
                 'description' => $data['description'] ?? null,
                 'notes' => $data['notes'] ?? null,
@@ -56,6 +63,7 @@ class SalesService
             ]);
 
             $totalAmount = 0;
+            $totalAmountForeign = 0;
             $totalFreightCost = 0;
             $totalHandlingCost = 0;
             $totalDiscountAmount = 0;
@@ -67,6 +75,11 @@ class SalesService
                 $amount = $originalAmount + $vatAmount - $wtaxAmount;
 
                 $totalAmount += $amount;
+
+                // Calculate foreign amounts
+                $unitPriceForeign = $lineData['unit_price_foreign'] ?? $lineData['unit_price'];
+                $amountForeign = $lineData['qty'] * $unitPriceForeign;
+                $totalAmountForeign += $amountForeign;
 
                 // Determine if this is an inventory item or account based on order type
                 $inventoryItemId = null;
@@ -92,7 +105,9 @@ class SalesService
                     'delivered_qty' => 0,
                     'pending_qty' => $lineData['qty'],
                     'unit_price' => $lineData['unit_price'],
+                    'unit_price_foreign' => $unitPriceForeign,
                     'amount' => $amount,
+                    'amount_foreign' => $amountForeign,
                     'freight_cost' => 0,
                     'handling_cost' => 0,
                     'discount_amount' => 0,
@@ -114,6 +129,7 @@ class SalesService
             // Update totals
             $so->update([
                 'total_amount' => $totalAmount,
+                'total_amount_foreign' => $totalAmountForeign,
                 'freight_cost' => $totalFreightCost,
                 'handling_cost' => $totalHandlingCost,
                 'discount_amount' => $totalDiscountAmount,
@@ -358,14 +374,29 @@ class SalesService
 
     private function createApprovalWorkflow($salesOrder)
     {
-        // Simple approval workflow - create a single approval record for the current user
-        // In a real implementation, this would create approval records for different users based on roles
-        SalesOrderApproval::create([
-            'sales_order_id' => $salesOrder->id,
-            'user_id' => Auth::id(),
-            'approval_level' => 'manager',
-            'status' => 'pending',
-        ]);
+        try {
+            // Use the new approval workflow service
+            $approvalRecords = $this->approvalWorkflowService->createWorkflowForDocument(
+                'sales_order',
+                $salesOrder->id,
+                $salesOrder->total_amount
+            );
+
+            // Create the approval records
+            foreach ($approvalRecords as $record) {
+                SalesOrderApproval::create([
+                    'sales_order_id' => $record['document_id'],
+                    'user_id' => $record['user_id'],
+                    'approval_level' => $record['role_name'],
+                    'status' => $record['status'],
+                ]);
+            }
+
+            \Log::info("Approval workflow created successfully for SO {$salesOrder->order_no} with " . count($approvalRecords) . " approval records");
+        } catch (\Exception $e) {
+            \Log::error("Error creating approval workflow: " . $e->getMessage());
+            throw $e;
+        }
     }
 
     private function createSalesCommissions($salesOrder)

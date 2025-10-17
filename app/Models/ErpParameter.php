@@ -93,4 +93,18 @@ class ErpParameter extends Model
                 $this->parameter_value = (string) $value;
         }
     }
+
+    /**
+     * Get parameter value by key
+     */
+    public static function get($key, $default = null)
+    {
+        $parameter = static::where('parameter_key', $key)->first();
+
+        if (!$parameter) {
+            return $default;
+        }
+
+        return $parameter->value;
+    }
 }

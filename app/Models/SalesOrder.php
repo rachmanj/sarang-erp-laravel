@@ -15,6 +15,8 @@ class SalesOrder extends Model
         'expected_delivery_date',
         'actual_delivery_date',
         'business_partner_id',
+        'currency_id',
+        'exchange_rate',
         'warehouse_id',
         'description',
         'notes',
@@ -22,6 +24,7 @@ class SalesOrder extends Model
         'payment_terms',
         'delivery_method',
         'total_amount',
+        'total_amount_foreign',
         'freight_cost',
         'handling_cost',
         'insurance_cost',
@@ -43,7 +46,9 @@ class SalesOrder extends Model
         'expected_delivery_date' => 'date',
         'actual_delivery_date' => 'date',
         'approved_at' => 'datetime',
+        'exchange_rate' => 'decimal:6',
         'total_amount' => 'decimal:2',
+        'total_amount_foreign' => 'decimal:2',
         'freight_cost' => 'decimal:2',
         'handling_cost' => 'decimal:2',
         'insurance_cost' => 'decimal:2',
@@ -67,6 +72,11 @@ class SalesOrder extends Model
     public function warehouse(): BelongsTo
     {
         return $this->belongsTo(\App\Models\Warehouse::class, 'warehouse_id');
+    }
+
+    public function currency(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Currency::class, 'currency_id');
     }
 
     // Backward compatibility method

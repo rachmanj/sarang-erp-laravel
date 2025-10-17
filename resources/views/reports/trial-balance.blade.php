@@ -21,15 +21,16 @@
                 <tr>
                     <th>Code</th>
                     <th>Name</th>
-                    <th>Debit</th>
-                    <th>Credit</th>
-                    <th>Balance</th>
+                    <th>Currencies</th>
+                    <th>Debit (IDR)</th>
+                    <th>Credit (IDR)</th>
+                    <th>Balance (IDR)</th>
                 </tr>
             </thead>
             <tbody></tbody>
             <tfoot>
                 <tr>
-                    <th colspan="2">Totals</th>
+                    <th colspan="3">Totals</th>
                     <th id="tdebit">0</th>
                     <th id="tcredit">0</th>
                     <th></th>
@@ -52,7 +53,7 @@
                 tcredit += r.credit;
                 const tr = document.createElement('tr');
                 tr.innerHTML =
-                    `<td>${r.code}</td><td>${r.name}</td><td>${r.debit.toFixed(2)}</td><td>${r.credit.toFixed(2)}</td><td>${r.balance.toFixed(2)}</td>`;
+                    `<td>${r.code}</td><td>${r.name}</td><td>${r.currencies || 'IDR'}</td><td>${r.debit.toFixed(2)}</td><td>${r.credit.toFixed(2)}</td><td>${r.balance.toFixed(2)}</td>`;
                 tbody.appendChild(tr);
             });
             document.getElementById('tdebit').innerText = tdebit.toFixed(2);

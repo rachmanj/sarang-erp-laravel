@@ -22,6 +22,10 @@
                         </h3>
                     </div>
                     <div>
+                        <button type="button" class="btn btn-sm btn-info mr-1"
+                            onclick="showRelationshipMap('purchase-orders', {{ $order->id }})">
+                            <i class="fas fa-sitemap"></i> Relationship Map
+                        </button>
                         <a href="{{ route('purchase-orders.index') }}" class="btn btn-sm btn-secondary mr-1">
                             <i class="fas fa-arrow-left"></i> Back to Purchase Orders
                         </a>
@@ -115,4 +119,7 @@
             </div>
         </div>
     </div>
+
+    {{-- Include Relationship Map Modal --}}
+    @include('components.relationship-map-modal')
 @endsection

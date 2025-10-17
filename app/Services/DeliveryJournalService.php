@@ -111,12 +111,12 @@ class DeliveryJournalService
             throw new Exception('No delivered items found in delivery order for revenue recognition.');
         }
 
-        // AR recognition
+        // AR UnInvoice recognition (goods delivered but not yet invoiced)
         $lines[] = [
-            'account_id' => $this->getAccountsReceivableAccount(),
+            'account_id' => $this->getARUnInvoiceAccount(),
             'debit' => $totalRevenue,
             'credit' => 0,
-            'memo' => "Accounts Receivable - DO {$deliveryOrder->do_number}",
+            'memo' => "AR UnInvoice - DO {$deliveryOrder->do_number}",
         ];
 
         return $this->postingService->postJournal([
@@ -220,17 +220,32 @@ class DeliveryJournalService
     }
 
     /**
+     * Get AR UnInvoice account ID
+     */
+    private function getARUnInvoiceAccount(): int
+    {
+        $account = DB::table('accounts')
+            ->where('code', '1.1.2.04') // AR UnInvoice
+            ->first();
+
+        if (!$account) {
+            throw new Exception('AR UnInvoice account not found. Please create account with code 1.1.2.04');
+        }
+
+        return $account->id;
+    }
+
+    /**
      * Get accounts receivable account ID
      */
     private function getAccountsReceivableAccount(): int
     {
         $account = DB::table('accounts')
-            ->where('code', '1.1.4') // Accounts Receivable
-            ->orWhere('name', 'like', '%Accounts Receivable%')
+            ->where('code', '1.1.2.01') // Piutang Dagang
             ->first();
 
         if (!$account) {
-            throw new Exception('Accounts Receivable account not found. Please create account with code 1.1.4');
+            throw new Exception('Accounts Receivable account not found. Please create account with code 1.1.2.01');
         }
 
         return $account->id;

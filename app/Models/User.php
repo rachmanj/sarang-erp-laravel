@@ -4,6 +4,7 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Spatie\Permission\Traits\HasRoles;
@@ -46,5 +47,25 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    public function roles(): HasMany
+    {
+        return $this->hasMany(UserRole::class);
+    }
+
+    public function hasRole(string $roleName): bool
+    {
+        return $this->roles()
+            ->where('role_name', $roleName)
+            ->where('is_active', true)
+            ->exists();
+    }
+
+    public function getActiveRoles(): \Illuminate\Database\Eloquent\Collection
+    {
+        return $this->roles()
+            ->where('is_active', true)
+            ->pluck('role_name');
     }
 }

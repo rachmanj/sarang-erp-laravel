@@ -2,6 +2,16 @@
 
 @section('title', 'Purchase Invoice #' . $invoice->id)
 
+@section('title_page')
+    Purchase Invoice #{{ $invoice->id }}
+@endsection
+
+@section('breadcrumb_title')
+    <li class="breadcrumb-item"><a href="/dashboard">Dashboard</a></li>
+    <li class="breadcrumb-item"><a href="{{ route('purchase-invoices.index') }}">Purchase Invoices</a></li>
+    <li class="breadcrumb-item active">#{{ $invoice->id }}</li>
+@endsection
+
 @section('content')
     <section class="content">
         <div class="container-fluid">
@@ -18,9 +28,14 @@
                     @endif
                     <div class="card">
                         <div class="card-header d-flex justify-content-between align-items-center">
-                            <h3 class="card-title">Purchase Invoice #{{ $invoice->id }} ({{ strtoupper($invoice->status) }})
+                            <h3 class="card-title">Purchase Invoice #{{ $invoice->id }}
+                                ({{ strtoupper($invoice->status) }})
                             </h3>
                             <div>
+                                <button type="button" class="btn btn-sm btn-info mr-1"
+                                    onclick="showRelationshipMap('purchase-invoices', {{ $invoice->id }})">
+                                    <i class="fas fa-sitemap"></i> Relationship Map
+                                </button>
                                 @can('ap.invoices.post')
                                     @if ($invoice->status !== 'posted')
                                         <form method="post" action="{{ route('purchase-invoices.post', $invoice->id) }}"
@@ -41,9 +56,20 @@
                                 </form>
                             </div>
                         </div>
+
+                        {{-- Document Navigation Components --}}
+                        <div class="card-body border-bottom">
+                            @include('components.document-navigation', [
+                                'documentType' => 'purchase-invoice',
+                                'documentId' => $invoice->id,
+                            ])
+                        </div>
+
                         <div class="card-body">
                             <p>Date: {{ $invoice->date }}</p>
-                            <p>Vendor: {{ optional(DB::table('business_partners')->find($invoice->business_partner_id))->name }}</p>
+                            <p>Vendor:
+                                {{ optional(DB::table('business_partners')->find($invoice->business_partner_id))->name }}
+                            </p>
                             <p>Description: {{ $invoice->description }}</p>
                             @if (!empty($invoice->purchase_order_id) || !empty($invoice->goods_receipt_id))
                                 <p>
@@ -97,4 +123,7 @@
             </div>
         </div>
     </section>
+
+    {{-- Include Relationship Map Modal --}}
+    @include('components.relationship-map-modal')
 @endsection

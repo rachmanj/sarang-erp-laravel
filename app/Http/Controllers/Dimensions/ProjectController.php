@@ -24,14 +24,10 @@ class ProjectController extends Controller
     {
         $this->middleware('permission:projects.view');
         $q = DB::table('projects as p')
-            ->leftJoin('funds as f', 'f.id', '=', 'p.fund_id')
-            ->select('p.id', 'p.code', 'p.name', 'p.status', 'p.budget_total', 'p.fund_id', 'f.code as fund_code', 'f.name as fund_name');
+            ->select('p.id', 'p.code', 'p.name', 'p.status', 'p.budget_total');
         return DataTables::of($q)
-            ->addColumn('fund', function ($row) {
-                return $row->fund_code ? ($row->fund_code . ' - ' . $row->fund_name) : '';
-            })
             ->addColumn('actions', function ($row) {
-                $edit = '<button class="btn btn-xs btn-secondary btn-edit" data-id="' . $row->id . '" data-code="' . e($row->code) . '" data-name="' . e($row->name) . '" data-status="' . e($row->status) . '" data-budget="' . (float)$row->budget_total . '" data-fund="' . (int)($row->fund_id ?? 0) . '">Edit</button>';
+                $edit = '<button class="btn btn-xs btn-secondary btn-edit" data-id="' . $row->id . '" data-code="' . e($row->code) . '" data-name="' . e($row->name) . '" data-status="' . e($row->status) . '" data-budget="' . (float)$row->budget_total . '">Edit</button>';
                 $delUrl = route('projects.destroy', $row->id);
                 $del = '<button class="btn btn-xs btn-danger btn-delete" data-url="' . $delUrl . '">Delete</button>';
                 return $edit . ' ' . $del;
@@ -46,14 +42,12 @@ class ProjectController extends Controller
         $data = $request->validate([
             'code' => ['required', 'string', 'max:50', 'unique:projects,code'],
             'name' => ['required', 'string', 'max:255'],
-            'fund_id' => ['nullable', 'integer', 'exists:funds,id'],
             'budget_total' => ['nullable', 'numeric', 'min:0'],
             'status' => ['nullable', 'in:active,closed'],
         ]);
         DB::table('projects')->insert([
             'code' => $data['code'],
             'name' => $data['name'],
-            'fund_id' => $data['fund_id'] ?? null,
             'budget_total' => $data['budget_total'] ?? 0,
             'status' => $data['status'] ?? 'active',
             'created_at' => now(),
@@ -70,7 +64,6 @@ class ProjectController extends Controller
             $data = $request->validate([
                 'code' => ['required', 'string', 'max:50', 'unique:projects,code,' . $id],
                 'name' => ['required', 'string', 'max:255'],
-                'fund_id' => ['nullable', 'integer', 'exists:funds,id'],
                 'budget_total' => ['nullable', 'numeric', 'min:0'],
                 'status' => ['nullable', 'in:active,closed'],
             ]);
@@ -78,7 +71,6 @@ class ProjectController extends Controller
             $updated = DB::table('projects')->where('id', $id)->update([
                 'code' => $data['code'],
                 'name' => $data['name'],
-                'fund_id' => $data['fund_id'] ?? null,
                 'budget_total' => $data['budget_total'] ?? 0,
                 'status' => $data['status'] ?? 'active',
                 'updated_at' => now(),

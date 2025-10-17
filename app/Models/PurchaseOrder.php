@@ -17,16 +17,23 @@ class PurchaseOrder extends Model
         'actual_delivery_date',
         'business_partner_id',
         'warehouse_id',
+        'currency_id',
+        'exchange_rate',
         'description',
         'notes',
         'terms_conditions',
         'payment_terms',
         'delivery_method',
         'total_amount',
+        'total_amount_foreign',
         'freight_cost',
+        'freight_cost_foreign',
         'handling_cost',
+        'handling_cost_foreign',
         'insurance_cost',
+        'insurance_cost_foreign',
         'total_cost',
+        'total_cost_foreign',
         'order_type',
         'status',
         'approval_status',
@@ -47,11 +54,17 @@ class PurchaseOrder extends Model
         'actual_delivery_date' => 'date',
         'approved_at' => 'datetime',
         'closed_at' => 'datetime',
+        'exchange_rate' => 'decimal:6',
         'total_amount' => 'decimal:2',
+        'total_amount_foreign' => 'decimal:2',
         'freight_cost' => 'decimal:2',
+        'freight_cost_foreign' => 'decimal:2',
         'handling_cost' => 'decimal:2',
+        'handling_cost_foreign' => 'decimal:2',
         'insurance_cost' => 'decimal:2',
+        'insurance_cost_foreign' => 'decimal:2',
         'total_cost' => 'decimal:2',
+        'total_cost_foreign' => 'decimal:2',
     ];
 
     // Relationships
@@ -68,6 +81,11 @@ class PurchaseOrder extends Model
     public function warehouse(): BelongsTo
     {
         return $this->belongsTo(\App\Models\Warehouse::class, 'warehouse_id');
+    }
+
+    public function currency(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Currency::class, 'currency_id');
     }
 
     // Backward compatibility method

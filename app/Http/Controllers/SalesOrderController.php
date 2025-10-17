@@ -13,29 +13,87 @@ use App\Services\SalesService;
 use App\Services\SalesInvoiceService;
 use App\Services\DocumentClosureService;
 use App\Services\DocumentNumberingService;
+use App\Services\CurrencyService;
+use App\Services\ExchangeRateService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use Yajra\DataTables\Facades\DataTables;
 
 class SalesOrderController extends Controller
 {
     protected $salesService;
     protected $salesInvoiceService;
     protected $documentClosureService;
+    protected $currencyService;
+    protected $exchangeRateService;
 
     public function __construct(
         SalesService $salesService,
         SalesInvoiceService $salesInvoiceService,
-        DocumentClosureService $documentClosureService
+        DocumentClosureService $documentClosureService,
+        CurrencyService $currencyService,
+        ExchangeRateService $exchangeRateService
     ) {
         $this->salesService = $salesService;
         $this->salesInvoiceService = $salesInvoiceService;
         $this->documentClosureService = $documentClosureService;
+        $this->currencyService = $currencyService;
+        $this->exchangeRateService = $exchangeRateService;
     }
 
     public function index()
     {
         return view('sales_orders.index');
+    }
+
+    public function data(Request $request)
+    {
+        $query = SalesOrder::with(['businessPartner'])
+            ->select([
+                'id',
+                'date',
+                'order_no',
+                'business_partner_id',
+                'total_amount',
+                'status',
+                'created_at'
+            ]);
+
+        // Apply filters
+        if ($request->filled('from')) {
+            $query->where('date', '>=', $request->from);
+        }
+        if ($request->filled('to')) {
+            $query->where('date', '<=', $request->to);
+        }
+        if ($request->filled('q')) {
+            $query->where(function ($q) use ($request) {
+                $q->where('order_no', 'like', '%' . $request->q . '%')
+                    ->orWhereHas('businessPartner', function ($bp) use ($request) {
+                        $bp->where('name', 'like', '%' . $request->q . '%');
+                    });
+            });
+        }
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        return DataTables::of($query)
+            ->addColumn('customer', function ($row) {
+                return $row->businessPartner->name ?? '';
+            })
+            ->addColumn('actions', function ($row) {
+                $actions = '<div class="btn-group">';
+                $actions .= '<a href="' . route('sales-orders.show', $row->id) . '" class="btn btn-xs btn-info">View</a>';
+                if ($row->status === 'draft') {
+                    $actions .= '<a href="' . route('sales-orders.edit', $row->id) . '" class="btn btn-xs btn-warning">Edit</a>';
+                }
+                $actions .= '</div>';
+                return $actions;
+            })
+            ->rawColumns(['actions'])
+            ->make(true);
     }
 
     public function create()
@@ -45,12 +103,40 @@ class SalesOrderController extends Controller
         $taxCodes = DB::table('tax_codes')->orderBy('code')->get();
         $inventoryItems = InventoryItem::active()->orderBy('name')->get();
         $warehouses = DB::table('warehouses')->where('is_active', 1)->where('name', 'not like', '%Transit%')->orderBy('name')->get();
+        $currencies = $this->currencyService->getActiveCurrencies();
 
         // Generate SO number for display
         $documentNumberingService = app(DocumentNumberingService::class);
         $soNumber = $documentNumberingService->generateNumber('sales_order', now()->format('Y-m-d'));
 
-        return view('sales_orders.create', compact('customers', 'accounts', 'taxCodes', 'inventoryItems', 'warehouses', 'soNumber'));
+        return view('sales_orders.create', compact('customers', 'accounts', 'taxCodes', 'inventoryItems', 'warehouses', 'currencies', 'soNumber'));
+    }
+
+    public function getExchangeRate(Request $request)
+    {
+        $currencyId = $request->input('currency_id');
+        $date = $request->input('date', now()->toDateString());
+
+        try {
+            $baseCurrency = $this->currencyService->getBaseCurrency();
+            if (!$baseCurrency) {
+                return response()->json(['error' => 'Base currency not found'], 400);
+            }
+
+            if ($currencyId == $baseCurrency->id) {
+                return response()->json(['rate' => 1.000000]);
+            }
+
+            $exchangeRate = $this->exchangeRateService->getRate($currencyId, $baseCurrency->id, $date);
+
+            if (!$exchangeRate) {
+                return response()->json(['error' => 'Exchange rate not found for the selected currency and date'], 400);
+            }
+
+            return response()->json(['rate' => $exchangeRate->rate]);
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Error retrieving exchange rate: ' . $e->getMessage()], 500);
+        }
     }
 
     public function store(Request $request)
@@ -62,6 +148,8 @@ class SalesOrderController extends Controller
             'expected_delivery_date' => ['nullable', 'date'],
             'business_partner_id' => ['required', 'integer', 'exists:business_partners,id'],
             'warehouse_id' => ['required', 'integer', 'exists:warehouses,id'],
+            'currency_id' => ['required', 'integer', 'exists:currencies,id'],
+            'exchange_rate' => ['required', 'numeric', 'min:0.000001'],
             'description' => ['nullable', 'string', 'max:255'],
             'notes' => ['nullable', 'string'],
             'terms_conditions' => ['nullable', 'string'],
@@ -78,6 +166,7 @@ class SalesOrderController extends Controller
             'lines.*.description' => ['nullable', 'string', 'max:255'],
             'lines.*.qty' => ['required', 'numeric', 'min:0.01'],
             'lines.*.unit_price' => ['required', 'numeric', 'min:0'],
+            'lines.*.unit_price_foreign' => ['nullable', 'numeric', 'min:0'],
             'lines.*.vat_rate' => ['required', 'numeric', 'min:0', 'max:100'],
             'lines.*.wtax_rate' => ['required', 'numeric', 'min:0', 'max:100'],
             'lines.*.notes' => ['nullable', 'string'],
@@ -86,15 +175,27 @@ class SalesOrderController extends Controller
         try {
             // Calculate total amount from lines
             $totalAmount = 0;
-            foreach ($data['lines'] as $line) {
+            $totalAmountForeign = 0;
+            $exchangeRate = $data['exchange_rate'];
+
+            foreach ($data['lines'] as &$line) {
                 $originalAmount = $line['qty'] * $line['unit_price'];
                 $vatAmount = $originalAmount * ($line['vat_rate'] / 100);
                 $wtaxAmount = $originalAmount * ($line['wtax_rate'] / 100);
                 $lineAmount = $originalAmount + $vatAmount - $wtaxAmount;
                 $totalAmount += $lineAmount;
+
+                // Calculate foreign amounts
+                $unitPriceForeign = $line['unit_price_foreign'] ?? $line['unit_price'];
+                $lineAmountForeign = $line['qty'] * $unitPriceForeign;
+                $totalAmountForeign += $lineAmountForeign;
+
+                // Add foreign amounts to line data
+                $line['amount_foreign'] = $lineAmountForeign;
             }
 
             $data['total_amount'] = $totalAmount;
+            $data['total_amount_foreign'] = $totalAmountForeign;
 
             $so = $this->salesService->createSalesOrder($data);
             return redirect()->route('sales-orders.show', $so->id)

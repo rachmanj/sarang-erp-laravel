@@ -159,6 +159,9 @@
                                         <button class="btn btn-primary" type="submit" id="save-grpo-btn">
                                             <i class="fas fa-save mr-1"></i> Save GRPO
                                         </button>
+                                        <button type="button" class="btn btn-info ml-2" id="preview-journal-btn">
+                                            <i class="fas fa-eye mr-1"></i> Preview Journal
+                                        </button>
                                         <a href="{{ route('goods-receipt-pos.index') }}" class="btn btn-default"
                                             id="cancel-btn">
                                             <i class="fas fa-times mr-1"></i> Cancel
@@ -685,7 +688,7 @@
                                         data-item-code="${item.code}" 
                                         data-item-name="${item.name}" 
                                         data-item-price="${item.unit_price || 0}">
-                                    <i class="fas fa-check"></i> Select
+                                    <i class="fas fa-check"></i>
                                 </button>
                             </td>
                         </tr>
@@ -722,7 +725,7 @@
                                         data-item-name="${item.name}" 
                                         data-item-price="${item.unit_price || 0}"
                                         data-remaining-qty="${item.remaining_qty || 0}">
-                                    <i class="fas fa-check"></i> Select
+                                    <i class="fas fa-check"></i>
                                 </button>
                             </td>
                         </tr>
@@ -767,6 +770,167 @@
 
             function updateSearchResultsCount(total) {
                 $('#searchResultsCount').text(`Showing ${total} items`);
+            }
+
+            // Preview Journal button functionality
+            $('#preview-journal-btn').click(function() {
+                // Validate form first
+                if (!validateForm()) {
+                    toastr.error('Please fill in all required fields before previewing journal entries.');
+                    return;
+                }
+
+                // Get form data
+                const formData = new FormData(document.getElementById('grpo-form'));
+
+                // Show loading
+                Swal.fire({
+                    title: 'Generating Journal Preview...',
+                    text: 'Please wait while we prepare the journal entries.',
+                    allowOutsideClick: false,
+                    showConfirmButton: false,
+                    willOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+
+                // Send AJAX request to preview journal
+                $.ajax({
+                    url: '/api/journal-preview/grpo',
+                    method: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    headers: {
+                        'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                    },
+                    success: function(response) {
+                        Swal.close();
+                        showJournalPreviewModal(response);
+                    },
+                    error: function(xhr) {
+                        Swal.close();
+                        let errorMessage = 'Failed to generate journal preview.';
+                        if (xhr.responseJSON && xhr.responseJSON.message) {
+                            errorMessage = xhr.responseJSON.message;
+                        }
+                        toastr.error(errorMessage);
+                    }
+                });
+            });
+
+            function showJournalPreviewModal(data) {
+                let modalHtml = `
+                    <div class="modal fade" id="journalPreviewModal" tabindex="-1" role="dialog">
+                        <div class="modal-dialog modal-lg" role="document">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">
+                                        <i class="fas fa-eye mr-2"></i>Preview Journal Entries
+                                    </h5>
+                                    <button type="button" class="close" data-dismiss="modal">
+                                        <span>&times;</span>
+                                    </button>
+                                </div>
+                                <div class="modal-body">
+                                    <div class="row mb-3">
+                                        <div class="col-md-6">
+                                            <strong>Journal Number:</strong> ${data.journal_number || 'Auto-generated'}
+                                        </div>
+                                        <div class="col-md-6">
+                                            <strong>Date:</strong> ${data.date || new Date().toLocaleDateString()}
+                                        </div>
+                                    </div>
+                                    <div class="row mb-3">
+                                        <div class="col-12">
+                                            <strong>Description:</strong> ${data.description || 'GRPO Receipt -'}
+                                        </div>
+                                    </div>
+                                    <h6>Journal Lines:</h6>
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-striped">
+                                            <thead>
+                                                <tr>
+                                                    <th>Account</th>
+                                                    <th>Description</th>
+                                                    <th class="text-right">Debit</th>
+                                                    <th class="text-right">Credit</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>`;
+
+                data.lines.forEach(function(line) {
+                    modalHtml += `
+                        <tr>
+                            <td>${line.account_code} - ${line.account_name}</td>
+                            <td>${line.description}</td>
+                            <td class="text-right">${line.debit ? 'Rp ' + parseFloat(line.debit).toLocaleString('id-ID') : ''}</td>
+                            <td class="text-right">${line.credit ? 'Rp ' + parseFloat(line.credit).toLocaleString('id-ID') : ''}</td>
+                        </tr>`;
+                });
+
+                modalHtml += `
+                                            </tbody>
+                                            <tfoot>
+                                                <tr class="font-weight-bold">
+                                                    <td colspan="2">Total</td>
+                                                    <td class="text-right">Rp ${parseFloat(data.total_debit || 0).toLocaleString('id-ID')}</td>
+                                                    <td class="text-right">Rp ${parseFloat(data.total_credit || 0).toLocaleString('id-ID')}</td>
+                                                </tr>
+                                            </tfoot>
+                                        </table>
+                                    </div>
+                                    <div class="alert ${data.is_balanced ? 'alert-success' : 'alert-danger'}">
+                                        <i class="fas ${data.is_balanced ? 'fa-check' : 'fa-times'} mr-2"></i>
+                                        Journal is ${data.is_balanced ? 'balanced' : 'not balanced'}
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>`;
+
+                // Remove existing modal if any
+                $('#journalPreviewModal').remove();
+
+                // Add modal to body
+                $('body').append(modalHtml);
+
+                // Show modal
+                $('#journalPreviewModal').modal('show');
+            }
+
+            function validateForm() {
+                // Check if vendor is selected
+                if (!$('#business_partner_id').val()) {
+                    return false;
+                }
+
+                // Check if warehouse is selected
+                if (!$('#warehouse_id').val()) {
+                    return false;
+                }
+
+                // Check if at least one line exists
+                if ($('#grpo-lines tbody tr').length === 0) {
+                    return false;
+                }
+
+                // Check if all lines have items and quantities
+                let isValid = true;
+                $('#grpo-lines tbody tr').each(function() {
+                    const itemInput = $(this).find('input[name*="[item_id]"]');
+                    const qtyInput = $(this).find('input[name*="[qty]"]');
+
+                    if (!itemInput.val() || !qtyInput.val() || parseFloat(qtyInput.val()) <= 0) {
+                        isValid = false;
+                        return false;
+                    }
+                });
+
+                return isValid;
             }
         });
     </script>

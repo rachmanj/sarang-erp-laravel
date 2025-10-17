@@ -2,6 +2,16 @@
 
 @section('title', 'Purchase Payment #' . $payment->id)
 
+@section('title_page')
+    Purchase Payment #{{ $payment->id }}
+@endsection
+
+@section('breadcrumb_title')
+    <li class="breadcrumb-item"><a href="/dashboard">Dashboard</a></li>
+    <li class="breadcrumb-item"><a href="{{ route('purchase-payments.index') }}">Purchase Payments</a></li>
+    <li class="breadcrumb-item active">#{{ $payment->id }}</li>
+@endsection
+
 @section('content')
     <section class="content">
         <div class="container-fluid">
@@ -18,9 +28,14 @@
                     @endif
                     <div class="card">
                         <div class="card-header d-flex justify-content-between align-items-center">
-                            <h3 class="card-title">Purchase Payment #{{ $payment->id }} ({{ strtoupper($payment->status) }})
+                            <h3 class="card-title">Purchase Payment #{{ $payment->id }}
+                                ({{ strtoupper($payment->status) }})
                             </h3>
                             <div>
+                                <button type="button" class="btn btn-sm btn-info mr-1"
+                                    onclick="showRelationshipMap('purchase-payments', {{ $payment->id }})">
+                                    <i class="fas fa-sitemap"></i> Relationship Map
+                                </button>
                                 @can('ap.payments.post')
                                     @if ($payment->status !== 'posted')
                                         <form method="post" action="{{ route('purchase-payments.post', $payment->id) }}"
@@ -41,6 +56,15 @@
                                 </form>
                             </div>
                         </div>
+
+                        {{-- Document Navigation Components --}}
+                        <div class="card-body border-bottom">
+                            @include('components.document-navigation', [
+                                'documentType' => 'purchase-payment',
+                                'documentId' => $payment->id,
+                            ])
+                        </div>
+
                         <div class="card-body">
                             <p>Date: {{ $payment->date }}</p>
                             <p>Vendor:
@@ -74,4 +98,7 @@
             </div>
         </div>
     </section>
+
+    {{-- Include Relationship Map Modal --}}
+    @include('components.relationship-map-modal')
 @endsection

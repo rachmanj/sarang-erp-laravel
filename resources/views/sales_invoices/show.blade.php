@@ -1,6 +1,16 @@
 @extends('layouts.main')
 
-@section('title', 'Invoice #' . $invoice->id)
+@section('title', 'Sales Invoice #' . $invoice->id)
+
+@section('title_page')
+    Sales Invoice #{{ $invoice->id }}
+@endsection
+
+@section('breadcrumb_title')
+    <li class="breadcrumb-item"><a href="/dashboard">Dashboard</a></li>
+    <li class="breadcrumb-item"><a href="{{ route('sales-invoices.index') }}">Sales Invoices</a></li>
+    <li class="breadcrumb-item active">#{{ $invoice->id }}</li>
+@endsection
 
 @section('content')
     <section class="content">
@@ -20,6 +30,10 @@
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <h3 class="card-title">Invoice #{{ $invoice->id }} ({{ strtoupper($invoice->status) }})</h3>
                             <div>
+                                <button type="button" class="btn btn-sm btn-info mr-1"
+                                    onclick="showRelationshipMap('sales-invoices', {{ $invoice->id }})">
+                                    <i class="fas fa-sitemap"></i> Relationship Map
+                                </button>
                                 @can('ar.invoices.post')
                                     @if ($invoice->status !== 'posted')
                                         <form method="post" action="{{ route('sales-invoices.post', $invoice->id) }}"
@@ -40,6 +54,15 @@
                                 </form>
                             </div>
                         </div>
+
+                        {{-- Document Navigation Components --}}
+                        <div class="card-body border-bottom">
+                            @include('components.document-navigation', [
+                                'documentType' => 'sales-invoice',
+                                'documentId' => $invoice->id,
+                            ])
+                        </div>
+
                         <div class="card-body">
                             <p>Date: {{ $invoice->date }}</p>
                             <p>Customer:
@@ -90,4 +113,7 @@
             </div>
         </div>
     </section>
+
+    {{-- Include Relationship Map Modal --}}
+    @include('components.relationship-map-modal')
 @endsection

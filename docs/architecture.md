@@ -1,5 +1,5 @@
 Purpose: Technical reference for understanding system design and development patterns
-Last Updated: 2025-09-21 (Updated with GR/GI System Implementation and Journal Integration)
+Last Updated: 2025-10-17 (Updated with Multi-Currency Implementation)
 
 ## Architecture Documentation Guidelines
 
@@ -114,12 +114,22 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 ### 1. Financial Management System
 
 -   **Chart of Accounts**: Hierarchical account structure with 5 types (asset, liability, net_assets, income, expense)
--   **Journal Management**: Manual journal entries with automatic numbering (JNL-YYYYMM-######)
+-   **Journal Management**: Manual journal entries with automatic numbering (JNL-YYYYMM-######) and multi-currency support
 -   **Period Management**: Financial period closing with validation
--   **Posting Service**: Centralized accounting posting with balance validation
+-   **Posting Service**: Centralized accounting posting with balance validation and foreign currency handling
 -   **Account Statements**: Comprehensive financial statements for GL accounts and Business Partners with transaction tracking and running balances
 -   **Control Account System**: Enterprise-level control account architecture with automatic balance tracking, subsidiary ledger management, and reconciliation dashboard for financial control and compliance
 -   **Auto-Numbering System**: Centralized document numbering service with consistent PREFIX-YYYYMM-###### format across all document types
+
+### 1.1. Multi-Currency Management System
+
+-   **Currency Master**: Support for multiple currencies with IDR as base currency, including USD, SGD, EUR, CNY, JPY, MYR, AUD, GBP, HKD
+-   **Exchange Rate Management**: Daily exchange rate entry with automatic inverse rate calculation and historical rate tracking
+-   **Foreign Currency Transactions**: All financial documents support foreign currency with automatic IDR conversion using exchange rates
+-   **Dual Currency Reporting**: Financial reports display both foreign currency amounts and IDR equivalents
+-   **FX Gain/Loss Tracking**: Automatic calculation and posting of realized and unrealized foreign exchange gains/losses
+-   **Currency Revaluation**: Periodic revaluation of foreign currency balances with journal entry generation
+-   **Multi-Currency Forms**: Purchase Orders, Sales Orders, and Journal Entries support currency selection with real-time exchange rate updates
 
 ### 2. Accounts Receivable (AR) Module
 
@@ -278,12 +288,24 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 -   **Exception Reporting**: Automatic identification of accounts with variances above tolerance levels
 -   **Audit Trail**: Complete transaction history and reconciliation tracking
 
-### 8. Multi-Dimensional Accounting
+### 8. Corrected Accounting Flow with Intermediate Accounts
+
+-   **Intermediate Accounts**: AR UnInvoice (1.1.2.04) and AP UnInvoice (2.1.1.03) for proper accrual accounting
+-   **GRPO Accounting**: Debit Inventory Account, Credit AP UnInvoice (goods received but not yet invoiced)
+-   **Purchase Invoice Accounting**: Debit AP UnInvoice, Credit Utang Dagang (liability transfer from intermediate to final)
+-   **Purchase Payment Accounting**: Debit Utang Dagang, Credit Cash (liability settlement)
+-   **Delivery Order Accounting**: Debit AR UnInvoice, Credit Revenue (goods delivered but not yet invoiced)
+-   **Sales Invoice Accounting**: Debit AR UnInvoice, Credit Piutang Dagang (receivable transfer from intermediate to final)
+-   **Sales Receipt Accounting**: Debit Cash, Credit Piutang Dagang (receivable settlement)
+-   **Automatic Journal Generation**: All transactions automatically create balanced journal entries
+-   **Account Mapping Logic**: Inventory accounts mapped by item categories, liability/receivable accounts by business partner type
+
+### 9. Multi-Dimensional Accounting
 
 -   **Projects**: Project-based cost tracking
 -   **Departments**: Departmental cost allocation
 
-### 9. Reporting & Analytics
+### 10. Reporting & Analytics
 
 -   **Trial Balance**: Real-time financial position reporting
 -   **GL Detail**: Detailed general ledger with filtering
@@ -406,14 +428,21 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 #### Financial Tables
 
 -   `accounts`: Chart of accounts with hierarchical structure
--   `journals`: Journal headers with automatic numbering
--   `journal_lines`: Journal line items with dimensions
+-   `journals`: Journal headers with automatic numbering and multi-currency support (currency_id, exchange_rate)
+-   `journal_lines`: Journal line items with dimensions and foreign currency amounts (currency_id, exchange_rate, debit_foreign, credit_foreign)
 -   `periods`: Financial periods with close/open status
 -   `account_statements`: Account statement headers with opening/closing balances
 -   `account_statement_lines`: Statement line items with transaction details and running balances
 -   `control_accounts`: Control account definitions linking GL accounts to control types (AR, AP, Inventory, Fixed Assets)
 -   `subsidiary_ledger_accounts`: Subsidiary ledger accounts linking individual entities to control accounts
 -   `control_account_balances`: Control account balances with multi-dimensional accounting support (projects/departments)
+
+#### Multi-Currency Tables
+
+-   `currencies`: Currency master data with code, name, symbol, decimal places, and base currency flag
+-   `exchange_rates`: Exchange rate management with from/to currency pairs, effective dates, rate types (daily/manual/custom), and source tracking
+-   `currency_revaluations`: Currency revaluation headers for periodic FX adjustments
+-   `currency_revaluation_lines`: Individual account revaluation details with original and revalued amounts
 
 #### AR/AP Tables
 
@@ -457,6 +486,11 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 -   `gr_gi_lines`: GR/GI line items with header_id, item_id, quantity, unit_price, total_amount, and notes
 -   `gr_gi_account_mappings`: Account mapping configuration linking purposes and item categories to debit/credit accounts for automatic journal entry generation
 -   `gr_gi_journal_entries`: Journal entry tracking linking GR/GI documents to generated journal entries for audit trail and reconciliation
+
+#### Document Relationship Management Tables
+
+-   `document_relationships`: Polymorphic relationship storage for document connections supporting base/target document relationships across all document types with automatic relationship initialization from existing data
+-   `document_analytics`: Usage tracking and performance analytics with user behavior analysis and system optimization data including comprehensive indexing for performance
 
 #### Dimension Tables
 
@@ -636,6 +670,7 @@ graph TD
 -   **Advanced Calculation Engine**: Real-time calculation system with proper event handlers for quantity, price, VAT, and WTax changes with accurate formula implementation (Amount Due = Original Amount + VAT - WTax)
 -   **Enhanced Form Validation**: Comprehensive form validation with proper error handling, date field mapping, and database field alignment
 -   **SweetAlert2 Integration**: Professional confirmation dialogs for critical edit operations with proper user interaction handling
+-   **GRPO Show Page Enhancements**: Comprehensive GRPO show page improvements including Base Document button enablement with proper document relationship initialization, PO link correction redirecting to PO show page instead of index page, Back to GRPO List button repositioning to right edge with float-right class, duplicate Preview Journal button removal keeping only one in document navigation section, DocumentNavigationController API fixes removing problematic cache service dependency, DocumentRelationshipService field mapping corrections for proper document number display, and comprehensive browser testing validation across all improvements
 
 ## Deployment
 
@@ -831,3 +866,225 @@ graph TD
 -   Tax configuration validation
 -   Compliance testing procedures
 -   User acceptance testing protocols
+
+## Document Navigation & Journal Preview System Architecture
+
+### Overview
+
+The Document Navigation & Journal Preview system provides comprehensive workflow visibility and accounting transparency across all document types in the ERP system. This system enables users to navigate between related documents, preview journal entries before execution, and visualize complete document workflows through interactive relationship maps.
+
+### Core Components
+
+#### Database Schema
+
+**document_relationships Table**
+
+-   Polymorphic relationship storage for document connections
+-   Supports base/target document relationships across all document types
+-   Automatic relationship initialization from existing data
+
+**document_analytics Table**
+
+-   Usage tracking and performance analytics
+-   User behavior analysis and system optimization data
+-   Comprehensive indexing for performance
+
+#### Service Layer Architecture
+
+**DocumentRelationshipService**
+
+-   Core relationship management logic
+-   Permission-based access control
+-   Relationship initialization and maintenance
+
+**DocumentRelationshipCacheService**
+
+-   Intelligent caching with TTL management
+-   Cache invalidation on document changes
+-   Performance optimization through caching
+
+**DocumentBulkOperationService**
+
+-   Bulk document processing capabilities
+-   Workflow chain analysis
+-   Document statistics and analytics
+
+**DocumentPerformanceOptimizationService**
+
+-   Query optimization and eager loading
+-   Database performance monitoring
+-   Memory usage optimization
+
+**DocumentAnalyticsService**
+
+-   Comprehensive usage tracking
+-   Performance metrics collection
+-   Analytics report generation
+
+#### API Architecture
+
+**DocumentNavigationController**
+
+-   RESTful API endpoints for navigation data
+-   Base/target document retrieval
+-   Permission-based access control
+
+**DocumentRelationshipController**
+
+-   Relationship map data API endpoints
+-   Mermaid.js compatible graph generation
+-   Document workflow visualization
+-   Comprehensive relationship data formatting
+
+**JournalPreviewController**
+
+-   Journal entry preview functionality
+-   Action simulation without persistence
+-   Comprehensive error handling
+
+**DocumentAnalyticsController**
+
+-   Analytics data collection and retrieval
+-   Performance metrics API
+-   Report generation endpoints
+
+#### Frontend Architecture
+
+**AdvancedDocumentNavigation.js**
+
+-   Sophisticated JavaScript component
+-   Client-side caching and error handling
+-   Keyboard shortcuts and tooltips
+-   Real-time UI updates
+
+**DocumentNavigationButtons.js**
+
+-   Base/Target document navigation
+-   Dropdown support for multiple documents
+-   Professional AdminLTE integration
+
+**PreviewJournalButton.js**
+
+-   Journal preview functionality
+-   Modal-based display
+-   Professional formatting and validation
+
+**Relationship Map Modal Component**
+
+-   Mermaid.js flowchart visualization
+-   Professional AdminLTE modal interface
+-   Document information display with status badges
+-   Relationship summary with base/target document counts
+-   Interactive zoom controls and graph navigation
+-   Clickable document nodes for direct navigation
+-   Comprehensive error handling and loading states
+
+### Data Flow Architecture
+
+#### Document Relationship Flow
+
+1. **Relationship Initialization**: Automatic detection of existing document relationships
+2. **Permission Filtering**: User-based access control for document visibility
+3. **Caching Layer**: Intelligent caching for performance optimization
+4. **API Response**: Structured data delivery to frontend components
+
+#### Relationship Map Flow
+
+1. **Document Selection**: User clicks Relationship Map button on any document show page
+2. **API Request**: Frontend calls `/api/documents/{documentType}/{documentId}/relationship-map`
+3. **Data Retrieval**: DocumentRelationshipController fetches all related documents using DocumentRelationshipService
+4. **Graph Generation**: Mermaid.js compatible graph definition created with document nodes and relationships
+5. **Modal Display**: Professional AdminLTE modal renders with document info, relationship summary, and interactive flowchart
+6. **User Interaction**: Users can zoom, navigate, and click on document nodes for direct navigation
+
+#### Journal Preview Flow
+
+1. **Action Simulation**: Non-persistent journal entry generation
+2. **Account Mapping**: Automatic account selection based on document type
+3. **Validation**: Balance checking and error detection
+4. **Preview Display**: Professional modal presentation
+
+#### Analytics Flow
+
+1. **Usage Tracking**: Real-time user interaction monitoring
+2. **Performance Metrics**: System performance data collection
+3. **Data Aggregation**: Analytics processing and storage
+4. **Report Generation**: Comprehensive analytics reporting
+
+### Performance Architecture
+
+#### Caching Strategy
+
+-   **Document Relationships**: 1-hour TTL with automatic invalidation
+-   **Query Results**: 30-minute TTL for database queries
+-   **Client-side Caching**: 5-minute TTL for UI responsiveness
+-   **Cache Warming**: Pre-loading of frequently accessed documents
+
+#### Database Optimization
+
+-   **Eager Loading**: Optimized relationship loading
+-   **Query Caching**: Database query result caching
+-   **Index Optimization**: Performance-optimized database indexes
+-   **Batch Processing**: Efficient bulk operations
+
+#### Memory Management
+
+-   **Memory Usage Monitoring**: Real-time memory tracking
+-   **Optimization Recommendations**: Automated performance suggestions
+-   **Resource Management**: Efficient memory allocation
+
+### Security Architecture
+
+#### Authentication & Authorization
+
+-   **Session-based Authentication**: Web application security
+-   **Permission-based Access**: Granular document access control
+-   **User Context**: User-specific data filtering
+
+#### Data Protection
+
+-   **Input Validation**: Comprehensive data validation
+-   **SQL Injection Prevention**: Parameterized queries
+-   **XSS Protection**: Output sanitization
+
+### Integration Architecture
+
+#### ERP System Integration
+
+-   **Seamless Integration**: Native ERP system integration
+-   **AdminLTE Compatibility**: Professional UI consistency
+-   **Permission System**: Integration with existing RBAC
+
+#### API Integration
+
+-   **RESTful Design**: Standard API patterns
+-   **JSON Responses**: Structured data delivery
+-   **Error Handling**: Comprehensive error management
+
+### Scalability Considerations
+
+#### Horizontal Scaling
+
+-   **Cache Distribution**: Distributed caching support
+-   **Database Scaling**: Optimized for database scaling
+-   **Load Balancing**: API endpoint load balancing
+
+#### Performance Monitoring
+
+-   **Real-time Metrics**: Live performance monitoring
+-   **Analytics Dashboard**: Comprehensive performance insights
+-   **Optimization Recommendations**: Automated performance suggestions
+
+### Deployment Architecture
+
+#### Development Environment
+
+-   **Local Development**: Complete local setup
+-   **Testing Framework**: Comprehensive testing capabilities
+-   **Debug Tools**: Advanced debugging features
+
+#### Production Deployment
+
+-   **Cache Configuration**: Production cache setup
+-   **Performance Monitoring**: Production performance tracking
+-   **Analytics Collection**: Production analytics setup

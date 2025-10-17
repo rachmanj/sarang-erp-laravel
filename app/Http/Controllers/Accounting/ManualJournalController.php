@@ -4,14 +4,19 @@ namespace App\Http\Controllers\Accounting;
 
 use App\Http\Controllers\Controller;
 use App\Services\Accounting\PostingService;
+use App\Services\CurrencyService;
+use App\Services\ExchangeRateService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\Facades\DataTables;
 
 class ManualJournalController extends Controller
 {
-    public function __construct(private PostingService $service)
-    {
+    public function __construct(
+        private PostingService $service,
+        private CurrencyService $currencyService,
+        private ExchangeRateService $exchangeRateService
+    ) {
         $this->middleware(['auth']);
     }
 
@@ -23,7 +28,8 @@ class ManualJournalController extends Controller
             ->get(['id', 'code', 'name']);
         $projects = DB::table('projects')->orderBy('code')->get(['id', 'code', 'name']);
         $departments = DB::table('departments')->orderBy('code')->get(['id', 'code', 'name']);
-        return view('journals.manual.create', compact('accounts', 'projects', 'departments'));
+        $currencies = $this->currencyService->getActiveCurrencies();
+        return view('journals.manual.create', compact('accounts', 'projects', 'departments', 'currencies'));
     }
 
     public function store(Request $request)
@@ -36,6 +42,10 @@ class ManualJournalController extends Controller
             'lines.*.account_id' => ['required', 'integer', 'exists:accounts,id'],
             'lines.*.debit' => ['nullable', 'numeric', 'min:0'],
             'lines.*.credit' => ['nullable', 'numeric', 'min:0'],
+            'lines.*.currency_id' => ['nullable', 'integer', 'exists:currencies,id'],
+            'lines.*.exchange_rate' => ['nullable', 'numeric', 'min:0.000001'],
+            'lines.*.debit_foreign' => ['nullable', 'numeric', 'min:0'],
+            'lines.*.credit_foreign' => ['nullable', 'numeric', 'min:0'],
             'lines.*.project_id' => ['nullable', 'integer'],
             'lines.*.dept_id' => ['nullable', 'integer'],
             'lines.*.memo' => ['nullable', 'string', 'max:255'],
@@ -53,6 +63,33 @@ class ManualJournalController extends Controller
         $journalId = $this->service->postJournal($payload);
 
         return redirect()->route('journals.manual.create')->with('success', "Journal #{$journalId} posted");
+    }
+
+    public function getExchangeRate(Request $request)
+    {
+        $currencyId = $request->input('currency_id');
+        $date = $request->input('date', now()->toDateString());
+
+        try {
+            $baseCurrency = $this->currencyService->getBaseCurrency();
+            if (!$baseCurrency) {
+                return response()->json(['error' => 'Base currency not found'], 400);
+            }
+
+            if ($currencyId == $baseCurrency->id) {
+                return response()->json(['rate' => 1.000000]);
+            }
+
+            $exchangeRate = $this->exchangeRateService->getRate($currencyId, $baseCurrency->id, $date);
+
+            if (!$exchangeRate) {
+                return response()->json(['error' => 'Exchange rate not found for the selected currency and date'], 400);
+            }
+
+            return response()->json(['rate' => $exchangeRate->rate]);
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Error retrieving exchange rate: ' . $e->getMessage()], 500);
+        }
     }
 
     public function index()
@@ -104,6 +141,6 @@ class ManualJournalController extends Controller
                 return '<button type="button" class="btn btn-danger btn-xs reverse-button" data-id="' . $row->id . '" data-url="' . $url . '">Reverse</button>';
             })
             ->rawColumns(['actions'])
-            ->toJson();
+            ->make(true);
     }
 }

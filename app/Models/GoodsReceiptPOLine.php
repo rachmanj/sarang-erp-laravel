@@ -8,9 +8,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class GoodsReceiptPOLine extends Model
 {
     protected $table = 'goods_receipt_po_lines';
-    
+
     protected $fillable = [
         'grpo_id',
+        'item_id',
         'account_id',
         'description',
         'qty',
@@ -38,5 +39,10 @@ class GoodsReceiptPOLine extends Model
     public function taxCode(): BelongsTo
     {
         return $this->belongsTo(\App\Models\Master\TaxCode::class, 'tax_code_id');
+    }
+
+    public function item(): BelongsTo
+    {
+        return $this->belongsTo(InventoryItem::class, 'item_id');
     }
 }

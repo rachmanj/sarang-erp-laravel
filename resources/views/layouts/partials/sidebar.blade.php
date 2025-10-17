@@ -26,6 +26,15 @@
                 <!-- Divider -->
                 <li class="nav-header">MAIN</li>
 
+                <!-- Approval Dashboard -->
+                <li class="nav-item">
+                    <a href="{{ route('approvals.dashboard') }}"
+                        class="nav-link {{ request()->routeIs('approvals.*') ? 'active' : '' }}">
+                        <i class="nav-icon fas fa-clipboard-check"></i>
+                        <p>Approval Dashboard</p>
+                    </a>
+                </li>
+
                 <!-- 1. Inventory Group -->
                 @canany(['inventory.view', 'inventory.create', 'inventory.update', 'warehouse.view', 'gr-gi.view'])
                     @php
@@ -335,7 +344,7 @@
                 </li>
 
                 <!-- 6. Accounting Group -->
-                @canany(['journals.view', 'accounts.view', 'account_statements.view'])
+                @canany(['journals.view', 'accounts.view', 'account_statements.view', 'currencies.view'])
                     @php
                         $acctActive =
                             request()->routeIs('journals.*') ||
@@ -343,7 +352,10 @@
                             request()->routeIs('periods.*') ||
                             request()->routeIs('cash-expenses.*') ||
                             request()->routeIs('account-statements.*') ||
-                            request()->routeIs('control-accounts.*');
+                            request()->routeIs('control-accounts.*') ||
+                            request()->routeIs('currencies.*') ||
+                            request()->routeIs('exchange-rates.*') ||
+                            request()->routeIs('currency-revaluations.*');
                     @endphp
                     <li class="nav-item {{ $acctActive ? 'menu-is-opening menu-open' : '' }}">
                         <a href="#" class="nav-link {{ $acctActive ? 'active' : '' }}">
@@ -401,6 +413,33 @@
                                         class="nav-link {{ request()->routeIs('periods.*') ? 'active' : '' }}">
                                         <i class="far fa-circle nav-icon"></i>
                                         <p>Periods</p>
+                                    </a>
+                                </li>
+                            @endcan
+                            @can('currencies.view')
+                                <li class="nav-item">
+                                    <a href="{{ route('currencies.index') }}"
+                                        class="nav-link {{ request()->routeIs('currencies.*') ? 'active' : '' }}">
+                                        <i class="far fa-circle nav-icon"></i>
+                                        <p>Currencies</p>
+                                    </a>
+                                </li>
+                            @endcan
+                            @can('exchange-rates.view')
+                                <li class="nav-item">
+                                    <a href="{{ route('exchange-rates.index') }}"
+                                        class="nav-link {{ request()->routeIs('exchange-rates.*') ? 'active' : '' }}">
+                                        <i class="far fa-circle nav-icon"></i>
+                                        <p>Exchange Rates</p>
+                                    </a>
+                                </li>
+                            @endcan
+                            @can('currency-revaluations.view')
+                                <li class="nav-item">
+                                    <a href="{{ route('currency-revaluations.index') }}"
+                                        class="nav-link {{ request()->routeIs('currency-revaluations.*') ? 'active' : '' }}">
+                                        <i class="far fa-circle nav-icon"></i>
+                                        <p>Currency Revaluations</p>
                                     </a>
                                 </li>
                             @endcan

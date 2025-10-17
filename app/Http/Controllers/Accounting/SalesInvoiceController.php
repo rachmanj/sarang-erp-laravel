@@ -144,28 +144,37 @@ class SalesInvoiceController extends Controller
             return back()->with('success', 'Already posted');
         }
 
-        $arAccountId = (int) DB::table('accounts')->where('code', '1.1.4')->value('id');
+        $arUnInvoiceAccountId = (int) DB::table('accounts')->where('code', '1.1.2.04')->value('id'); // AR UnInvoice
+        $arAccountId = (int) DB::table('accounts')->where('code', '1.1.2.01')->value('id'); // Piutang Dagang
         $ppnOutputId = (int) DB::table('accounts')->where('code', '2.1.2')->value('id');
 
         $revenueTotal = 0.0;
         $ppnTotal = 0.0;
         $lines = [];
+        
+        // Calculate totals first
         foreach ($invoice->lines as $l) {
             $revenueTotal += (float) $l->amount;
             if (!empty($l->tax_code_id)) {
                 $rate = (float) DB::table('tax_codes')->where('id', $l->tax_code_id)->value('rate');
                 $ppnTotal += round($l->amount * $rate, 2);
             }
-            $lines[] = [
-                'account_id' => (int) $l->account_id,
-                'debit' => 0,
-                'credit' => (float) $l->amount,
-                'project_id' => $l->project_id,
-                'dept_id' => $l->dept_id,
-                'memo' => $l->description,
-            ];
         }
 
+        // Debit AR UnInvoice (reducing un-invoiced receivable)
+        $lines[] = [
+            'account_id' => $arUnInvoiceAccountId,
+            'debit' => $revenueTotal + $ppnTotal,
+            'credit' => 0,
+            'project_id' => null,
+            'dept_id' => null,
+            'memo' => 'Reduce AR UnInvoice',
+        ];
+
+        // Note: Revenue recognition is handled by Delivery Order, not Sales Invoice
+        // Sales Invoice only handles receivable transition and VAT
+
+        // Credit VAT Output Account (recognizing VAT liability)
         if ($ppnTotal > 0) {
             $lines[] = [
                 'account_id' => $ppnOutputId,
@@ -177,10 +186,11 @@ class SalesInvoiceController extends Controller
             ];
         }
 
+        // Credit AR Account (creating accounts receivable for revenue only)
         $lines[] = [
             'account_id' => $arAccountId,
-            'debit' => $revenueTotal + $ppnTotal,
-            'credit' => 0,
+            'debit' => 0,
+            'credit' => $revenueTotal,
             'project_id' => null,
             'dept_id' => null,
             'memo' => 'Accounts Receivable',

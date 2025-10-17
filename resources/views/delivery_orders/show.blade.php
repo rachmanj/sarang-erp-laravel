@@ -24,6 +24,10 @@
                                 Delivery Order: {{ $deliveryOrder->do_number }}
                             </h3>
                             <div class="card-tools">
+                                <button type="button" class="btn btn-sm btn-info mr-1"
+                                    onclick="showRelationshipMap('delivery-orders', {{ $deliveryOrder->id }})">
+                                    <i class="fas fa-sitemap"></i> Relationship Map
+                                </button>
                                 <a href="{{ route('delivery-orders.print', $deliveryOrder) }}" class="btn btn-sm btn-info"
                                     target="_blank">
                                     <i class="fas fa-print"></i> Print
@@ -39,6 +43,15 @@
                                 </a>
                             </div>
                         </div>
+
+                        {{-- Document Navigation Components --}}
+                        <div class="card-body border-bottom">
+                            @include('components.document-navigation', [
+                                'documentType' => 'delivery-order',
+                                'documentId' => $deliveryOrder->id,
+                            ])
+                        </div>
+
                         <div class="card-body">
                             <!-- Status -->
                             <div class="row mb-3">
@@ -186,13 +199,13 @@
                                     </div>
                                 </div>
                             @endif
-                            
+
                             <!-- Create Invoice Action -->
                             @if ($deliveryOrder->status === 'delivered' && $deliveryOrder->approval_status === 'approved')
                                 <div class="row mt-3">
                                     <div class="col-md-12">
-                                        <a href="{{ route('delivery-orders.create-invoice', $deliveryOrder) }}" 
-                                           class="btn btn-success">
+                                        <a href="{{ route('delivery-orders.create-invoice', $deliveryOrder) }}"
+                                            class="btn btn-success">
                                             <i class="fas fa-file-invoice-dollar"></i> Create Invoice from Delivery Order
                                         </a>
                                     </div>
@@ -230,6 +243,9 @@
             </div>
         </div>
     </div>
+
+    {{-- Include Relationship Map Modal --}}
+    @include('components.relationship-map-modal')
 @endsection
 
 @push('scripts')

@@ -75,6 +75,9 @@ Route::prefix('sales-orders')->group(function () {
     Route::get('/{id}/create-invoice', [SalesOrderController::class, 'createInvoice'])->name('sales-orders.create-invoice');
     Route::post('/{id}/approve', [SalesOrderController::class, 'approve'])->name('sales-orders.approve');
     Route::post('/{id}/close', [SalesOrderController::class, 'close'])->name('sales-orders.close');
+
+    // Currency API Routes
+    Route::get('/api/exchange-rate', [SalesOrderController::class, 'getExchangeRate'])->name('sales-orders.api.exchange-rate');
 });
 
 // Delivery Orders
@@ -155,14 +158,17 @@ Route::prefix('purchase-orders')->group(function () {
             });
         }
         return Yajra\DataTables\Facades\DataTables::of($q)
-            ->editColumn('total_amount', fn($r) => number_format((float)$r->total_amount, 2))
+            ->editColumn('date', function ($r) {
+                return $r->date ? \Carbon\Carbon::parse($r->date)->format('d-M-Y') : '';
+            })
+            ->editColumn('total_amount', fn($r) => 'Rp ' . number_format((float)$r->total_amount, 0, ',', '.'))
             ->addColumn('vendor', fn($r) => $r->vendor_name ?: ('#' . $r->business_partner_id))
             ->addColumn('closure_status', function ($r) {
                 if ($r->closure_status === 'closed') {
                     $closedBy = $r->closed_by_document_type ? ' by ' . $r->closed_by_document_type : '';
                     return '<span class="badge badge-success"><i class="fas fa-check"></i> Closed' . $closedBy . '</span>';
                 } else {
-                    $daysOpen = $r->closed_at ? \Carbon\Carbon::parse($r->closed_at)->diffInDays(now()) : \Carbon\Carbon::parse($r->date)->diffInDays(now());
+                    $daysOpen = round($r->closed_at ? \Carbon\Carbon::parse($r->closed_at)->diffInDays(now()) : \Carbon\Carbon::parse($r->date)->diffInDays(now()));
                     $isOverdue = $daysOpen > 30; // Default threshold
                     $badgeClass = $isOverdue ? 'badge-warning' : 'badge-info';
                     return '<span class="badge ' . $badgeClass . '"><i class="fas fa-clock"></i> Open (' . $daysOpen . ' days)</span>';
@@ -183,7 +189,7 @@ Route::prefix('purchase-orders')->group(function () {
     Route::get('/csv', function () {
         $q = \Illuminate\Support\Facades\DB::table('purchase_orders as po')
             ->leftJoin('business_partners as v', 'v.id', '=', 'po.business_partner_id')
-            ->select('po.date', 'po.order_no', 'v.name as vendor', 'po.total_amount', 'po.status');
+            ->select('po.date', 'po.order_no', 'v.name as vendor', 'po.total_amount', 'po.status', 'po.closure_status', 'po.created_at');
         if (request()->filled('status')) {
             $q->where('po.status', request('status'));
         }
@@ -203,9 +209,22 @@ Route::prefix('purchase-orders')->group(function () {
             });
         }
         $rows = $q->orderBy('po.date', 'desc')->get();
-        $csv = "date,order_no,vendor,total,status\n";
+        $csv = "date,order_no,vendor,total,status,closure_status\n";
         foreach ($rows as $r) {
-            $csv .= sprintf("%s,%s,%s,%.2f,%s\n", $r->date, $r->order_no, str_replace(',', ' ', (string)$r->vendor), (float)$r->total_amount, $r->status);
+            $formattedDate = $r->date ? \Carbon\Carbon::parse($r->date)->format('d-M-Y') : '';
+            $formattedTotal = 'Rp ' . number_format($r->total_amount, 0, ',', '.');
+            $closureStatus = $r->closure_status === 'open' ?
+                round(\Carbon\Carbon::parse($r->created_at)->diffInDays(\Carbon\Carbon::now())) . ' days' :
+                ucfirst($r->closure_status);
+            $csv .= sprintf(
+                "%s,%s,%s,%s,%s,%s\n",
+                $formattedDate,
+                $r->order_no,
+                str_replace(',', ' ', (string)$r->vendor),
+                $formattedTotal,
+                $r->status,
+                $closureStatus
+            );
         }
         return response($csv, 200, ['Content-Type' => 'text/csv', 'Content-Disposition' => 'attachment; filename="purchase-orders.csv"']);
     })->name('purchase-orders.csv');
@@ -213,7 +232,7 @@ Route::prefix('purchase-orders')->group(function () {
     Route::post('/', [PurchaseOrderController::class, 'store'])->name('purchase-orders.store');
     Route::get('/{id}', [PurchaseOrderController::class, 'show'])->name('purchase-orders.show');
     Route::get('/{id}/edit', [PurchaseOrderController::class, 'edit'])->name('purchase-orders.edit');
-    Route::patch('/{id}', [PurchaseOrderController::class, 'update'])->name('purchase-orders.update');
+    Route::put('/{id}', [PurchaseOrderController::class, 'update'])->name('purchase-orders.update');
     Route::get('/{id}/create-invoice', [PurchaseOrderController::class, 'createInvoice'])->name('purchase-orders.create-invoice');
     Route::get('/{id}/create-assets', [PurchaseOrderController::class, 'createAssets'])->name('purchase-orders.create-assets');
     Route::post('/{id}/store-assets', [PurchaseOrderController::class, 'storeAssets'])->name('purchase-orders.store-assets');
@@ -225,6 +244,9 @@ Route::prefix('purchase-orders')->group(function () {
     Route::get('/api/item-units', [PurchaseOrderController::class, 'getItemUnits'])->name('purchase-orders.api.item-units');
     Route::get('/api/conversion-preview', [PurchaseOrderController::class, 'getConversionPreview'])->name('purchase-orders.api.conversion-preview');
     Route::get('/api/units-by-type', [PurchaseOrderController::class, 'getUnitsByType'])->name('purchase-orders.api.units-by-type');
+
+    // Currency API Routes
+    Route::get('/api/exchange-rate', [PurchaseOrderController::class, 'getExchangeRate'])->name('purchase-orders.api.exchange-rate');
 });
 
 // Goods Receipt PO
@@ -294,6 +316,7 @@ Route::prefix('goods-receipt-pos')->group(function () {
     Route::post('/', [GoodsReceiptPOController::class, 'store'])->name('goods-receipt-pos.store');
 
     // AJAX endpoints for enhanced functionality (must come before parameterized routes)
+    Route::get('/available-pos', [GoodsReceiptPOController::class, 'getAvailablePOs'])->name('goods-receipt-pos.available-pos');
     Route::get('/vendor-pos', [GoodsReceiptPOController::class, 'getVendorPOs'])->name('goods-receipt-pos.vendor-pos');
     Route::get('/remaining-lines', [GoodsReceiptPOController::class, 'getRemainingPOLines'])->name('goods-receipt-pos.remaining-lines');
 
@@ -301,4 +324,9 @@ Route::prefix('goods-receipt-pos')->group(function () {
     Route::get('/{id}', [GoodsReceiptPOController::class, 'show'])->name('goods-receipt-pos.show');
     Route::get('/{id}/create-invoice', [GoodsReceiptPOController::class, 'createInvoice'])->name('goods-receipt-pos.create-invoice');
     Route::post('/{id}/receive', [GoodsReceiptPOController::class, 'receive'])->name('goods-receipt-pos.receive');
+
+    // Journal management routes
+    Route::post('/{id}/create-journal', [GoodsReceiptPOController::class, 'createJournal'])->name('goods-receipt-pos.create-journal');
+    Route::post('/{id}/reverse-journal', [GoodsReceiptPOController::class, 'reverseJournal'])->name('goods-receipt-pos.reverse-journal');
+    Route::get('/{id}/journal', [GoodsReceiptPOController::class, 'showJournal'])->name('goods-receipt-pos.journal');
 });

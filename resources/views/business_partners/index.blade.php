@@ -120,11 +120,11 @@
                                     href="{{ route('business_partners.index', ['type' => 'both']) }}">Both Types</a>
                             </div>
                         </div>
-                        @can('business_partners.manage')
+                        @canany(['customers.manage', 'vendors.manage'])
                             <a href="{{ route('business_partners.create') }}" class="btn btn-primary">
                                 <i class="fas fa-plus"></i> Add New
                             </a>
-                        @endcan
+                        @endcanany
                     </div>
                 </div>
                 <div class="card-body">

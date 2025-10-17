@@ -77,7 +77,7 @@
                                 <th width="10%">UOM</th>
                                 <th width="10%">Purchase Price</th>
                                 <th width="10%">Selling Price</th>
-                                <th width="5%">Action</th>
+                                <th width="3%">Action</th>
                             </tr>
                         </thead>
                         <tbody>

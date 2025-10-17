@@ -127,6 +127,47 @@
                                     </div>
                                 </div>
 
+                                <div class="row mt-3">
+                                    <div class="col-md-4">
+                                        <div class="form-group row mb-2">
+                                            <label class="col-sm-3 col-form-label">Currency <span
+                                                    class="text-danger">*</span></label>
+                                            <div class="col-sm-9">
+                                                <select name="currency_id" id="currency_id"
+                                                    class="form-control form-control-sm select2bs4" required>
+                                                    <option value="">-- select currency --</option>
+                                                    @foreach ($currencies as $currency)
+                                                        <option value="{{ $currency->id }}"
+                                                            {{ old('currency_id', 1) == $currency->id ? 'selected' : '' }}>
+                                                            {{ $currency->code }} - {{ $currency->name }}
+                                                        </option>
+                                                    @endforeach
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="form-group row mb-2">
+                                            <label class="col-sm-3 col-form-label">Exchange Rate</label>
+                                            <div class="col-sm-9">
+                                                <div class="input-group input-group-sm">
+                                                    <input type="number" name="exchange_rate" id="exchange_rate"
+                                                        class="form-control form-control-sm" step="0.000001"
+                                                        value="{{ old('exchange_rate', '1.000000') }}">
+                                                    <div class="input-group-append">
+                                                        <button type="button" class="btn btn-outline-secondary btn-sm"
+                                                            id="refresh-rate-btn" title="Refresh Exchange Rate">
+                                                            <i class="fas fa-sync-alt"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                <small class="form-text text-muted">Auto-updated based on selected currency
+                                                    and date</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <div class="card card-secondary card-outline mt-3 mb-2">
                                     <div class="card-header py-2">
                                         <h3 class="card-title">
@@ -147,7 +188,8 @@
                                                         </th>
                                                         <th style="width: 20%">Description</th>
                                                         <th style="width: 10%">Qty <span class="text-danger">*</span></th>
-                                                        <th style="width: 12%">Unit Price <span class="text-danger">*</span>
+                                                        <th style="width: 12%">Unit Price <span
+                                                                class="text-danger">*</span>
                                                         </th>
                                                         <th style="width: 8%">VAT</th>
                                                         <th style="width: 8%">WTax</th>
@@ -248,6 +290,51 @@
             $('#order_type').on('change', function() {
                 updateAllLineDropdowns();
             });
+
+            // Currency handling
+            $('#currency_id').on('change', function() {
+                updateExchangeRate();
+            });
+
+            // Date change handler
+            $('input[name="date"]').on('change', function() {
+                updateExchangeRate();
+            });
+
+            // Refresh rate button handler
+            $('#refresh-rate-btn').on('click', function() {
+                updateExchangeRate();
+            });
+
+            function updateExchangeRate() {
+                const currencyId = $('#currency_id').val();
+                const date = $('input[name="date"]').val();
+
+                if (!currencyId || !date) {
+                    return;
+                }
+
+                $.ajax({
+                    url: '{{ route('sales-orders.api.exchange-rate') }}',
+                    method: 'GET',
+                    data: {
+                        currency_id: currencyId,
+                        date: date
+                    },
+                    success: function(response) {
+                        if (response.rate) {
+                            $('#exchange_rate').val(response.rate);
+                        } else if (response.error) {
+                            console.error('Exchange rate error:', response.error);
+                            alert('Error getting exchange rate: ' + response.error);
+                        }
+                    },
+                    error: function(xhr) {
+                        console.error('Exchange rate request failed:', xhr);
+                        alert('Failed to get exchange rate');
+                    }
+                });
+            }
 
             // Handle item search button clicks
             $(document).on('click', '.item-search-btn', function() {

@@ -40,6 +40,7 @@ use App\Http\Controllers\SupplierAnalyticsController;
 use App\Http\Controllers\BusinessIntelligenceController;
 use App\Http\Controllers\AnalyticsController;
 use App\Http\Controllers\Accounting\AccountStatementController;
+use App\Http\Controllers\ApprovalDashboardController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -56,6 +57,11 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
     Route::put('password', [PasswordController::class, 'update'])->name('password.update');
     Route::get('/change-password', [ProfileController::class, 'changePassword'])->name('profile.change-password');
+
+    // Approval Dashboard
+    Route::get('/approvals', [ApprovalDashboardController::class, 'index'])->name('approvals.dashboard');
+    Route::post('/approvals/{approval}/approve', [ApprovalDashboardController::class, 'approve'])->name('approvals.approve');
+    Route::post('/approvals/{approval}/reject', [ApprovalDashboardController::class, 'reject'])->name('approvals.reject');
 
     require __DIR__ . '/web/reports.php';
 
@@ -525,6 +531,48 @@ Route::middleware('auth')->group(function () {
         Route::get('/data', [ControlAccountController::class, 'data'])->name('control-accounts.data');
         Route::get('/{controlAccount}', [ControlAccountController::class, 'show'])->name('control-accounts.show');
         Route::post('/{controlAccount}/reconcile', [ControlAccountController::class, 'reconcile'])->middleware('permission:accounts.manage')->name('control-accounts.reconcile');
+    });
+
+    // Currency Management
+    Route::prefix('currencies')->group(function () {
+        Route::get('/', [\App\Http\Controllers\CurrencyController::class, 'index'])->name('currencies.index');
+        Route::get('/data', [\App\Http\Controllers\CurrencyController::class, 'data'])->name('currencies.data');
+        Route::get('/create', [\App\Http\Controllers\CurrencyController::class, 'create'])->middleware('permission:currencies.create')->name('currencies.create');
+        Route::post('/', [\App\Http\Controllers\CurrencyController::class, 'store'])->middleware('permission:currencies.create')->name('currencies.store');
+        Route::get('/{id}', [\App\Http\Controllers\CurrencyController::class, 'show'])->name('currencies.show');
+        Route::get('/{id}/edit', [\App\Http\Controllers\CurrencyController::class, 'edit'])->middleware('permission:currencies.update')->name('currencies.edit');
+        Route::put('/{id}', [\App\Http\Controllers\CurrencyController::class, 'update'])->middleware('permission:currencies.update')->name('currencies.update');
+        Route::delete('/{id}', [\App\Http\Controllers\CurrencyController::class, 'destroy'])->middleware('permission:currencies.delete')->name('currencies.destroy');
+    });
+
+    // Exchange Rate Management
+    Route::prefix('exchange-rates')->group(function () {
+        Route::get('/', [\App\Http\Controllers\ExchangeRateController::class, 'index'])->name('exchange-rates.index');
+        Route::get('/data', [\App\Http\Controllers\ExchangeRateController::class, 'data'])->name('exchange-rates.data');
+        Route::get('/daily-rates', [\App\Http\Controllers\ExchangeRateController::class, 'dailyRates'])->middleware('permission:exchange-rates.create')->name('exchange-rates.daily-rates');
+        Route::post('/daily-rates', [\App\Http\Controllers\ExchangeRateController::class, 'storeDailyRates'])->middleware('permission:exchange-rates.create')->name('exchange-rates.store-daily-rates');
+        Route::get('/create', [\App\Http\Controllers\ExchangeRateController::class, 'create'])->middleware('permission:exchange-rates.create')->name('exchange-rates.create');
+        Route::post('/', [\App\Http\Controllers\ExchangeRateController::class, 'store'])->middleware('permission:exchange-rates.create')->name('exchange-rates.store');
+        Route::get('/{id}', [\App\Http\Controllers\ExchangeRateController::class, 'show'])->name('exchange-rates.show');
+        Route::get('/{id}/edit', [\App\Http\Controllers\ExchangeRateController::class, 'edit'])->middleware('permission:exchange-rates.update')->name('exchange-rates.edit');
+        Route::put('/{id}', [\App\Http\Controllers\ExchangeRateController::class, 'update'])->middleware('permission:exchange-rates.update')->name('exchange-rates.update');
+        Route::delete('/{id}', [\App\Http\Controllers\ExchangeRateController::class, 'destroy'])->middleware('permission:exchange-rates.delete')->name('exchange-rates.destroy');
+
+        // API Routes
+        Route::get('/api/rate', [\App\Http\Controllers\ExchangeRateController::class, 'getRate'])->name('exchange-rates.api.rate');
+    });
+
+    // Currency Revaluation Management
+    Route::prefix('currency-revaluations')->group(function () {
+        Route::get('/', [\App\Http\Controllers\CurrencyRevaluationController::class, 'index'])->name('currency-revaluations.index');
+        Route::get('/data', [\App\Http\Controllers\CurrencyRevaluationController::class, 'data'])->name('currency-revaluations.data');
+        Route::get('/create', [\App\Http\Controllers\CurrencyRevaluationController::class, 'create'])->middleware('permission:currency-revaluations.create')->name('currency-revaluations.create');
+        Route::post('/calculate', [\App\Http\Controllers\CurrencyRevaluationController::class, 'calculate'])->middleware('permission:currency-revaluations.create')->name('currency-revaluations.calculate');
+        Route::post('/', [\App\Http\Controllers\CurrencyRevaluationController::class, 'store'])->middleware('permission:currency-revaluations.create')->name('currency-revaluations.store');
+        Route::get('/{id}', [\App\Http\Controllers\CurrencyRevaluationController::class, 'show'])->name('currency-revaluations.show');
+        Route::get('/{id}/preview', [\App\Http\Controllers\CurrencyRevaluationController::class, 'preview'])->name('currency-revaluations.preview');
+        Route::post('/{id}/post', [\App\Http\Controllers\CurrencyRevaluationController::class, 'post'])->middleware('permission:currency-revaluations.post')->name('currency-revaluations.post');
+        Route::post('/{id}/reverse', [\App\Http\Controllers\CurrencyRevaluationController::class, 'reverse'])->middleware('permission:currency-revaluations.reverse')->name('currency-revaluations.reverse');
     });
 });
 

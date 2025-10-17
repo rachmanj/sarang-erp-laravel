@@ -17,6 +17,10 @@
                 <div class="card-header d-flex justify-content-between">
                     <h3 class="card-title">Sales Order {{ $order->order_no ?? '#' . $order->id }}</h3>
                     <div>
+                        <button type="button" class="btn btn-sm btn-info mr-1"
+                            onclick="showRelationshipMap('sales-orders', {{ $order->id }})">
+                            <i class="fas fa-sitemap"></i> Relationship Map
+                        </button>
                         <button class="btn btn-sm btn-primary" aria-label="Approve Sales Order"
                             {{ $order->approval_status !== 'pending' ? 'disabled' : '' }}
                             onclick="confirmApproval({{ $order->id }}, 'approve')">Approve</button>
@@ -123,4 +127,7 @@
             });
         }
     </script>
+
+    {{-- Include Relationship Map Modal --}}
+    @include('components.relationship-map-modal')
 @endsection

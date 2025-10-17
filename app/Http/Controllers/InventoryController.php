@@ -456,9 +456,22 @@ class InventoryController extends Controller
             }
         }
 
-        $items = $query->orderBy('name')->get();
+        // Get total count before pagination
+        $totalRecords = $query->count();
+
+        // Apply DataTables pagination
+        $start = $request->get('start', 0);
+        $length = $request->get('length', 10);
+
+        $items = $query->orderBy('name')
+            ->skip($start)
+            ->take($length)
+            ->get();
 
         return response()->json([
+            'draw' => intval($request->get('draw')),
+            'recordsTotal' => $totalRecords,
+            'recordsFiltered' => $totalRecords,
             'data' => $items->map(function ($item) {
                 return [
                     'id' => $item->id,

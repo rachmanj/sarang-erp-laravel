@@ -136,6 +136,53 @@ class ErpParameterSeeder extends Seeder
                 'description' => 'Maximum allowed price difference percentage',
                 'is_active' => true,
             ],
+
+            // Currency Settings
+            [
+                'category' => 'currency_settings',
+                'parameter_key' => 'default_currency_id',
+                'parameter_name' => 'Default Currency ID',
+                'parameter_value' => '1', // IDR will be ID 1
+                'data_type' => 'integer',
+                'description' => 'System default currency (IDR)',
+                'is_active' => true,
+            ],
+            [
+                'category' => 'currency_settings',
+                'parameter_key' => 'auto_exchange_rate_enabled',
+                'parameter_name' => 'Auto Exchange Rate Enabled',
+                'parameter_value' => 'true',
+                'data_type' => 'boolean',
+                'description' => 'Enable/disable automatic exchange rate fetching',
+                'is_active' => true,
+            ],
+            [
+                'category' => 'currency_settings',
+                'parameter_key' => 'exchange_rate_tolerance',
+                'parameter_name' => 'Exchange Rate Tolerance',
+                'parameter_value' => '10',
+                'data_type' => 'decimal',
+                'description' => 'Percentage variance allowed for manual rates',
+                'is_active' => true,
+            ],
+            [
+                'category' => 'currency_settings',
+                'parameter_key' => 'realized_gain_loss_account_id',
+                'parameter_name' => 'Realized FX Gain/Loss Account ID',
+                'parameter_value' => null, // Will be set after COA is seeded
+                'data_type' => 'integer',
+                'description' => 'Account for realized FX gains/losses',
+                'is_active' => true,
+            ],
+            [
+                'category' => 'currency_settings',
+                'parameter_key' => 'unrealized_gain_loss_account_id',
+                'parameter_name' => 'Unrealized FX Gain/Loss Account ID',
+                'parameter_value' => null, // Will be set after COA is seeded
+                'data_type' => 'integer',
+                'description' => 'Account for unrealized FX gains/losses',
+                'is_active' => true,
+            ],
         ];
 
         foreach ($parameters as $parameter) {

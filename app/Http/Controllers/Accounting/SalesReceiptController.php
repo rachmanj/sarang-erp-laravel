@@ -151,8 +151,8 @@ class SalesReceiptController extends Controller
             return back()->with('success', 'Already posted');
         }
 
-        $cashAccountId = (int) DB::table('accounts')->where('code', '1.1.2.01')->value('id');
-        $arAccountId = (int) DB::table('accounts')->where('code', '1.1.4')->value('id');
+        $cashAccountId = (int) DB::table('accounts')->where('code', '1.1.1.01')->value('id'); // Kas di Tangan
+        $arAccountId = (int) DB::table('accounts')->where('code', '1.1.2.01')->value('id'); // Piutang Dagang
 
         $total = (float) $receipt->total_amount;
         $lines = [];

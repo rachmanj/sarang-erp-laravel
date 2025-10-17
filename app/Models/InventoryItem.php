@@ -16,6 +16,8 @@ class InventoryItem extends Model
         'category_id',
         'default_warehouse_id',
         'unit_of_measure',
+        'purchase_currency_id',
+        'selling_currency_id',
         'purchase_price',
         'selling_price',
         'selling_price_level_2',
@@ -62,6 +64,16 @@ class InventoryItem extends Model
     public function defaultWarehouse(): BelongsTo
     {
         return $this->belongsTo(Warehouse::class, 'default_warehouse_id');
+    }
+
+    public function purchaseCurrency(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Currency::class, 'purchase_currency_id');
+    }
+
+    public function sellingCurrency(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Currency::class, 'selling_currency_id');
     }
 
     public function warehouseStock(): HasMany

@@ -9,4 +9,7 @@ Route::prefix('journals')->middleware(['permission:journals.view'])->group(funct
     Route::post('/manual', [ManualJournalController::class, 'store'])->middleware('permission:journals.create')->name('journals.manual.store');
     Route::post('/{journal}/reverse', [ManualJournalController::class, 'reverse'])->middleware('permission:journals.reverse')->name('journals.reverse');
     Route::get('/data', [ManualJournalController::class, 'data'])->name('journals.data');
+
+    // Currency API Routes
+    Route::get('/api/exchange-rate', [ManualJournalController::class, 'getExchangeRate'])->name('journals.api.exchange-rate');
 });

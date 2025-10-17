@@ -2,6 +2,16 @@
 
 @section('title', 'Sales Receipt #' . $receipt->id)
 
+@section('title_page')
+    Sales Receipt #{{ $receipt->id }}
+@endsection
+
+@section('breadcrumb_title')
+    <li class="breadcrumb-item"><a href="/dashboard">Dashboard</a></li>
+    <li class="breadcrumb-item"><a href="{{ route('sales-receipts.index') }}">Sales Receipts</a></li>
+    <li class="breadcrumb-item active">#{{ $receipt->id }}</li>
+@endsection
+
 @section('content')
     <section class="content">
         <div class="container-fluid">
@@ -21,6 +31,10 @@
                             <h3 class="card-title">Sales Receipt #{{ $receipt->id }} ({{ strtoupper($receipt->status) }})
                             </h3>
                             <div>
+                                <button type="button" class="btn btn-sm btn-info mr-1"
+                                    onclick="showRelationshipMap('sales-receipts', {{ $receipt->id }})">
+                                    <i class="fas fa-sitemap"></i> Relationship Map
+                                </button>
                                 @can('ar.receipts.post')
                                     @if ($receipt->status !== 'posted')
                                         <form method="post" action="{{ route('sales-receipts.post', $receipt->id) }}"
@@ -41,6 +55,15 @@
                                 </form>
                             </div>
                         </div>
+
+                        {{-- Document Navigation Components --}}
+                        <div class="card-body border-bottom">
+                            @include('components.document-navigation', [
+                                'documentType' => 'sales-receipt',
+                                'documentId' => $receipt->id,
+                            ])
+                        </div>
+
                         <div class="card-body">
                             <p>Date: {{ $receipt->date }}</p>
                             <p>Customer:
@@ -74,4 +97,7 @@
             </div>
         </div>
     </section>
+
+    {{-- Include Relationship Map Modal --}}
+    @include('components.relationship-map-modal')
 @endsection

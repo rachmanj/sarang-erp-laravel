@@ -152,8 +152,8 @@ class PurchasePaymentController extends Controller
             return back()->with('success', 'Already posted');
         }
 
-        $cashAccountId = (int) DB::table('accounts')->where('code', '1.1.2.01')->value('id');
-        $apAccountId = (int) DB::table('accounts')->where('code', '2.1.1')->value('id');
+        $cashAccountId = (int) DB::table('accounts')->where('code', '1.1.1.01')->value('id'); // Kas di Tangan
+        $apAccountId = (int) DB::table('accounts')->where('code', '2.1.1.01')->value('id'); // Utang Dagang
 
         $total = (float) $payment->total_amount;
         $lines = [];

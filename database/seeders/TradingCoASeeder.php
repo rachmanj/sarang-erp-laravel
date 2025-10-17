@@ -41,6 +41,7 @@ class TradingCoASeeder extends Seeder
         $create('1.1.2.01', 'Piutang Dagang', 'asset', true, '1.1.2');
         $create('1.1.2.02', 'Piutang Lain-lain', 'asset', true, '1.1.2');
         $create('1.1.2.03', 'Cadangan Kerugian Piutang', 'asset', true, '1.1.2');
+        $create('1.1.2.04', 'AR UnInvoice', 'asset', true, '1.1.2');
 
         $create('1.1.3', 'Persediaan', 'asset', false, '1.1');
         $create('1.1.3.01', 'Persediaan Barang Dagangan', 'asset', true, '1.1.3');
@@ -86,6 +87,7 @@ class TradingCoASeeder extends Seeder
         $create('2.1.1', 'Utang Usaha', 'liability', false, '2.1');
         $create('2.1.1.01', 'Utang Dagang', 'liability', true, '2.1.1');
         $create('2.1.1.02', 'Utang Lain-lain', 'liability', true, '2.1.1');
+        $create('2.1.1.03', 'AP UnInvoice', 'liability', true, '2.1.1');
 
         $create('2.1.2', 'Utang Pajak', 'liability', false, '2.1');
         $create('2.1.2.01', 'PPN Keluaran', 'liability', true, '2.1.2');
@@ -190,5 +192,12 @@ class TradingCoASeeder extends Seeder
         $create('7.2.1', 'Kerugian Selisih Kurs', 'expense', true, '7.2');
         $create('7.2.2', 'Beban Bunga', 'expense', true, '7.2');
         $create('7.2.3', 'Kerugian Penjualan Aset', 'expense', true, '7.2');
+
+        // Multi-Currency FX Gain/Loss Accounts
+        $create('7.2.5', 'Foreign Exchange', 'expense', false, '7.2');
+        $create('7.2.5.01', 'Realized Exchange Gain', 'income', true, '7.2.5');
+        $create('7.2.5.02', 'Realized Exchange Loss', 'expense', true, '7.2.5');
+        $create('7.2.5.03', 'Unrealized Exchange Gain', 'income', true, '7.2.5');
+        $create('7.2.5.04', 'Unrealized Exchange Loss', 'expense', true, '7.2.5');
     }
 }

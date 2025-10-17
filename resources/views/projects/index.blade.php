@@ -30,7 +30,6 @@
                             <tr>
                                 <th>Code</th>
                                 <th>Name</th>
-                                <th>Fund</th>
                                 <th>Budget</th>
                                 <th>Status</th>
                                 <th></th>
@@ -56,11 +55,6 @@
                         <div class="form-group"><label>Code</label><input id="code" class="form-control" required>
                         </div>
                         <div class="form-group"><label>Name</label><input id="name" class="form-control" required>
-                        </div>
-                        <div class="form-group"><label>Fund</label>
-                            <select id="fund_id" class="form-control">
-                                <option value="">-- none --</option>
-                            </select>
                         </div>
                         <div class="form-group"><label>Budget Total</label><input id="budget_total" type="number"
                                 step="0.01" min="0" class="form-control"></div>
@@ -93,10 +87,6 @@
                     {
                         data: 'name',
                         name: 'name'
-                    },
-                    {
-                        data: 'fund',
-                        name: 'fund'
                     },
                     {
                         data: 'budget_total',
@@ -134,7 +124,6 @@
                 $('#name').val(b.data('name'));
                 $('#status').val(b.data('status'));
                 $('#budget_total').val(b.data('budget'));
-                $('#fund_id').val(b.data('fund'));
                 $('#projectModal').modal('show');
                 $('#projectModal form').attr('action', '{{ url('projects') }}/' + b.data('id')).data(
                     'method', 'PATCH');
@@ -147,7 +136,6 @@
                 const payload = {
                     code: $('#code').val(),
                     name: $('#name').val(),
-                    fund_id: $('#fund_id').val(),
                     budget_total: $('#budget_total').val(),
                     status: $('#status').val(),
                     _token: '{{ csrf_token() }}'

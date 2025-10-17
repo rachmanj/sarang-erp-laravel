@@ -65,7 +65,7 @@ class PurchaseInvoiceController extends Controller
                 'goods_receipt_id' => $request->input('goods_receipt_id'),
                 'description' => $data['description'] ?? null
             ]);
-            
+
             \Log::info('Creating Purchase Invoice with data:', [
                 'date' => $data['date'],
                 'business_partner_id' => $data['business_partner_id'] ?? null,
@@ -73,13 +73,13 @@ class PurchaseInvoiceController extends Controller
                 'goods_receipt_id' => $request->input('goods_receipt_id'),
                 'description' => $data['description'] ?? null
             ]);
-            
+
             // Make sure business_partner_id is set
             if (!isset($data['business_partner_id'])) {
                 \Log::error('Missing business_partner_id in request data', $data);
                 throw new \Exception('Business partner is required');
             }
-            
+
             // Create invoice data array with all required fields
             $invoiceData = [
                 'invoice_no' => null,
@@ -91,9 +91,9 @@ class PurchaseInvoiceController extends Controller
                 'status' => 'draft',
                 'total_amount' => 0,
             ];
-            
+
             \Log::info('Creating invoice with data:', $invoiceData);
-            
+
             $invoice = PurchaseInvoice::create($invoiceData);
 
             $invoiceNo = $this->documentNumberingService->generateNumber('purchase_invoice', $data['date']);
@@ -151,7 +151,8 @@ class PurchaseInvoiceController extends Controller
             return back()->with('success', 'Already posted');
         }
 
-        $apAccountId = (int) DB::table('accounts')->where('code', '2.1.1')->value('id');
+        $apUnInvoiceAccountId = (int) DB::table('accounts')->where('code', '2.1.1.03')->value('id'); // AP UnInvoice
+        $apAccountId = (int) DB::table('accounts')->where('code', '2.1.1.01')->value('id'); // Utang Dagang
         $ppnInputId = (int) DB::table('accounts')->where('code', '1.1.6')->value('id');
 
         $expenseTotal = 0.0;
@@ -172,14 +173,8 @@ class PurchaseInvoiceController extends Controller
                     }
                 }
             }
-            $lines[] = [
-                'account_id' => (int) $l->account_id,
-                'debit' => (float) $l->amount,
-                'credit' => 0,
-                'project_id' => $l->project_id,
-                'dept_id' => $l->dept_id,
-                'memo' => $l->description,
-            ];
+            // Note: We don't create expense journal lines here anymore
+            // The corrected accounting logic uses AP UnInvoice instead
         }
 
         if ($ppnTotal > 0) {
@@ -207,12 +202,22 @@ class PurchaseInvoiceController extends Controller
             }
         }
 
+        // Debit AP UnInvoice (reducing un-invoiced liability)
+        $lines[] = [
+            'account_id' => $apUnInvoiceAccountId,
+            'debit' => ($expenseTotal + $ppnTotal) - $withholdingTotal,
+            'credit' => 0,
+            'project_id' => null,
+            'dept_id' => null,
+            'memo' => 'Reduce AP UnInvoice',
+        ];
+
+        // Credit Utang Dagang (creating proper liability)
         $lines[] = [
             'account_id' => $apAccountId,
             'debit' => 0,
             'credit' => ($expenseTotal + $ppnTotal) - $withholdingTotal,
             'project_id' => null,
-            'fund_id' => null,
             'dept_id' => null,
             'memo' => 'Accounts Payable',
         ];

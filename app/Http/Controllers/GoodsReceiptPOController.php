@@ -5,18 +5,24 @@ namespace App\Http\Controllers;
 use App\Models\GoodsReceiptPO;
 use App\Models\GoodsReceiptPOLine;
 use App\Models\PurchaseOrder;
+use App\Models\InventoryItem;
 use App\Services\DocumentNumberingService;
 use App\Services\GRPOCopyService;
 use App\Services\DocumentClosureService;
+use App\Services\GRPOJournalService;
+use App\Services\Accounting\PostingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
 
 class GoodsReceiptPOController extends Controller
 {
     public function __construct(
         private DocumentNumberingService $documentNumberingService,
         private GRPOCopyService $grpoCopyService,
-        private DocumentClosureService $documentClosureService
+        private DocumentClosureService $documentClosureService,
+        private GRPOJournalService $grpoJournalService,
+        private PostingService $postingService
     ) {}
 
     public function index()
@@ -57,21 +63,62 @@ class GoodsReceiptPOController extends Controller
                 'warehouse_id' => $data['warehouse_id'],
                 'purchase_order_id' => $data['purchase_order_id'] ?? null,
                 'description' => $data['description'] ?? null,
-                'status' => 'draft',
+                'status' => 'received', // Automatically mark as received when saved
                 'total_amount' => 0,
             ]);
             $grpoNo = $this->documentNumberingService->generateNumber('goods_receipt', $data['date']);
             $grpo->update(['grn_no' => $grpoNo]);
+            $totalAmount = 0;
             foreach ($data['lines'] as $l) {
+                // Get item details to set unit_price
+                $item = InventoryItem::find($l['item_id']);
+                $unitPrice = $item ? $item->purchase_price : 0;
+                $amount = $unitPrice * (float)$l['qty'];
+                $totalAmount += $amount;
+
                 GoodsReceiptPOLine::create([
                     'grpo_id' => $grpo->id,
                     'item_id' => $l['item_id'],
                     'account_id' => 0, // Set a default account_id to avoid the error
                     'description' => $l['description'] ?? null,
                     'qty' => (float)$l['qty'],
+                    'unit_price' => $unitPrice,
+                    'amount' => $amount,
                 ]);
             }
-            return redirect()->route('goods-receipt-pos.show', $grpo->id)->with('success', 'Goods Receipt PO created');
+
+            // Update total amount
+            $grpo->update(['total_amount' => $totalAmount]);
+
+            // Automatically create and post journal entries since goods are received
+            try {
+                $journal = $this->grpoJournalService->createJournalEntries($grpo);
+
+                // Post the journal using PostingService
+                $journalPayload = [
+                    'date' => $journal->date,
+                    'description' => $journal->description,
+                    'source_type' => $journal->source_type,
+                    'source_id' => $journal->source_id,
+                    'posted_by' => Auth::id(),
+                    'lines' => $journal->lines->map(function ($line) {
+                        return [
+                            'account_id' => $line->account_id,
+                            'description' => $line->description,
+                            'debit' => $line->debit,
+                            'credit' => $line->credit,
+                            'project_id' => $line->project_id,
+                            'dept_id' => $line->dept_id,
+                        ];
+                    })->toArray()
+                ];
+
+                $this->postingService->postJournal($journalPayload);
+
+                return redirect()->route('goods-receipt-pos.index')->with('success', 'Goods Receipt PO created, goods received, and journal entries posted');
+            } catch (\Exception $e) {
+                return redirect()->route('goods-receipt-pos.index')->with('error', 'Goods Receipt PO created but journal posting failed: ' . $e->getMessage());
+            }
         });
     }
 
@@ -83,12 +130,25 @@ class GoodsReceiptPOController extends Controller
 
     public function receive(int $id)
     {
-        $grpo = GoodsReceiptPO::findOrFail($id);
+        $grpo = GoodsReceiptPO::with(['lines.item', 'businessPartner'])->findOrFail($id);
+
         if ($grpo->status === 'received') {
             return back()->with('success', 'Already received');
         }
-        $grpo->update(['status' => 'received']);
-        return back()->with('success', 'Goods Receipt PO marked as received');
+
+        try {
+            DB::transaction(function () use ($grpo) {
+                // Update status to received
+                $grpo->update(['status' => 'received']);
+
+                // Create journal entries automatically
+                $journal = $this->grpoJournalService->createJournalEntries($grpo);
+            });
+
+            return back()->with('success', 'Goods Receipt PO marked as received and journal entries created');
+        } catch (\Exception $e) {
+            return back()->with('error', 'Error processing GRPO: ' . $e->getMessage());
+        }
     }
 
     public function createInvoice(int $id)
@@ -211,15 +271,25 @@ class GoodsReceiptPOController extends Controller
             ->get()
             ->filter(function ($po) {
                 // Only include POs that have remaining quantities to be received
-                return $po->lines->where('pending_qty', '>', 0)->count() > 0;
+                // Calculate pending_qty on the fly: qty - received_qty
+                return $po->lines->filter(function ($line) {
+                    $pendingQty = $line->qty - $line->received_qty;
+                    return $pendingQty > 0;
+                })->count() > 0;
             })
             ->map(function ($po) {
+                // Calculate remaining lines count on the fly
+                $remainingLines = $po->lines->filter(function ($line) {
+                    $pendingQty = $line->qty - $line->received_qty;
+                    return $pendingQty > 0;
+                });
+
                 return [
                     'id' => $po->id,
                     'order_no' => $po->order_no,
                     'date' => $po->date->format('Y-m-d'),
                     'total_amount' => $po->total_amount,
-                    'remaining_lines_count' => $po->lines->where('pending_qty', '>', 0)->count(),
+                    'remaining_lines_count' => $remainingLines->count(),
                 ];
             });
 
@@ -240,10 +310,17 @@ class GoodsReceiptPOController extends Controller
         $po = PurchaseOrder::with(['lines.inventoryItem'])->findOrFail($poId);
 
         $remainingLines = $po->lines
-            ->where('pending_qty', '>', 0)
+            ->filter(function ($line) {
+                // Calculate pending_qty on the fly: qty - received_qty
+                $pendingQty = $line->qty - $line->received_qty;
+                return $pendingQty > 0;
+            })
             ->map(function ($line) {
                 $itemCode = $line->item_code ?: ($line->inventoryItem->code ?? '');
                 $itemName = $line->item_name ?: ($line->inventoryItem->name ?? '');
+
+                // Calculate pending_qty on the fly: qty - received_qty
+                $pendingQty = $line->qty - $line->received_qty;
 
                 return [
                     'id' => $line->id,
@@ -252,11 +329,65 @@ class GoodsReceiptPOController extends Controller
                     'item_code' => $itemCode,
                     'item_name' => $itemName,
                     'description' => $line->description,
-                    'qty' => $line->pending_qty, // Use remaining quantity
+                    'qty' => $pendingQty, // Use calculated remaining quantity
                     'unit_price' => $line->unit_price,
                 ];
             });
 
         return response()->json(['lines' => $remainingLines]);
+    }
+
+    /**
+     * Create journal entries for GRPO manually
+     */
+    public function createJournal(int $id)
+    {
+        $grpo = GoodsReceiptPO::with('lines.item')->findOrFail($id);
+
+        if (!$grpo->canBeJournalized()) {
+            return back()->with('error', 'GRPO cannot be journalized. Status must be "received" and not already journalized.');
+        }
+
+        try {
+            $journal = $this->grpoJournalService->createJournalEntries($grpo);
+            return back()->with('success', "Journal entries created successfully. Journal #{$journal->journal_no}");
+        } catch (\Exception $e) {
+            return back()->with('error', 'Error creating journal entries: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Reverse journal entries for GRPO
+     */
+    public function reverseJournal(int $id)
+    {
+        $grpo = GoodsReceiptPO::findOrFail($id);
+
+        if (!$grpo->isJournalized()) {
+            return back()->with('error', 'GRPO has not been journalized yet.');
+        }
+
+        try {
+            $reversalJournal = $this->grpoJournalService->reverseJournalEntries($grpo);
+            return back()->with('success', "Journal entries reversed successfully. Reversal Journal #{$reversalJournal->journal_no}");
+        } catch (\Exception $e) {
+            return back()->with('error', 'Error reversing journal entries: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Show journal entries for GRPO
+     */
+    public function showJournal(int $id)
+    {
+        $grpo = GoodsReceiptPO::with(['lines.item', 'journal.lines.account'])->findOrFail($id);
+
+        if (!$grpo->isJournalized()) {
+            return back()->with('error', 'GRPO has not been journalized yet.');
+        }
+
+        $journalEntries = $this->grpoJournalService->getJournalEntries($grpo);
+
+        return view('goods_receipt_pos.journal', compact('grpo', 'journalEntries'));
     }
 }
