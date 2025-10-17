@@ -4,6 +4,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\DocumentNavigationController;
 use App\Http\Controllers\Api\JournalPreviewController;
+use App\Http\Controllers\Api\DocumentAnalyticsController;
 use App\Http\Controllers\DocumentRelationshipController;
 use App\Http\Controllers\UnitOfMeasureController;
 

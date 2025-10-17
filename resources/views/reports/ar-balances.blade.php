@@ -1,7 +1,17 @@
-@extends('layouts.app')
+@extends('layouts.main')
+
+@section('title_page')
+    AR Party Balances
+@endsection
+
+@section('breadcrumb_title')
+    <li class='breadcrumb-item'><a href='/dashboard'>Dashboard</a></li>
+    <li class='breadcrumb-item active'>AR Party Balances</li>
+@endsection
+
 @section('content')
-    <section class="content">
-        <div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h3 class="card-title">AR Party Balances</h3>
@@ -50,5 +60,5 @@
                 </div>
             </div>
         </div>
-    </section>
+    </div>
 @endsection

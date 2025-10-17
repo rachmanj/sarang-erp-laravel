@@ -41,6 +41,7 @@ use App\Http\Controllers\BusinessIntelligenceController;
 use App\Http\Controllers\AnalyticsController;
 use App\Http\Controllers\Accounting\AccountStatementController;
 use App\Http\Controllers\ApprovalDashboardController;
+use App\Http\Controllers\CompanyInfoController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -156,6 +157,13 @@ Route::middleware('auth')->group(function () {
         Route::delete('/{erpParameter}', [App\Http\Controllers\ErpParameterController::class, 'destroy'])->name('erp-parameters.destroy');
         Route::get('/by-category', [App\Http\Controllers\ErpParameterController::class, 'getByCategory'])->name('erp-parameters.by-category');
         Route::post('/bulk-update', [App\Http\Controllers\ErpParameterController::class, 'bulkUpdate'])->name('erp-parameters.bulk-update');
+    });
+
+    // Company Information Routes
+    Route::prefix('company-info')->middleware(['permission:manage-company-info'])->group(function () {
+        Route::get('/', [CompanyInfoController::class, 'index'])->name('company-info.index');
+        Route::post('/', [CompanyInfoController::class, 'update'])->name('company-info.update');
+        Route::post('/upload-logo', [CompanyInfoController::class, 'uploadLogo'])->name('company-info.upload-logo');
     });
 
     // Downloads

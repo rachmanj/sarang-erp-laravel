@@ -91,8 +91,43 @@
             <!-- title row -->
             <div class="row invoice-header">
                 <div class="col-12 company-info">
-                    <div class="company-name">Prasasta ERP</div>
-                    <div class="company-address">Enterprise Resource Planning System</div>
+                    @php
+                        $companyName = \App\Models\ErpParameter::get('company_name', 'Company Name');
+                        $companyAddress = \App\Models\ErpParameter::get('company_address', '');
+                        $companyPhone = \App\Models\ErpParameter::get('company_phone', '');
+                        $companyEmail = \App\Models\ErpParameter::get('company_email', '');
+                        $companyTaxNumber = \App\Models\ErpParameter::get('company_tax_number', '');
+                        $companyLogo = \App\Models\ErpParameter::get('company_logo_path', '');
+                    @endphp
+
+                    @if ($companyLogo && file_exists(public_path('storage/' . $companyLogo)))
+                        <div style="margin-bottom: 10px;">
+                            <img src="{{ public_path('storage/' . $companyLogo) }}" alt="Logo"
+                                style="height: 60px;">
+                        </div>
+                    @endif
+
+                    <div class="company-name">{{ $companyName }}</div>
+                    <div class="company-address">
+                        @if ($companyAddress)
+                            {{ $companyAddress }}<br>
+                        @endif
+                        @if ($companyPhone || $companyEmail)
+                            @if ($companyPhone)
+                                Phone: {{ $companyPhone }}
+                            @endif
+                            @if ($companyPhone && $companyEmail)
+                                |
+                            @endif
+                            @if ($companyEmail)
+                                Email: {{ $companyEmail }}
+                            @endif
+                            <br>
+                        @endif
+                        @if ($companyTaxNumber)
+                            Tax Number: {{ $companyTaxNumber }}
+                        @endif
+                    </div>
                 </div>
             </div>
 

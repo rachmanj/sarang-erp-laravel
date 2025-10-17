@@ -6,6 +6,7 @@ use App\Models\ExchangeRate;
 use App\Models\Currency;
 use App\Services\ExchangeRateService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Yajra\DataTables\Facades\DataTables;
 
 class ExchangeRateController extends Controller
@@ -45,11 +46,11 @@ class ExchangeRateController extends Controller
             ->addColumn('actions', function ($rate) {
                 $actions = '<a class="btn btn-xs btn-info" href="' . route('exchange-rates.show', $rate->id) . '">View</a>';
 
-                if (auth()->user()->can('exchange-rates.update')) {
+                if (Auth::user()->can('exchange-rates.update')) {
                     $actions .= ' <a class="btn btn-xs btn-warning" href="' . route('exchange-rates.edit', $rate->id) . '">Edit</a>';
                 }
 
-                if (auth()->user()->can('exchange-rates.delete')) {
+                if (Auth::user()->can('exchange-rates.delete')) {
                     $actions .= ' <button class="btn btn-xs btn-danger" onclick="deleteRate(' . $rate->id . ')">Delete</button>';
                 }
 

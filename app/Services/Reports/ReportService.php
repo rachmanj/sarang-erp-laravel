@@ -352,17 +352,17 @@ class ReportService
             $invoiceQuery->whereDate('pi.date', '<=', $filters['to']);
         }
         if (!empty($filters['vendor_id'])) {
-            $invoiceQuery->where('pi.vendor_id', (int) $filters['vendor_id']);
+            $invoiceQuery->where('pi.business_partner_id', (int) $filters['vendor_id']);
         }
 
         $invoiceQuery = $invoiceQuery
-            ->select('pi.id as invoice_id', 'pi.vendor_id', DB::raw('ROUND(SUM(pil.amount * t.rate), 2) as inv_withholding'))
-            ->groupBy('pi.id', 'pi.vendor_id');
+            ->select('pi.id as invoice_id', 'pi.business_partner_id as vendor_id', DB::raw('ROUND(SUM(pil.amount * t.rate), 2) as inv_withholding'))
+            ->groupBy('pi.id', 'pi.business_partner_id');
 
         $q = DB::query()->fromSub($invoiceQuery, 'w')
-            ->leftJoin('vendors as v', 'v.id', '=', 'w.vendor_id')
-            ->select('w.vendor_id', 'v.name as vendor_name', DB::raw('SUM(w.inv_withholding) as withholding_total'))
-            ->groupBy('w.vendor_id', 'v.name');
+            ->leftJoin('business_partners as bp', 'bp.id', '=', 'w.vendor_id')
+            ->select('w.vendor_id', 'bp.name as vendor_name', DB::raw('SUM(w.inv_withholding) as withholding_total'))
+            ->groupBy('w.vendor_id', 'bp.name');
 
         $rows = $q->get()->map(function ($r) {
             return [

@@ -448,12 +448,13 @@
                 @endcanany
 
                 <!-- 7. Master Data Group -->
-                @canany(['projects.view', 'departments.view', 'inventory.view'])
+                @canany(['projects.view', 'departments.view', 'inventory.view', 'manage-company-info'])
                     @php
                         $masterDataActive =
                             request()->routeIs('projects.*') ||
                             request()->routeIs('departments.*') ||
-                            request()->routeIs('product-categories.*');
+                            request()->routeIs('product-categories.*') ||
+                            request()->routeIs('company-info.*');
                     @endphp
                     <li class="nav-item {{ $masterDataActive ? 'menu-is-opening menu-open' : '' }}">
                         <a href="#" class="nav-link {{ $masterDataActive ? 'active' : '' }}">
@@ -464,6 +465,15 @@
                             </p>
                         </a>
                         <ul class="nav nav-treeview">
+                            @can('manage-company-info')
+                                <li class="nav-item">
+                                    <a href="{{ route('company-info.index') }}"
+                                        class="nav-link {{ request()->routeIs('company-info.*') ? 'active' : '' }}">
+                                        <i class="far fa-circle nav-icon"></i>
+                                        <p>Company Information</p>
+                                    </a>
+                                </li>
+                            @endcan
                             @can('inventory.view')
                                 <li class="nav-item">
                                     <a href="{{ route('product-categories.index') }}"

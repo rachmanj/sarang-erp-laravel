@@ -4,6 +4,7 @@ namespace App\Models\Accounting;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class SalesInvoice extends Model
 {
@@ -29,5 +30,15 @@ class SalesInvoice extends Model
     public function lines(): HasMany
     {
         return $this->hasMany(SalesInvoiceLine::class, 'invoice_id');
+    }
+
+    public function businessPartner(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\BusinessPartner::class, 'business_partner_id');
+    }
+
+    public function customer(): BelongsTo
+    {
+        return $this->businessPartner();
     }
 }

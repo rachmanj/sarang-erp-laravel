@@ -6,6 +6,7 @@ use App\Models\CurrencyRevaluation;
 use App\Models\Currency;
 use App\Services\CurrencyRevaluationService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Yajra\DataTables\Facades\DataTables;
 
 class CurrencyRevaluationController extends Controller
@@ -42,11 +43,11 @@ class CurrencyRevaluationController extends Controller
             ->addColumn('actions', function ($revaluation) {
                 $actions = '<a class="btn btn-xs btn-info" href="' . route('currency-revaluations.show', $revaluation->id) . '">View</a>';
 
-                if ($revaluation->status === 'draft' && auth()->user()->can('currency-revaluations.post')) {
+                if ($revaluation->status === 'draft' && Auth::user()->can('currency-revaluations.post')) {
                     $actions .= ' <button class="btn btn-xs btn-success" onclick="postRevaluation(' . $revaluation->id . ')">Post</button>';
                 }
 
-                if ($revaluation->status === 'posted' && auth()->user()->can('currency-revaluations.reverse')) {
+                if ($revaluation->status === 'posted' && Auth::user()->can('currency-revaluations.reverse')) {
                     $actions .= ' <button class="btn btn-xs btn-warning" onclick="reverseRevaluation(' . $revaluation->id . ')">Reverse</button>';
                 }
 
@@ -154,10 +155,10 @@ class CurrencyRevaluationController extends Controller
     public function reverse($id)
     {
         try {
-            $revaluation = $this->revaluationService->cancelRevaluation($id);
-            return response()->json(['success' => 'Revaluation cancelled successfully']);
+            $revaluation = $this->revaluationService->reverseRevaluation($id);
+            return response()->json(['success' => 'Revaluation reversed successfully']);
         } catch (\Exception $e) {
-            return response()->json(['error' => 'Error cancelling revaluation: ' . $e->getMessage()], 500);
+            return response()->json(['error' => 'Error reversing revaluation: ' . $e->getMessage()], 500);
         }
     }
 

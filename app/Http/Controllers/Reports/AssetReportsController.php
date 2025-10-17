@@ -18,7 +18,9 @@ class AssetReportsController extends Controller
      */
     public function index()
     {
-        $this->authorize('view', \App\Models\Asset::class);
+        if (!auth()->user()->can('assets.view')) {
+            abort(403, 'Unauthorized action.');
+        }
 
         $filterOptions = $this->assetReportService->getFilterOptions();
 
@@ -30,7 +32,9 @@ class AssetReportsController extends Controller
      */
     public function assetRegister(Request $request)
     {
-        $this->authorize('view', \App\Models\Asset::class);
+        if (!auth()->user()->can('assets.view')) {
+            abort(403, 'Unauthorized action.');
+        }
 
         $filters = $request->only([
             'category_id',
@@ -62,7 +66,9 @@ class AssetReportsController extends Controller
      */
     public function depreciationSchedule(Request $request)
     {
-        $this->authorize('view', \App\Models\AssetDepreciationEntry::class);
+        if (!auth()->user()->can('assets.view')) {
+            abort(403, 'Unauthorized action.');
+        }
 
         $filters = $request->only([
             'asset_id',
@@ -92,7 +98,9 @@ class AssetReportsController extends Controller
      */
     public function disposalSummary(Request $request)
     {
-        $this->authorize('view', \App\Models\AssetDisposal::class);
+        if (!auth()->user()->can('assets.disposal.view')) {
+            abort(403, 'Unauthorized action.');
+        }
 
         $filters = $request->only([
             'disposal_type',
@@ -122,7 +130,9 @@ class AssetReportsController extends Controller
      */
     public function movementLog(Request $request)
     {
-        $this->authorize('view', \App\Models\AssetMovement::class);
+        if (!auth()->user()->can('assets.movement.view')) {
+            abort(403, 'Unauthorized action.');
+        }
 
         $filters = $request->only([
             'movement_type',
@@ -152,7 +162,9 @@ class AssetReportsController extends Controller
      */
     public function summary()
     {
-        $this->authorize('view', \App\Models\Asset::class);
+        if (!auth()->user()->can('assets.view')) {
+            abort(403, 'Unauthorized action.');
+        }
 
         $summary = $this->assetReportService->getAssetSummary();
 
@@ -164,7 +176,9 @@ class AssetReportsController extends Controller
      */
     public function assetAging(Request $request)
     {
-        $this->authorize('view', \App\Models\Asset::class);
+        if (!auth()->user()->can('assets.view')) {
+            abort(403, 'Unauthorized action.');
+        }
 
         $assets = $this->assetReportService->getAssetAging();
 
@@ -180,7 +194,9 @@ class AssetReportsController extends Controller
      */
     public function lowValueAssets(Request $request)
     {
-        $this->authorize('view', \App\Models\Asset::class);
+        if (!auth()->user()->can('assets.view')) {
+            abort(403, 'Unauthorized action.');
+        }
 
         $threshold = $request->get('threshold', 1000000);
         $assets = $this->assetReportService->getLowValueAssets($threshold);
@@ -197,7 +213,9 @@ class AssetReportsController extends Controller
      */
     public function depreciationRunHistory(Request $request)
     {
-        $this->authorize('view', \App\Models\AssetDepreciationRun::class);
+        if (!auth()->user()->can('assets.depreciation.run')) {
+            abort(403, 'Unauthorized action.');
+        }
 
         $filters = $request->only(['status', 'period_from', 'period_to']);
         $runs = $this->assetReportService->getDepreciationRunHistory($filters);

@@ -55,6 +55,7 @@ class RolePermissionSeeder extends Seeder
             'permissions.delete',
             // ERP Parameters
             'manage-erp-parameters',
+            'manage-company-info',
             'reports.view',
             'reports.open-items',
             // AR/AP
@@ -130,6 +131,7 @@ class RolePermissionSeeder extends Seeder
                 'customers.view',
                 'vendors.view',
                 'taxcodes.view',
+                'manage-company-info',
                 'reports.view',
                 'reports.open-items',
                 // AR/AP create/view

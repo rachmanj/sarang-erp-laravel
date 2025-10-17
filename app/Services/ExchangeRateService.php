@@ -83,23 +83,6 @@ class ExchangeRateService
         return ExchangeRate::createManualRate($fromCurrency, $toCurrency, $rate, $effectiveDate, $createdBy);
     }
 
-    /**
-     * Create daily exchange rates
-     */
-    public function createDailyRates($date, $rates, $createdBy = null): array
-    {
-        DB::beginTransaction();
-
-        try {
-            $createdRates = ExchangeRate::createDailyRates($date, $rates, $createdBy);
-            DB::commit();
-
-            return $createdRates;
-        } catch (\Exception $e) {
-            DB::rollBack();
-            throw $e;
-        }
-    }
 
     /**
      * Convert amount to base currency (IDR)
@@ -280,5 +263,68 @@ class ExchangeRateService
             'percentage_change' => $percentageChange,
             'is_significant' => $percentageChange > 5, // 5% threshold for significant change
         ];
+    }
+
+    /**
+     * Create a new exchange rate
+     */
+    public function createExchangeRate(array $data): ExchangeRate
+    {
+        return ExchangeRate::create($data);
+    }
+
+    /**
+     * Update an existing exchange rate
+     */
+    public function updateExchangeRate(ExchangeRate $rate, array $data): ExchangeRate
+    {
+        $rate->update($data);
+        return $rate;
+    }
+
+    /**
+     * Delete an exchange rate
+     */
+    public function deleteExchangeRate(ExchangeRate $rate): bool
+    {
+        return $rate->delete();
+    }
+
+    /**
+     * Create daily exchange rates
+     */
+    public function createDailyRates(string $date, array $ratesData): array
+    {
+        $createdRates = [];
+
+        foreach ($ratesData as $rateData) {
+            // Create the rate
+            $rate = ExchangeRate::create([
+                'from_currency_id' => $rateData['from_currency_id'],
+                'to_currency_id' => $rateData['to_currency_id'],
+                'rate' => $rateData['rate'],
+                'effective_date' => $date,
+                'rate_type' => 'daily',
+                'source' => 'manual',
+                'created_by' => auth()->id(),
+            ]);
+
+            $createdRates[] = $rate;
+
+            // Create inverse rate if not base currency
+            if ($rateData['to_currency_id'] != Currency::getBaseCurrency()->id) {
+                ExchangeRate::create([
+                    'from_currency_id' => $rateData['to_currency_id'],
+                    'to_currency_id' => $rateData['from_currency_id'],
+                    'rate' => 1 / $rateData['rate'],
+                    'effective_date' => $date,
+                    'rate_type' => 'daily',
+                    'source' => 'manual',
+                    'created_by' => auth()->id(),
+                ]);
+            }
+        }
+
+        return $createdRates;
     }
 }

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Currency;
 use App\Services\CurrencyService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Yajra\DataTables\Facades\DataTables;
 
 class CurrencyController extends Controller
@@ -33,11 +34,11 @@ class CurrencyController extends Controller
             ->addColumn('actions', function ($currency) {
                 $actions = '<a class="btn btn-xs btn-info" href="' . route('currencies.show', $currency->id) . '">View</a>';
 
-                if (auth()->user()->can('currencies.update')) {
+                if (Auth::user()->can('currencies.update')) {
                     $actions .= ' <a class="btn btn-xs btn-warning" href="' . route('currencies.edit', $currency->id) . '">Edit</a>';
                 }
 
-                if (auth()->user()->can('currencies.delete') && !$currency->is_base_currency) {
+                if (Auth::user()->can('currencies.delete') && !$currency->is_base_currency) {
                     $actions .= ' <button class="btn btn-xs btn-danger" onclick="deleteCurrency(' . $currency->id . ')">Delete</button>';
                 }
 

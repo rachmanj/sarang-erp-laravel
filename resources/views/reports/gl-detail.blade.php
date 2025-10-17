@@ -10,30 +10,43 @@
 @endsection
 
 @section('content')
-    <div class="container-fluid">
-        <h4 class="mb-3">GL Detail</h4>
-        <form id="form" class="mb-3">
-            <label>From <input type="date" name="from" value="{{ now()->startOfMonth()->toDateString() }}" /></label>
-            <label>To <input type="date" name="to" value="{{ now()->toDateString() }}" /></label>
-            <button class="btn btn-primary btn-sm" type="submit">Load</button>
-        </form>
-        <table class="table table-striped table-sm" id="tb">
-            <thead>
-                <tr>
-                    <th>Date</th>
-                    <th>Journal</th>
-                    <th>Account</th>
-                    <th>Currency</th>
-                    <th>Debit (IDR)</th>
-                    <th>Credit (IDR)</th>
-                    <th>Debit (FC)</th>
-                    <th>Credit (FC)</th>
-                    <th>Rate</th>
-                    <th>Memo</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="card-title">GL Detail Report</h3>
+                    </div>
+                    <form class="form-inline" id="form">
+                        <label class="mr-2">From <input type="date" name="from"
+                                class="form-control form-control-sm ml-1"
+                                value="{{ now()->startOfMonth()->toDateString() }}" /></label>
+                        <label class="mr-2">To <input type="date" name="to"
+                                class="form-control form-control-sm ml-1" value="{{ now()->toDateString() }}" /></label>
+                        <button class="btn btn-primary btn-sm" type="submit">Load</button>
+                    </form>
+                </div>
+                <div class="card-body">
+                    <table class="table table-bordered table-striped" id="tb">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Journal</th>
+                                <th>Account</th>
+                                <th>Currency</th>
+                                <th>Debit (IDR)</th>
+                                <th>Credit (IDR)</th>
+                                <th>Debit (FC)</th>
+                                <th>Credit (FC)</th>
+                                <th>Rate</th>
+                                <th>Memo</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     </div>
     <script>
         const form = document.getElementById('form');

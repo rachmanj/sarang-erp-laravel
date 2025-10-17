@@ -1,6 +1,13 @@
 @extends('layouts.main')
 
-@section('title', 'Asset Reports')
+@section('title_page')
+    Asset Reports
+@endsection
+
+@section('breadcrumb_title')
+    <li class="breadcrumb-item"><a href="/dashboard">Dashboard</a></li>
+    <li class="breadcrumb-item active">Asset Reports</li>
+@endsection
 
 @section('content')
     <div class="content-header">

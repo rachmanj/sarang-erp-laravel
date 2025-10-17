@@ -1,6 +1,13 @@
 @extends('layouts.main')
 
-@section('title', 'AP Aging')
+@section('title_page')
+    AP Aging
+@endsection
+
+@section('breadcrumb_title')
+    <li class="breadcrumb-item"><a href="/dashboard">Dashboard</a></li>
+    <li class="breadcrumb-item active">AP Aging</li>
+@endsection
 
 @section('content')
     <section class="content">

@@ -367,9 +367,9 @@ class AssetReportService
     {
         return [
             'categories' => AssetCategory::orderBy('name')->get(),
-            'funds' => \App\Models\Fund::orderBy('name')->get(),
-            'projects' => \App\Models\Project::orderBy('name')->get(),
-            'departments' => \App\Models\Department::orderBy('name')->get(),
+            'funds' => collect(), // Fund table doesn't exist yet
+            'projects' => \App\Models\Dimensions\Project::orderBy('name')->get(),
+            'departments' => \App\Models\Dimensions\Department::orderBy('name')->get(),
             'assets' => Asset::select('id', 'code', 'name')->orderBy('code')->get(),
             'disposal_types' => ['sale', 'scrap', 'donation', 'trade_in', 'other'],
             'movement_types' => ['transfer', 'relocation', 'custodian_change', 'maintenance', 'other'],

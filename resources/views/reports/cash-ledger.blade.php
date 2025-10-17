@@ -1,6 +1,13 @@
 @extends('layouts.main')
 
-@section('title', 'Cash Ledger')
+@section('title_page')
+    Cash Ledger
+@endsection
+
+@section('breadcrumb_title')
+    <li class="breadcrumb-item"><a href="/dashboard">Dashboard</a></li>
+    <li class="breadcrumb-item active">Cash Ledger</li>
+@endsection
 
 @section('content')
     <section class="content">

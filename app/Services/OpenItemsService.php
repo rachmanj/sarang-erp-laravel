@@ -3,7 +3,7 @@
 namespace App\Services;
 
 use App\Models\PurchaseOrder;
-use App\Models\GoodsReceipt;
+use App\Models\GoodsReceiptPO;
 use App\Models\Accounting\PurchaseInvoice;
 use App\Models\Accounting\PurchasePayment;
 use App\Models\SalesOrder;
@@ -40,7 +40,7 @@ class OpenItemsService
      */
     public function getOpenPurchaseOrders(array $filters = [], array $overdueThresholds = [])
     {
-        $query = PurchaseOrder::with(['supplier', 'createdBy'])
+        $query = PurchaseOrder::with(['businessPartner', 'createdBy'])
             ->where('closure_status', 'open')
             ->select('*', DB::raw('DATEDIFF(NOW(), created_at) as days_open'));
 
@@ -72,7 +72,7 @@ class OpenItemsService
      */
     public function getOpenGoodsReceipts(array $filters = [], array $overdueThresholds = [])
     {
-        $query = GoodsReceipt::with(['supplier', 'createdBy'])
+        $query = GoodsReceiptPO::with(['businessPartner', 'journalPostedBy'])
             ->where('closure_status', 'open')
             ->select('*', DB::raw('DATEDIFF(NOW(), created_at) as days_open'));
 

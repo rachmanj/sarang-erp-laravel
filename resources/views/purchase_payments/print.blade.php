@@ -10,7 +10,34 @@
             font-size: 12px;
         }
 
-        .header {
+        .company-header {
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #333;
+        }
+
+        .company-logo {
+            float: left;
+            margin-right: 20px;
+        }
+
+        .company-info {
+            overflow: hidden;
+        }
+
+        .company-name {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .company-details {
+            font-size: 11px;
+            color: #666;
+            line-height: 1.4;
+        }
+
+        .document-header {
             display: flex;
             justify-content: space-between;
             margin-bottom: 16px;
@@ -34,7 +61,48 @@
 </head>
 
 <body>
-    <div class="header">
+    <div class="company-header">
+        @php
+            $companyName = \App\Models\ErpParameter::get('company_name', 'Company Name');
+            $companyAddress = \App\Models\ErpParameter::get('company_address', '');
+            $companyPhone = \App\Models\ErpParameter::get('company_phone', '');
+            $companyEmail = \App\Models\ErpParameter::get('company_email', '');
+            $companyTaxNumber = \App\Models\ErpParameter::get('company_tax_number', '');
+            $companyLogo = \App\Models\ErpParameter::get('company_logo_path', '');
+        @endphp
+
+        @if ($companyLogo && file_exists(public_path('storage/' . $companyLogo)))
+            <div class="company-logo">
+                <img src="{{ public_path('storage/' . $companyLogo) }}" alt="Logo" style="height: 60px;">
+            </div>
+        @endif
+
+        <div class="company-info">
+            <div class="company-name">{{ $companyName }}</div>
+            <div class="company-details">
+                @if ($companyAddress)
+                    {{ $companyAddress }}<br>
+                @endif
+                @if ($companyPhone || $companyEmail)
+                    @if ($companyPhone)
+                        Phone: {{ $companyPhone }}
+                    @endif
+                    @if ($companyPhone && $companyEmail)
+                        |
+                    @endif
+                    @if ($companyEmail)
+                        Email: {{ $companyEmail }}
+                    @endif
+                    <br>
+                @endif
+                @if ($companyTaxNumber)
+                    Tax Number: {{ $companyTaxNumber }}
+                @endif
+            </div>
+        </div>
+    </div>
+
+    <div class="document-header">
         <div>
             <h3>Purchase Payment #{{ $payment->id }}</h3>
             <div>Date: {{ $payment->date }}</div>
