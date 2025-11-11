@@ -49,22 +49,22 @@ class User extends Authenticatable
         ];
     }
 
-    public function roles(): HasMany
+    public function legacyRoles(): HasMany
     {
         return $this->hasMany(UserRole::class);
     }
 
-    public function hasRole(string $roleName): bool
+    public function hasLegacyRole(string $roleName): bool
     {
-        return $this->roles()
+        return $this->legacyRoles()
             ->where('role_name', $roleName)
             ->where('is_active', true)
             ->exists();
     }
 
-    public function getActiveRoles(): \Illuminate\Database\Eloquent\Collection
+    public function getActiveLegacyRoles(): \Illuminate\Database\Eloquent\Collection
     {
-        return $this->roles()
+        return $this->legacyRoles()
             ->where('is_active', true)
             ->pluck('role_name');
     }

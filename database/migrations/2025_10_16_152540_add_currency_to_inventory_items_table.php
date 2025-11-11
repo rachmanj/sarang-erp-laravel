@@ -12,11 +12,14 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('inventory_items', function (Blueprint $table) {
-            $table->foreignId('purchase_price_currency_id')->nullable()->after('purchase_price') // For last purchase price tracking
-                ->constrained('currencies')->onDelete('set null');
-            $table->decimal('last_purchase_exchange_rate', 12, 6)->nullable()->after('purchase_price_currency_id');
+            $table->foreignId('purchase_currency_id')->nullable()->after('purchase_price')
+                ->constrained('currencies')->nullOnDelete();
+            $table->foreignId('selling_currency_id')->nullable()->after('purchase_currency_id')
+                ->constrained('currencies')->nullOnDelete();
+            $table->decimal('last_purchase_exchange_rate', 12, 6)->nullable()->after('selling_currency_id');
 
-            $table->index(['purchase_price_currency_id']);
+            $table->index('purchase_currency_id');
+            $table->index('selling_currency_id');
         });
     }
 
@@ -26,9 +29,11 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('inventory_items', function (Blueprint $table) {
-            $table->dropForeign(['purchase_price_currency_id']);
-            $table->dropIndex(['purchase_price_currency_id']);
-            $table->dropColumn(['purchase_price_currency_id', 'last_purchase_exchange_rate']);
+            $table->dropForeign(['purchase_currency_id']);
+            $table->dropForeign(['selling_currency_id']);
+            $table->dropIndex(['purchase_currency_id']);
+            $table->dropIndex(['selling_currency_id']);
+            $table->dropColumn(['purchase_currency_id', 'selling_currency_id', 'last_purchase_exchange_rate']);
         });
     }
 };

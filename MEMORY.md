@@ -101,26 +101,6 @@
 
 ### [013] Phase 4 Supplier Analytics System Implementation (2025-01-15) ✅ COMPLETE
 
-[014] Phase 4 Business Intelligence System Implementation (2025-01-15) ✅ COMPLETE
-
-**Challenge**: Implement comprehensive business intelligence system with advanced analytics, insights generation, and unified reporting capabilities for data-driven decision making.
-**Solution**: Created complete business intelligence system with BusinessIntelligenceService providing comprehensive trading analytics, insights generation, recommendations engine, KPI metrics calculation, and trend analysis. Implemented BusinessIntelligenceController with report generation, insights retrieval, trend analysis, KPI metrics, and export functionality. Built complete AdminLTE interface with business intelligence dashboard, reports management, insights and recommendations, and KPI dashboard views. Created unified AnalyticsController and integrated dashboard combining COGS, supplier analytics, and business intelligence into comprehensive trading analytics platform.
-**Key Learning**: Successfully implemented enterprise-level business intelligence system with comprehensive analytics capabilities, automated insights generation, intelligent recommendations, KPI tracking, trend analysis, and unified reporting. System provides real-time business intelligence, automated insights generation, performance metrics tracking, optimization opportunities identification, and comprehensive integrated analytics dashboard. Phase 4 Advanced Trading Features now complete with full COGS foundation, supplier analytics, business intelligence, and unified analytics platform.
-
-### [015] Phase 4 Unified Analytics Dashboard Implementation (2025-01-15) ✅ COMPLETE
-
-**Challenge**: Create unified analytics dashboard integrating all Phase 4 components (COGS, Supplier Analytics, Business Intelligence) into comprehensive trading analytics platform.
-**Solution**: Created AnalyticsController with unified dashboard functionality combining data from COGSService, SupplierAnalyticsService, and BusinessIntelligenceService. Implemented comprehensive unified analytics dashboard with integrated insights, performance metrics overview, optimization opportunities, and cross-module analytics. Built complete AdminLTE interface providing single-pane-of-glass view of all trading analytics with real-time KPIs, integrated insights, performance metrics, and optimization recommendations.
-**Key Learning**: Successfully created unified analytics platform providing comprehensive view of all trading operations with integrated COGS analysis, supplier performance, business intelligence, and optimization opportunities. System enables data-driven decision making with real-time insights across all trading functions, automated optimization recommendations, and comprehensive performance tracking. Phase 4 Advanced Trading Features implementation complete with enterprise-level analytics capabilities.
-
-### [016] Comprehensive Training Workshop Materials Creation (2025-01-15) ✅ COMPLETE
-
-**Challenge**: Create comprehensive training workshop materials for Sarange ERP system to empower employees with hands-on knowledge through realistic business scenarios and practical exercises.
-**Solution**: Created complete 3-day training workshop package with 9 comprehensive documents including workshop overview, 7 module-based training guides (Inventory, Sales, Purchase, Financial, Tax, Assets, Analytics), assessment materials, and implementation summary. Developed 35+ story-based scenarios covering Indonesian trading company operations, tax compliance, and business intelligence with hands-on exercises and role-based training approaches.
-**Key Learning**: Successfully created enterprise-level training package that transforms complex ERP system knowledge into accessible, practical learning experiences. Materials combine theoretical understanding with hands-on practice through realistic business scenarios, comprehensive assessment framework with certification levels, and Indonesian business context integration. Training package enables effective knowledge transfer and employee empowerment for successful ERP system adoption and utilization.
-
-### [013] Phase 4 Supplier Analytics System Implementation (2025-01-15) ✅ COMPLETE
-
 **Challenge**: Implement comprehensive supplier analytics and optimization system for advanced trading intelligence and supplier relationship management.
 **Solution**: Created complete supplier analytics system with SupplierCostAnalysis, SupplierPerformance, SupplierComparison, and BusinessIntelligence models. Implemented SupplierAnalyticsService with performance metrics calculation, cost optimization identification, risk assessment, and supplier ranking. Built comprehensive SupplierAnalyticsController with analytics generation, supplier comparisons, performance trends, and risk assessment. Created complete AdminLTE interface with supplier dashboard, performance analysis, comparisons, and optimization opportunities views.
 **Key Learning**: Successfully implemented enterprise-level supplier analytics system with comprehensive performance tracking, cost optimization identification, supplier risk assessment, and automated supplier comparison capabilities. System provides real-time supplier performance monitoring, cost efficiency analysis, delivery performance tracking, quality assessment, and automated optimization recommendations. Ready for advanced business intelligence features and comprehensive trading analytics dashboard.
@@ -442,3 +422,15 @@
 **Solution**: Enhanced approval dashboard with expandable rows showing detailed PO information including vendor/warehouse details, complete line items table with item codes/names/descriptions/quantities/prices, professional card-based layout with proper formatting, enhanced controller with eager loading of related models (businessPartner, warehouse, lines), and vanilla JavaScript implementation for expandable functionality avoiding jQuery dependency issues. Implemented comprehensive PO details display with basic information table, description section, and detailed line items table with proper currency formatting and item code highlighting.
 
 **Key Learning**: Approvers need complete visibility into what they're approving to make informed decisions. Expandable UI patterns with detailed information tables significantly improve decision-making quality while maintaining clean interface design. Enhanced approval dashboard now provides comprehensive PO visibility including vendor information, complete line items with quantities and prices, warehouse details, and business context enabling approvers to understand the full scope and impact of their approval decisions.
+
+### [062] ERP Module Mapping and Training Materials Drafting (2025-11-10) ✅ COMPLETE
+
+**Challenge**: Analyze codebase to map modules/features and draft comprehensive training materials with presentation prep.
+**Solution**: Mapped 9 modules from architecture docs/code; built on existing training files, drafted 4 new modules via edits.
+**Key Learning**: System has strong integrations for trading workflows; training emphasizes story-based learning for adoption.
+
+### [063] Legacy Role Collision & Inventory Currency Alignment (2025-11-11) ✅ COMPLETE
+
+**Challenge**: Fresh migrations failed because Spatie's HasRoles trait collided with a custom `roles()` relation and the multi-currency seeder referenced missing inventory currency columns.
+**Solution**: Renamed user legacy role relation/helpers to avoid overriding HasRoles attach flow and updated the inventory currency migration to create `purchase_currency_id`/`selling_currency_id` plus reran `migrate:fresh --seed`.
+**Key Learning**: Avoid redefining framework-provided relations when using traits like HasRoles, and keep model fillables, migrations, and seeders aligned on column names to prevent silent runtime warnings.
