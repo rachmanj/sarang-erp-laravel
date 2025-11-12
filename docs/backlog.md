@@ -132,6 +132,7 @@
 -   Tax calculation caching implementation - Impact: Medium
 -   Report generation performance optimization - Impact: Medium
 -   Code refactoring for trading-specific modules - Effort: Medium
+-   Dashboard seed dataset creation for analytics prototyping (sales, purchases, inventory, approvals) - Impact: High (unblocks dashboard KPIs) – Target: 2025-11-18
 
 ### Infrastructure
 

@@ -27,7 +27,7 @@
                         </div>
                         <form action="{{ route('admin.users.update', $user) }}" method="POST">
                             @csrf
-                            @method('PUT')
+                            @method('PATCH')
                             <div class="card-body">
                                 <div class="row">
                                     <div class="col-md-6">
@@ -88,7 +88,7 @@
                                                 @foreach ($projects as $project)
                                                     <option value="{{ $project->code }}"
                                                         {{ old('project', $user->project) == $project->code ? 'selected' : '' }}>
-                                                        {{ $project->code }} - {{ $project->owner }}
+                                                        {{ $project->code }} - {{ $project->name }}
                                                     </option>
                                                 @endforeach
                                             </select>

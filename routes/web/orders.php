@@ -4,7 +4,13 @@ use App\Http\Controllers\SalesOrderController;
 use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\GoodsReceiptPOController;
 use App\Http\Controllers\DeliveryOrderController;
+use App\Http\Controllers\PurchaseDashboardController;
+use App\Http\Controllers\SalesDashboardController;
 use Illuminate\Support\Facades\Route;
+
+// Sales Dashboard
+Route::get('/sales/dashboard', [SalesDashboardController::class, 'index'])
+    ->name('sales.dashboard');
 
 // Sales Orders
 Route::prefix('sales-orders')->group(function () {
@@ -128,6 +134,10 @@ Route::prefix('delivery-orders')->group(function () {
     Route::get('/{deliveryOrder}/print', [DeliveryOrderController::class, 'print'])->name('delivery-orders.print');
     Route::get('/{deliveryOrder}/create-invoice', [DeliveryOrderController::class, 'createInvoice'])->name('delivery-orders.create-invoice');
 });
+
+// Purchase Dashboard
+Route::get('/purchase/dashboard', [PurchaseDashboardController::class, 'index'])
+    ->name('purchase.dashboard');
 
 // Purchase Orders
 Route::prefix('purchase-orders')->group(function () {

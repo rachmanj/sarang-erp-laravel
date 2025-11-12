@@ -117,6 +117,14 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 -   **Journal Management**: Manual journal entries with automatic numbering (JNL-YYYYMM-######) and multi-currency support
 -   **Period Management**: Financial period closing with validation
 -   **Posting Service**: Centralized accounting posting with balance validation and foreign currency handling
+
+### Dashboard Aggregation Layer
+
+-   **DashboardDataService**: Consolidates KPI metrics, finance aging, sales/procurement stats, inventory insights, asset snapshots, compliance signals, and configuration alerts into a single cached payload (300s TTL) for the AdminLTE dashboard.
+-   **DashboardController**: Injects the aggregated payload into `dashboard.blade.php`, supports `?refresh=1` to bypass cache, and keeps route logic slim.
+-   **Blade Layout**: Rebuilt to consume the structured payload, rendering KPI info boxes, finance cards, inventory tables, and compliance alerts without inline database calls while respecting existing permission checks for fixed asset panels.
+-   **Purchase Dashboard**: Comprehensive purchase analytics with `PurchaseDashboardDataService` providing AP aging analysis, purchase order statistics, purchase invoice statistics, goods receipt statistics, supplier statistics, and recent invoices with 300s TTL caching.
+-   **Sales Dashboard**: Comprehensive sales analytics with `SalesDashboardDataService` providing AR aging analysis, sales order statistics, sales invoice statistics, delivery order statistics, customer statistics, and recent invoices with 300s TTL caching.
 -   **Account Statements**: Comprehensive financial statements for GL accounts and Business Partners with transaction tracking and running balances
 -   **Control Account System**: Enterprise-level control account architecture with automatic balance tracking, subsidiary ledger management, and reconciliation dashboard for financial control and compliance
 -   **Auto-Numbering System**: Centralized document numbering service with consistent PREFIX-YYYYMM-###### format across all document types
@@ -133,19 +141,21 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 
 ### 2. Accounts Receivable (AR) Module
 
+-   **Sales Dashboard**: Comprehensive sales analytics dashboard with AR aging analysis, sales KPIs (Sales MTD, Outstanding AR, Pending Approvals, Open Sales Orders), sales order statistics, sales invoice statistics, delivery order statistics, top customers by outstanding AR, and recent invoices visualization.
 -   **Sales Invoices**: Customer billing with line items, tax codes, and dimensions (SINV-YYYYMM-######)
 -   **Sales Receipts**: Payment collection with automatic allocation to invoices (SR-YYYYMM-######)
 -   **Sales Orders**: Customer order management with automatic numbering (SO-YYYYMM-######)
--   **AR Aging**: Customer payment tracking and aging analysis
+-   **AR Aging**: Customer payment tracking and aging analysis with buckets (Current, 1-30, 31-60, 61-90, 90+ days) calculated from sales invoices minus sales receipt allocations
 -   **AR Balances**: Customer account balance reporting
 
 ### 3. Accounts Payable (AP) Module
 
+-   **Purchase Dashboard**: Comprehensive purchase analytics dashboard with AP aging analysis, purchase KPIs (Purchases MTD, Outstanding AP, Pending Approvals, Open Purchase Orders), purchase order statistics, purchase invoice statistics, goods receipt statistics, top suppliers by outstanding AP, and recent invoices visualization.
 -   **Purchase Invoices**: Vendor billing with line items and tax handling (PINV-YYYYMM-######)
 -   **Purchase Payments**: Vendor payment processing with allocation (PP-YYYYMM-######)
 -   **Purchase Orders**: Vendor order management with automatic numbering (PO-YYYYMM-######)
 -   **Goods Receipt PO**: Purchase Order-based inventory receipt processing with automatic numbering (GR-YYYYMM-######)
--   **AP Aging**: Vendor payment tracking and aging analysis
+-   **AP Aging**: Vendor payment tracking and aging analysis with buckets (Current, 1-30, 31-60, 61-90, 90+ days) calculated from purchase invoices minus purchase payment allocations
 -   **AP Balances**: Vendor account balance reporting
 
 ### 4. Enhanced Inventory Management System
@@ -567,6 +577,8 @@ The database schema has been consolidated from 51 to 44 migration files for impr
 -   `/journals/*`: Journal entry management
 -   `/account-statements/*`: Account statement generation and management for GL accounts and Business Partners
 -   `/control-accounts/*`: Control account management with CRUD operations, reconciliation dashboard, and balance tracking
+-   `/sales/dashboard`: Sales dashboard with AR aging analysis, sales KPIs, and comprehensive sales statistics
+-   `/purchase/dashboard`: Purchase dashboard with AP aging analysis, purchase KPIs, and comprehensive purchase statistics
 -   `/sales-invoices/*`: AR invoice management
 -   `/delivery-orders/*`: Delivery order management with inventory reservation and revenue recognition
 -   `/purchase-invoices/*`: AP invoice management

@@ -113,6 +113,18 @@ class RolePermissionSeeder extends Seeder
             'gr-gi.update',
             'gr-gi.delete',
             'gr-gi.approve',
+            // Purchase Orders
+            'purchase-orders.view',
+            'purchase-orders.create',
+            'purchase-orders.update',
+            'purchase-orders.delete',
+            'purchase-orders.approve',
+            // Sales Orders
+            'sales-orders.view',
+            'sales-orders.create',
+            'sales-orders.update',
+            'sales-orders.delete',
+            'sales-orders.approve',
         ];
 
         foreach ($permissions as $perm) {
@@ -180,6 +192,49 @@ class RolePermissionSeeder extends Seeder
                 'ap.payments.create',
             ],
             'auditor' => ['reports.view', 'reports.open-items'],
+            'logistic' => [
+                // Inventory management
+                'inventory.view',
+                'inventory.create',
+                'inventory.update',
+                'inventory.transfer',
+                'inventory.reports',
+                // Warehouse management
+                'warehouse.view',
+                'warehouse.create',
+                'warehouse.update',
+                'warehouse.transfer',
+                // GR/GI Management
+                'gr-gi.view',
+                'gr-gi.create',
+                'gr-gi.update',
+                'gr-gi.approve',
+                // Purchase Orders (for tracking incoming goods)
+                'purchase-orders.view',
+                'purchase-orders.create',
+                'purchase-orders.update',
+                // Vendors (to view vendor information)
+                'vendors.view',
+                // Projects and departments (for cost tracking)
+                'projects.view',
+                'departments.view',
+            ],
+            'marketing' => [
+                // Sales Orders
+                'sales-orders.view',
+                'sales-orders.create',
+                'sales-orders.update',
+                // Customers
+                'customers.view',
+                'customers.manage',
+                // Business Partners (vendors view for reference)
+                'vendors.view',
+                // Projects (for tracking sales by project)
+                'projects.view',
+                'departments.view',
+                // Reports
+                'reports.view',
+            ],
         ];
 
         foreach ($roles as $roleName => $perms) {

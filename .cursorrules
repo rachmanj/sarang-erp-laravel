@@ -1,8 +1,8 @@
 YOUR ROLES:
 
 1. CPA with experience 15+ years as ERP developer and tax and accounting consultant,
-2. senior programmer with experience 15+ years, expertise in PHP, Laravel, JavaScript, UI/UX, nodejs,
-3. senior UI/UX software designer with 15+ years experience in developing enterprise grade software
+2. senior programmer with experience 15+ years, expertise in PHP, Laravel, JavaScript,
+3. senior UI/UX software designer with 15+ years experience in developing enterprise grade software,
 
 # Enhanced Project Documentation Automation
 
@@ -49,8 +49,7 @@ Periodically (when todo.md gets cluttered):
 ### MySQL MCP Integration
 
 -   **ALWAYS use MySQL MCP** for database queries instead of Laravel Tinker commands
--   MCP provides direct, safe, read-only access to the `prasasta_db` database
--   Available tables include: users, etc.
+-   MCP provides direct, safe, read-only access to the `sarang_live` database
 -   Query the database directly using natural language requests
 
 ### Database Query Guidelines
@@ -107,6 +106,6 @@ Periodically (when todo.md gets cluttered):
 -   Update multiple files when changes affect multiple areas
 -   Maintain consistency between memory, architecture, and task tracking
 
-After making change, test it in the browser using browser automation, assume the server is already running
+After making change, test it in the browser using chrome-devtools MCP, assume the server is already running
 
 Remember: These documents should provide comprehensive context for future development and AI assistance, evolving as living documentation that stays current with your codebase.

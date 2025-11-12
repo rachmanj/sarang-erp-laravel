@@ -85,7 +85,7 @@
                                                 @foreach ($projects as $project)
                                                     <option value="{{ $project->code }}"
                                                         {{ old('project') == $project->code ? 'selected' : '' }}>
-                                                        {{ $project->code }} - {{ $project->owner }}
+                                                        {{ $project->code }} - {{ $project->name }}
                                                     </option>
                                                 @endforeach
                                             </select>

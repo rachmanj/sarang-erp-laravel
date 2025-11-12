@@ -114,6 +114,7 @@
                 @canany(['ap.invoices.view', 'ap.payments.view'])
                     @php
                         $purchaseActive =
+                            request()->routeIs('purchase.dashboard') ||
                             request()->routeIs('purchase-invoices.*') ||
                             request()->routeIs('purchase-payments.*') ||
                             request()->routeIs('purchase-orders.*') ||
@@ -129,7 +130,7 @@
                         </a>
                         <ul class="nav nav-treeview">
                             <li class="nav-item">
-                                <a href="#" class="nav-link">
+                                <a href="{{ route('purchase.dashboard') }}" class="nav-link {{ request()->routeIs('purchase.dashboard') ? 'active' : '' }}">
                                     <i class="far fa-circle nav-icon"></i>
                                     <p>Dashboard</p>
                                 </a>
@@ -189,7 +190,8 @@
                         </a>
                         <ul class="nav nav-treeview">
                             <li class="nav-item">
-                                <a href="#" class="nav-link">
+                                <a href="{{ route('sales.dashboard') }}"
+                                    class="nav-link {{ request()->routeIs('sales.dashboard') ? 'active' : '' }}">
                                     <i class="far fa-circle nav-icon"></i>
                                     <p>Dashboard</p>
                                 </a>

@@ -25,7 +25,7 @@ class UserController extends Controller
     {
         $this->authorize('users.create');
         $roles = Role::orderBy('name')->get(['id', 'name']);
-        $projects = Project::query()->orderBy('code')->get(['code', 'owner']);
+        $projects = Project::query()->orderBy('code')->get(['code', 'name']);
         $departments = Department::query()->orderBy('name')->get(['id', 'name']);
         return view('admin.users.create', compact('roles', 'projects', 'departments'));
     }
@@ -35,6 +35,9 @@ class UserController extends Controller
         $this->authorize('users.view');
         $query = User::query()->select(['id', 'name', 'email', 'created_at']);
         return DataTables::of($query)
+            ->editColumn('created_at', function (User $user) {
+                return $user->created_at->setTimezone(config('app.timezone'))->format('d-M-Y H:i');
+            })
             ->addColumn('roles', function (User $user) {
                 return e($user->getRoleNames()->join(', '));
             })
@@ -53,6 +56,7 @@ class UserController extends Controller
         $this->authorize('users.create');
         $data = $request->validate([
             'name' => ['required', 'string', 'max:150'],
+            'username' => ['required', 'string', 'max:150', 'unique:users,username'],
             'email' => ['required', 'email', 'max:150', 'unique:users,email'],
             'password' => ['required', 'string', 'min:6'],
             'roles' => ['array']
@@ -60,12 +64,14 @@ class UserController extends Controller
 
         $user = User::create([
             'name' => $data['name'],
+            'username' => $data['username'],
             'email' => $data['email'],
             'password' => Hash::make($data['password']),
         ]);
 
         if (!empty($data['roles'])) {
-            $user->syncRoles($data['roles']);
+            $roleNames = Role::whereIn('id', $data['roles'])->pluck('name')->toArray();
+            $user->syncRoles($roleNames);
         }
 
         return redirect()->route('admin.users.index')->with('success', 'User created');
@@ -75,7 +81,7 @@ class UserController extends Controller
     {
         $this->authorize('users.update');
         $roles = Role::orderBy('name')->get(['id', 'name']);
-        $projects = Project::query()->orderBy('code')->get(['code', 'owner']);
+        $projects = Project::query()->orderBy('code')->get(['code', 'name']);
         $departments = Department::query()->orderBy('name')->get(['id', 'name']);
         return view('admin.users.edit', compact('user', 'roles', 'projects', 'departments'));
     }
@@ -85,18 +91,23 @@ class UserController extends Controller
         $this->authorize('users.update');
         $data = $request->validate([
             'name' => ['required', 'string', 'max:150'],
+            'username' => ['required', 'string', 'max:150', 'unique:users,username,' . $user->id],
             'email' => ['required', 'email', 'max:150', 'unique:users,email,' . $user->id],
             'password' => ['nullable', 'string', 'min:6'],
             'roles' => ['array']
         ]);
         $user->name = $data['name'];
+        $user->username = $data['username'];
         $user->email = $data['email'];
         if (!empty($data['password'])) {
             $user->password = Hash::make($data['password']);
         }
         $user->save();
         if (isset($data['roles'])) {
-            $user->syncRoles($data['roles']);
+            $roleNames = Role::whereIn('id', $data['roles'])->pluck('name')->toArray();
+            $user->syncRoles($roleNames);
+        } else {
+            $user->syncRoles([]);
         }
         return redirect()->route('admin.users.index')->with('success', 'User updated');
     }

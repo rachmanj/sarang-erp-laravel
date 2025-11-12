@@ -1,5 +1,5 @@
 **Purpose**: AI's persistent knowledge base for project context and learnings
-**Last Updated**: 2025-09-23 (Enhanced Approval Dashboard with Detailed PO Information Complete)
+**Last Updated**: 2025-11-11 (Sales Dashboard Implementation with AR Invoice Aging Complete)
 
 ## Memory Maintenance Guidelines
 
@@ -434,3 +434,21 @@
 **Challenge**: Fresh migrations failed because Spatie's HasRoles trait collided with a custom `roles()` relation and the multi-currency seeder referenced missing inventory currency columns.
 **Solution**: Renamed user legacy role relation/helpers to avoid overriding HasRoles attach flow and updated the inventory currency migration to create `purchase_currency_id`/`selling_currency_id` plus reran `migrate:fresh --seed`.
 **Key Learning**: Avoid redefining framework-provided relations when using traits like HasRoles, and keep model fillables, migrations, and seeders aligned on column names to prevent silent runtime warnings.
+
+### [064] Dashboard Data Readiness Assessment (2025-11-11) ✅ COMPLETE
+
+**Challenge**: Validate whether the current environment contains enough operational history to support the redesigned executive dashboard KPIs.
+**Solution**: Ran MCP MySQL counts across core tables (`sales_invoices`, `purchase_invoices`, `inventory_items`, `journals`, `business_partners`, `approval_workflows`, `assets`) and recorded findings plus seeding requirements in `docs/dashboard-phase1-discovery.md`.
+**Key Learning**: The workspace database is empty, so dashboard development must include a seeded or replicated dataset before implementing KPI widgets and performance testing; prioritize data fixture creation ahead of Phase 2.
+
+### [065] Dashboard Phase 1 Metric Inventory & Payload Plan (2025-11-11) ✅ COMPLETE
+
+**Challenge**: Define exactly which metrics the upgraded dashboard must serve and how to deliver them without view-level queries or stakeholder interviews.
+**Solution**: Documented full metric inventory, mapped data sources and reusable services, and drafted a unified `DashboardDataService` payload contract with caching guidance in `docs/dashboard-phase1-discovery.md`.
+**Key Learning**: Centralising dashboard data through a single service and cached JSON payload will keep the view slim, respect permissions, and let us compose widgets quickly once seed data arrives; future work focuses on implementing that service and front-end refactor.
+
+### [066] Sales Dashboard Implementation with AR Invoice Aging (2025-11-11) ✅ COMPLETE
+
+**Challenge**: Implement comprehensive Sales Dashboard with AR invoice aging analysis to match Purchase Dashboard functionality and provide sales managers with actionable insights into accounts receivable.
+**Solution**: Created `SalesDashboardDataService` with AR aging calculations (Current, 1-30, 31-60, 61-90, 90+ days), sales KPIs (Sales MTD, Outstanding AR, Pending Approvals, Open Sales Orders), sales order statistics, sales invoice statistics, delivery order statistics, top customers by outstanding AR, and recent invoices visualization. Implemented `SalesDashboardController` with refresh parameter support, created comprehensive AdminLTE dashboard view with visual progress bars, added route in `routes/web/orders.php`, updated sidebar link, and created comprehensive review document in `docs/sales-dashboard-review.md`.
+**Key Learning**: Following the Purchase Dashboard pattern ensures consistency and reduces development time. AR aging calculation requires joining `sales_invoices` with `sales_receipt_allocations` to calculate outstanding amounts accurately. Visual progress bars for aging buckets provide immediate insight into payment collection status. Caching with 300s TTL improves performance while refresh parameter allows real-time data access when needed. Dashboard implementation completes the sales analytics infrastructure and provides sales managers with comprehensive AR management capabilities.
