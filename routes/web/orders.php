@@ -253,7 +253,6 @@ Route::prefix('purchase-orders')->group(function () {
     // Unit Conversion API Routes
     Route::get('/api/item-units', [PurchaseOrderController::class, 'getItemUnits'])->name('purchase-orders.api.item-units');
     Route::get('/api/conversion-preview', [PurchaseOrderController::class, 'getConversionPreview'])->name('purchase-orders.api.conversion-preview');
-    Route::get('/api/units-by-type', [PurchaseOrderController::class, 'getUnitsByType'])->name('purchase-orders.api.units-by-type');
 
     // Currency API Routes
     Route::get('/api/exchange-rate', [PurchaseOrderController::class, 'getExchangeRate'])->name('purchase-orders.api.exchange-rate');

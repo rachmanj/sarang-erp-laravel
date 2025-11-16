@@ -90,12 +90,13 @@ class GRPOJournalService
      */
     protected function getInventoryAccount(GoodsReceiptPO $grpo): int
     {
-        // Try to get account from first line's item category
+        // Try to get account from first line's item category (using effective account with inheritance)
         $firstLine = $grpo->lines->first();
         if ($firstLine && $firstLine->item && $firstLine->item->category) {
             $category = $firstLine->item->category;
-            if ($category->inventory_account_id) {
-                return $category->inventory_account_id;
+            $effectiveAccount = $category->getEffectiveInventoryAccount();
+            if ($effectiveAccount) {
+                return $effectiveAccount->id;
             }
         }
 

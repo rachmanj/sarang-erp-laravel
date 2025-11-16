@@ -24,6 +24,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class DashboardDataService
 {
@@ -126,17 +127,21 @@ class DashboardDataService
             ->whereNotIn('status', ['draft', 'cancelled', 'closed'])
             ->count();
 
-        $topSuppliers = SupplierPerformance::orderByDesc('overall_rating')
-            ->limit(5)
-            ->with('vendor:id,name')
-            ->get()
-            ->map(function (SupplierPerformance $performance) {
-                return [
-                    'name' => optional($performance->vendor)->name ?: 'N/A',
-                    'overall_rating' => (float) $performance->overall_rating,
-                    'total_orders' => (int) $performance->total_orders,
-                ];
-            });
+        $topSuppliers = collect();
+
+        if (Schema::hasTable('supplier_performances')) {
+            $topSuppliers = SupplierPerformance::orderByDesc('overall_rating')
+                ->limit(5)
+                ->with('vendor:id,name')
+                ->get()
+                ->map(function (SupplierPerformance $performance) {
+                    return [
+                        'name' => optional($performance->vendor)->name ?: 'N/A',
+                        'overall_rating' => (float) $performance->overall_rating,
+                        'total_orders' => (int) $performance->total_orders,
+                    ];
+                });
+        }
 
         return [
             'sales_orders' => $salesOrderCounts,

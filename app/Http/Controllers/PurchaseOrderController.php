@@ -664,11 +664,4 @@ class PurchaseOrderController extends Controller
         ]);
     }
 
-    public function getUnitsByType(Request $request)
-    {
-        $type = $request->get('type');
-        $units = $this->unitConversionService->getUnitsByType($type);
-
-        return response()->json($units);
-    }
 }

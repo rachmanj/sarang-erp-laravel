@@ -17,27 +17,39 @@ class PurchaseDashboardDataService
     private const CACHE_KEY = 'dashboard:data:purchase';
     private const CACHE_TTL = 300;
 
-    public function getPurchaseDashboardData(bool $refresh = false): array
+    public function getPurchaseDashboardData(array $filters = [], bool $refresh = false): array
     {
+        $hasFilters = !empty(array_filter($filters, fn ($v) => $v !== null && $v !== ''));
+
+        if ($hasFilters) {
+            return $this->buildDashboardPayload($filters);
+        }
+
         if ($refresh) {
             Cache::forget(self::CACHE_KEY);
         }
 
-        return Cache::remember(self::CACHE_KEY, self::CACHE_TTL, function () {
-            return [
-                'meta' => [
-                    'generated_at' => now()->toIso8601String(),
-                    'cache_ttl_seconds' => self::CACHE_TTL,
-                ],
-                'kpis' => $this->buildPurchaseKpis(),
-                'ap_aging' => $this->buildApAging(),
-                'purchase_orders' => $this->buildPurchaseOrderStats(),
-                'purchase_invoices' => $this->buildPurchaseInvoiceStats(),
-                'goods_receipts' => $this->buildGoodsReceiptStats(),
-                'suppliers' => $this->buildSupplierStats(),
-                'recent_invoices' => $this->getRecentInvoices(),
-            ];
+        return Cache::remember(self::CACHE_KEY, self::CACHE_TTL, function () use ($filters) {
+            return $this->buildDashboardPayload($filters);
         });
+    }
+
+    private function buildDashboardPayload(array $filters): array
+    {
+        return [
+            'meta' => [
+                'generated_at' => now()->toIso8601String(),
+                'cache_ttl_seconds' => self::CACHE_TTL,
+                'filters' => $filters,
+            ],
+            'kpis' => $this->buildPurchaseKpis(),
+            'ap_aging' => $this->buildApAging($filters),
+            'purchase_orders' => $this->buildPurchaseOrderStats(),
+            'purchase_invoices' => $this->buildPurchaseInvoiceStats($filters),
+            'goods_receipts' => $this->buildGoodsReceiptStats(),
+            'suppliers' => $this->buildSupplierStats(),
+            'recent_invoices' => $this->getRecentInvoices($filters),
+        ];
     }
 
     private function buildPurchaseKpis(): array
@@ -65,9 +77,9 @@ class PurchaseDashboardDataService
         ];
     }
 
-    private function buildApAging(): array
+    private function buildApAging(array $filters = []): array
     {
-        $invoices = DB::table('purchase_invoices as pi')
+        $invoicesQuery = DB::table('purchase_invoices as pi')
             ->leftJoin('purchase_payment_allocations as ppa', 'ppa.invoice_id', '=', 'pi.id')
             ->select(
                 'pi.id',
@@ -80,7 +92,21 @@ class PurchaseDashboardDataService
                 DB::raw('(pi.total_amount - COALESCE(SUM(ppa.amount), 0)) as outstanding_amount')
             )
             ->where('pi.closure_status', 'open')
-            ->where('pi.status', 'posted')
+            ->where('pi.status', 'posted');
+
+        if (!empty($filters['supplier_id'])) {
+            $invoicesQuery->where('pi.business_partner_id', (int) $filters['supplier_id']);
+        }
+
+        if (!empty($filters['date_from'])) {
+            $invoicesQuery->whereDate('pi.date', '>=', $filters['date_from']);
+        }
+
+        if (!empty($filters['date_to'])) {
+            $invoicesQuery->whereDate('pi.date', '<=', $filters['date_to']);
+        }
+
+        $invoices = $invoicesQuery
             ->groupBy('pi.id', 'pi.invoice_no', 'pi.date', 'pi.due_date', 'pi.total_amount', 'pi.business_partner_id')
             ->get();
 
@@ -138,15 +164,21 @@ class PurchaseDashboardDataService
             ];
         }
 
+        $detailed = collect($detailedAging);
+
+        if (!empty($filters['aging_bucket'])) {
+            $detailed = $detailed->where('bucket', $filters['aging_bucket']);
+        }
+
         return [
             'buckets' => $buckets,
-            'detailed' => collect($detailedAging)->sortByDesc('days_past_due')->values()->take(20),
+            'detailed' => $detailed->sortByDesc('days_past_due')->values()->take(50),
         ];
     }
 
-    private function calculateOutstandingAp(): float
+    private function calculateOutstandingAp(array $filters = []): float
     {
-        $result = DB::table('purchase_invoices as pi')
+        $resultQuery = DB::table('purchase_invoices as pi')
             ->leftJoin('purchase_payment_allocations as ppa', 'ppa.invoice_id', '=', 'pi.id')
             ->select(
                 'pi.id',
@@ -154,7 +186,21 @@ class PurchaseDashboardDataService
                 DB::raw('COALESCE(SUM(ppa.amount), 0) as paid_amount')
             )
             ->where('pi.closure_status', 'open')
-            ->where('pi.status', 'posted')
+            ->where('pi.status', 'posted');
+
+        if (!empty($filters['supplier_id'])) {
+            $resultQuery->where('pi.business_partner_id', (int) $filters['supplier_id']);
+        }
+
+        if (!empty($filters['date_from'])) {
+            $resultQuery->whereDate('pi.date', '>=', $filters['date_from']);
+        }
+
+        if (!empty($filters['date_to'])) {
+            $resultQuery->whereDate('pi.date', '<=', $filters['date_to']);
+        }
+
+        $result = $resultQuery
             ->groupBy('pi.id', 'pi.total_amount')
             ->get();
 
@@ -186,17 +232,31 @@ class PurchaseDashboardDataService
         ];
     }
 
-    private function buildPurchaseInvoiceStats(): array
+    private function buildPurchaseInvoiceStats(array $filters = []): array
     {
-        $total = PurchaseInvoice::count();
-        $draft = PurchaseInvoice::where('status', 'draft')->count();
-        $posted = PurchaseInvoice::where('status', 'posted')->count();
-        $open = PurchaseInvoice::where('closure_status', 'open')
+        $query = PurchaseInvoice::query();
+
+        if (!empty($filters['supplier_id'])) {
+            $query->where('business_partner_id', (int) $filters['supplier_id']);
+        }
+
+        if (!empty($filters['date_from'])) {
+            $query->whereDate('date', '>=', $filters['date_from']);
+        }
+
+        if (!empty($filters['date_to'])) {
+            $query->whereDate('date', '<=', $filters['date_to']);
+        }
+
+        $total = (clone $query)->count();
+        $draft = (clone $query)->where('status', 'draft')->count();
+        $posted = (clone $query)->where('status', 'posted')->count();
+        $open = (clone $query)->where('closure_status', 'open')
             ->where('status', 'posted')
             ->count();
 
-        $totalAmount = PurchaseInvoice::where('status', 'posted')->sum('total_amount');
-        $outstandingAmount = $this->calculateOutstandingAp();
+        $totalAmount = (clone $query)->where('status', 'posted')->sum('total_amount');
+        $outstandingAmount = $this->calculateOutstandingAp($filters);
 
         return [
             'total' => $total,
@@ -255,9 +315,9 @@ class PurchaseDashboardDataService
         ];
     }
 
-    private function getRecentInvoices(): Collection
+    private function getRecentInvoices(array $filters = []): Collection
     {
-        return DB::table('purchase_invoices as pi')
+        $query = DB::table('purchase_invoices as pi')
             ->leftJoin('purchase_payment_allocations as ppa', 'ppa.invoice_id', '=', 'pi.id')
             ->leftJoin('business_partners as bp', 'bp.id', '=', 'pi.business_partner_id')
             ->select(
@@ -272,25 +332,63 @@ class PurchaseDashboardDataService
                 DB::raw('COALESCE(SUM(ppa.amount), 0) as paid_amount'),
                 DB::raw('(pi.total_amount - COALESCE(SUM(ppa.amount), 0)) as outstanding_amount')
             )
-            ->where('pi.status', 'posted')
+            ->where('pi.status', 'posted');
+
+        if (!empty($filters['supplier_id'])) {
+            $query->where('pi.business_partner_id', (int) $filters['supplier_id']);
+        }
+
+        if (!empty($filters['date_from'])) {
+            $query->whereDate('pi.date', '>=', $filters['date_from']);
+        }
+
+        if (!empty($filters['date_to'])) {
+            $query->whereDate('pi.date', '<=', $filters['date_to']);
+        }
+
+        $rows = $query
             ->groupBy('pi.id', 'pi.invoice_no', 'pi.date', 'pi.due_date', 'pi.total_amount', 'pi.status', 'pi.closure_status', 'bp.name')
             ->orderByDesc('pi.date')
-            ->limit(10)
-            ->get()
-            ->map(function ($invoice) {
-                return [
-                    'id' => $invoice->id,
-                    'invoice_no' => $invoice->invoice_no,
-                    'date' => $invoice->date,
-                    'due_date' => $invoice->due_date,
-                    'total_amount' => (float) $invoice->total_amount,
-                    'paid_amount' => (float) $invoice->paid_amount,
-                    'outstanding_amount' => (float) $invoice->outstanding_amount,
-                    'status' => $invoice->status,
-                    'closure_status' => $invoice->closure_status,
-                    'supplier_name' => $invoice->supplier_name,
-                ];
-            });
+            ->limit(20)
+            ->get();
+
+        return $rows->map(function ($invoice) {
+            $today = Carbon::today();
+            $dueDate = $invoice->due_date
+                ? Carbon::parse($invoice->due_date)
+                : Carbon::parse($invoice->date)->addDays(30);
+            $daysPastDue = $dueDate->diffInDays($today, false);
+
+            $bucket = 'current';
+            $daysOverdue = 0;
+            if ($daysPastDue > 0) {
+                $daysOverdue = $daysPastDue;
+                if ($daysOverdue <= 30) {
+                    $bucket = '1_30';
+                } elseif ($daysOverdue <= 60) {
+                    $bucket = '31_60';
+                } elseif ($daysOverdue <= 90) {
+                    $bucket = '61_90';
+                } else {
+                    $bucket = '90_plus';
+                }
+            }
+
+            return [
+                'id' => $invoice->id,
+                'invoice_no' => $invoice->invoice_no,
+                'date' => $invoice->date,
+                'due_date' => $invoice->due_date,
+                'total_amount' => (float) $invoice->total_amount,
+                'paid_amount' => (float) $invoice->paid_amount,
+                'outstanding_amount' => (float) $invoice->outstanding_amount,
+                'status' => $invoice->status,
+                'closure_status' => $invoice->closure_status,
+                'supplier_name' => $invoice->supplier_name,
+                'aging_bucket' => $bucket,
+                'days_overdue' => $daysOverdue,
+            ];
+        });
     }
 }
 

@@ -14,7 +14,6 @@ class InventoryItemUnit extends Model
         'unit_id',
         'is_base_unit',
         'conversion_quantity',
-        'purchase_price',
         'selling_price',
         'selling_price_level_2',
         'selling_price_level_3',
@@ -24,7 +23,6 @@ class InventoryItemUnit extends Model
     protected $casts = [
         'is_base_unit' => 'boolean',
         'conversion_quantity' => 'decimal:2',
-        'purchase_price' => 'decimal:2',
         'selling_price' => 'decimal:2',
         'selling_price_level_2' => 'decimal:2',
         'selling_price_level_3' => 'decimal:2',
@@ -59,16 +57,6 @@ class InventoryItemUnit extends Model
     }
 
     // Helper methods
-    public function getBaseUnitPrice(): float
-    {
-        if ($this->is_base_unit) {
-            return $this->purchase_price;
-        }
-
-        // Use custom conversion quantity
-        return $this->conversion_quantity > 0 ? $this->purchase_price / $this->conversion_quantity : $this->purchase_price;
-    }
-
     public function getSellingPriceForLevel($level = 1): float
     {
         switch ($level) {
@@ -89,24 +77,6 @@ class InventoryItemUnit extends Model
 
         // Use custom conversion quantity
         return $this->conversion_quantity > 0 ? $quantity * $this->conversion_quantity : $quantity;
-    }
-
-    // Validation
-    public function validateUnitType(): bool
-    {
-        $item = $this->inventoryItem;
-        if (!$item) {
-            return false;
-        }
-
-        // Get base unit for this item
-        $baseUnit = $item->baseUnit();
-        if (!$baseUnit) {
-            return true; // No base unit set yet
-        }
-
-        // Check if unit types match
-        return $this->unit->unit_type === $baseUnit->unit->unit_type;
     }
 
     // Accessors

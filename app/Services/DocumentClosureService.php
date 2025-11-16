@@ -208,14 +208,19 @@ class DocumentClosureService
         $closedCount = 0;
 
         foreach ($allocations as $allocation) {
-            // Check if this invoice is fully paid
             $invoice = PurchaseInvoice::findOrFail($allocation->invoice_id);
+
+            // Only consider posted, currently open invoices for closure
+            if ($invoice->status !== 'posted' || $invoice->closure_status !== 'open') {
+                continue;
+            }
+
             $totalPaid = DB::table('purchase_payment_allocations')
                 ->where('invoice_id', $invoice->id)
                 ->sum('amount');
 
-            // If total paid amount equals or exceeds invoice amount, close it
-            if ($totalPaid >= $invoice->total_amount) {
+            // If total paid amount equals or exceeds invoice amount (with small tolerance), close it
+            if ($totalPaid + 0.009 >= $invoice->total_amount) {
                 $invoice->update([
                     'closure_status' => 'closed',
                     'closed_by_document_type' => 'purchase_payment',

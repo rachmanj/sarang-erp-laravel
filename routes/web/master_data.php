@@ -36,11 +36,8 @@ Route::prefix('unit-of-measures')->name('unit-of-measures.')->middleware(['auth'
 
     // API Routes for AJAX
     Route::prefix('api')->name('api.')->group(function () {
-        Route::get('/units-by-type', [UnitOfMeasureController::class, 'getUnitsByType'])->name('units-by-type');
-        Route::get('/conversion-factor', [UnitOfMeasureController::class, 'getConversionFactor'])->name('conversion-factor');
-        Route::get('/conversion-preview', [UnitOfMeasureController::class, 'getConversionPreview'])->name('conversion-preview');
-        Route::get('/validate-conversion', [UnitOfMeasureController::class, 'validateConversion'])->name('validate-conversion');
         Route::get('/item-units', [UnitOfMeasureController::class, 'getItemUnits'])->name('item-units');
+            Route::post('/store', [UnitOfMeasureController::class, 'storeAjax'])->name('store');
     });
 });
 

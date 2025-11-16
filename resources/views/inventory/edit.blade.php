@@ -71,7 +71,10 @@
                                         class="form-control @error('unit_of_measure') is-invalid @enderror"
                                         id="unit_of_measure" name="unit_of_measure"
                                         value="{{ old('unit_of_measure', $item->unit_of_measure) }}"
-                                        placeholder="e.g., pcs, kg, liter" required>
+                                        readonly>
+                                    <small class="form-text text-muted">
+                                        Base unit is managed on the <strong>Manage Units</strong> page for this item (1 = base unit).
+                                    </small>
                                     @error('unit_of_measure')
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
@@ -228,15 +231,20 @@
                         @endif
                     </div>
 
-                    <div class="card-footer">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-save"></i> Update Item
-                        </button>
-                        <a href="{{ route('inventory.show', $item->id) }}" class="btn btn-secondary">
-                            <i class="fas fa-times"></i> Cancel
-                        </a>
+                    <div class="card-footer d-flex justify-content-between align-items-center">
+                        <div>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Update Item
+                            </button>
+                            <a href="{{ route('inventory.show', $item->id) }}" class="btn btn-secondary">
+                                <i class="fas fa-times"></i> Cancel
+                            </a>
+                            <a href="{{ route('inventory-items.units.index', $item->id) }}" class="btn btn-secondary">
+                                <i class="fas fa-cubes"></i> Manage Units
+                            </a>
+                        </div>
                         @if ($item->transactions()->count() == 0)
-                            <button type="button" class="btn btn-danger float-right" id="deleteItem">
+                            <button type="button" class="btn btn-danger" id="deleteItem">
                                 <i class="fas fa-trash"></i> Delete Item
                             </button>
                         @endif

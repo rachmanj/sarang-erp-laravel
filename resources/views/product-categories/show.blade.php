@@ -120,12 +120,23 @@
                                             <i class="fas fa-boxes"></i>
                                         </span>
                                         <div class="info-box-content">
-                                            <span class="info-box-text">Inventory Account</span>
-                                            @if ($category->inventoryAccount)
+                                            <span class="info-box-text">
+                                                Inventory Account
+                                                @if ($inventorySource['is_inherited'] && $inventorySource['source_category'])
+                                                    <small class="badge badge-info" title="Inherited from {{ $inventorySource['source_category']->name }}">
+                                                        <i class="fas fa-arrow-down"></i> Inherited
+                                                    </small>
+                                                @endif
+                                            </span>
+                                            @if ($inventorySource['account'])
                                                 <span class="info-box-number">
-                                                    <small
-                                                        class="text-muted">{{ $category->inventoryAccount->code }}</small><br>
-                                                    {{ $category->inventoryAccount->name }}
+                                                    <small class="text-muted">{{ $inventorySource['account']->code }}</small><br>
+                                                    {{ $inventorySource['account']->name }}
+                                                    @if ($inventorySource['is_inherited'] && $inventorySource['source_category'])
+                                                        <br><small class="text-muted">
+                                                            <i class="fas fa-info-circle"></i> From: {{ $inventorySource['source_category']->name }}
+                                                        </small>
+                                                    @endif
                                                 </span>
                                             @else
                                                 <span class="info-box-number text-muted">Not Set</span>
@@ -139,12 +150,23 @@
                                             <i class="fas fa-dollar-sign"></i>
                                         </span>
                                         <div class="info-box-content">
-                                            <span class="info-box-text">COGS Account</span>
-                                            @if ($category->cogsAccount)
+                                            <span class="info-box-text">
+                                                COGS Account
+                                                @if ($cogsSource['is_inherited'] && $cogsSource['source_category'])
+                                                    <small class="badge badge-info" title="Inherited from {{ $cogsSource['source_category']->name }}">
+                                                        <i class="fas fa-arrow-down"></i> Inherited
+                                                    </small>
+                                                @endif
+                                            </span>
+                                            @if ($cogsSource['account'])
                                                 <span class="info-box-number">
-                                                    <small
-                                                        class="text-muted">{{ $category->cogsAccount->code }}</small><br>
-                                                    {{ $category->cogsAccount->name }}
+                                                    <small class="text-muted">{{ $cogsSource['account']->code }}</small><br>
+                                                    {{ $cogsSource['account']->name }}
+                                                    @if ($cogsSource['is_inherited'] && $cogsSource['source_category'])
+                                                        <br><small class="text-muted">
+                                                            <i class="fas fa-info-circle"></i> From: {{ $cogsSource['source_category']->name }}
+                                                        </small>
+                                                    @endif
                                                 </span>
                                             @else
                                                 <span class="info-box-number text-muted">Not Set</span>
@@ -158,12 +180,23 @@
                                             <i class="fas fa-chart-line"></i>
                                         </span>
                                         <div class="info-box-content">
-                                            <span class="info-box-text">Sales Account</span>
-                                            @if ($category->salesAccount)
+                                            <span class="info-box-text">
+                                                Sales Account
+                                                @if ($salesSource['is_inherited'] && $salesSource['source_category'])
+                                                    <small class="badge badge-info" title="Inherited from {{ $salesSource['source_category']->name }}">
+                                                        <i class="fas fa-arrow-down"></i> Inherited
+                                                    </small>
+                                                @endif
+                                            </span>
+                                            @if ($salesSource['account'])
                                                 <span class="info-box-number">
-                                                    <small
-                                                        class="text-muted">{{ $category->salesAccount->code }}</small><br>
-                                                    {{ $category->salesAccount->name }}
+                                                    <small class="text-muted">{{ $salesSource['account']->code }}</small><br>
+                                                    {{ $salesSource['account']->name }}
+                                                    @if ($salesSource['is_inherited'] && $salesSource['source_category'])
+                                                        <br><small class="text-muted">
+                                                            <i class="fas fa-info-circle"></i> From: {{ $salesSource['source_category']->name }}
+                                                        </small>
+                                                    @endif
                                                 </span>
                                             @else
                                                 <span class="info-box-number text-muted">Not Set</span>

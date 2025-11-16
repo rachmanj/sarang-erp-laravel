@@ -355,14 +355,18 @@ class GRGIService
 
     /**
      * Get item category account (this would be configured per category)
+     * Uses effective account with inheritance support
      */
     protected function getItemCategoryAccount($itemCategoryId)
     {
-        // Try to find category-specific inventory account
+        // Try to find category-specific inventory account (using effective account with inheritance)
         $category = ProductCategory::find($itemCategoryId);
 
-        if ($category && $category->inventory_account_id) {
-            return $category->inventory_account_id;
+        if ($category) {
+            $effectiveAccount = $category->getEffectiveInventoryAccount();
+            if ($effectiveAccount) {
+                return $effectiveAccount->id;
+            }
         }
 
         // Fallback to default inventory account

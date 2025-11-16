@@ -10,54 +10,8 @@ use Illuminate\Support\Facades\DB;
 
 class UnitConversionService
 {
-    /**
-     * Get conversion factor between two units
-     */
-    public function getConversionFactor(int $fromUnitId, int $toUnitId): ?float
-    {
-        // Same unit
-        if ($fromUnitId === $toUnitId) {
-            return 1.0;
-        }
-
-        // Check if conversion exists
-        $conversion = UnitConversion::where('from_unit_id', $fromUnitId)
-            ->where('to_unit_id', $toUnitId)
-            ->where('is_active', true)
-            ->first();
-
-        return $conversion ? $conversion->conversion_factor : null;
-    }
-
-    /**
-     * Convert quantity from one unit to another
-     */
-    public function convertQuantity(float $quantity, int $fromUnitId, int $toUnitId): ?float
-    {
-        $factor = $this->getConversionFactor($fromUnitId, $toUnitId);
-        return $factor ? $quantity * $factor : null;
-    }
-
-    /**
-     * Validate if conversion between units is possible
-     */
-    public function validateConversion(int $fromUnitId, int $toUnitId): bool
-    {
-        $fromUnit = UnitOfMeasure::find($fromUnitId);
-        $toUnit = UnitOfMeasure::find($toUnitId);
-
-        if (!$fromUnit || !$toUnit) {
-            return false;
-        }
-
-        // Check if units are of the same type
-        if ($fromUnit->unit_type !== $toUnit->unit_type) {
-            return false;
-        }
-
-        // Check if conversion exists
-        return $this->getConversionFactor($fromUnitId, $toUnitId) !== null;
-    }
+    // Note: global unit-to-unit conversion via UnitConversion is no longer used for items.
+    // Item-specific conversions are handled via InventoryItemUnit.conversion_quantity.
 
     /**
      * Get base unit for an inventory item
@@ -85,8 +39,16 @@ class UnitConversionService
             return $quantity;
         }
 
-        // Convert to base unit
-        return $this->convertQuantity($quantity, $orderUnitId, $baseUnit->unit_id);
+        // Convert to base unit using item-specific conversion_quantity
+        $itemUnit = InventoryItemUnit::where('inventory_item_id', $itemId)
+            ->where('unit_id', $orderUnitId)
+            ->first();
+
+        if (!$itemUnit || $itemUnit->conversion_quantity <= 0) {
+            return $quantity;
+        }
+
+        return $quantity * $itemUnit->conversion_quantity;
     }
 
     /**
@@ -104,9 +66,16 @@ class UnitConversionService
             return $orderPrice;
         }
 
-        // Convert price to base unit
-        $factor = $this->getConversionFactor($orderUnitId, $baseUnit->unit_id);
-        return $factor ? $orderPrice / $factor : null;
+        // Convert price to base unit using item-specific conversion_quantity
+        $itemUnit = InventoryItemUnit::where('inventory_item_id', $itemId)
+            ->where('unit_id', $orderUnitId)
+            ->first();
+
+        if (!$itemUnit || $itemUnit->conversion_quantity <= 0) {
+            return $orderPrice;
+        }
+
+        return $orderPrice / $itemUnit->conversion_quantity;
     }
 
     /**
@@ -126,7 +95,6 @@ class UnitConversionService
                 'name' => $itemUnit->unit->name,
                 'display_name' => $itemUnit->unit->display_name,
                 'is_base_unit' => $itemUnit->is_base_unit,
-                'purchase_price' => $itemUnit->purchase_price,
                 'selling_price' => $itemUnit->selling_price,
                 'selling_price_level_2' => $itemUnit->selling_price_level_2,
                 'selling_price_level_3' => $itemUnit->selling_price_level_3,
@@ -192,7 +160,6 @@ class UnitConversionService
             'unit_id' => $unitId,
             'is_base_unit' => $data['is_base_unit'] ?? false,
             'conversion_quantity' => $data['conversion_quantity'] ?? 1,
-            'purchase_price' => $data['purchase_price'] ?? 0,
             'selling_price' => $data['selling_price'] ?? 0,
             'selling_price_level_2' => $data['selling_price_level_2'] ?? null,
             'selling_price_level_3' => $data['selling_price_level_3'] ?? null,
@@ -220,28 +187,6 @@ class UnitConversionService
     }
 
     /**
-     * Get conversion preview text
-     */
-    public function getConversionPreview(int $fromUnitId, int $toUnitId, float $quantity = 1): ?string
-    {
-        $factor = $this->getConversionFactor($fromUnitId, $toUnitId);
-        if (!$factor) {
-            return null;
-        }
-
-        $fromUnit = UnitOfMeasure::find($fromUnitId);
-        $toUnit = UnitOfMeasure::find($toUnitId);
-
-        if (!$fromUnit || !$toUnit) {
-            return null;
-        }
-
-        $convertedQuantity = $quantity * $factor;
-
-        return "{$quantity} {$fromUnit->name} = {$convertedQuantity} {$toUnit->name}";
-    }
-
-    /**
      * Get conversion preview for item context
      */
     public function getItemConversionPreview(int $itemId, int $fromUnitId, float $quantity = 1): ?string
@@ -251,80 +196,7 @@ class UnitConversionService
             return null;
         }
 
-        // If same as base unit, no conversion needed
-        if ($fromUnitId === $baseUnit->unit_id) {
-            return null;
-        }
-
-        // Get the item unit to use custom conversion quantity
-        $itemUnit = InventoryItemUnit::where('inventory_item_id', $itemId)
-            ->where('unit_id', $fromUnitId)
-            ->first();
-
-        if (!$itemUnit || $itemUnit->conversion_quantity <= 0) {
-            return null;
-        }
-
-        $convertedQuantity = $quantity * $itemUnit->conversion_quantity;
-        $fromUnit = UnitOfMeasure::find($fromUnitId);
-        $toUnit = $baseUnit->unit;
-
-        return "{$quantity} {$fromUnit->name} = {$convertedQuantity} {$toUnit->name}";
-    }
-
-    /**
-     * Get all unit types
-     */
-    public function getUnitTypes(): array
-    {
-        return [
-            'count' => 'Count',
-            'weight' => 'Weight',
-            'volume' => 'Volume',
-            'length' => 'Length',
-            'area' => 'Area',
-            'time' => 'Time',
-            'temperature' => 'Temperature',
-            'custom' => 'Custom',
-        ];
-    }
-
-    /**
-     * Get units by type
-     */
-    public function getUnitsByType(string $type): array
-    {
-        return UnitOfMeasure::where('unit_type', $type)
-            ->where('is_active', true)
-            ->orderBy('name')
-            ->get()
-            ->map(function ($unit) {
-                return [
-                    'id' => $unit->id,
-                    'code' => $unit->code,
-                    'name' => $unit->name,
-                    'display_name' => $unit->display_name,
-                    'is_base_unit' => $unit->is_base_unit,
-                ];
-            })
-            ->toArray();
-    }
-
-    /**
-     * Validate unit type compatibility for item
-     */
-    public function validateUnitTypeForItem(int $itemId, int $unitId): bool
-    {
-        $baseUnit = $this->getBaseUnitForItem($itemId);
-        if (!$baseUnit) {
-            return true; // No base unit set yet
-        }
-
-        $unit = UnitOfMeasure::find($unitId);
-        if (!$unit) {
-            return false;
-        }
-
-        return $unit->unit_type === $baseUnit->unit->unit_type;
+        // Item-level conversions and compatibility checks no longer enforce unit_type.
+        return null;
     }
 }

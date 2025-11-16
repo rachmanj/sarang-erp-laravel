@@ -120,9 +120,12 @@
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h3 class="card-title">Actions</h3>
-                    <div>
+                    <div class="btn-group" role="group">
                         <a href="{{ route('inventory.edit', $item->id) }}" class="btn btn-primary btn-sm">
                             <i class="fas fa-edit"></i> Edit
+                        </a>
+                        <a href="{{ route('inventory-items.units.index', $item->id) }}" class="btn btn-secondary btn-sm">
+                            <i class="fas fa-cubes"></i> Manage Units
                         </a>
                         <button class="btn btn-warning btn-sm btn-adjust-stock" data-item-id="{{ $item->id }}"
                             data-item-name="{{ $item->name }}">

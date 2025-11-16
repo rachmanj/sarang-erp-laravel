@@ -18,15 +18,59 @@
         $goodsReceipts = $dashboardData['goods_receipts'] ?? [];
         $suppliers = $dashboardData['suppliers'] ?? [];
         $recentInvoices = $dashboardData['recent_invoices'] ?? collect();
+        $buckets = data_get($apAging, 'buckets', []);
+        $totalOutstanding = data_get($buckets, 'total', 0);
     @endphp
 
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h4 class="mb-0">
-            Purchase Dashboard - {{ __('As of :date', ['date' => now()->format('d M Y')]) }}
-        </h4>
-        <a href="{{ route('purchase.dashboard', ['refresh' => 1]) }}" class="btn btn-sm btn-outline-secondary">
-            <i class="fas fa-sync-alt"></i> Refresh Data
-        </a>
+        <div>
+            <h4 class="mb-1">
+                Purchase Dashboard - {{ __('As of :date', ['date' => now()->format('d M Y')]) }}
+            </h4>
+            @if (!empty($filters['supplier_id']) || !empty($filters['date_from']) || !empty($filters['date_to']) || !empty($filters['aging_bucket']))
+                <span class="badge badge-info">Filters active</span>
+            @endif
+        </div>
+        <form method="GET" action="{{ route('purchase.dashboard') }}" class="form-inline">
+            <div class="form-group mr-2">
+                <label for="supplier_id" class="mr-2 mb-0">Supplier</label>
+                <select name="supplier_id" id="supplier_id" class="form-control form-control-sm">
+                    <option value="">All</option>
+                    @foreach ($suppliersList as $supplier)
+                        <option value="{{ $supplier->id }}" @selected(($filters['supplier_id'] ?? null) == $supplier->id)>
+                            {{ $supplier->name }}
+                        </option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="form-group mr-2">
+                <label for="date_from" class="mr-2 mb-0">From</label>
+                <input type="date" name="date_from" id="date_from" class="form-control form-control-sm"
+                    value="{{ $filters['date_from'] ?? '' }}">
+            </div>
+            <div class="form-group mr-2">
+                <label for="date_to" class="mr-2 mb-0">To</label>
+                <input type="date" name="date_to" id="date_to" class="form-control form-control-sm"
+                    value="{{ $filters['date_to'] ?? '' }}">
+            </div>
+            <div class="form-group mr-2">
+                <label for="aging_bucket" class="mr-2 mb-0">Aging</label>
+                <select name="aging_bucket" id="aging_bucket" class="form-control form-control-sm">
+                    <option value="">All</option>
+                    <option value="current" @selected(($filters['aging_bucket'] ?? null) === 'current')>Current</option>
+                    <option value="1_30" @selected(($filters['aging_bucket'] ?? null) === '1_30')>1-30</option>
+                    <option value="31_60" @selected(($filters['aging_bucket'] ?? null) === '31_60')>31-60</option>
+                    <option value="61_90" @selected(($filters['aging_bucket'] ?? null) === '61_90')>61-90</option>
+                    <option value="90_plus" @selected(($filters['aging_bucket'] ?? null) === '90_plus')>90+</option>
+                </select>
+            </div>
+            <button type="submit" class="btn btn-sm btn-primary mr-2">
+                <i class="fas fa-filter"></i> Apply
+            </button>
+            <a href="{{ route('purchase.dashboard', ['refresh' => 1]) }}" class="btn btn-sm btn-outline-secondary">
+                <i class="fas fa-sync-alt"></i> Reset
+            </a>
+        </form>
     </div>
 
     <div class="row">
@@ -83,10 +127,6 @@
                     <h3 class="card-title"><i class="fas fa-clock mr-2"></i>AP Invoice Aging (Outstanding Amounts)</h3>
                 </div>
                 <div class="card-body">
-                    @php
-                        $buckets = data_get($apAging, 'buckets', []);
-                        $totalOutstanding = data_get($buckets, 'total', 0);
-                    @endphp
                     <div class="row mb-3">
                         <div class="col-12">
                             <h6 class="text-muted text-uppercase font-weight-bold mb-3">Aging Summary</h6>
@@ -149,9 +189,32 @@
                             </div>
                         </div>
                     @endif
+                    <div class="mb-2">
+                        <span class="badge badge-danger mr-2">
+                            Overdue (31+ days): Rp
+                            {{ number_format(data_get($buckets, '31_60', 0) + data_get($buckets, '61_90', 0) + data_get($buckets, '90_plus', 0), 0, ',', '.') }}
+                        </span>
+                        @if (data_get($buckets, '90_plus', 0) > 0)
+                            <span class="badge badge-danger">High risk: invoices > 90 days overdue</span>
+                        @elseif (data_get($buckets, '61_90', 0) > 0)
+                            <span class="badge badge-warning">Medium risk: invoices 61-90 days overdue</span>
+                        @endif
+                    </div>
                     <a href="{{ route('purchase-invoices.index') }}" class="btn btn-sm btn-outline-primary">
                         View All Invoices
                     </a>
+                    @if (!empty($filters['aging_bucket']))
+                        <span class="badge badge-info ml-2">
+                            Showing details for aging bucket:
+                            {{ str_replace(['current', '1_30', '31_60', '61_90', '90_plus'], ['Current', '1-30', '31-60', '61-90', '90+'], $filters['aging_bucket']) }}
+                        </span>
+                    @endif
+                    <div class="mt-3">
+                        <canvas id="apAgingBarChart" height="140"></canvas>
+                    </div>
+                    <div class="mt-3">
+                        <canvas id="apAgingPieChart" height="140"></canvas>
+                    </div>
                 </div>
             </div>
         </div>
@@ -297,12 +360,16 @@
                                     <th>Supplier</th>
                                     <th class="text-right">Amount</th>
                                     <th class="text-right">Outstanding</th>
+                                    <th class="text-right">Days Overdue</th>
                                     <th>Status</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @forelse ($recentInvoices as $invoice)
-                                    <tr>
+                                    @php
+                                        $isOverdue = ($invoice['days_overdue'] ?? 0) > 0 && $invoice['outstanding_amount'] > 0;
+                                    @endphp
+                                    <tr class="{{ $isOverdue ? 'table-warning' : '' }}">
                                         <td>
                                             <a href="{{ route('purchase-invoices.show', $invoice['id']) }}">
                                                 {{ $invoice['invoice_no'] }}
@@ -316,6 +383,9 @@
                                                 Rp {{ number_format($invoice['outstanding_amount'], 0, ',', '.') }}
                                             </strong>
                                         </td>
+                                        <td class="text-right">
+                                            {{ $invoice['days_overdue'] ?? 0 }}
+                                        </td>
                                         <td>
                                             @if ($invoice['closure_status'] === 'open')
                                                 <span class="badge badge-warning">Open</span>
@@ -326,7 +396,7 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="6" class="text-center text-muted">{{ __('No recent invoices') }}</td>
+                                        <td colspan="7" class="text-center text-muted">{{ __('No recent invoices') }}</td>
                                     </tr>
                                 @endforelse
                             </tbody>
@@ -353,6 +423,88 @@
 @endpush
 
 @push('scripts')
+    <script src="{{ asset('adminlte/plugins/chart.js/Chart.min.js') }}"></script>
+    <script>
+        (function() {
+            const buckets = @json($buckets);
+            const total = buckets.total || 0;
+
+            const labels = ['Current', '1-30', '31-60', '61-90', '90+'];
+            const values = [
+                buckets.current || 0,
+                buckets['1_30'] || 0,
+                buckets['31_60'] || 0,
+                buckets['61_90'] || 0,
+                buckets['90_plus'] || 0
+            ];
+
+            const colors = ['#28a745', '#17a2b8', '#ffc107', '#ff9800', '#dc3545'];
+
+            const barCtx = document.getElementById('apAgingBarChart');
+            if (barCtx && total > 0) {
+                new Chart(barCtx.getContext('2d'), {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Outstanding (Rp)',
+                            data: values,
+                            backgroundColor: colors
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            yAxes: [{
+                                ticks: {
+                                    beginAtZero: true,
+                                    callback: function(value) {
+                                        return value.toLocaleString('id-ID');
+                                    }
+                                }
+                            }]
+                        },
+                        tooltips: {
+                            callbacks: {
+                                label: function(tooltipItem) {
+                                    return 'Rp ' + Number(tooltipItem.yLabel).toLocaleString('id-ID');
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            const pieCtx = document.getElementById('apAgingPieChart');
+            if (pieCtx && total > 0) {
+                new Chart(pieCtx.getContext('2d'), {
+                    type: 'pie',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            data: values,
+                            backgroundColor: colors
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        tooltips: {
+                            callbacks: {
+                                label: function(tooltipItem, data) {
+                                    const value = data.datasets[0].data[tooltipItem.index] || 0;
+                                    const percent = total > 0 ? (value / total * 100) : 0;
+                                    return data.labels[tooltipItem.index] + ': Rp ' +
+                                        Number(value).toLocaleString('id-ID') + ' (' + percent.toFixed(1) + '%)';
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        })();
+    </script>
     @if (session('status'))
         <script>
             toastr.success(@json(session('status')));

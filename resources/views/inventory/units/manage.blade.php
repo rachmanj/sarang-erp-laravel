@@ -92,44 +92,36 @@
                                         method="POST">
                                         @csrf
                                         <div class="row">
-                                            <div class="col-md-2">
-                                                <div class="form-group">
-                                                    <label for="unit_type">Unit Type</label>
-                                                    <select class="form-control" id="unit_type" name="unit_type" required>
-                                                        <option value="">Select Unit Type</option>
-                                                        @foreach ($unitTypes as $type => $name)
-                                                            <option value="{{ $type }}">{{ $name }}
-                                                            </option>
-                                                        @endforeach
-                                                    </select>
-                                                </div>
-                                            </div>
-                                            <div class="col-md-2">
+                                            <div class="col-md-4">
                                                 <div class="form-group">
                                                     <label for="unit_id">Unit</label>
-                                                    <select class="form-control" id="unit_id" name="unit_id" required>
-                                                        <option value="">Select Unit Type First</option>
-                                                    </select>
+                                                    <div class="input-group">
+                                                        <select class="form-control" id="unit_id" name="unit_id" required>
+                                                            <option value="">Select Unit</option>
+                                                            @foreach (\App\Models\UnitOfMeasure::active()->orderBy('name')->get() as $unit)
+                                                                <option value="{{ $unit->id }}">
+                                                                    {{ $unit->display_name }}
+                                                                </option>
+                                                            @endforeach
+                                                        </select>
+                                                        <div class="input-group-append">
+                                                            <button type="button" class="btn btn-outline-secondary"
+                                                                id="btn-add-unit">
+                                                                <i class="fas fa-plus"></i>
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                    <small class="form-text text-muted">
+                                                        Select an existing unit or click + to create a new one.
+                                                    </small>
                                                 </div>
                                             </div>
-                                            <div class="col-md-2">
+                                            <div class="col-md-3">
                                                 <div class="form-group">
                                                     <label for="conversion_quantity">Conversion Qty</label>
                                                     <input type="number" class="form-control" id="conversion_quantity" name="conversion_quantity"
                                                         step="0.01" min="0.01" value="1" required>
                                                     <small class="form-text text-muted">How many base units this unit represents</small>
-                                                </div>
-                                            </div>
-                                            <div class="col-md-3">
-                                                <div class="form-group">
-                                                    <label for="purchase_price">Purchase Price</label>
-                                                    <div class="input-group">
-                                                        <div class="input-group-prepend">
-                                                            <span class="input-group-text">Rp</span>
-                                                        </div>
-                                                        <input type="number" class="form-control" id="purchase_price"
-                                                            name="purchase_price" step="0.01" min="0" required>
-                                                    </div>
                                                 </div>
                                             </div>
                                             <div class="col-md-3">
@@ -153,7 +145,7 @@
                                                         <input type="checkbox" class="form-check-input" id="is_base_unit"
                                                             name="is_base_unit" value="1">
                                                         <label class="form-check-label" for="is_base_unit">
-                                                            Set as Base Unit
+                                                            Set as Base Unit (1 = base unit)
                                                         </label>
                                                     </div>
                                                 </div>
@@ -189,9 +181,7 @@
                                                 <thead>
                                                     <tr>
                                                         <th>Unit</th>
-                                                        <th>Type</th>
                                                         <th>Conversion</th>
-                                                        <th>Purchase Price</th>
                                                         <th>Selling Price</th>
                                                         <th>Base Unit</th>
                                                         <th>Status</th>
@@ -205,13 +195,8 @@
                                                                 <strong>{{ $itemUnit->unit->display_name }}</strong>
                                                             </td>
                                                             <td>
-                                                                <span
-                                                                    class="badge badge-secondary">{{ ucfirst($itemUnit->unit->unit_type) }}</span>
-                                                            </td>
-                                                            <td>
                                                                 <span class="badge badge-info">{{ $itemUnit->conversion_display }}</span>
                                                             </td>
-                                                            <td>Rp {{ number_format($itemUnit->purchase_price, 2) }}</td>
                                                             <td>Rp {{ number_format($itemUnit->selling_price, 2) }}</td>
                                                             <td>
                                                                 @if ($itemUnit->is_base_unit)
@@ -281,31 +266,85 @@
 @push('scripts')
     <script>
         $(document).ready(function() {
-            // Load units by type
-            $('#unit_type').change(function() {
-                var type = $(this).val();
-                var unitSelect = $('#unit_id');
+            // Open quick-add unit modal
+            $('#btn-add-unit').on('click', function() {
+                $('#quickAddUnitModal').modal('show');
+            });
 
-                unitSelect.empty().append('<option value="">Loading...</option>');
+            // Handle quick-add unit form submission
+            $('#quickAddUnitForm').on('submit', function(e) {
+                e.preventDefault();
 
-                if (type) {
-                    $.get('{{ route('unit-of-measures.api.units-by-type') }}', {
-                            type: type
-                        })
-                        .done(function(data) {
-                            unitSelect.empty().append('<option value="">Select Unit</option>');
-                            $.each(data, function(index, unit) {
-                                unitSelect.append('<option value="' + unit.id + '">' + unit
-                                    .display_name + '</option>');
-                            });
-                        })
-                        .fail(function() {
-                            unitSelect.empty().append('<option value="">Error loading units</option>');
-                        });
-                } else {
-                    unitSelect.empty().append('<option value="">Select Unit Type First</option>');
-                }
+                const form = $(this);
+                const btn = form.find('button[type="submit"]');
+                btn.prop('disabled', true);
+
+                $.ajax({
+                    url: '{{ route('unit-of-measures.api.store') }}',
+                    method: 'POST',
+                    data: form.serialize(),
+                    headers: {
+                        'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                    },
+                    success: function(response) {
+                        if (response.unit) {
+                            const unit = response.unit;
+                            const select = $('#unit_id');
+                            if (select.find('option[value="' + unit.id + '"]').length === 0) {
+                                select.append('<option value="' + unit.id + '">' + unit.display_name +
+                                    '</option>');
+                            }
+                            select.val(unit.id);
+                        }
+                        $('#quickAddUnitModal').modal('hide');
+                        form[0].reset();
+                    },
+                    error: function(xhr) {
+                        toastr.error('Failed to create unit of measure');
+                    },
+                    complete: function() {
+                        btn.prop('disabled', false);
+                    }
+                });
             });
         });
     </script>
+@endpush
+
+@push('modals')
+    <div class="modal fade" id="quickAddUnitModal" tabindex="-1" role="dialog" aria-labelledby="quickAddUnitLabel"
+        aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="quickAddUnitLabel">Add Unit of Measure</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <form id="quickAddUnitForm">
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label for="quick_unit_code">Code <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="quick_unit_code" name="code" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="quick_unit_name">Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="quick_unit_name" name="name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="quick_unit_description">Description</label>
+                            <textarea class="form-control" id="quick_unit_description" name="description" rows="2"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Save Unit
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 @endpush

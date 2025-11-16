@@ -205,6 +205,7 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 -   **Percentage-Based Calculations**: Support for percentage-based price calculations
 -   **Customer Overrides**: Customer-specific price overrides for individual items
 -   **Flexible Pricing**: Both fixed prices and percentage-based calculations supported
+ -   **UI Entry Points**: Price levels are configured on the Inventory Item create/edit forms and resolved at runtime via AJAX when selecting items and customers on Sales documents
 
 #### 4.5. Comprehensive Audit Trail System
 

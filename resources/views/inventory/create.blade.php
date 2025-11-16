@@ -85,12 +85,30 @@
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="form-group">
-                                    <label for="unit_of_measure">Unit of Measure <span class="text-danger">*</span></label>
-                                    <input type="text"
-                                        class="form-control @error('unit_of_measure') is-invalid @enderror"
-                                        id="unit_of_measure" name="unit_of_measure" value="{{ old('unit_of_measure') }}"
-                                        placeholder="e.g., pcs, kg, liter" required>
-                                    @error('unit_of_measure')
+                                    <label for="base_unit_id">
+                                        Unit of Measure <span class="text-danger">*</span>
+                                    </label>
+                                    <div class="input-group">
+                                        <select class="form-control @error('base_unit_id') is-invalid @enderror"
+                                            id="base_unit_id" name="base_unit_id" required>
+                                            <option value="">Select Unit</option>
+                                            @foreach (\App\Models\UnitOfMeasure::active()->orderBy('name')->get() as $unit)
+                                                <option value="{{ $unit->id }}"
+                                                    {{ old('base_unit_id') == $unit->id ? 'selected' : '' }}>
+                                                    {{ $unit->display_name }}
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                        <div class="input-group-append">
+                                            <button type="button" class="btn btn-outline-secondary" id="btn-add-base-unit">
+                                                <i class="fas fa-plus"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <small class="form-text text-muted">
+                                        This unit will become the <strong>base unit</strong> for this item (1 = base unit).
+                                    </small>
+                                    @error('base_unit_id')
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
                                 </div>
@@ -109,7 +127,7 @@
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="form-group">
-                                    <label for="purchase_price">Purchase Price <span class="text-danger">*</span></label>
+                                    <label for="purchase_price">Default Purchase Price</label>
                                     <div class="input-group">
                                         <div class="input-group-prepend">
                                             <span class="input-group-text">Rp</span>
@@ -117,8 +135,11 @@
                                         <input type="number"
                                             class="form-control @error('purchase_price') is-invalid @enderror"
                                             id="purchase_price" name="purchase_price" value="{{ old('purchase_price') }}"
-                                            step="0.01" min="0" required>
+                                            step="0.01" min="0">
                                     </div>
+                                    <small class="form-text text-muted">
+                                        Optional: used for initial stock and estimates. Actual COGS comes from purchase transactions.
+                                    </small>
                                     @error('purchase_price')
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
@@ -273,13 +294,6 @@
 @section('scripts')
     <script>
         $(function() {
-            // Auto-calculate selling price based on purchase price
-            $('#purchase_price').on('input', function() {
-                const purchasePrice = parseFloat($(this).val()) || 0;
-                const sellingPrice = purchasePrice * 1.2; // 20% markup
-                $('#selling_price').val(sellingPrice.toFixed(2));
-            });
-
             // Set reorder point to minimum stock level
             $('#min_stock_level').on('input', function() {
                 const minLevel = parseInt($(this).val()) || 0;
@@ -334,6 +348,84 @@
                     }
                 }
             });
+            // Quick-add base unit modal
+            $('#btn-add-base-unit').on('click', function() {
+                $('#quickAddUnitModal').modal('show');
+            });
+
+            $('#quickAddUnitForm').on('submit', function(e) {
+                e.preventDefault();
+
+                const form = $(this);
+                const btn = form.find('button[type="submit"]');
+                btn.prop('disabled', true);
+
+                $.ajax({
+                    url: '{{ route('unit-of-measures.api.store') }}',
+                    method: 'POST',
+                    data: form.serialize(),
+                    headers: {
+                        'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                    },
+                    success: function(response) {
+                        if (response.unit) {
+                            const unit = response.unit;
+                            const select = $('#base_unit_id');
+                            if (select.find('option[value="' + unit.id + '"]').length === 0) {
+                                select.append('<option value="' + unit.id + '">' + unit.display_name +
+                                    '</option>');
+                            }
+                            select.val(unit.id);
+                        }
+                        $('#quickAddUnitModal').modal('hide');
+                        form[0].reset();
+                    },
+                    error: function() {
+                        toastr.error('Failed to create unit of measure');
+                    },
+                    complete: function() {
+                        btn.prop('disabled', false);
+                    }
+                });
+            });
         });
     </script>
 @endsection
+
+@push('modals')
+    <div class="modal fade" id="quickAddUnitModal" tabindex="-1" role="dialog" aria-labelledby="quickAddUnitLabel"
+        aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="quickAddUnitLabel">Add Unit of Measure</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <form id="quickAddUnitForm">
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label for="quick_unit_code_create">Code <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="quick_unit_code_create" name="code" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="quick_unit_name_create">Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="quick_unit_name_create" name="name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="quick_unit_description_create">Description</label>
+                            <textarea class="form-control" id="quick_unit_description_create" name="description" rows="2"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Save Unit
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+@endpush

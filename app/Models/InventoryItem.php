@@ -172,16 +172,8 @@ class InventoryItem extends Model
             return null;
         }
 
-        switch ($type) {
-            case 'inventory':
-                return $this->category->inventoryAccount;
-            case 'cogs':
-                return $this->category->cogsAccount;
-            case 'sales':
-                return $this->category->salesAccount;
-            default:
-                return null;
-        }
+        // Use effective accounts which support inheritance from parent categories
+        return $this->category->getEffectiveAccountByType($type);
     }
 
     // Accessors
@@ -270,7 +262,6 @@ class InventoryItem extends Model
                     'name' => $itemUnit->unit->name,
                     'display_name' => $itemUnit->unit->display_name,
                     'is_base_unit' => $itemUnit->is_base_unit,
-                    'purchase_price' => $itemUnit->purchase_price,
                     'selling_price' => $itemUnit->selling_price,
                 ];
             })

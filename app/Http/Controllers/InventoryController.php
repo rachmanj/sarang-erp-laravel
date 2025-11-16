@@ -104,8 +104,8 @@ class InventoryController extends Controller
                 'description' => ['nullable', 'string'],
                 'category_id' => ['required', 'integer', 'exists:product_categories,id'],
                 'default_warehouse_id' => ['nullable', 'integer', 'exists:warehouses,id'],
-                'unit_of_measure' => ['required', 'string', 'max:50'],
-                'purchase_price' => ['required', 'numeric', 'min:0'],
+                'base_unit_id' => ['required', 'integer', 'exists:units_of_measure,id'],
+                'purchase_price' => ['nullable', 'numeric', 'min:0'],
                 'selling_price' => ['required', 'numeric', 'min:0'],
                 'selling_price_level_2' => ['nullable', 'numeric', 'min:0'],
                 'selling_price_level_3' => ['nullable', 'numeric', 'min:0'],
@@ -129,6 +129,10 @@ class InventoryController extends Controller
 
             $data = $request->validate($rules);
 
+            // Map selected base unit to legacy unit_of_measure string (code)
+            $baseUnit = \App\Models\UnitOfMeasure::findOrFail($data['base_unit_id']);
+            $data['unit_of_measure'] = $baseUnit->code;
+
             Log::info('Validation passed. Validated data:', $data);
 
             // Convert checkbox "on" value to boolean true
@@ -138,6 +142,13 @@ class InventoryController extends Controller
                 Log::info('Starting DB transaction to create inventory item');
                 $item = InventoryItem::create($data);
                 Log::info('Inventory item created with ID: ' . ($item->id ?? 'null'));
+
+                // Create base unit relationship for this item (1 = base unit)
+                app(UnitConversionService::class)->createItemUnit($item->id, $data['base_unit_id'], [
+                    'is_base_unit' => true,
+                    'conversion_quantity' => 1,
+                    'selling_price' => $data['selling_price'],
+                ]);
 
                 // Log the creation
                 app(AuditLogService::class)->logInventoryItem(
@@ -156,8 +167,8 @@ class InventoryController extends Controller
                         'warehouse_id' => $item->default_warehouse_id,
                         'transaction_type' => 'adjustment',
                         'quantity' => $initialStock,
-                        'unit_cost' => $data['purchase_price'],
-                        'total_cost' => $initialStock * $data['purchase_price'],
+                        'unit_cost' => $data['purchase_price'] ?? 0,
+                        'total_cost' => $initialStock * ($data['purchase_price'] ?? 0),
                         'reference_type' => 'initial_stock',
                         'reference_id' => null,
                         'transaction_date' => now()->toDateString(),
@@ -179,8 +190,8 @@ class InventoryController extends Controller
                         'item_id' => $item->id,
                         'valuation_date' => now()->toDateString(),
                         'quantity_on_hand' => $initialStock,
-                        'unit_cost' => $data['purchase_price'],
-                        'total_value' => $initialStock * $data['purchase_price'],
+                        'unit_cost' => $data['purchase_price'] ?? 0,
+                        'total_value' => $initialStock * ($data['purchase_price'] ?? 0),
                         'valuation_method' => $data['valuation_method'],
                     ]);
                 }
@@ -658,10 +669,9 @@ class InventoryController extends Controller
             $inventoryItem->load('baseUnit.unit');
         }
 
-        $availableUnits = UnitOfMeasure::active()->orderBy('unit_type')->orderBy('name')->get();
-        $unitTypes = $this->unitConversionService->getUnitTypes();
+        $availableUnits = UnitOfMeasure::active()->orderBy('name')->get();
 
-        return view('inventory.units.manage', compact('inventoryItem', 'availableUnits', 'unitTypes'));
+        return view('inventory.units.manage', compact('inventoryItem', 'availableUnits'));
     }
 
     public function addUnit(Request $request, InventoryItem $inventoryItem)
@@ -669,17 +679,11 @@ class InventoryController extends Controller
         $request->validate([
             'unit_id' => 'required|exists:units_of_measure,id',
             'conversion_quantity' => 'required|numeric|min:0.01',
-            'purchase_price' => 'required|numeric|min:0',
             'selling_price' => 'required|numeric|min:0',
             'selling_price_level_2' => 'nullable|numeric|min:0',
             'selling_price_level_3' => 'nullable|numeric|min:0',
             'is_base_unit' => 'boolean',
         ]);
-
-        // Validate unit type compatibility
-        if (!$this->unitConversionService->validateUnitTypeForItem($inventoryItem->id, $request->unit_id)) {
-            return back()->withErrors(['unit_id' => 'Unit type is not compatible with existing units for this item.']);
-        }
 
         // Check if unit already exists for this item
         if ($inventoryItem->itemUnits()->where('unit_id', $request->unit_id)->exists()) {
@@ -694,7 +698,6 @@ class InventoryController extends Controller
         $itemUnit = $this->unitConversionService->createItemUnit($inventoryItem->id, $request->unit_id, [
             'is_base_unit' => $request->is_base_unit ?? false,
             'conversion_quantity' => $request->conversion_quantity,
-            'purchase_price' => $request->purchase_price,
             'selling_price' => $request->selling_price,
             'selling_price_level_2' => $request->selling_price_level_2,
             'selling_price_level_3' => $request->selling_price_level_3,

@@ -1,5 +1,5 @@
 **Purpose**: AI's persistent knowledge base for project context and learnings
-**Last Updated**: 2025-11-11 (Sales Dashboard Implementation with AR Invoice Aging Complete)
+**Last Updated**: 2025-11-16 (Global Dashboard Supplier Performance Guard Added)
 
 ## Memory Maintenance Guidelines
 
@@ -452,3 +452,9 @@
 **Challenge**: Implement comprehensive Sales Dashboard with AR invoice aging analysis to match Purchase Dashboard functionality and provide sales managers with actionable insights into accounts receivable.
 **Solution**: Created `SalesDashboardDataService` with AR aging calculations (Current, 1-30, 31-60, 61-90, 90+ days), sales KPIs (Sales MTD, Outstanding AR, Pending Approvals, Open Sales Orders), sales order statistics, sales invoice statistics, delivery order statistics, top customers by outstanding AR, and recent invoices visualization. Implemented `SalesDashboardController` with refresh parameter support, created comprehensive AdminLTE dashboard view with visual progress bars, added route in `routes/web/orders.php`, updated sidebar link, and created comprehensive review document in `docs/sales-dashboard-review.md`.
 **Key Learning**: Following the Purchase Dashboard pattern ensures consistency and reduces development time. AR aging calculation requires joining `sales_invoices` with `sales_receipt_allocations` to calculate outstanding amounts accurately. Visual progress bars for aging buckets provide immediate insight into payment collection status. Caching with 300s TTL improves performance while refresh parameter allows real-time data access when needed. Dashboard implementation completes the sales analytics infrastructure and provides sales managers with comprehensive AR management capabilities.
+
+### [067] Dashboard Supplier Performance Table Guard (2025-11-16) ✅ COMPLETE
+
+**Challenge**: `/dashboard` hard-failed with `SQLSTATE[42S02]` because the `supplier_performances` table was missing in the current `sarang_live` database, breaking the global executive dashboard.
+**Solution**: Updated `DashboardDataService::buildSalesAndProcurementSnapshot()` to check `Schema::hasTable('supplier_performances')` before querying, returning an empty "Top Suppliers" list when the analytics table is absent so the dashboard still renders.
+**Key Learning**: Cross-environment robustness on analytics widgets is critical—dashboard services should gracefully handle optional/advanced tables being absent instead of throwing, especially when schemas can lag behind features across deployments.

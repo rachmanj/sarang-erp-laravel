@@ -141,11 +141,11 @@
 
                                                 <div class="form-group">
                                                     <label for="cogs_account_id">COGS Account <span
-                                                            class="text-danger">*</span></label>
+                                                            class="text-danger" id="cogs_required">*</span></label>
                                                     <select
                                                         class="form-control select2bs4 @error('cogs_account_id') is-invalid @enderror"
-                                                        id="cogs_account_id" name="cogs_account_id" required>
-                                                        <option value="">Select COGS Account</option>
+                                                        id="cogs_account_id" name="cogs_account_id">
+                                                        <option value="">Select COGS Account (Optional if parent has account)</option>
                                                         @foreach ($cogsAccounts as $account)
                                                             <option value="{{ $account->id }}"
                                                                 {{ old('cogs_account_id') == $account->id ? 'selected' : '' }}>
@@ -153,6 +153,9 @@
                                                             </option>
                                                         @endforeach
                                                     </select>
+                                                    <small class="form-text text-muted" id="cogs_help">
+                                                        Leave empty to inherit from parent category
+                                                    </small>
                                                     @error('cogs_account_id')
                                                         <div class="invalid-feedback">{{ $message }}</div>
                                                     @enderror
@@ -160,11 +163,11 @@
 
                                                 <div class="form-group">
                                                     <label for="sales_account_id">Sales Account <span
-                                                            class="text-danger">*</span></label>
+                                                            class="text-danger" id="sales_required">*</span></label>
                                                     <select
                                                         class="form-control select2bs4 @error('sales_account_id') is-invalid @enderror"
-                                                        id="sales_account_id" name="sales_account_id" required>
-                                                        <option value="">Select Sales Account</option>
+                                                        id="sales_account_id" name="sales_account_id">
+                                                        <option value="">Select Sales Account (Optional if parent has account)</option>
                                                         @foreach ($salesAccounts as $account)
                                                             <option value="{{ $account->id }}"
                                                                 {{ old('sales_account_id') == $account->id ? 'selected' : '' }}>
@@ -172,6 +175,9 @@
                                                             </option>
                                                         @endforeach
                                                     </select>
+                                                    <small class="form-text text-muted" id="sales_help">
+                                                        Leave empty to inherit from parent category
+                                                    </small>
                                                     @error('sales_account_id')
                                                         <div class="invalid-feedback">{{ $message }}</div>
                                                     @enderror
@@ -181,7 +187,7 @@
                                                     <i class="fas fa-info-circle mr-2"></i>
                                                     <strong>Account Mapping:</strong> Items in this category will
                                                     automatically use these accounts for inventory valuation, cost of goods
-                                                    sold, and sales revenue recognition.
+                                                    sold, and sales revenue recognition. <strong>Child categories can inherit accounts from their parent.</strong>
                                                 </div>
                                             </div>
                                         </div>
@@ -225,6 +231,38 @@
                 placeholder: 'Select an option',
                 allowClear: true
             });
+
+            // Handle parent category change to update account requirements
+            $('#parent_id').on('change', function() {
+                const parentId = $(this).val();
+                const cogsSelect = $('#cogs_account_id');
+                const salesSelect = $('#sales_account_id');
+                const cogsRequired = $('#cogs_required');
+                const salesRequired = $('#sales_required');
+                const cogsHelp = $('#cogs_help');
+                const salesHelp = $('#sales_help');
+
+                if (parentId) {
+                    // Child category - accounts are optional (can inherit)
+                    cogsSelect.removeAttr('required');
+                    salesSelect.removeAttr('required');
+                    cogsRequired.hide();
+                    salesRequired.hide();
+                    cogsHelp.text('Leave empty to inherit from parent category');
+                    salesHelp.text('Leave empty to inherit from parent category');
+                } else {
+                    // Root category - accounts are required
+                    cogsSelect.attr('required', 'required');
+                    salesSelect.attr('required', 'required');
+                    cogsRequired.show();
+                    salesRequired.show();
+                    cogsHelp.text('Required for root categories');
+                    salesHelp.text('Required for root categories');
+                }
+            });
+
+            // Trigger on page load if parent is already selected
+            $('#parent_id').trigger('change');
         });
     </script>
 @endpush
