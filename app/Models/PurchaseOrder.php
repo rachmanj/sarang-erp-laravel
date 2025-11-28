@@ -67,6 +67,9 @@ class PurchaseOrder extends Model
         'total_cost_foreign' => 'decimal:2',
     ];
 
+    protected $auditLogIgnore = ['updated_at', 'created_at'];
+    protected $auditEntityType = 'purchase_order';
+
     // Relationships
     public function lines(): HasMany
     {

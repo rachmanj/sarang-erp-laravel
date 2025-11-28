@@ -24,6 +24,7 @@ class User extends Authenticatable
         'username',
         'email',
         'password',
+        'audit_log_filter_presets',
     ];
 
     /**
@@ -46,7 +47,17 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'audit_log_filter_presets' => 'array',
         ];
+    }
+
+    protected $auditLogIgnore = ['updated_at', 'created_at', 'email_verified_at'];
+    protected $auditLogSensitive = ['password', 'remember_token'];
+    protected $auditEntityType = 'user';
+
+    public function auditLogs(): HasMany
+    {
+        return $this->hasMany(AuditLog::class, 'user_id');
     }
 
     public function legacyRoles(): HasMany

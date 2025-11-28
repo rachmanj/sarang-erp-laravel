@@ -72,7 +72,7 @@ class AuditLogService
     }
 
     /**
-     * Log model changes automatically
+     * Log model changes automatically (called by observers).
      */
     public function logModelChanges($model, $action, $description = null)
     {
@@ -85,19 +85,78 @@ class AuditLogService
         if ($action === 'updated' && $model->wasChanged()) {
             $oldValues = $model->getOriginal();
             $newValues = $model->getChanges();
+            
+            if (isset($model->auditLogIgnore)) {
+                foreach ($model->auditLogIgnore as $field) {
+                    unset($oldValues[$field]);
+                    unset($newValues[$field]);
+                }
+            }
         } elseif ($action === 'created') {
             $newValues = $model->getAttributes();
+            
+            if (isset($model->auditLogIgnore)) {
+                foreach ($model->auditLogIgnore as $field) {
+                    unset($newValues[$field]);
+                }
+            }
+        } elseif (in_array($action, ['deleted', 'force_deleted'])) {
+            $oldValues = $model->getAttributes();
+        }
+
+        if (!$description) {
+            $description = $this->generateDescription($model, $action, $oldValues, $newValues);
         }
 
         return $this->log($action, $entityType, $entityId, $oldValues, $newValues, $description);
     }
 
     /**
+     * Generate description for model change.
+     */
+    protected function generateDescription($model, $action, $oldValues, $newValues)
+    {
+        $entityName = $this->getEntityName($model);
+        $entityId = $model->id ?? 'N/A';
+
+        switch ($action) {
+            case 'created':
+                return "{$entityName} #{$entityId} was created";
+            case 'updated':
+                $changedFields = $oldValues && $newValues 
+                    ? array_keys(array_diff_assoc($newValues, $oldValues))
+                    : [];
+                $fieldList = implode(', ', array_slice($changedFields, 0, 5));
+                $more = count($changedFields) > 5 ? ' and ' . (count($changedFields) - 5) . ' more' : '';
+                return "{$entityName} #{$entityId} was updated: {$fieldList}{$more}";
+            case 'deleted':
+                return "{$entityName} #{$entityId} was deleted";
+            default:
+                return "{$entityName} #{$entityId} - {$action}";
+        }
+    }
+
+    /**
+     * Get entity name for display.
+     */
+    protected function getEntityName($model)
+    {
+        if (isset($model->name)) return $model->name;
+        if (isset($model->code)) return $model->code;
+        if (isset($model->title)) return $model->title;
+        return $this->getEntityType($model);
+    }
+
+    /**
      * Get entity type from model
      */
-    private function getEntityType($model)
+    public function getEntityType($model)
     {
+        if (isset($model->auditEntityType)) {
+            return $model->auditEntityType;
+        }
+
         $className = class_basename($model);
-        return strtolower(preg_replace('/([a-z])([A-Z])/', '$1_$2', $className));
+        return \Illuminate\Support\Str::snake($className);
     }
 }

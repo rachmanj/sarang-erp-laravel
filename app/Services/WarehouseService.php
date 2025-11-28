@@ -18,16 +18,6 @@ class WarehouseService
     {
         return DB::transaction(function () use ($data) {
             $warehouse = Warehouse::create($data);
-
-            // Log the creation
-            app(AuditLogService::class)->logWarehouse(
-                'created',
-                $warehouse->id,
-                null,
-                $warehouse->getAttributes(),
-                "Warehouse '{$warehouse->name}' created"
-            );
-
             return $warehouse;
         });
     }
@@ -39,19 +29,7 @@ class WarehouseService
     {
         return DB::transaction(function () use ($warehouseId, $data) {
             $warehouse = Warehouse::findOrFail($warehouseId);
-            $oldValues = $warehouse->getAttributes();
-
             $warehouse->update($data);
-
-            // Log the update
-            app(AuditLogService::class)->logWarehouse(
-                'updated',
-                $warehouse->id,
-                $oldValues,
-                $warehouse->getAttributes(),
-                "Warehouse '{$warehouse->name}' updated"
-            );
-
             return $warehouse;
         });
     }
@@ -73,18 +51,7 @@ class WarehouseService
                 throw new \Exception('Cannot delete warehouse with existing stock');
             }
 
-            $oldValues = $warehouse->getAttributes();
             $warehouse->delete();
-
-            // Log the deletion
-            app(AuditLogService::class)->logWarehouse(
-                'deleted',
-                $warehouseId,
-                $oldValues,
-                null,
-                "Warehouse '{$oldValues['name']}' deleted"
-            );
-
             return true;
         });
     }

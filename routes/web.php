@@ -25,6 +25,7 @@ use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\GoodsReceiptPOController;
 use App\Http\Controllers\WarehouseController;
 use App\Http\Controllers\AuditLogController;
+use App\Http\Controllers\ActivityDashboardController;
 use App\Http\Controllers\AssetController;
 use App\Http\Controllers\AssetCategoryController;
 use App\Http\Controllers\AssetDepreciationController;
@@ -385,12 +386,29 @@ Route::middleware('auth')->group(function () {
     });
 
     // Audit Log Management
-    Route::prefix('audit-logs')->middleware(['permission:admin.view'])->group(function () {
+    Route::prefix('audit-logs')->middleware(['permission:view-admin'])->group(function () {
         Route::get('/', [AuditLogController::class, 'index'])->name('audit-logs.index');
         Route::get('/data', [AuditLogController::class, 'data'])->name('audit-logs.data');
-        Route::get('/{entityType}/{entityId}', [AuditLogController::class, 'show'])->name('audit-logs.show');
+        Route::get('/users', [AuditLogController::class, 'getUsers'])->name('audit-logs.users');
+        Route::get('/entity-types', [AuditLogController::class, 'getEntityTypes'])->name('audit-logs.entity-types');
+        Route::get('/export/{format}', [AuditLogController::class, 'export'])->name('audit-logs.export');
+        Route::get('/export/compliance/{type}', [AuditLogController::class, 'exportCompliance'])->name('audit-logs.export.compliance');
         Route::get('/by-user/{userId}', [AuditLogController::class, 'byUser'])->name('audit-logs.by-user');
         Route::get('/by-action/{action}', [AuditLogController::class, 'byAction'])->name('audit-logs.by-action');
+        Route::get('/{id}/changes', [AuditLogController::class, 'getChanges'])->name('audit-logs.changes');
+        Route::get('/{entityType}/{entityId}', [AuditLogController::class, 'show'])->name('audit-logs.show');
+        
+        // Filter presets
+        Route::get('/filter-presets', [AuditLogController::class, 'getFilterPresets'])->name('audit-logs.filter-presets');
+        Route::post('/filter-presets', [AuditLogController::class, 'saveFilterPreset'])->name('audit-logs.filter-presets.save');
+        Route::get('/filter-presets/{presetId}', [AuditLogController::class, 'getFilterPreset'])->name('audit-logs.filter-presets.get');
+        Route::delete('/filter-presets/{presetId}', [AuditLogController::class, 'deleteFilterPreset'])->name('audit-logs.filter-presets.delete');
+    });
+
+    // Activity Dashboard
+    Route::prefix('admin')->middleware(['permission:view-admin'])->group(function () {
+        Route::get('/activity-dashboard', [ActivityDashboardController::class, 'index'])->name('activity-dashboard.index');
+        Route::get('/activity-dashboard/recent-activity', [ActivityDashboardController::class, 'recentActivity'])->name('activity-dashboard.recent-activity');
     });
 
     // Tax Compliance Management

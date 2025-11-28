@@ -5,9 +5,12 @@ namespace App\Http\Controllers\Accounting;
 use App\Http\Controllers\Controller;
 use App\Models\Accounting\PurchasePayment;
 use App\Models\Accounting\PurchasePaymentLine;
+use App\Models\Accounting\PurchaseInvoice;
+use App\Models\PurchaseOrder;
 use App\Services\Accounting\PostingService;
 use App\Services\DocumentNumberingService;
 use App\Services\DocumentClosureService;
+use App\Services\PurchaseWorkflowAuditService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\Facades\DataTables;
@@ -112,6 +115,29 @@ class PurchasePaymentController extends Controller
                     'payment_id' => $payment->id,
                     'error' => $closureException->getMessage()
                 ]);
+            }
+
+            // Log payment creation in Purchase Order audit trail
+            // Find Purchase Orders through allocated invoices
+            $allocatedInvoiceIds = DB::table('purchase_payment_allocations')
+                ->where('payment_id', $payment->id)
+                ->pluck('invoice_id')
+                ->toArray();
+
+            if (!empty($allocatedInvoiceIds)) {
+                $purchaseOrderIds = PurchaseInvoice::whereIn('id', $allocatedInvoiceIds)
+                    ->whereNotNull('purchase_order_id')
+                    ->pluck('purchase_order_id')
+                    ->unique()
+                    ->toArray();
+
+                $workflowAuditService = app(PurchaseWorkflowAuditService::class);
+                foreach ($purchaseOrderIds as $poId) {
+                    $po = PurchaseOrder::find($poId);
+                    if ($po) {
+                        $workflowAuditService->logPurchasePaymentCreation($po, $payment->id);
+                    }
+                }
             }
 
             return redirect()->route('purchase-payments.show', $payment->id)->with('success', 'Payment created');

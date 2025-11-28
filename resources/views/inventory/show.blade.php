@@ -124,6 +124,11 @@
                         <a href="{{ route('inventory.edit', $item->id) }}" class="btn btn-primary btn-sm">
                             <i class="fas fa-edit"></i> Edit
                         </a>
+                        @can('admin.view')
+                            <a href="{{ route('audit-logs.show', ['inventory_item', $item->id]) }}" class="btn btn-info btn-sm">
+                                <i class="fas fa-history"></i> Audit Trail
+                            </a>
+                        @endcan
                         <a href="{{ route('inventory-items.units.index', $item->id) }}" class="btn btn-secondary btn-sm">
                             <i class="fas fa-cubes"></i> Manage Units
                         </a>
@@ -312,6 +317,19 @@
             </div>
         </div>
     </div>
+
+    <!-- Audit Trail Widget -->
+    @can('admin.view')
+    <div class="row">
+        <div class="col-12">
+            <x-audit-trail-widget 
+                entity-type="inventory_item" 
+                :entity-id="$item->id" 
+                :limit="10" 
+                :collapsible="true" />
+        </div>
+    </div>
+    @endcan
 
     <!-- Stock Adjustment Modal -->
     <div class="modal fade" id="adjustStockModal" tabindex="-1" role="dialog">

@@ -32,6 +32,12 @@
                                         Edit Category
                                     </a>
                                 @endcan
+                                @can('admin.view')
+                                    <a href="{{ route('audit-logs.show', ['product_category', $category->id]) }}" class="btn btn-info btn-sm">
+                                        <i class="fas fa-history mr-1"></i>
+                                        Audit Trail
+                                    </a>
+                                @endcan
                                 <a href="{{ route('product-categories.index') }}" class="btn btn-secondary btn-sm">
                                     <i class="fas fa-arrow-left mr-1"></i>
                                     Back to Categories

@@ -37,6 +37,9 @@ class DeliveryOrder extends Model
         'approved_at' => 'datetime',
     ];
 
+    protected $auditLogIgnore = ['updated_at', 'created_at'];
+    protected $auditEntityType = 'delivery_order';
+
     // Relationships
     public function salesOrder(): BelongsTo
     {

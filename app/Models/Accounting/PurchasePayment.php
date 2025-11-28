@@ -22,6 +22,9 @@ class PurchasePayment extends Model
         'total_amount' => 'float',
     ];
 
+    protected $auditLogIgnore = ['updated_at', 'created_at'];
+    protected $auditEntityType = 'purchase_payment';
+
     public function lines()
     {
         return $this->hasMany(PurchasePaymentLine::class, 'payment_id');

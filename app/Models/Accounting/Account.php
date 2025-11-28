@@ -68,4 +68,7 @@ class Account extends Model
     {
         return !is_null($this->parent_id);
     }
+
+    protected $auditLogIgnore = ['updated_at', 'created_at'];
+    protected $auditEntityType = 'account';
 }

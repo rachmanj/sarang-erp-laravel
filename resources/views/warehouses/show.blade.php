@@ -35,6 +35,11 @@
                                         <i class="fas fa-edit"></i> Edit
                                     </a>
                                 @endcan
+                                @can('admin.view')
+                                    <a href="{{ route('audit-logs.show', ['warehouse', $warehouse->id]) }}" class="btn btn-info btn-sm">
+                                        <i class="fas fa-history"></i> Audit Trail
+                                    </a>
+                                @endcan
                                 <a href="{{ route('warehouses.index') }}" class="btn btn-secondary btn-sm">
                                     <i class="fas fa-arrow-left"></i> Back to Warehouses
                                 </a>

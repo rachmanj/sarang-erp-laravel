@@ -24,6 +24,9 @@ class Journal extends Model
         'posted_at' => 'datetime',
     ];
 
+    protected $auditLogIgnore = ['updated_at', 'created_at'];
+    protected $auditEntityType = 'journal';
+
     public function lines(): HasMany
     {
         return $this->hasMany(JournalLine::class, 'journal_id');

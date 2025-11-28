@@ -785,6 +785,19 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Audit Trail Widget -->
+            @can('admin.view')
+            <div class="row mt-3">
+                <div class="col-12">
+                    <x-audit-trail-widget 
+                        entity-type="business_partner" 
+                        :entity-id="$businessPartner->id" 
+                        :limit="10" 
+                        :collapsible="true" />
+                </div>
+            </div>
+            @endcan
         </div>
     </section>
 @endsection

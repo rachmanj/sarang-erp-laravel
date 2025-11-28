@@ -215,6 +215,14 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 -   **Entity-Specific Logs**: Separate audit trails for items, transactions, warehouses
 -   **Action Types**: Created, Updated, Deleted, Approved, Rejected, Transferred, Adjusted
 -   **Search and Filtering**: Comprehensive audit log management with filtering capabilities
+-   **Current Status**: Foundation implemented (database schema, model, service, controller, routes) - See `docs/audit-trail-analysis-and-recommendations.md` for detailed analysis and 5-phase implementation plan
+-   **Implementation Plan**: 
+    - Phase 1: Complete Core UI (2-3 days) - Create missing views, sidebar integration, DataTables
+    - Phase 2: Automatic Logging (2-3 days) - Model Observers, Auditable trait, comprehensive model integration
+    - Phase 3: Module Integration (5-8 days) - Workflow logging (Purchase/Sales/Accounting), Business Partner activity, Fixed Asset lifecycle
+    - Phase 4: Enhanced Features (6-10 days) - Activity dashboard, advanced filtering, export/reporting, inline widgets
+    - Phase 5: Optimization (5-9 days) - Log archiving, retention policies, performance optimization
+-   **Documentation**: Detailed action plans available in `docs/audit-trail-phase1-detailed-action-plan.md` through `docs/audit-trail-phase4-detailed-action-plan.md`
 
 ### 5. Fixed Asset Management
 
@@ -516,7 +524,7 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 -   `inventory_valuations`: Real-time inventory valuation with multiple methods
 -   `warehouses`: Warehouse master data with contact information and status
 -   `inventory_warehouse_stock`: Per-warehouse stock tracking with quantity_on_hand, reserved_quantity, available_quantity, and warehouse-specific reorder points
--   `audit_logs`: System-wide audit trail with entity_type, entity_id, action, old_values, new_values, user tracking, and timestamps
+-   `audit_logs`: System-wide audit trail with entity_type, entity_id, action, old_values, new_values, user tracking, IP address, user agent, and timestamps. Currently integrated with Inventory, Warehouse, and Product Categories modules. See `docs/audit-trail-analysis-and-recommendations.md` for comprehensive analysis and 5-phase enhancement plan.
 -   `customer_item_price_levels`: Customer-specific price level overrides with custom pricing capabilities
 -   `tax_transactions`: Enhanced individual tax calculation tracking with Indonesian compliance
 -   `tax_periods`: Tax reporting periods with status management
@@ -588,7 +596,7 @@ The database schema has been consolidated from 51 to 44 migration files for impr
 -   `/product-categories/*`: Product category management with CRUD operations, account mapping, hierarchical support, and audit integration
 -   `/warehouses/*`: Multi-warehouse management with CRUD operations, stock transfers, and warehouse-specific reporting
 -   `/gr-gi/*`: GR/GI management with CRUD operations, approval workflow, journal integration, and account mapping
--   `/audit-logs/*`: System-wide audit trail management with filtering and search capabilities
+-   `/audit-logs/*`: System-wide audit trail management with filtering and search capabilities. Routes configured but views missing - see Phase 1 implementation plan. Future enhancements include activity dashboard (`/admin/activity-dashboard`), advanced filtering with saved presets, export/reporting, and inline widgets.
 -   `/tax/*`: Indonesian tax compliance management with transactions, periods, reports, settings
 -   `/cogs/*`: Cost of Goods Sold management with cost allocation, margin analysis, optimization
 -   `/supplier-analytics/*`: Supplier performance analytics with comparisons, optimization opportunities

@@ -45,6 +45,9 @@ class InventoryItem extends Model
         'is_active' => 'boolean',
     ];
 
+    protected $auditLogIgnore = ['updated_at', 'created_at', 'last_sync_at'];
+    protected $auditEntityType = 'inventory_item';
+
     // Relationships
     public function category(): BelongsTo
     {

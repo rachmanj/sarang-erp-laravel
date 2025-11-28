@@ -30,6 +30,9 @@ class PurchaseInvoice extends Model
         'total_amount' => 'float',
     ];
 
+    protected $auditLogIgnore = ['updated_at', 'created_at'];
+    protected $auditEntityType = 'purchase_invoice';
+
     public function lines(): HasMany
     {
         return $this->hasMany(PurchaseInvoiceLine::class, 'invoice_id');

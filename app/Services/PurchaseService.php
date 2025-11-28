@@ -15,6 +15,7 @@ use App\Services\UnitConversionService;
 use App\Services\ApprovalWorkflowService;
 use App\Services\CurrencyService;
 use App\Services\ExchangeRateService;
+use App\Services\PurchaseWorkflowAuditService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -27,6 +28,7 @@ class PurchaseService
     protected $approvalWorkflowService;
     protected $currencyService;
     protected $exchangeRateService;
+    protected $workflowAuditService;
 
     public function __construct(
         InventoryService $inventoryService,
@@ -34,7 +36,8 @@ class PurchaseService
         UnitConversionService $unitConversionService,
         ApprovalWorkflowService $approvalWorkflowService,
         CurrencyService $currencyService,
-        ExchangeRateService $exchangeRateService
+        ExchangeRateService $exchangeRateService,
+        PurchaseWorkflowAuditService $workflowAuditService
     ) {
         $this->inventoryService = $inventoryService;
         $this->documentNumberingService = $documentNumberingService;
@@ -42,6 +45,7 @@ class PurchaseService
         $this->approvalWorkflowService = $approvalWorkflowService;
         $this->currencyService = $currencyService;
         $this->exchangeRateService = $exchangeRateService;
+        $this->workflowAuditService = $workflowAuditService;
     }
 
     public function createPurchaseOrder($data)
@@ -160,6 +164,10 @@ class PurchaseService
                         'status' => 'pending',
                     ]);
                     Log::info("Purchase order line created with ID: " . ($line->id ?? 'null'));
+
+                    // Log line item addition
+                    $line->load('inventoryItem');
+                    $this->workflowAuditService->logLineItemChange($po, $line, 'added');
                 } catch (\Exception $e) {
                     Log::error("Error creating purchase order line {$index}: " . $e->getMessage());
                     Log::error($e->getTraceAsString());
@@ -214,6 +222,14 @@ class PurchaseService
                 throw new \Exception('Only draft purchase orders can be updated.');
             }
 
+            // Track amount changes
+            $oldAmounts = [
+                'total_amount' => $po->total_amount,
+                'freight_cost' => $po->freight_cost,
+                'handling_cost' => $po->handling_cost,
+                'insurance_cost' => $po->insurance_cost,
+            ];
+
             // Update the purchase order
             $po->update([
                 'order_no' => $data['order_no'],
@@ -233,11 +249,16 @@ class PurchaseService
                 'order_type' => $data['order_type'] ?? 'item',
             ]);
 
+            // Track existing lines for audit logging
+            $existingLineIds = $po->lines()->pluck('id')->toArray();
+            $existingLines = $po->lines()->get()->keyBy('id');
+
             // Delete existing lines
             $po->lines()->delete();
 
             // Create new lines
             $totalAmount = 0;
+            $newLineIds = [];
             foreach ($data['lines'] as $lineData) {
                 // Process unit conversion if order_unit_id is provided
                 if (isset($lineData['order_unit_id']) && $lineData['order_unit_id']) {
@@ -280,11 +301,37 @@ class PurchaseService
                     'notes' => $processedLine['notes'] ?? null,
                 ]);
 
+                $newLineIds[] = $line->id;
                 $totalAmount += $amount;
+
+                // Log line item addition (since we delete all and recreate)
+                $line->load('inventoryItem');
+                $this->workflowAuditService->logLineItemChange($po, $line, 'added');
+            }
+
+            // Log removed lines
+            $removedLineIds = array_diff($existingLineIds, $newLineIds);
+            foreach ($removedLineIds as $lineId) {
+                $line = $existingLines->get($lineId);
+                if ($line) {
+                    $line->load('inventoryItem');
+                    $this->workflowAuditService->logLineItemChange($po, $line, 'removed', $line->toArray());
+                }
             }
 
             // Update total amount
             $po->update(['total_amount' => $totalAmount]);
+            $po->refresh();
+
+            $newAmounts = [
+                'total_amount' => $po->total_amount,
+                'freight_cost' => $po->freight_cost,
+                'handling_cost' => $po->handling_cost,
+                'insurance_cost' => $po->insurance_cost,
+            ];
+
+            // Log amount changes
+            $this->workflowAuditService->logAmountChange($po, $oldAmounts, $newAmounts);
 
             return $po;
         });
@@ -294,6 +341,8 @@ class PurchaseService
     {
         return DB::transaction(function () use ($purchaseOrderId, $userId, $comments) {
             $po = PurchaseOrder::findOrFail($purchaseOrderId);
+            $oldStatus = $po->status;
+            $oldApprovalStatus = $po->approval_status;
 
             // Find the approval record
             $approval = $po->approvals()
@@ -319,6 +368,19 @@ class PurchaseService
                 ]);
             }
 
+            $po->refresh();
+
+            // Log status change
+            if ($oldStatus != $po->status) {
+                $this->workflowAuditService->logStatusChange($po, $oldStatus, $po->status, "Approved by user {$userId}");
+            }
+
+            // Log approval action
+            $approval->refresh();
+            if ($approval) {
+                $this->workflowAuditService->logApproval($approval, 'approved', $comments);
+            }
+
             return $po;
         });
     }
@@ -327,6 +389,8 @@ class PurchaseService
     {
         return DB::transaction(function () use ($purchaseOrderId, $userId, $comments) {
             $po = PurchaseOrder::findOrFail($purchaseOrderId);
+            $oldStatus = $po->status;
+            $oldApprovalStatus = $po->approval_status;
 
             $approval = $po->approvals()
                 ->where('user_id', $userId)
@@ -340,6 +404,18 @@ class PurchaseService
             $approval->reject($comments);
 
             $po->update(['approval_status' => 'rejected']);
+            $po->refresh();
+
+            // Log status change
+            if ($oldStatus != $po->status) {
+                $this->workflowAuditService->logStatusChange($po, $oldStatus, $po->status, "Rejected by user {$userId}");
+            }
+
+            // Log rejection action
+            $approval->refresh();
+            if ($approval) {
+                $this->workflowAuditService->logApproval($approval, 'rejected', $comments);
+            }
 
             return $po;
         });
@@ -384,6 +460,7 @@ class PurchaseService
             }
 
             // Update purchase order status
+            $oldStatus = $po->status;
             $allLinesReceived = $po->lines()->where('status', '!=', 'received')->count() === 0;
 
             if ($allLinesReceived) {
@@ -393,6 +470,13 @@ class PurchaseService
                 ]);
             } else {
                 $po->update(['status' => 'partial']);
+            }
+
+            $po->refresh();
+
+            // Log status change
+            if ($oldStatus != $po->status) {
+                $this->workflowAuditService->logStatusChange($po, $oldStatus, $po->status, "Goods received");
             }
 
             // Update supplier performance metrics
@@ -405,12 +489,19 @@ class PurchaseService
     public function closePurchaseOrder($purchaseOrderId)
     {
         $po = PurchaseOrder::findOrFail($purchaseOrderId);
+        $oldStatus = $po->status;
 
         if (!$po->canBeClosed()) {
             throw new \Exception('Purchase order cannot be closed in current status');
         }
 
         $po->update(['status' => 'closed']);
+        $po->refresh();
+
+        // Log status change
+        if ($oldStatus != $po->status) {
+            $this->workflowAuditService->logStatusChange($po, $oldStatus, $po->status, "Purchase order closed");
+        }
 
         return $po;
     }

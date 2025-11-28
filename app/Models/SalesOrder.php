@@ -58,6 +58,9 @@ class SalesOrder extends Model
         'net_amount' => 'decimal:2',
     ];
 
+    protected $auditLogIgnore = ['updated_at', 'created_at'];
+    protected $auditEntityType = 'sales_order';
+
     // Relationships
     public function lines(): HasMany
     {

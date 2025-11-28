@@ -46,3 +46,31 @@
         <p>ERP Parameters</p>
     </a>
 </li>
+
+<!-- Audit Logs -->
+<li class="nav-item">
+    <a href="{{ route('audit-logs.index') }}" 
+       class="nav-link {{ request()->routeIs('audit-logs.*') ? 'active' : '' }}">
+        <i class="nav-icon fas fa-clipboard-list"></i>
+        <p>
+            Audit Logs
+            @php
+                $todayCount = \App\Models\AuditLog::whereDate('created_at', today())->count();
+            @endphp
+            @if($todayCount > 0)
+                <span class="badge badge-info right" id="audit-logs-count">
+                    {{ $todayCount }}
+                </span>
+            @endif
+        </p>
+    </a>
+</li>
+
+<!-- Activity Dashboard -->
+<li class="nav-item">
+    <a href="{{ route('activity-dashboard.index') }}" 
+       class="nav-link {{ request()->routeIs('activity-dashboard.*') ? 'active' : '' }}">
+        <i class="nav-icon fas fa-chart-line"></i>
+        <p>Activity Dashboard</p>
+    </a>
+</li>

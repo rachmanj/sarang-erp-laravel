@@ -7,6 +7,7 @@ use App\Models\SalesOrder;
 use App\Models\Master\Customer;
 use App\Services\DeliveryService;
 use App\Services\DocumentClosureService;
+use App\Services\SalesWorkflowAuditService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -118,6 +119,12 @@ class DeliveryOrderController extends Controller
             );
 
             Log::info('Delivery Order created successfully', ['delivery_order_id' => $deliveryOrder->id]);
+
+            // Log DO creation in Sales Order audit trail
+            $so = SalesOrder::find($data['sales_order_id']);
+            if ($so) {
+                app(SalesWorkflowAuditService::class)->logDeliveryOrderCreation($so, $deliveryOrder->id);
+            }
 
             // Attempt to close the Sales Order if Delivery Order quantity is sufficient
             try {

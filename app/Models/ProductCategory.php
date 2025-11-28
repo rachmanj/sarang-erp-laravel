@@ -23,6 +23,9 @@ class ProductCategory extends Model
         'is_active' => 'boolean',
     ];
 
+    protected $auditLogIgnore = ['updated_at', 'created_at'];
+    protected $auditEntityType = 'product_category';
+
     // Relationships
     public function parent(): BelongsTo
     {

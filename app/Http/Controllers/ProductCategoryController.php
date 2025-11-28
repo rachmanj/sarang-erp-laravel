@@ -106,16 +106,6 @@ class ProductCategoryController extends Controller
         return DB::transaction(function () use ($data) {
             $category = ProductCategory::create($data);
 
-            // Log the creation
-            app(\App\Services\AuditLogService::class)->log(
-                'created',
-                'product_category',
-                $category->id,
-                null,
-                $category->getAttributes(),
-                "Product category '{$category->name}' created with account mappings"
-            );
-
             return redirect()->route('product-categories.show', $category->id)
                 ->with('success', 'Product category created successfully.');
         });
@@ -240,18 +230,7 @@ class ProductCategoryController extends Controller
         $data['is_active'] = $request->has('is_active');
 
         return DB::transaction(function () use ($productCategory, $data) {
-            $oldValues = $productCategory->getOriginal();
             $productCategory->update($data);
-
-            // Log the update
-            app(\App\Services\AuditLogService::class)->log(
-                'updated',
-                'product_category',
-                $productCategory->id,
-                $oldValues,
-                $productCategory->getAttributes(),
-                "Product category '{$productCategory->name}' updated with new account mappings"
-            );
 
             return redirect()->route('product-categories.show', $productCategory->id)
                 ->with('success', 'Product category updated successfully.');
@@ -278,16 +257,6 @@ class ProductCategoryController extends Controller
         }
 
         return DB::transaction(function () use ($productCategory) {
-            // Log the deletion
-            app(\App\Services\AuditLogService::class)->log(
-                'product_category',
-                $productCategory->id,
-                'deleted',
-                $productCategory->getAttributes(),
-                null,
-                "Product category '{$productCategory->name}' deleted"
-            );
-
             $productCategory->delete();
 
             return redirect()->route('product-categories.index')

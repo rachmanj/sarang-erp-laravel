@@ -5,9 +5,12 @@ namespace App\Http\Controllers\Accounting;
 use App\Http\Controllers\Controller;
 use App\Models\Accounting\SalesReceipt;
 use App\Models\Accounting\SalesReceiptLine;
+use App\Models\Accounting\SalesInvoice;
+use App\Models\SalesOrder;
 use App\Services\Accounting\PostingService;
 use App\Services\DocumentNumberingService;
 use App\Services\DocumentClosureService;
+use App\Services\SalesWorkflowAuditService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\Facades\DataTables;
@@ -111,6 +114,29 @@ class SalesReceiptController extends Controller
                     'receipt_id' => $receipt->id,
                     'error' => $closureException->getMessage()
                 ]);
+            }
+
+            // Log receipt creation in Sales Order audit trail
+            // Find Sales Orders through allocated invoices
+            $allocatedInvoiceIds = DB::table('sales_receipt_allocations')
+                ->where('receipt_id', $receipt->id)
+                ->pluck('invoice_id')
+                ->toArray();
+
+            if (!empty($allocatedInvoiceIds)) {
+                $salesOrderIds = SalesInvoice::whereIn('id', $allocatedInvoiceIds)
+                    ->whereNotNull('sales_order_id')
+                    ->pluck('sales_order_id')
+                    ->unique()
+                    ->toArray();
+
+                $workflowAuditService = app(SalesWorkflowAuditService::class);
+                foreach ($salesOrderIds as $soId) {
+                    $so = SalesOrder::find($soId);
+                    if ($so) {
+                        $workflowAuditService->logSalesReceiptCreation($so, $receipt->id);
+                    }
+                }
             }
 
             return redirect()->route('sales-receipts.show', $receipt->id)->with('success', 'Receipt created');

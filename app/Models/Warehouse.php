@@ -23,6 +23,9 @@ class Warehouse extends Model
         'is_transit' => 'boolean',
     ];
 
+    protected $auditLogIgnore = ['updated_at', 'created_at'];
+    protected $auditEntityType = 'warehouse';
+
     // Relationships
     public function inventoryItems(): HasMany
     {

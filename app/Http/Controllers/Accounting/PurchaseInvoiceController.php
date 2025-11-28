@@ -5,9 +5,11 @@ namespace App\Http\Controllers\Accounting;
 use App\Http\Controllers\Controller;
 use App\Models\Accounting\PurchaseInvoice;
 use App\Models\Accounting\PurchaseInvoiceLine;
+use App\Models\PurchaseOrder;
 use App\Services\Accounting\PostingService;
 use App\Services\DocumentNumberingService;
 use App\Services\DocumentClosureService;
+use App\Services\PurchaseWorkflowAuditService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\Facades\DataTables;
@@ -119,6 +121,14 @@ class PurchaseInvoiceController extends Controller
             $termsDays = (int) ($request->input('terms_days') ?? 0);
             $dueDate = $termsDays > 0 ? date('Y-m-d', strtotime($data['date'] . ' +' . $termsDays . ' days')) : null;
             $invoice->update(['total_amount' => $total, 'terms_days' => $termsDays ?: null, 'due_date' => $dueDate]);
+
+            // Log invoice creation in Purchase Order audit trail
+            if ($request->input('purchase_order_id')) {
+                $po = PurchaseOrder::find($request->input('purchase_order_id'));
+                if ($po) {
+                    app(PurchaseWorkflowAuditService::class)->logPurchaseInvoiceCreation($po, $invoice->id);
+                }
+            }
 
             // Attempt to close related documents if this PI was created from GRPO
             if ($request->input('goods_receipt_id')) {

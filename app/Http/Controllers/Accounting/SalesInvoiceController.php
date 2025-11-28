@@ -5,9 +5,11 @@ namespace App\Http\Controllers\Accounting;
 use App\Http\Controllers\Controller;
 use App\Models\Accounting\SalesInvoice;
 use App\Models\Accounting\SalesInvoiceLine;
+use App\Models\SalesOrder;
 use App\Services\Accounting\PostingService;
 use App\Services\DocumentNumberingService;
 use App\Services\DocumentClosureService;
+use App\Services\SalesWorkflowAuditService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\Facades\DataTables;
@@ -91,6 +93,14 @@ class SalesInvoiceController extends Controller
             $termsDays = (int) ($request->input('terms_days') ?? 0);
             $dueDate = $termsDays > 0 ? date('Y-m-d', strtotime($data['date'] . ' +' . $termsDays . ' days')) : null;
             $invoice->update(['total_amount' => $total, 'terms_days' => $termsDays ?: null, 'due_date' => $dueDate]);
+
+            // Log invoice creation in Sales Order audit trail
+            if ($request->input('sales_order_id')) {
+                $so = SalesOrder::find($request->input('sales_order_id'));
+                if ($so) {
+                    app(SalesWorkflowAuditService::class)->logSalesInvoiceCreation($so, $invoice->id);
+                }
+            }
 
             // Attempt to close related documents if this SI was created from Delivery Order
             if ($request->input('delivery_order_id')) {

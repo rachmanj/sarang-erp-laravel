@@ -11,6 +11,7 @@ use App\Services\GRPOCopyService;
 use App\Services\DocumentClosureService;
 use App\Services\GRPOJournalService;
 use App\Services\Accounting\PostingService;
+use App\Services\PurchaseWorkflowAuditService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
@@ -89,6 +90,14 @@ class GoodsReceiptPOController extends Controller
 
             // Update total amount
             $grpo->update(['total_amount' => $totalAmount]);
+
+            // Log GRPO creation in Purchase Order audit trail
+            if (isset($data['purchase_order_id']) && $data['purchase_order_id']) {
+                $po = PurchaseOrder::find($data['purchase_order_id']);
+                if ($po) {
+                    app(PurchaseWorkflowAuditService::class)->logGRPOCreation($po, $grpo->id);
+                }
+            }
 
             // Automatically create and post journal entries since goods are received
             try {

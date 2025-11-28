@@ -40,6 +40,9 @@ class Asset extends Model
         'disposal_date' => 'date',
     ];
 
+    protected $auditLogIgnore = ['updated_at', 'created_at'];
+    protected $auditEntityType = 'asset';
+
     // Relationships
     public function category(): BelongsTo
     {

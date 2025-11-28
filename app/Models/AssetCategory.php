@@ -31,6 +31,9 @@ class AssetCategory extends Model
         'life_months_default' => 'integer',
     ];
 
+    protected $auditLogIgnore = ['updated_at', 'created_at'];
+    protected $auditEntityType = 'asset_category';
+
     // Relationships
     public function assets(): HasMany
     {

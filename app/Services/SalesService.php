@@ -13,6 +13,7 @@ use App\Models\CustomerPerformance;
 use App\Services\InventoryService;
 use App\Services\DocumentNumberingService;
 use App\Services\ApprovalWorkflowService;
+use App\Services\SalesWorkflowAuditService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -23,12 +24,18 @@ class SalesService
     protected $inventoryService;
     protected $documentNumberingService;
     protected $approvalWorkflowService;
+    protected $workflowAuditService;
 
-    public function __construct(InventoryService $inventoryService, DocumentNumberingService $documentNumberingService, ApprovalWorkflowService $approvalWorkflowService)
-    {
+    public function __construct(
+        InventoryService $inventoryService,
+        DocumentNumberingService $documentNumberingService,
+        ApprovalWorkflowService $approvalWorkflowService,
+        SalesWorkflowAuditService $workflowAuditService
+    ) {
         $this->inventoryService = $inventoryService;
         $this->documentNumberingService = $documentNumberingService;
         $this->approvalWorkflowService = $approvalWorkflowService;
+        $this->workflowAuditService = $workflowAuditService;
     }
 
     public function createSalesOrder($data)
@@ -93,7 +100,7 @@ class SalesService
                     $accountId = $lineData['item_id'];
                 }
 
-                SalesOrderLine::create([
+                $line = SalesOrderLine::create([
                     'order_id' => $so->id,
                     'account_id' => $accountId,
                     'inventory_item_id' => $inventoryItemId,
@@ -119,6 +126,10 @@ class SalesService
                     'notes' => $lineData['notes'] ?? null,
                     'status' => 'pending',
                 ]);
+
+                // Log line item addition
+                $line->load('inventoryItem');
+                $this->workflowAuditService->logLineItemChange($so, $line, 'added');
 
                 // Check inventory availability
                 if ($inventoryItemId) {
@@ -153,6 +164,8 @@ class SalesService
     {
         return DB::transaction(function () use ($salesOrderId, $userId, $comments) {
             $so = SalesOrder::findOrFail($salesOrderId);
+            $oldStatus = $so->status;
+            $oldApprovalStatus = $so->approval_status;
 
             $approval = $so->approvals()
                 ->where('user_id', $userId)
@@ -176,6 +189,19 @@ class SalesService
                 ]);
             }
 
+            $so->refresh();
+
+            // Log status change
+            if ($oldStatus != $so->status) {
+                $this->workflowAuditService->logStatusChange($so, $oldStatus, $so->status, "Approved by user {$userId}");
+            }
+
+            // Log approval action
+            $approval->refresh();
+            if ($approval) {
+                $this->workflowAuditService->logApproval($approval, 'approved', $comments);
+            }
+
             return $so;
         });
     }
@@ -184,6 +210,8 @@ class SalesService
     {
         return DB::transaction(function () use ($salesOrderId, $userId, $comments) {
             $so = SalesOrder::findOrFail($salesOrderId);
+            $oldStatus = $so->status;
+            $oldApprovalStatus = $so->approval_status;
 
             $approval = $so->approvals()
                 ->where('user_id', $userId)
@@ -197,6 +225,18 @@ class SalesService
             $approval->reject($comments);
 
             $so->update(['approval_status' => 'rejected']);
+            $so->refresh();
+
+            // Log status change
+            if ($oldStatus != $so->status) {
+                $this->workflowAuditService->logStatusChange($so, $oldStatus, $so->status, "Rejected by user {$userId}");
+            }
+
+            // Log rejection action
+            $approval->refresh();
+            if ($approval) {
+                $this->workflowAuditService->logApproval($approval, 'rejected', $comments);
+            }
 
             return $so;
         });
@@ -205,12 +245,19 @@ class SalesService
     public function confirmSalesOrder($salesOrderId)
     {
         $so = SalesOrder::findOrFail($salesOrderId);
+        $oldStatus = $so->status;
 
         if (!$so->canBeConfirmed()) {
             throw new \Exception('Sales order cannot be confirmed in current status');
         }
 
         $so->update(['status' => 'confirmed']);
+        $so->refresh();
+
+        // Log status change
+        if ($oldStatus != $so->status) {
+            $this->workflowAuditService->logStatusChange($so, $oldStatus, $so->status, "Sales order confirmed");
+        }
 
         return $so;
     }
@@ -254,6 +301,7 @@ class SalesService
             }
 
             // Update sales order status
+            $oldStatus = $so->status;
             $allLinesDelivered = $so->lines()->where('status', '!=', 'delivered')->count() === 0;
 
             if ($allLinesDelivered) {
@@ -263,6 +311,13 @@ class SalesService
                 ]);
             } else {
                 $so->update(['status' => 'partial']);
+            }
+
+            $so->refresh();
+
+            // Log status change
+            if ($oldStatus != $so->status) {
+                $this->workflowAuditService->logStatusChange($so, $oldStatus, $so->status, "Goods delivered");
             }
 
             // Update customer performance metrics
@@ -275,12 +330,19 @@ class SalesService
     public function closeSalesOrder($salesOrderId)
     {
         $so = SalesOrder::findOrFail($salesOrderId);
+        $oldStatus = $so->status;
 
         if (!$so->canBeClosed()) {
             throw new \Exception('Sales order cannot be closed in current status');
         }
 
         $so->update(['status' => 'closed']);
+        $so->refresh();
+
+        // Log status change
+        if ($oldStatus != $so->status) {
+            $this->workflowAuditService->logStatusChange($so, $oldStatus, $so->status, "Sales order closed");
+        }
 
         return $so;
     }

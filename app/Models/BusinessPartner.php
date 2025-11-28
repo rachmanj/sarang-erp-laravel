@@ -27,6 +27,9 @@ class BusinessPartner extends Model
         'status' => 'string',
     ];
 
+    protected $auditLogIgnore = ['updated_at', 'created_at'];
+    protected $auditEntityType = 'business_partner';
+
     // Relationships
     public function account(): BelongsTo
     {

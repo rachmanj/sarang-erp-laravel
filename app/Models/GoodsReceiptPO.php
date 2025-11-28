@@ -32,6 +32,9 @@ class GoodsReceiptPO extends Model
         'journal_posted_at' => 'datetime',
     ];
 
+    protected $auditLogIgnore = ['updated_at', 'created_at'];
+    protected $auditEntityType = 'goods_receipt_po';
+
     public function lines(): HasMany
     {
         return $this->hasMany(GoodsReceiptPOLine::class, 'grpo_id');

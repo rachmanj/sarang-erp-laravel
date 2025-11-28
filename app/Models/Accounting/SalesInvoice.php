@@ -27,6 +27,9 @@ class SalesInvoice extends Model
         'total_amount' => 'float',
     ];
 
+    protected $auditLogIgnore = ['updated_at', 'created_at'];
+    protected $auditEntityType = 'sales_invoice';
+
     public function lines(): HasMany
     {
         return $this->hasMany(SalesInvoiceLine::class, 'invoice_id');
