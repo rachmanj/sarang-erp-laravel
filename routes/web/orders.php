@@ -84,6 +84,7 @@ Route::prefix('sales-orders')->group(function () {
 
     // Currency API Routes
     Route::get('/api/exchange-rate', [SalesOrderController::class, 'getExchangeRate'])->name('sales-orders.api.exchange-rate');
+    Route::get('/api/document-number', [SalesOrderController::class, 'getDocumentNumber'])->name('sales-orders.api.document-number');
 });
 
 // Delivery Orders
@@ -105,6 +106,9 @@ Route::prefix('delivery-orders')->group(function () {
         }
         if (request()->filled('business_partner_id')) {
             $q->where('do.business_partner_id', (int)request('business_partner_id'));
+        }
+        if (request()->filled('company_entity_id')) {
+            $q->where('do.company_entity_id', (int)request('company_entity_id'));
         }
         if (request()->filled('q')) {
             $kw = request('q');
@@ -160,6 +164,9 @@ Route::prefix('purchase-orders')->group(function () {
         }
         if (request()->filled('business_partner_id')) {
             $q->where('po.business_partner_id', (int)request('business_partner_id'));
+        }
+        if (request()->filled('company_entity_id')) {
+            $q->where('po.company_entity_id', (int)request('company_entity_id'));
         }
         if (request()->filled('q')) {
             $kw = request('q');
@@ -256,6 +263,7 @@ Route::prefix('purchase-orders')->group(function () {
 
     // Currency API Routes
     Route::get('/api/exchange-rate', [PurchaseOrderController::class, 'getExchangeRate'])->name('purchase-orders.api.exchange-rate');
+    Route::get('/api/document-number', [PurchaseOrderController::class, 'getDocumentNumber'])->name('purchase-orders.api.document-number');
 });
 
 // Goods Receipt PO

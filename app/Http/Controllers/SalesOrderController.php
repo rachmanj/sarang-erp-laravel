@@ -13,6 +13,7 @@ use App\Services\SalesService;
 use App\Services\SalesInvoiceService;
 use App\Services\DocumentClosureService;
 use App\Services\DocumentNumberingService;
+use App\Services\CompanyEntityService;
 use App\Services\CurrencyService;
 use App\Services\ExchangeRateService;
 use Illuminate\Http\Request;
@@ -27,19 +28,25 @@ class SalesOrderController extends Controller
     protected $documentClosureService;
     protected $currencyService;
     protected $exchangeRateService;
+    protected $documentNumberingService;
+    protected $companyEntityService;
 
     public function __construct(
         SalesService $salesService,
         SalesInvoiceService $salesInvoiceService,
         DocumentClosureService $documentClosureService,
         CurrencyService $currencyService,
-        ExchangeRateService $exchangeRateService
+        ExchangeRateService $exchangeRateService,
+        DocumentNumberingService $documentNumberingService,
+        CompanyEntityService $companyEntityService
     ) {
         $this->salesService = $salesService;
         $this->salesInvoiceService = $salesInvoiceService;
         $this->documentClosureService = $documentClosureService;
         $this->currencyService = $currencyService;
         $this->exchangeRateService = $exchangeRateService;
+        $this->documentNumberingService = $documentNumberingService;
+        $this->companyEntityService = $companyEntityService;
     }
 
     public function index()
@@ -105,11 +112,23 @@ class SalesOrderController extends Controller
         $warehouses = DB::table('warehouses')->where('is_active', 1)->where('name', 'not like', '%Transit%')->orderBy('name')->get();
         $currencies = $this->currencyService->getActiveCurrencies();
 
-        // Generate SO number for display
-        $documentNumberingService = app(DocumentNumberingService::class);
-        $soNumber = $documentNumberingService->generateNumber('sales_order', now()->format('Y-m-d'));
+        $entities = $this->companyEntityService->getActiveEntities();
+        $defaultEntity = $this->companyEntityService->getDefaultEntity();
+        $soNumber = $this->documentNumberingService->generateNumber('sales_order', now()->format('Y-m-d'), [
+            'company_entity_id' => $defaultEntity->id,
+        ]);
 
-        return view('sales_orders.create', compact('customers', 'accounts', 'taxCodes', 'inventoryItems', 'warehouses', 'currencies', 'soNumber'));
+        return view('sales_orders.create', compact(
+            'customers',
+            'accounts',
+            'taxCodes',
+            'inventoryItems',
+            'warehouses',
+            'currencies',
+            'soNumber',
+            'defaultEntity',
+            'entities'
+        ));
     }
 
     public function getExchangeRate(Request $request)
@@ -139,6 +158,26 @@ class SalesOrderController extends Controller
         }
     }
 
+    public function getDocumentNumber(Request $request)
+    {
+        $entityId = $request->input('company_entity_id');
+        $date = $request->input('date', now()->toDateString());
+
+        try {
+            if (!$entityId) {
+                return response()->json(['error' => 'Company entity is required'], 400);
+            }
+
+            $documentNumber = $this->documentNumberingService->generateNumber('sales_order', $date, [
+                'company_entity_id' => $entityId,
+            ]);
+
+            return response()->json(['document_number' => $documentNumber]);
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Error generating document number: ' . $e->getMessage()], 500);
+        }
+    }
+
     public function store(Request $request)
     {
         $data = $request->validate([
@@ -150,6 +189,7 @@ class SalesOrderController extends Controller
             'warehouse_id' => ['required', 'integer', 'exists:warehouses,id'],
             'currency_id' => ['required', 'integer', 'exists:currencies,id'],
             'exchange_rate' => ['required', 'numeric', 'min:0.000001'],
+            'company_entity_id' => ['required', 'integer', 'exists:company_entities,id'],
             'description' => ['nullable', 'string', 'max:255'],
             'notes' => ['nullable', 'string'],
             'terms_conditions' => ['nullable', 'string'],
@@ -196,6 +236,9 @@ class SalesOrderController extends Controller
 
             $data['total_amount'] = $totalAmount;
             $data['total_amount_foreign'] = $totalAmountForeign;
+
+            $entity = $this->companyEntityService->getEntity($request->input('company_entity_id'));
+            $data['company_entity_id'] = $entity->id;
 
             $so = $this->salesService->createSalesOrder($data);
             return redirect()->route('sales-orders.show', $so->id)

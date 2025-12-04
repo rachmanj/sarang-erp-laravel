@@ -71,6 +71,23 @@
                                     </div>
                                     <div class="col-md-4">
                                         <div class="form-group row mb-2">
+                                            <label class="col-sm-3 col-form-label">Company <span
+                                                    class="text-danger">*</span></label>
+                                            <div class="col-sm-9">
+                                                <select name="company_entity_id" id="company_entity_id"
+                                                    class="form-control form-control-sm select2bs4" required>
+                                                    @foreach ($entities as $entity)
+                                                        <option value="{{ $entity->id }}"
+                                                            {{ old('company_entity_id', $defaultEntity->id) == $entity->id ? 'selected' : '' }}>
+                                                            {{ $entity->name }} ({{ $entity->code }})
+                                                        </option>
+                                                    @endforeach
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="form-group row mb-2">
                                             <label class="col-sm-3 col-form-label">Order Type <span
                                                     class="text-danger">*</span></label>
                                             <div class="col-sm-9">
@@ -910,6 +927,44 @@
 
             // Initialize exchange rate on page load
             updateExchangeRate();
+
+            // Company entity change handler - regenerate document number
+            $('#company_entity_id').on('change', function() {
+                updateDocumentNumber();
+            });
+
+            // Date change handler - regenerate document number
+            $('input[name="date"]').on('change', function() {
+                updateDocumentNumber();
+            });
+
+            function updateDocumentNumber() {
+                const entityId = $('#company_entity_id').val();
+                const date = $('input[name="date"]').val();
+
+                if (!entityId || !date) {
+                    return;
+                }
+
+                $.ajax({
+                    url: '{{ route('purchase-orders.api.document-number') }}',
+                    method: 'GET',
+                    data: {
+                        company_entity_id: entityId,
+                        date: date
+                    },
+                    success: function(response) {
+                        if (response.document_number) {
+                            $('input[name="order_no"]').val(response.document_number);
+                        } else if (response.error) {
+                            console.error('Document number error:', response.error);
+                        }
+                    },
+                    error: function(xhr) {
+                        console.error('Document number request failed:', xhr);
+                    }
+                });
+            }
         });
     </script>
 @endpush

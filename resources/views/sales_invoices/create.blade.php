@@ -63,6 +63,23 @@
                                     </div>
                                     <div class="col-md-4">
                                         <div class="form-group row mb-2">
+                                            <label class="col-sm-3 col-form-label">Company <span
+                                                    class="text-danger">*</span></label>
+                                            <div class="col-sm-9">
+                                                <select name="company_entity_id" id="company_entity_id"
+                                                    class="form-control form-control-sm select2bs4" required>
+                                                    @foreach ($entities as $entity)
+                                                        <option value="{{ $entity->id }}"
+                                                            {{ old('company_entity_id', $defaultEntity->id) == $entity->id ? 'selected' : '' }}>
+                                                            {{ $entity->name }} ({{ $entity->code }})
+                                                        </option>
+                                                    @endforeach
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="form-group row mb-2">
                                             <label class="col-sm-3 col-form-label">Customer <span
                                                     class="text-danger">*</span></label>
                                             <div class="col-sm-9">

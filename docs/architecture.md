@@ -58,7 +58,7 @@ Sarange ERP is a comprehensive Enterprise Resource Planning system built with La
 
 ### Validated Functionality
 
--   ✅ **Inventory Management**: Complete CRUD operations, multi-category support, validation
+-   ✅ **Inventory Management**: Complete CRUD operations, multi-category support, validation, low stock alerts, and valuation report pages rendering without backend errors (routes correctly prioritise static report URLs over item detail routes and low stock logic uses warehouse stock quantities)
 -   ✅ **Purchase Workflow**: PO → GRPO → PI → PP complete workflow validated
 -   ✅ **Sales Workflow**: SO → DO → SI → SR complete workflow validated
 -   ✅ **Financial Integration**: Automatic document numbering, tax calculations, journal entries
@@ -393,21 +393,15 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 ### 16. Comprehensive Auto-Numbering System
 
 -   **Centralized Service**: DocumentNumberingService provides unified document numbering across all document types
--   **Consistent Format**: All documents follow PREFIX-YYYYMM-###### format (e.g., PO-202509-000001)
+-   **Consistent Format**:
+    -   Entity-aware purchasing & sales docs (PO, GRPO, PI, SO, DO, SI) now use `EEYYDDNNNNN` (Entity code, 2-digit year, document code, 5-digit sequence) to satisfy multi-letterhead requirements.
+    -   Legacy documents continue with PREFIX-YYYYMM-###### (e.g., CEV-202509-000001) for modules outside the multi-entity scope.
 -   **Thread-Safe Operations**: Database transactions with proper locking prevent duplicate numbers
--   **Month-Based Sequences**: Automatic sequence reset and tracking per month
--   **Document Type Support**: 10 document types with standardized prefixes:
-    -   Purchase Orders: PO-YYYYMM-######
-    -   Sales Orders: SO-YYYYMM-######
-    -   Purchase Invoices: PINV-YYYYMM-######
-    -   Sales Invoices: SINV-YYYYMM-######
-    -   Purchase Payments: PP-YYYYMM-######
-    -   Sales Receipts: SR-YYYYMM-######
-    -   Asset Disposals: DIS-YYYYMM-######
-    -   Goods Receipt PO: GR-YYYYMM-######
-    -   Cash Expenses: CEV-YYYYMM-######
-    -   Journals: JNL-YYYYMM-######
--   **Sequence Management**: DocumentSequence model tracks last sequence per document type and month
+-   **Month-Based Sequences**: Automatic sequence reset and tracking per month (legacy) plus per-entity/per-year tracking for the new scheme
+-   **Document Type Support**: 
+    -   Entity format codes: PO `01`, GRPO `02`, PI `03`, SO `06`, DO `07`, SI `08`
+    -   Legacy prefixes remain for Purchase Payments (PP), Sales Receipts (SR), Asset Disposals (DIS), Cash Expenses (CEV), Journals (JNL), Account Statements (AST), etc.
+-   **Sequence Management**: DocumentSequence model tracks last sequence per document type/month and per-entity/per-document/per-year (`current_number`)
 -   **Error Handling**: Comprehensive exception handling and validation
 -   **Database Persistence**: Sequence tracking stored in document_sequences table with unique constraints
 
@@ -465,10 +459,10 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 
 #### AR/AP Tables
 
--   `sales_invoices` / `sales_invoice_lines`: Customer billing
--   `sales_receipts` / `sales_receipt_lines`: Customer payments
--   `purchase_invoices` / `purchase_invoice_lines`: Vendor billing
--   `purchase_payments` / `purchase_payment_lines`: Vendor payments
+-   `sales_invoices` / `sales_invoice_lines`: Customer billing with `company_entity_id` for letterhead/accounting context
+-   `sales_receipts` / `sales_receipt_lines`: Customer payments with `company_entity_id`
+-   `purchase_invoices` / `purchase_invoice_lines`: Vendor billing with `company_entity_id`
+-   `purchase_payments` / `purchase_payment_lines`: Vendor payments with `company_entity_id`
 -   `receipt_payment_allocations`: Payment allocation tracking
 
 #### Asset Management Tables
@@ -489,13 +483,19 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 -   `tax_codes`: Tax configuration
 -   `bank_accounts` / `bank_transactions`: Banking integration
 
+#### Company Entity Tables
+
+-   `company_entities`: Legal entity master data powering multi-letterhead workflows (code, legal name, NPWP/tax number, address, phone/email, website, logo_path, letterhead_meta JSON, is_active). Seeds include PT Cahaya Sarange Jaya (`code 71`) and CV Cahaya Saranghae (`code 72`) referencing logos in `public/logo_pt_csj.png` and `public/logo_cv_saranghae.png`.
+-   `document_sequences`: Extended with `company_entity_id`, `document_code`, `year`, and `current_number` columns (plus nullable legacy fields) to support per-entity/per-document/per-year sequencing for the upcoming `EEYYDD99999` format.
+-   `CompanyEntityService`: Central helper that lists active entities, resolves default entity context, and propagates `company_entity_id` when copying documents (PO → GRPO, SO → DO, DO → SI, etc.).
+
 #### Order Management Tables
 
--   `sales_orders` / `sales_order_lines`: Sales order processing with order_type (item/service), business_partner_id, warehouse_id (single source warehouse), and document closure fields (closure_status, closed_by_document_type, closed_by_document_id, closed_at, closed_by_user_id)
--   `purchase_orders` / `purchase_order_lines`: Purchase order processing with order_type (item/service), business_partner_id, warehouse_id (single destination warehouse), and document closure fields (closure_status, closed_by_document_type, closed_by_document_id, closed_at, closed_by_user_id)
--   `goods_receipt_po` / `goods_receipt_po_lines`: Purchase Order-based inventory receipt with source tracking (purchase_order_id), business_partner_id, warehouse_id (defaults to PO's warehouse but allows changes), and document closure fields (closure_status, closed_by_document_type, closed_by_document_id, closed_at, closed_by_user_id)
+-   `sales_orders` / `sales_order_lines`: Sales order processing with order_type (item/service), business_partner_id, **company_entity_id** (letterhead + posting context), warehouse_id (single source warehouse), and document closure fields (closure_status, closed_by_document_type, closed_by_document_id, closed_at, closed_by_user_id)
+-   `purchase_orders` / `purchase_order_lines`: Purchase order processing with order_type (item/service), business_partner_id, **company_entity_id**, warehouse_id (single destination warehouse), and document closure fields (closure_status, closed_by_document_type, closed_by_document_id, closed_at, closed_by_user_id)
+-   `goods_receipt_po` / `goods_receipt_po_lines`: Purchase Order-based inventory receipt with source tracking (purchase_order_id), business_partner_id, **company_entity_id**, warehouse_id (defaults to PO's warehouse but allows changes), and document closure fields (closure_status, closed_by_document_type, closed_by_document_id, closed_at, closed_by_user_id)
 -   `sales_invoice_grpo_combinations`: Multi-GRPO Sales Invoice tracking
--   `delivery_orders` / `delivery_order_lines`: Delivery order processing with inventory reservation, revenue recognition, business_partner_id, warehouse_id (single warehouse), and document closure fields (closure_status, closed_by_document_type, closed_by_document_id, closed_at, closed_by_user_id)
+-   `delivery_orders` / `delivery_order_lines`: Delivery order processing with inventory reservation, revenue recognition, business_partner_id, **company_entity_id**, warehouse_id (single warehouse), and document closure fields (closure_status, closed_by_document_type, closed_by_document_id, closed_at, closed_by_user_id)
 -   `delivery_tracking`: Delivery tracking with logistics cost and performance metrics
 
 #### GR/GI Management Tables
@@ -548,7 +548,7 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 
 #### Auto-Numbering Tables
 
--   `document_sequences`: Sequence tracking per document type and month with thread-safe operations
+-   `document_sequences`: Sequence tracking per document type, month, **and company entity**. Legacy columns (`document_type`, `year_month`, `last_sequence`) remain for backward compatibility while new fields (`company_entity_id`, `document_code`, `year`, `current_number`) enable the upcoming `EEYYDD99999` numbering format.
 -   `cash_expenses`: Cash expense tracking with automatic numbering (CEV-YYYYMM-######) and creator attribution
 -   `asset_disposals`: Asset disposal transactions with automatic numbering (DIS-YYYYMM-######)
 

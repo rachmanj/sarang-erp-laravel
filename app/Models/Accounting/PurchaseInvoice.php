@@ -14,6 +14,7 @@ class PurchaseInvoice extends Model
         'invoice_no',
         'date',
         'business_partner_id', // Changed from vendor_id to match controller
+        'company_entity_id',
         'purchase_order_id',
         'goods_receipt_id',
         'description',
@@ -41,6 +42,11 @@ class PurchaseInvoice extends Model
     public function businessPartner(): BelongsTo
     {
         return $this->belongsTo(\App\Models\BusinessPartner::class, 'business_partner_id');
+    }
+
+    public function companyEntity(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\CompanyEntity::class, 'company_entity_id');
     }
 
     public function supplier(): BelongsTo

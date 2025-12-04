@@ -36,9 +36,11 @@ class AuditLogObserver
 
     public function deleted(Model $model)
     {
-        if (!$model->isForceDeleting()) {
-            $this->logChange($model, 'deleted', $model->getAttributes(), null);
+        // Check if model uses soft deletes and if it's a force delete
+        if (method_exists($model, 'isForceDeleting') && $model->isForceDeleting()) {
+            return; // Force delete is handled by forceDeleted method
         }
+        $this->logChange($model, 'deleted', $model->getAttributes(), null);
     }
 
     public function restored(Model $model)

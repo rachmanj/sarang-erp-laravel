@@ -24,11 +24,13 @@ class SalesReceiptPostingTest extends TestCase
     public function test_posting_receipt_creates_balanced_journal(): void
     {
         $cashId = (int) DB::table('accounts')->where('code', '1.1.2.01')->value('id');
-        $customerId = (int) DB::table('customers')->value('id');
+        $customerId = (int) DB::table('business_partners')->where('partner_type', 'customer')->value('id');
 
+        $entityId = (int) DB::table('company_entities')->where('code', '71')->value('id');
         $resp = $this->post('/sales-receipts', [
             'date' => now()->toDateString(),
-            'customer_id' => $customerId,
+            'business_partner_id' => $customerId,
+            'company_entity_id' => $entityId,
             'description' => 'Receipt',
             'lines' => [
                 ['account_id' => $cashId, 'description' => 'Cash', 'amount' => 150],

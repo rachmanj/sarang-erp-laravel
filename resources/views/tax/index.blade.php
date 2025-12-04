@@ -63,22 +63,120 @@
                                     </div>
                                     <div class="col-md-3">
                                         <div class="info-box">
-                                            <span class="info-box-icon bg-warning"><i class="fas fa-percentage"></i></span>
-                                            <div class="info-box-content">
-                                                <span class="info-box-text">PPN Net</span>
-                                                <span class="info-box-number">Rp
-                                                    {{ number_format($summary['ppn_net'] ?? 0, 2) }}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <div class="info-box">
                                             <span class="info-box-icon bg-primary"><i class="fas fa-chart-line"></i></span>
                                             <div class="info-box-content">
                                                 <span class="info-box-text">Taxable Amount</span>
                                                 <span class="info-box-number">Rp
                                                     {{ number_format($summary['total_taxable_amount'] ?? 0, 2) }}</span>
                                             </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="info-box">
+                                            <span class="info-box-icon bg-{{ $summary['ppn_status_color'] ?? 'warning' }}"><i class="fas {{ $summary['ppn_status_icon'] ?? 'fa-percentage' }}"></i></span>
+                                            <div class="info-box-content">
+                                                <span class="info-box-text">PPN Balance</span>
+                                                <span class="info-box-number">Rp
+                                                    {{ number_format(abs($summary['ppn_net'] ?? 0), 2) }}</span>
+                                                <span class="badge badge-{{ $summary['ppn_status_color'] ?? 'warning' }} mt-1" style="font-size: 0.9rem; padding: 0.35em 0.65em;">
+                                                    {{ $summary['ppn_status_label'] ?? 'Balance' }}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PPN Balance Detail Card -->
+                <div class="row">
+                    <div class="col-12">
+                        <div class="card card-{{ $summary['ppn_status_color'] ?? 'info' }} card-outline">
+                            <div class="card-header">
+                                <h3 class="card-title">
+                                    <i class="fas {{ $summary['ppn_status_icon'] ?? 'fa-percentage' }} mr-2"></i>
+                                    PPN Balance Detail - {{ $summary['ppn_status_label'] ?? 'Balance' }}
+                                </h3>
+                                <div class="card-tools">
+                                    <span class="badge badge-{{ $summary['ppn_status_color'] ?? 'info' }}" style="font-size: 1rem; padding: 0.4em 0.8em;">
+                                        {{ $summary['ppn_status_label'] ?? 'Balance' }}
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <div class="description-block border-right">
+                                            <span class="description-percentage text-info">
+                                                <i class="fas fa-arrow-down"></i> PPN Masukan
+                                            </span>
+                                            <h5 class="description-header text-info">Rp
+                                                {{ number_format($summary['ppn_input'] ?? 0, 2) }}
+                                            </h5>
+                                            <span class="description-text">Input VAT (Dapat Dikreditkan)</span>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="description-block border-right">
+                                            <span class="description-percentage text-danger">
+                                                <i class="fas fa-arrow-up"></i> PPN Keluaran
+                                            </span>
+                                            <h5 class="description-header text-danger">Rp
+                                                {{ number_format($summary['ppn_output'] ?? 0, 2) }}
+                                            </h5>
+                                            <span class="description-text">Output VAT (Kewajiban Pajak)</span>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="description-block">
+                                            <span class="description-percentage text-{{ $summary['ppn_status_color'] ?? 'warning' }}">
+                                                <i class="fas {{ $summary['ppn_status_icon'] ?? 'fa-balance-scale' }}"></i>
+                                                {{ $summary['ppn_status_label'] ?? 'Balance' }}
+                                            </span>
+                                            <h5 class="description-header text-{{ $summary['ppn_status_color'] ?? 'warning' }}">
+                                                @if(($summary['ppn_net'] ?? 0) < 0)
+                                                    -Rp {{ number_format(abs($summary['ppn_net'] ?? 0), 2) }}
+                                                @else
+                                                    Rp {{ number_format($summary['ppn_net'] ?? 0, 2) }}
+                                                @endif
+                                            </h5>
+                                            <span class="description-text">
+                                                @if(($summary['ppn_net'] ?? 0) > 0)
+                                                    <strong class="text-danger">Harus Dibayar ke Negara</strong>
+                                                @elseif(($summary['ppn_net'] ?? 0) < 0)
+                                                    <strong class="text-success">Dapat Dikompensasi</strong>
+                                                @else
+                                                    <strong class="text-info">Balance</strong>
+                                                @endif
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row mt-3">
+                                    <div class="col-12">
+                                        <div class="alert alert-{{ $summary['ppn_status_color'] ?? 'info' }} alert-dismissible">
+                                            <h5><i class="icon fas {{ $summary['ppn_status_icon'] ?? 'fa-info-circle' }}"></i> 
+                                                Status PPN: {{ $summary['ppn_status_label'] ?? 'Balance' }}
+                                            </h5>
+                                            @if(($summary['ppn_net'] ?? 0) > 0)
+                                                <p class="mb-0">
+                                                    <strong>Kurang Bayar PPN:</strong> Anda memiliki kewajiban membayar PPN sebesar 
+                                                    <strong>Rp {{ number_format($summary['ppn_net'] ?? 0, 2) }}</strong> ke negara. 
+                                                    Pastikan untuk melakukan pembayaran sebelum batas waktu yang ditentukan.
+                                                </p>
+                                            @elseif(($summary['ppn_net'] ?? 0) < 0)
+                                                <p class="mb-0">
+                                                    <strong>Lebih Bayar PPN:</strong> Anda memiliki kelebihan bayar PPN sebesar 
+                                                    <strong>Rp {{ number_format(abs($summary['ppn_net'] ?? 0), 2) }}</strong>. 
+                                                    Kelebihan bayar ini dapat dikompensasikan ke periode berikutnya atau diminta pengembalian.
+                                                </p>
+                                            @else
+                                                <p class="mb-0">
+                                                    <strong>Balance:</strong> PPN Masukan dan PPN Keluaran sudah seimbang. Tidak ada kewajiban pembayaran atau kelebihan bayar.
+                                                </p>
+                                            @endif
                                         </div>
                                     </div>
                                 </div>
@@ -135,14 +233,37 @@
                                             </thead>
                                             <tbody>
                                                 <tr>
-                                                    <td>PPN Input</td>
-                                                    <td class="text-right">Rp
+                                                    <td>
+                                                        <i class="fas fa-arrow-down text-info mr-1"></i>
+                                                        PPN Masukan (Input)
+                                                    </td>
+                                                    <td class="text-right text-info">Rp
                                                         {{ number_format($summary['ppn_input'] ?? 0, 2) }}</td>
                                                 </tr>
                                                 <tr>
-                                                    <td>PPN Output</td>
-                                                    <td class="text-right">Rp
+                                                    <td>
+                                                        <i class="fas fa-arrow-up text-danger mr-1"></i>
+                                                        PPN Keluaran (Output)
+                                                    </td>
+                                                    <td class="text-right text-danger">Rp
                                                         {{ number_format($summary['ppn_output'] ?? 0, 2) }}</td>
+                                                </tr>
+                                                <tr class="bg-{{ $summary['ppn_status_color'] ?? 'light' }}">
+                                                    <td>
+                                                        <strong>
+                                                            <i class="fas {{ $summary['ppn_status_icon'] ?? 'fa-balance-scale' }} text-{{ $summary['ppn_status_color'] ?? 'warning' }} mr-1"></i>
+                                                            {{ $summary['ppn_status_label'] ?? 'PPN Net' }}
+                                                        </strong>
+                                                    </td>
+                                                    <td class="text-right">
+                                                        <strong class="text-{{ $summary['ppn_status_color'] ?? 'warning' }}">
+                                                            @if(($summary['ppn_net'] ?? 0) < 0)
+                                                                -Rp {{ number_format(abs($summary['ppn_net'] ?? 0), 2) }}
+                                                            @else
+                                                                Rp {{ number_format($summary['ppn_net'] ?? 0, 2) }}
+                                                            @endif
+                                                        </strong>
+                                                    </td>
                                                 </tr>
                                                 <tr>
                                                     <td>PPh 21</td>

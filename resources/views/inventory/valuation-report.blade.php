@@ -123,7 +123,10 @@
                                                 {{ $item->current_stock }} {{ $item->unit_of_measure }}
                                             </span>
                                         </td>
-                                        <td>Rp {{ number_format($item->latest_valuation->unit_cost ?? 0, 2) }}</td>
+                                        @php
+                                            $latestValuation = $item->valuations->sortByDesc('valuation_date')->first();
+                                        @endphp
+                                        <td>Rp {{ number_format($latestValuation->unit_cost ?? 0, 2) }}</td>
                                         <td>
                                             <strong>Rp {{ number_format($item->current_value, 2) }}</strong>
                                         </td>
@@ -133,8 +136,8 @@
                                             </span>
                                         </td>
                                         <td>
-                                            @if ($item->latest_valuation)
-                                                {{ \Carbon\Carbon::parse($item->latest_valuation->valuation_date)->format('d/m/Y') }}
+                                            @if ($latestValuation)
+                                                {{ \Carbon\Carbon::parse($latestValuation->valuation_date)->format('d/m/Y') }}
                                             @else
                                                 <span class="text-muted">Never</span>
                                             @endif
@@ -215,9 +218,10 @@
                                                         <td>{{ $index + 1 }}</td>
                                                         <td>{{ $item->name }}</td>
                                                         <td>{{ $item->current_stock }} {{ $item->unit_of_measure }}</td>
-                                                        <td>Rp
-                                                            {{ number_format($item->latest_valuation->unit_cost ?? 0, 2) }}
-                                                        </td>
+                                                        @php
+                                                            $latestValuation = $item->valuations->sortByDesc('valuation_date')->first();
+                                                        @endphp
+                                                        <td>Rp {{ number_format($latestValuation->unit_cost ?? 0, 2) }}</td>
                                                         <td><strong>Rp
                                                                 {{ number_format($item->current_value, 2) }}</strong></td>
                                                         <td>
@@ -341,8 +345,8 @@
                 const itemId = $(this).data('item-id');
                 const itemName = $(this).data('item-name');
 
-                // Redirect to inventory show page with adjustment modal
-                window.location = '{{ route('inventory.show', '') }}/' + itemId;
+                const showUrlTemplate = '{{ route('inventory.show', ['item' => '__ITEM_ID__']) }}';
+                window.location = showUrlTemplate.replace('__ITEM_ID__', itemId);
             });
         });
     </script>

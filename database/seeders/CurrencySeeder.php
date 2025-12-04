@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use App\Models\Currency;
+use Illuminate\Support\Facades\DB;
 
 class CurrencySeeder extends Seeder
 {
@@ -96,6 +97,19 @@ class CurrencySeeder extends Seeder
             ],
         ];
 
+        // Ensure IDR (base currency) is created first
+        $idr = array_shift($currencies); // Remove IDR from array
+        
+        // Check if IDR exists, if not create it (will get next available ID)
+        $idrRecord = Currency::where('code', 'IDR')->first();
+        if (!$idrRecord) {
+            // Create IDR - it should get id = 1 if table is empty
+            Currency::create($idr);
+        } else {
+            // Update existing IDR to ensure it's marked as base currency
+            $idrRecord->update($idr);
+        }
+        
         foreach ($currencies as $currency) {
             Currency::updateOrCreate(
                 ['code' => $currency['code']],

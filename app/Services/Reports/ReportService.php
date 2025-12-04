@@ -110,15 +110,15 @@ class ReportService
     {
         $asOfDate = $asOf ?: now()->toDateString();
         $invoices = DB::table('sales_invoices as si')
-            ->leftJoin('customers as c', 'c.id', '=', 'si.customer_id')
-            ->where('status', 'posted')
+            ->leftJoin('business_partners as c', 'c.id', '=', 'si.business_partner_id')
+            ->where('si.status', 'posted')
             ->whereDate(DB::raw('COALESCE(si.due_date, si.date)'), '<=', $asOfDate)
             ->leftJoin('sales_receipt_allocations as sra', 'sra.invoice_id', '=', 'si.id')
             ->leftJoin('sales_receipts as sr', function ($join) {
                 $join->on('sr.id', '=', 'sra.receipt_id')->where('sr.status', '=', 'posted');
             })
-            ->select('si.id', 'si.customer_id', DB::raw('COALESCE(si.due_date, si.date) as effective_date'), 'si.total_amount', DB::raw('COALESCE(SUM(sra.amount),0) as settled_amount'), 'c.name as customer_name')
-            ->groupBy('si.id', 'si.customer_id', 'effective_date', 'si.total_amount', 'c.name')
+            ->select('si.id', 'si.business_partner_id as customer_id', DB::raw('COALESCE(si.due_date, si.date) as effective_date'), 'si.total_amount', DB::raw('COALESCE(SUM(sra.amount),0) as settled_amount'), 'c.name as customer_name')
+            ->groupBy('si.id', 'si.business_partner_id', 'effective_date', 'si.total_amount', 'c.name')
             ->get();
 
         $buckets = [];

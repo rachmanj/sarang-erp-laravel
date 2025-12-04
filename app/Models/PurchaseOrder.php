@@ -16,6 +16,7 @@ class PurchaseOrder extends Model
         'expected_delivery_date',
         'actual_delivery_date',
         'business_partner_id',
+        'company_entity_id',
         'warehouse_id',
         'currency_id',
         'exchange_rate',
@@ -79,6 +80,11 @@ class PurchaseOrder extends Model
     public function businessPartner(): BelongsTo
     {
         return $this->belongsTo(\App\Models\BusinessPartner::class, 'business_partner_id');
+    }
+
+    public function companyEntity(): BelongsTo
+    {
+        return $this->belongsTo(CompanyEntity::class);
     }
 
     public function warehouse(): BelongsTo

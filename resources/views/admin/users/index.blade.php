@@ -15,6 +15,16 @@
             <div class="card-header">
                 <h3 class="card-title">Users</h3>
                 <div class="card-tools">
+                    <div class="input-group input-group-sm" style="width: 180px; margin-right: 10px;">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text"><i class="fas fa-filter"></i></span>
+                        </div>
+                        <select id="online-status-filter" class="form-control">
+                            <option value="">All Users</option>
+                            <option value="online">Online Only</option>
+                            <option value="offline">Offline Only</option>
+                        </select>
+                    </div>
                     <a class="btn btn-primary btn-sm" href="{{ route('admin.users.create') }}"><i class="fas fa-plus"></i>
                         New</a>
                 </div>
@@ -37,6 +47,8 @@
                             <th>Name</th>
                             <th>Email</th>
                             <th>Roles</th>
+                            <th>Status</th>
+                            <th>Last Activity</th>
                             <th>Created</th>
                             <th style="width:120px;"></th>
                         </tr>
@@ -55,7 +67,12 @@
                 processing: true,
                 serverSide: true,
                 responsive: true,
-                ajax: '{{ route('admin.users.data') }}',
+                ajax: {
+                    url: '{{ route('admin.users.data') }}',
+                    data: function(d) {
+                        d.online_status = $('#online-status-filter').val();
+                    }
+                },
                 columns: [{
                         data: 'id',
                         name: 'id'
@@ -75,6 +92,18 @@
                         searchable: false
                     },
                     {
+                        data: 'online_status',
+                        name: 'online_status',
+                        orderable: false,
+                        searchable: false
+                    },
+                    {
+                        data: 'last_activity',
+                        name: 'last_activity',
+                        orderable: false,
+                        searchable: false
+                    },
+                    {
                         data: 'created_at',
                         name: 'created_at'
                     },
@@ -84,8 +113,19 @@
                         orderable: false,
                         searchable: false
                     },
-                ]
+                ],
+                order: [[6, 'desc']] // Sort by Created column descending by default
             });
+
+            // Online status filter
+            $('#online-status-filter').on('change', function() {
+                table.ajax.reload();
+            });
+
+            // Auto-refresh online status every 30 seconds
+            setInterval(function() {
+                table.ajax.reload(null, false); // false = don't reset paging
+            }, 30000);
 
             // Delete
             $('#users-table').on('click', '.delete-user', function() {

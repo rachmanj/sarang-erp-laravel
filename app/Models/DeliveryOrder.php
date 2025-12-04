@@ -13,6 +13,7 @@ class DeliveryOrder extends Model
         'do_number',
         'sales_order_id',
         'business_partner_id',
+        'company_entity_id',
         'warehouse_id',
         'delivery_address',
         'delivery_contact_person',
@@ -49,6 +50,11 @@ class DeliveryOrder extends Model
     public function businessPartner(): BelongsTo
     {
         return $this->belongsTo(\App\Models\BusinessPartner::class);
+    }
+
+    public function companyEntity(): BelongsTo
+    {
+        return $this->belongsTo(CompanyEntity::class);
     }
 
     public function warehouse(): BelongsTo

@@ -19,6 +19,7 @@ class DatabaseSeeder extends Seeder
         );
 
         $this->call([
+            CompanyEntitySeeder::class,
             CurrencySeeder::class, // Add currencies FIRST
             TradingCoASeeder::class,
             TradingTaxCodeSeeder::class,

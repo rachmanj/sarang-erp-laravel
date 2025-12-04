@@ -385,19 +385,7 @@ class InventoryController extends Controller
     {
         $items = InventoryItem::with(['category', 'valuations'])
             ->active()
-            ->get()
-            ->map(function ($item) {
-                $latestValuation = $item->valuations()
-                    ->orderBy('valuation_date', 'desc')
-                    ->first();
-
-                return [
-                    'item' => $item,
-                    'current_stock' => $item->current_stock,
-                    'current_value' => $item->current_value,
-                    'latest_valuation' => $latestValuation,
-                ];
-            });
+            ->get();
 
         return view('inventory.valuation-report', compact('items'));
     }

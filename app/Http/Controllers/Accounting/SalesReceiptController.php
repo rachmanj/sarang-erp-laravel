@@ -10,6 +10,7 @@ use App\Models\SalesOrder;
 use App\Services\Accounting\PostingService;
 use App\Services\DocumentNumberingService;
 use App\Services\DocumentClosureService;
+use App\Services\CompanyEntityService;
 use App\Services\SalesWorkflowAuditService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -20,7 +21,8 @@ class SalesReceiptController extends Controller
     public function __construct(
         private PostingService $posting,
         private DocumentNumberingService $documentNumberingService,
-        private DocumentClosureService $documentClosureService
+        private DocumentClosureService $documentClosureService,
+        private CompanyEntityService $companyEntityService
     ) {
         $this->middleware(['auth']);
         $this->middleware('permission:ar.receipts.view')->only(['index', 'show']);
@@ -45,6 +47,7 @@ class SalesReceiptController extends Controller
         $data = $request->validate([
             'date' => ['required', 'date'],
             'business_partner_id' => ['required', 'integer', 'exists:business_partners,id'],
+            'company_entity_id' => ['required', 'integer', 'exists:company_entities,id'],
             'description' => ['nullable', 'string', 'max:255'],
             'lines' => ['required', 'array', 'min:1'],
             'lines.*.account_id' => ['required', 'integer', 'exists:accounts,id'],
@@ -52,17 +55,27 @@ class SalesReceiptController extends Controller
             'lines.*.amount' => ['required', 'numeric', 'min:0.01'],
         ]);
 
-        return DB::transaction(function () use ($data) {
+        $entity = $this->companyEntityService->getEntity($data['company_entity_id']);
+
+        return DB::transaction(function () use ($data, $entity) {
+            // Get base currency for the receipt
+            $baseCurrency = \App\Models\Currency::getBaseCurrency();
+            $currencyId = $baseCurrency ? $baseCurrency->id : 1;
+            
             $receipt = SalesReceipt::create([
                 'receipt_no' => null,
                 'date' => $data['date'],
                 'business_partner_id' => $data['business_partner_id'],
+                'company_entity_id' => $entity->id,
+                'currency_id' => $currencyId,
                 'description' => $data['description'] ?? null,
                 'status' => 'draft',
                 'total_amount' => 0,
             ]);
 
-            $receiptNo = $this->documentNumberingService->generateNumber('sales_receipt', $data['date']);
+            $receiptNo = $this->documentNumberingService->generateNumber('sales_receipt', $data['date'], [
+                'company_entity_id' => $entity->id,
+            ]);
             $receipt->update(['receipt_no' => $receiptNo]);
             $total = 0;
             foreach ($data['lines'] as $l) {

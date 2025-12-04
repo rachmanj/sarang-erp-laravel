@@ -362,9 +362,13 @@
 
                 // Process each adjustment
                 let completed = 0;
+                const adjustStockUrlTemplate = '{{ route('inventory.adjust-stock', ['item' => '__ITEM_ID__']) }}';
+
                 selectedItems.forEach(function(item) {
+                    const url = adjustStockUrlTemplate.replace('__ITEM_ID__', item.item_id);
+
                     $.ajax({
-                        url: '{{ route('inventory.adjust-stock', '') }}/' + item.item_id,
+                        url: url,
                         method: 'POST',
                         data: {
                             adjustment_type: adjustmentType,

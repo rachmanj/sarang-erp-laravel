@@ -229,15 +229,40 @@ class TaxService
     {
         $transactions = TaxTransaction::whereBetween('transaction_date', [$startDate, $endDate])->get();
 
+        $ppnInput = $transactions->where('tax_type', 'ppn')->where('tax_category', 'input')->sum('tax_amount');
+        $ppnOutput = $transactions->where('tax_type', 'ppn')->where('tax_category', 'output')->sum('tax_amount');
+        $ppnNet = $ppnOutput - $ppnInput;
+
+        // Determine PPN status
+        $ppnStatus = 'balance';
+        $ppnStatusLabel = 'Balance';
+        $ppnStatusColor = 'info';
+        $ppnStatusIcon = 'fa-balance-scale';
+        
+        if ($ppnNet > 0) {
+            $ppnStatus = 'kurang_bayar';
+            $ppnStatusLabel = 'Kurang Bayar';
+            $ppnStatusColor = 'danger';
+            $ppnStatusIcon = 'fa-exclamation-triangle';
+        } elseif ($ppnNet < 0) {
+            $ppnStatus = 'lebih_bayar';
+            $ppnStatusLabel = 'Lebih Bayar';
+            $ppnStatusColor = 'success';
+            $ppnStatusIcon = 'fa-check-circle';
+        }
+
         return [
             'total_transactions' => $transactions->count(),
             'total_taxable_amount' => $transactions->sum('taxable_amount'),
             'total_tax_amount' => $transactions->sum('tax_amount'),
             'total_amount' => $transactions->sum('total_amount'),
-            'ppn_input' => $transactions->where('tax_type', 'ppn')->where('tax_category', 'input')->sum('tax_amount'),
-            'ppn_output' => $transactions->where('tax_type', 'ppn')->where('tax_category', 'output')->sum('tax_amount'),
-            'ppn_net' => $transactions->where('tax_type', 'ppn')->where('tax_category', 'output')->sum('tax_amount') -
-                $transactions->where('tax_type', 'ppn')->where('tax_category', 'input')->sum('tax_amount'),
+            'ppn_input' => $ppnInput,
+            'ppn_output' => $ppnOutput,
+            'ppn_net' => $ppnNet,
+            'ppn_status' => $ppnStatus,
+            'ppn_status_label' => $ppnStatusLabel,
+            'ppn_status_color' => $ppnStatusColor,
+            'ppn_status_icon' => $ppnStatusIcon,
             'pph_21' => $transactions->where('tax_type', 'pph_21')->sum('tax_amount'),
             'pph_22' => $transactions->where('tax_type', 'pph_22')->sum('tax_amount'),
             'pph_23' => $transactions->where('tax_type', 'pph_23')->sum('tax_amount'),

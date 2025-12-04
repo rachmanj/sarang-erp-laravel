@@ -8,6 +8,7 @@ use App\Models\Master\Customer;
 use App\Services\DeliveryService;
 use App\Services\DocumentClosureService;
 use App\Services\SalesWorkflowAuditService;
+use App\Services\CompanyEntityService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -17,11 +18,16 @@ class DeliveryOrderController extends Controller
 {
     protected $deliveryService;
     protected $documentClosureService;
+    protected $companyEntityService;
 
-    public function __construct(DeliveryService $deliveryService, DocumentClosureService $documentClosureService)
-    {
+    public function __construct(
+        DeliveryService $deliveryService,
+        DocumentClosureService $documentClosureService,
+        CompanyEntityService $companyEntityService
+    ) {
         $this->deliveryService = $deliveryService;
         $this->documentClosureService = $documentClosureService;
+        $this->companyEntityService = $companyEntityService;
     }
 
     /**
@@ -82,8 +88,10 @@ class DeliveryOrderController extends Controller
 
         $customers = \App\Models\BusinessPartner::where('partner_type', 'customer')->orderBy('name')->get();
         $warehouses = DB::table('warehouses')->where('is_active', 1)->where('name', 'not like', '%Transit%')->orderBy('name')->get();
+        $entities = $this->companyEntityService->getActiveEntities();
+        $defaultEntity = $salesOrder ? $this->companyEntityService->getEntity($salesOrder->company_entity_id) : $this->companyEntityService->getDefaultEntity();
 
-        return view('delivery_orders.create', compact('salesOrders', 'salesOrder', 'customers', 'warehouses'));
+        return view('delivery_orders.create', compact('salesOrders', 'salesOrder', 'customers', 'warehouses', 'entities', 'defaultEntity'));
     }
 
     /**

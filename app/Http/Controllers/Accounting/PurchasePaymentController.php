@@ -10,6 +10,7 @@ use App\Models\PurchaseOrder;
 use App\Services\Accounting\PostingService;
 use App\Services\DocumentNumberingService;
 use App\Services\DocumentClosureService;
+use App\Services\CompanyEntityService;
 use App\Services\PurchaseWorkflowAuditService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -20,7 +21,8 @@ class PurchasePaymentController extends Controller
     public function __construct(
         private PostingService $posting,
         private DocumentNumberingService $documentNumberingService,
-        private DocumentClosureService $documentClosureService
+        private DocumentClosureService $documentClosureService,
+        private CompanyEntityService $companyEntityService
     ) {
         $this->middleware(['auth']);
         $this->middleware('permission:ap.payments.view')->only(['index', 'show']);
@@ -37,7 +39,9 @@ class PurchasePaymentController extends Controller
     {
         $vendors = DB::table('business_partners')->where('partner_type', 'supplier')->orderBy('name')->get();
         $accounts = DB::table('accounts')->where('is_postable', 1)->orderBy('code')->get();
-        return view('purchase_payments.create', compact('vendors', 'accounts'));
+        $entities = $this->companyEntityService->getActiveEntities();
+        $defaultEntity = $this->companyEntityService->getDefaultEntity();
+        return view('purchase_payments.create', compact('vendors', 'accounts', 'entities', 'defaultEntity'));
     }
 
     public function store(Request $request)
@@ -45,6 +49,7 @@ class PurchasePaymentController extends Controller
         $data = $request->validate([
             'date' => ['required', 'date'],
             'business_partner_id' => ['required', 'integer', 'exists:business_partners,id'],
+            'company_entity_id' => ['required', 'integer', 'exists:company_entities,id'],
             'description' => ['nullable', 'string', 'max:255'],
             'lines' => ['required', 'array', 'min:1'],
             'lines.*.account_id' => ['required', 'integer', 'exists:accounts,id'],
@@ -52,17 +57,22 @@ class PurchasePaymentController extends Controller
             'lines.*.amount' => ['required', 'numeric', 'min:0.01'],
         ]);
 
-        return DB::transaction(function () use ($data) {
+        $entity = $this->companyEntityService->getEntity($request->input('company_entity_id'));
+
+        return DB::transaction(function () use ($data, $entity) {
             $payment = PurchasePayment::create([
                 'payment_no' => null,
                 'date' => $data['date'],
                 'business_partner_id' => $data['business_partner_id'],
+                'company_entity_id' => $entity->id,
                 'description' => $data['description'] ?? null,
                 'status' => 'draft',
                 'total_amount' => 0,
             ]);
 
-            $paymentNo = $this->documentNumberingService->generateNumber('purchase_payment', $data['date']);
+            $paymentNo = $this->documentNumberingService->generateNumber('purchase_payment', $data['date'], [
+                'company_entity_id' => $entity->id,
+            ]);
             $payment->update(['payment_no' => $paymentNo]);
 
             $total = 0;

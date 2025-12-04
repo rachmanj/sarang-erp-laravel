@@ -10,6 +10,7 @@ class PurchasePayment extends Model
         'payment_no',
         'date',
         'business_partner_id',
+        'company_entity_id',
         'description',
         'total_amount',
         'status',
@@ -33,6 +34,11 @@ class PurchasePayment extends Model
     public function businessPartner()
     {
         return $this->belongsTo(\App\Models\BusinessPartner::class, 'business_partner_id');
+    }
+
+    public function companyEntity()
+    {
+        return $this->belongsTo(\App\Models\CompanyEntity::class, 'company_entity_id');
     }
 
     public function allocations()

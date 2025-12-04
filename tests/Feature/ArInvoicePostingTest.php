@@ -24,11 +24,13 @@ class ArInvoicePostingTest extends TestCase
     public function test_posting_invoice_creates_balanced_journal(): void
     {
         $revenueId = (int) DB::table('accounts')->where('code', '4.1.1')->value('id');
-        $customerId = (int) DB::table('customers')->value('id');
+        $customerId = (int) DB::table('business_partners')->where('partner_type', 'customer')->value('id');
 
+        $entityId = (int) DB::table('company_entities')->where('code', '71')->value('id');
         $resp = $this->post('/sales-invoices', [
             'date' => now()->toDateString(),
-            'customer_id' => $customerId,
+            'business_partner_id' => $customerId,
+            'company_entity_id' => $entityId,
             'description' => 'Test AR',
             'lines' => [
                 ['account_id' => $revenueId, 'description' => 'Service', 'qty' => 1, 'unit_price' => 100],

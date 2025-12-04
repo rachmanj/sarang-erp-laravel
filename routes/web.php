@@ -296,16 +296,12 @@ Route::middleware('auth')->group(function () {
         Route::get('/data', [InventoryController::class, 'data'])->name('inventory.data');
         Route::get('/create', [InventoryController::class, 'create'])->middleware('permission:inventory.create')->name('inventory.create');
         Route::post('/', [InventoryController::class, 'store'])->middleware('permission:inventory.create')->name('inventory.store');
-        Route::get('/{item}', [InventoryController::class, 'show'])->name('inventory.show');
-        Route::get('/{item}/edit', [InventoryController::class, 'edit'])->middleware('permission:inventory.update')->name('inventory.edit');
-        Route::patch('/{item}', [InventoryController::class, 'update'])->middleware('permission:inventory.update')->name('inventory.update');
-        Route::delete('/{item}', [InventoryController::class, 'destroy'])->middleware('permission:inventory.delete')->name('inventory.destroy');
 
         // Stock Management
         Route::post('/{item}/adjust-stock', [InventoryController::class, 'adjustStock'])->middleware('permission:inventory.adjust')->name('inventory.adjust-stock');
         Route::post('/{item}/transfer-stock', [InventoryController::class, 'transferStock'])->middleware('permission:inventory.transfer')->name('inventory.transfer-stock');
 
-        // Reports and Analytics
+        // Reports and Analytics (static routes before catch-all)
         Route::get('/low-stock', [InventoryController::class, 'lowStock'])->name('inventory.low-stock');
         Route::get('/valuation-report', [InventoryController::class, 'valuationReport'])->name('inventory.valuation-report');
 
@@ -323,6 +319,12 @@ Route::middleware('auth')->group(function () {
         Route::get('/{item}/effective-price', [InventoryController::class, 'getEffectivePrice'])->name('inventory.get-effective-price');
         Route::post('/set-customer-price-level', [InventoryController::class, 'setCustomerPriceLevel'])->middleware('permission:inventory.update')->name('inventory.set-customer-price-level');
         Route::get('/{item}/price-level-summary', [InventoryController::class, 'getPriceLevelSummary'])->name('inventory.get-price-level-summary');
+
+        // Item detail routes (catch-all placed last)
+        Route::get('/{item}', [InventoryController::class, 'show'])->name('inventory.show');
+        Route::get('/{item}/edit', [InventoryController::class, 'edit'])->middleware('permission:inventory.update')->name('inventory.edit');
+        Route::patch('/{item}', [InventoryController::class, 'update'])->middleware('permission:inventory.update')->name('inventory.update');
+        Route::delete('/{item}', [InventoryController::class, 'destroy'])->middleware('permission:inventory.delete')->name('inventory.destroy');
     });
 
     // Product Category Management

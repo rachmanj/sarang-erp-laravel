@@ -13,10 +13,11 @@ use App\Services\PurchaseService;
 use App\Services\GRPOCopyService;
 use App\Services\PurchaseInvoiceCopyService;
 use App\Services\DocumentClosureService;
-use App\Services\DocumentNumberingService;
 use App\Services\UnitConversionService;
 use App\Services\CurrencyService;
 use App\Services\ExchangeRateService;
+use App\Services\DocumentNumberingService;
+use App\Services\CompanyEntityService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
@@ -32,6 +33,8 @@ class PurchaseOrderController extends Controller
     protected $unitConversionService;
     protected $currencyService;
     protected $exchangeRateService;
+    protected $documentNumberingService;
+    protected $companyEntityService;
 
     public function __construct(
         PurchaseService $purchaseService,
@@ -40,7 +43,9 @@ class PurchaseOrderController extends Controller
         DocumentClosureService $documentClosureService,
         UnitConversionService $unitConversionService,
         CurrencyService $currencyService,
-        ExchangeRateService $exchangeRateService
+        ExchangeRateService $exchangeRateService,
+        DocumentNumberingService $documentNumberingService,
+        CompanyEntityService $companyEntityService
     ) {
         $this->purchaseService = $purchaseService;
         $this->grpoCopyService = $grpoCopyService;
@@ -49,6 +54,8 @@ class PurchaseOrderController extends Controller
         $this->unitConversionService = $unitConversionService;
         $this->currencyService = $currencyService;
         $this->exchangeRateService = $exchangeRateService;
+        $this->documentNumberingService = $documentNumberingService;
+        $this->companyEntityService = $companyEntityService;
     }
 
     public function index()
@@ -91,6 +98,9 @@ class PurchaseOrderController extends Controller
         if ($request->filled('closure_status')) {
             $query->where('closure_status', $request->closure_status);
         }
+        if ($request->filled('company_entity_id')) {
+            $query->where('company_entity_id', $request->company_entity_id);
+        }
 
         return DataTables::of($query)
             ->addColumn('date', function ($row) {
@@ -131,11 +141,23 @@ class PurchaseOrderController extends Controller
         $warehouses = DB::table('warehouses')->where('is_active', 1)->where('name', 'not like', '%Transit%')->orderBy('name')->get();
         $currencies = $this->currencyService->getAllCurrencies();
 
-        // Generate PO number for display
-        $documentNumberingService = app(DocumentNumberingService::class);
-        $poNumber = $documentNumberingService->generateNumber('purchase_order', now()->format('Y-m-d'));
+        $entities = $this->companyEntityService->getActiveEntities();
+        $defaultEntity = $this->companyEntityService->getDefaultEntity();
+        $poNumber = $this->documentNumberingService->generateNumber('purchase_order', now()->format('Y-m-d'), [
+            'company_entity_id' => $defaultEntity->id,
+        ]);
 
-        return view('purchase_orders.create', compact('vendors', 'accounts', 'taxCodes', 'inventoryItems', 'warehouses', 'currencies', 'poNumber'));
+        return view('purchase_orders.create', compact(
+            'vendors',
+            'accounts',
+            'taxCodes',
+            'inventoryItems',
+            'warehouses',
+            'currencies',
+            'poNumber',
+            'defaultEntity',
+            'entities'
+        ));
     }
 
     public function getExchangeRate(Request $request)
@@ -165,6 +187,26 @@ class PurchaseOrderController extends Controller
         }
     }
 
+    public function getDocumentNumber(Request $request)
+    {
+        $entityId = $request->input('company_entity_id');
+        $date = $request->input('date', now()->toDateString());
+
+        try {
+            if (!$entityId) {
+                return response()->json(['error' => 'Company entity is required'], 400);
+            }
+
+            $documentNumber = $this->documentNumberingService->generateNumber('purchase_order', $date, [
+                'company_entity_id' => $entityId,
+            ]);
+
+            return response()->json(['document_number' => $documentNumber]);
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Error generating document number: ' . $e->getMessage()], 500);
+        }
+    }
+
     public function store(Request $request)
     {
         Log::info('Purchase Order store method called with data:', $request->all());
@@ -187,6 +229,7 @@ class PurchaseOrderController extends Controller
             'warehouse_id' => ['required', 'integer', 'exists:warehouses,id'],
             'currency_id' => ['required', 'integer', 'exists:currencies,id'],
             'exchange_rate' => ['required', 'numeric', 'min:0.000001'],
+            'company_entity_id' => ['required', 'integer', 'exists:company_entities,id'],
             'description' => ['nullable', 'string', 'max:255'],
             'notes' => ['nullable', 'string'],
             'terms_conditions' => ['nullable', 'string'],
@@ -211,6 +254,8 @@ class PurchaseOrderController extends Controller
         Log::info('Purchase Order validation passed. Validated data:', $data);
 
         try {
+            $entity = $this->companyEntityService->getEntity($request->input('company_entity_id'));
+            $data['company_entity_id'] = $entity->id;
             Log::info('Calling purchaseService->createPurchaseOrder()');
             $po = $this->purchaseService->createPurchaseOrder($data);
             Log::info('Purchase Order created successfully with ID: ' . ($po->id ?? 'null'));

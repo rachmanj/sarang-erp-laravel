@@ -14,6 +14,7 @@ class GoodsReceiptPO extends Model
         'grn_no',
         'date',
         'business_partner_id',
+        'company_entity_id',
         'warehouse_id',
         'purchase_order_id',
         'source_po_id',
@@ -43,6 +44,11 @@ class GoodsReceiptPO extends Model
     public function businessPartner(): BelongsTo
     {
         return $this->belongsTo(BusinessPartner::class, 'business_partner_id');
+    }
+
+    public function companyEntity(): BelongsTo
+    {
+        return $this->belongsTo(CompanyEntity::class);
     }
 
     public function warehouse(): BelongsTo

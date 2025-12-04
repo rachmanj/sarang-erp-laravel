@@ -185,8 +185,9 @@ class PostingService
 
     private function determineJournalCurrency(array $lines): array
     {
-        // Get base currency (IDR = 1)
-        $baseCurrencyId = 1;
+        // Get base currency dynamically
+        $baseCurrency = \App\Models\Currency::getBaseCurrency();
+        $baseCurrencyId = $baseCurrency ? $baseCurrency->id : 1;
         $baseExchangeRate = 1.000000;
 
         // Check if all lines use the same currency
@@ -217,7 +218,9 @@ class PostingService
 
     private function processLineCurrency(array $line, string $date): array
     {
-        $baseCurrencyId = 1; // IDR
+        // Get base currency dynamically
+        $baseCurrency = \App\Models\Currency::getBaseCurrency();
+        $baseCurrencyId = $baseCurrency ? $baseCurrency->id : 1;
         $baseExchangeRate = 1.000000;
 
         $currencyId = $line['currency_id'] ?? $baseCurrencyId;

@@ -16,6 +16,7 @@ use App\Services\ApprovalWorkflowService;
 use App\Services\CurrencyService;
 use App\Services\ExchangeRateService;
 use App\Services\PurchaseWorkflowAuditService;
+use App\Services\CompanyEntityService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -29,6 +30,7 @@ class PurchaseService
     protected $currencyService;
     protected $exchangeRateService;
     protected $workflowAuditService;
+    protected $companyEntityService;
 
     public function __construct(
         InventoryService $inventoryService,
@@ -37,7 +39,8 @@ class PurchaseService
         ApprovalWorkflowService $approvalWorkflowService,
         CurrencyService $currencyService,
         ExchangeRateService $exchangeRateService,
-        PurchaseWorkflowAuditService $workflowAuditService
+        PurchaseWorkflowAuditService $workflowAuditService,
+        CompanyEntityService $companyEntityService
     ) {
         $this->inventoryService = $inventoryService;
         $this->documentNumberingService = $documentNumberingService;
@@ -46,6 +49,7 @@ class PurchaseService
         $this->currencyService = $currencyService;
         $this->exchangeRateService = $exchangeRateService;
         $this->workflowAuditService = $workflowAuditService;
+        $this->companyEntityService = $companyEntityService;
     }
 
     public function createPurchaseOrder($data)
@@ -57,6 +61,8 @@ class PurchaseService
                 $currencyId = $data['currency_id'] ?? 1; // Default to IDR
                 $exchangeRate = $data['exchange_rate'] ?? 1.000000;
 
+                $entityId = $data['company_entity_id'] ?? $this->companyEntityService->getDefaultEntity()->id;
+
                 $po = PurchaseOrder::create([
                     'order_no' => $data['order_no'],
                     'reference_no' => $data['reference_no'] ?? null,
@@ -66,6 +72,7 @@ class PurchaseService
                     'warehouse_id' => $data['warehouse_id'],
                     'currency_id' => $currencyId,
                     'exchange_rate' => $exchangeRate,
+                    'company_entity_id' => $entityId,
                     'description' => $data['description'] ?? null,
                     'notes' => $data['notes'] ?? null,
                     'terms_conditions' => $data['terms_conditions'] ?? null,

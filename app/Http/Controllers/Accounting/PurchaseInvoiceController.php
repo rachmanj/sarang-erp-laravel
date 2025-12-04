@@ -5,10 +5,12 @@ namespace App\Http\Controllers\Accounting;
 use App\Http\Controllers\Controller;
 use App\Models\Accounting\PurchaseInvoice;
 use App\Models\Accounting\PurchaseInvoiceLine;
+use App\Models\GoodsReceiptPO;
 use App\Models\PurchaseOrder;
 use App\Services\Accounting\PostingService;
 use App\Services\DocumentNumberingService;
 use App\Services\DocumentClosureService;
+use App\Services\CompanyEntityService;
 use App\Services\PurchaseWorkflowAuditService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -19,7 +21,8 @@ class PurchaseInvoiceController extends Controller
     public function __construct(
         private PostingService $posting,
         private DocumentNumberingService $documentNumberingService,
-        private DocumentClosureService $documentClosureService
+        private DocumentClosureService $documentClosureService,
+        private CompanyEntityService $companyEntityService
     ) {
         $this->middleware(['auth']);
         $this->middleware('permission:ap.invoices.view')->only(['index', 'show']);
@@ -39,7 +42,9 @@ class PurchaseInvoiceController extends Controller
         $taxCodes = DB::table('tax_codes')->orderBy('code')->get();
         $projects = DB::table('projects')->orderBy('code')->get(['id', 'code', 'name']);
         $departments = DB::table('departments')->orderBy('code')->get(['id', 'code', 'name']);
-        return view('purchase_invoices.create', compact('accounts', 'vendors', 'taxCodes', 'projects', 'departments'));
+        $entities = $this->companyEntityService->getActiveEntities();
+        $defaultEntity = $this->companyEntityService->getDefaultEntity();
+        return view('purchase_invoices.create', compact('accounts', 'vendors', 'taxCodes', 'projects', 'departments', 'entities', 'defaultEntity'));
     }
 
     public function store(Request $request)
@@ -47,6 +52,7 @@ class PurchaseInvoiceController extends Controller
         $data = $request->validate([
             'date' => ['required', 'date'],
             'business_partner_id' => ['required', 'integer', 'exists:business_partners,id'],
+            'company_entity_id' => ['required', 'integer', 'exists:company_entities,id'],
             'description' => ['nullable', 'string', 'max:255'],
             'lines' => ['required', 'array', 'min:1'],
             'lines.*.account_id' => ['required', 'integer', 'exists:accounts,id'],
@@ -58,7 +64,18 @@ class PurchaseInvoiceController extends Controller
             'lines.*.dept_id' => ['nullable', 'integer'],
         ]);
 
-        return DB::transaction(function () use ($data, $request) {
+        $purchaseOrder = $request->input('purchase_order_id')
+            ? PurchaseOrder::select('id', 'company_entity_id')->find($request->input('purchase_order_id'))
+            : null;
+        $goodsReceipt = $request->input('goods_receipt_id')
+            ? GoodsReceiptPO::select('id', 'company_entity_id')->find($request->input('goods_receipt_id'))
+            : null;
+        $entity = $this->companyEntityService->resolveFromModel(
+            $request->input('company_entity_id'),
+            $goodsReceipt ?? $purchaseOrder
+        );
+
+        return DB::transaction(function () use ($data, $request, $purchaseOrder, $goodsReceipt, $entity) {
             // Log the data being used to create the invoice
             \Log::info('Creating Purchase Invoice with data:', [
                 'date' => $data['date'],
@@ -92,13 +109,16 @@ class PurchaseInvoiceController extends Controller
                 'description' => $data['description'] ?? null,
                 'status' => 'draft',
                 'total_amount' => 0,
+                'company_entity_id' => $entity->id,
             ];
 
             \Log::info('Creating invoice with data:', $invoiceData);
 
             $invoice = PurchaseInvoice::create($invoiceData);
 
-            $invoiceNo = $this->documentNumberingService->generateNumber('purchase_invoice', $data['date']);
+            $invoiceNo = $this->documentNumberingService->generateNumber('purchase_invoice', $data['date'], [
+                'company_entity_id' => $entity->id,
+            ]);
             $invoice->update(['invoice_no' => $invoiceNo]);
 
             $total = 0;
@@ -123,17 +143,14 @@ class PurchaseInvoiceController extends Controller
             $invoice->update(['total_amount' => $total, 'terms_days' => $termsDays ?: null, 'due_date' => $dueDate]);
 
             // Log invoice creation in Purchase Order audit trail
-            if ($request->input('purchase_order_id')) {
-                $po = PurchaseOrder::find($request->input('purchase_order_id'));
-                if ($po) {
-                    app(PurchaseWorkflowAuditService::class)->logPurchaseInvoiceCreation($po, $invoice->id);
-                }
+            if ($purchaseOrder) {
+                app(PurchaseWorkflowAuditService::class)->logPurchaseInvoiceCreation($purchaseOrder, $invoice->id);
             }
 
             // Attempt to close related documents if this PI was created from GRPO
-            if ($request->input('goods_receipt_id')) {
+            if ($goodsReceipt) {
                 try {
-                    $this->documentClosureService->closeGoodsReceipt($request->input('goods_receipt_id'), $invoice->id, auth()->id());
+                    $this->documentClosureService->closeGoodsReceipt($goodsReceipt->id, $invoice->id, auth()->id());
                 } catch (\Exception $closureException) {
                     // Log closure failure but don't fail the PI creation
                     \Log::warning('Failed to close Goods Receipt after PI creation', [

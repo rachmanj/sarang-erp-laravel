@@ -13,6 +13,8 @@ class SalesReceipt extends Model
         'receipt_no',
         'date',
         'business_partner_id',
+        'company_entity_id',
+        'currency_id',
         'description',
         'total_amount',
         'status',
@@ -31,5 +33,10 @@ class SalesReceipt extends Model
     public function lines(): HasMany
     {
         return $this->hasMany(SalesReceiptLine::class, 'receipt_id');
+    }
+
+    public function companyEntity()
+    {
+        return $this->belongsTo(\App\Models\CompanyEntity::class, 'company_entity_id');
     }
 }

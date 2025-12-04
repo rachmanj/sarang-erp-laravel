@@ -7,6 +7,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Carbon;
 use Spatie\Permission\Models\Role;
 use Yajra\DataTables\Facades\DataTables;
 use App\Models\Dimensions\Project;
@@ -33,21 +34,107 @@ class UserController extends Controller
     public function data(Request $request)
     {
         $this->authorize('users.view');
-        $query = User::query()->select(['id', 'name', 'email', 'created_at']);
+        
+        $sessionLifetime = config('session.lifetime', 120);
+        $sessionTable = config('session.table', 'sessions');
+        $onlineThreshold = now()->subMinutes($sessionLifetime)->timestamp;
+        
+        // Get latest session data per user using subquery selects
+        $query = User::query()
+            ->select([
+                'users.id',
+                'users.name', 
+                'users.email', 
+                'users.created_at',
+                DB::raw('(SELECT MAX(last_activity) FROM ' . $sessionTable . ' WHERE user_id = users.id AND user_id IS NOT NULL) as last_activity'),
+                DB::raw('(SELECT ip_address FROM ' . $sessionTable . ' s2 
+                          WHERE s2.user_id = users.id 
+                          AND s2.user_id IS NOT NULL 
+                          AND s2.last_activity = (SELECT MAX(last_activity) FROM ' . $sessionTable . ' WHERE user_id = users.id) 
+                          LIMIT 1) as ip_address')
+            ]);
+        
+        // Filter by online status if requested
+        if ($request->has('online_status') && $request->online_status !== '') {
+            if ($request->online_status === 'online') {
+                $query->whereRaw('(SELECT MAX(last_activity) FROM ' . $sessionTable . ' WHERE user_id = users.id AND user_id IS NOT NULL) >= ?', [$onlineThreshold]);
+            } elseif ($request->online_status === 'offline') {
+                $query->where(function($q) use ($sessionTable, $onlineThreshold) {
+                    $q->whereRaw('(SELECT MAX(last_activity) FROM ' . $sessionTable . ' WHERE user_id = users.id AND user_id IS NOT NULL) IS NULL')
+                      ->orWhereRaw('(SELECT MAX(last_activity) FROM ' . $sessionTable . ' WHERE user_id = users.id AND user_id IS NOT NULL) < ?', [$onlineThreshold]);
+                });
+            }
+        }
+        
         return DataTables::of($query)
-            ->editColumn('created_at', function (User $user) {
-                return $user->created_at->setTimezone(config('app.timezone'))->format('d-M-Y H:i');
+            ->editColumn('created_at', function ($row) {
+                return Carbon::parse($row->created_at)
+                    ->setTimezone(config('app.timezone'))
+                    ->format('d-M-Y H:i');
             })
-            ->addColumn('roles', function (User $user) {
-                return e($user->getRoleNames()->join(', '));
+            ->addColumn('roles', function ($row) {
+                $user = User::find($row->id);
+                return e($user ? $user->getRoleNames()->join(', ') : '');
             })
-            ->addColumn('actions', function (User $user) {
+            ->addColumn('online_status', function ($row) use ($onlineThreshold) {
+                $lastActivity = $row->last_activity ?? 0;
+                $isOnline = $lastActivity >= $onlineThreshold;
+                
+                if ($isOnline) {
+                    $badge = '<span class="badge badge-success">Online</span>';
+                    $tooltip = !empty($row->ip_address) ? ' title="IP: ' . e($row->ip_address) . '"' : '';
+                    return '<span' . $tooltip . '>' . $badge . '</span>';
+                } else {
+                    return '<span class="badge badge-secondary">Offline</span>';
+                }
+            })
+            ->addColumn('last_activity', function ($row) use ($onlineThreshold) {
+                $lastActivity = $row->last_activity ?? null;
+                
+                if (!$lastActivity) {
+                    return '<span class="text-muted">Never</span>';
+                }
+                
+                $lastActivityTime = Carbon::createFromTimestamp($lastActivity)
+                    ->setTimezone(config('app.timezone'));
+                
+                $diffInMinutes = now()->diffInMinutes($lastActivityTime);
+                
+                if ($lastActivity >= $onlineThreshold) {
+                    // User is online
+                    if ($diffInMinutes < 1) {
+                        return '<span class="text-success">Just now</span>';
+                    } elseif ($diffInMinutes < 60) {
+                        return '<span class="text-success">' . $diffInMinutes . ' min ago</span>';
+                    } else {
+                        $diffInHours = floor($diffInMinutes / 60);
+                        return '<span class="text-success">' . $diffInHours . ' hour' . ($diffInHours > 1 ? 's' : '') . ' ago</span>';
+                    }
+                } else {
+                    // User is offline
+                    return '<span class="text-muted">' . $lastActivityTime->format('d-M-Y H:i') . '</span>';
+                }
+            })
+            ->addColumn('actions', function ($row) {
+                $user = User::find($row->id);
+                if (!$user) return '';
+                
                 $editUrl = route('admin.users.edit', $user);
                 $edit = '<a href="' . $editUrl . '" class="btn btn-xs btn-primary">Edit</a>';
                 $del = '<button type="button" class="btn btn-xs btn-danger delete-user" data-id="' . $user->id . '">Delete</button>';
                 return $edit . ' ' . $del;
             })
-            ->rawColumns(['actions'])
+            ->rawColumns(['online_status', 'last_activity', 'actions'])
+            ->filterColumn('online_status', function($query, $keyword) use ($onlineThreshold) {
+                if ($keyword === 'online') {
+                    $query->where('sessions.last_activity', '>=', $onlineThreshold);
+                } elseif ($keyword === 'offline') {
+                    $query->where(function($q) use ($onlineThreshold) {
+                        $q->whereNull('sessions.last_activity')
+                          ->orWhere('sessions.last_activity', '<', $onlineThreshold);
+                    });
+                }
+            })
             ->toJson();
     }
 

@@ -11,6 +11,7 @@ use App\Models\InventoryItem;
 use App\Models\BusinessPartner;
 use App\Services\DocumentNumberingService;
 use App\Services\DeliveryJournalService;
+use App\Services\CompanyEntityService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -19,13 +20,16 @@ class DeliveryService
 {
     protected $documentNumberingService;
     protected $deliveryJournalService;
+    protected $companyEntityService;
 
     public function __construct(
         DocumentNumberingService $documentNumberingService,
-        DeliveryJournalService $deliveryJournalService
+        DeliveryJournalService $deliveryJournalService,
+        CompanyEntityService $companyEntityService
     ) {
         $this->documentNumberingService = $documentNumberingService;
         $this->deliveryJournalService = $deliveryJournalService;
+        $this->companyEntityService = $companyEntityService;
     }
 
     public function createDeliveryOrderFromSalesOrder($salesOrderId, $data = [])
@@ -57,14 +61,17 @@ class DeliveryService
                 throw new \Exception('Sales Order cannot be converted to Delivery Order');
             }
 
+            $entityId = $salesOrder->company_entity_id ?? $this->companyEntityService->getDefaultEntity()->id;
+
             // Get customer details from business partner
             $customer = $salesOrder->businessPartner;
             $customerAddress = $customer ? ($customer->shipping_address ?: $customer->address) : null;
             $customerContact = $customer ? $customer->contact_person : null;
             $customerPhone = $customer ? $customer->phone : null;
 
-            // Generate DO number first (temporary hardcoded for testing)
-            $doNumber = 'DO-' . date('Ymd') . '-' . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT);
+            $doNumber = $this->documentNumberingService->generateNumber('delivery_order', now()->toDateString(), [
+                'company_entity_id' => $entityId,
+            ]);
 
             // Create delivery order
             Log::info('DeliveryService: Creating Delivery Order', [
@@ -82,6 +89,7 @@ class DeliveryService
                     'do_number' => $doNumber,
                     'sales_order_id' => $salesOrder->id,
                     'business_partner_id' => $salesOrder->business_partner_id,
+                    'company_entity_id' => $entityId,
                     'warehouse_id' => $data['warehouse_id'] ?? $salesOrder->warehouse_id,
                     'delivery_address' => $data['delivery_address'] ?? $customerAddress,
                     'delivery_contact_person' => $data['delivery_contact_person'] ?? $customerContact,

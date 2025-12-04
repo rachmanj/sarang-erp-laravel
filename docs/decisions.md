@@ -30,6 +30,114 @@ Decision: [Title] - [YYYY-MM-DD]
 
 ## Recent Decisions
 
+### Decision: Inventory Low Stock & Valuation Routes and Scope Fix - 2025-11-29
+
+**Context**: Navigating to `/inventory/low-stock` and `/inventory/valuation-report` caused 500 errors due to the generic `inventory/{item}` route capturing the report URLs and the `InventoryItem::scopeLowStock()` referencing a non-existent `current_stock` database column. The valuation report view also relied on a transformed collection that broke route parameter generation for `inventory.show`.
+
+**Options Considered**:
+
+1. **Option A**: Change controller signatures and add custom logic in each method to special-case the report URLs.
+    - ✅ Pros: Localised changes in controller.
+    - ❌ Cons: Leaves route table ambiguous, brittle to future additions, duplicates logic.
+2. **Option B**: Reorder and clarify routes plus fix the model scope to rely on existing warehouse stock tables.
+    - ✅ Pros: Aligns with Laravel routing best practices, keeps concerns in the right layers (routing/model), reuses existing `inventory_warehouse_stock` data, fixes all consumers of the low stock scope.
+    - ❌ Cons: Requires coordinated updates in routes, model, and views.
+
+**Decision**: Adopt Option B—prioritise static inventory report routes before the catch-all `inventory/{item}` routes and refactor the `InventoryItem::scopeLowStock()` to use `inventory_warehouse_stock` instead of a non-existent `current_stock` column.
+
+**Rationale**:
+
+- Ensures `/inventory/low-stock` and `/inventory/valuation-report` are always handled by their dedicated controller methods and never misrouted to `InventoryController::show()`.
+- Centralises low stock logic in the model using real schema (`inventory_warehouse_stock.quantity_on_hand` and `reorder_point`), fixing all callers (`InventoryController`, `InventoryService`, dashboard).
+- Keeps the valuation report controller returning a standard `InventoryItem` collection while the view derives latest valuation data from the eager-loaded `valuations` relation, avoiding array-mapped collections that break route helpers.
+
+**Implementation**:
+
+- Updated `routes/web.php` inventory group so `/inventory/low-stock` and `/inventory/valuation-report` are declared before `Route::get('/{item}', ...)` and grouped item detail routes (`show/edit/update/destroy`) at the end.
+- Refactored `InventoryItem::scopeLowStock()` to use an `EXISTS` subquery on `inventory_warehouse_stock` (`quantity_on_hand <= reorder_point`) instead of `whereRaw('current_stock <= reorder_point')`.
+- Simplified `InventoryController::valuationReport()` to return `InventoryItem::with(['category', 'valuations'])->active()->get()` and adjusted `inventory/valuation-report.blade.php` to compute `$latestValuation` from the eager-loaded `valuations` collection.
+- Fixed JS helpers in `inventory/low-stock.blade.php` and `inventory/valuation-report.blade.php` to generate URLs for `inventory.adjust-stock` and `inventory.show` using placeholder replacement instead of calling `route()` with missing parameters.
+
+**Review Date**: 2026-03-31 (after more extensive inventory operations and reporting usage in production).
+
+### Decision: Multi-Entity Company Profile Foundation - 2025-11-28
+
+**Context**: Users need to generate purchasing and sales documents under multiple legal entities (PT Cahaya Sarange Jaya and CV Cahaya Saranghae) while sharing the same master data. Each document must carry entity-specific letterheads, tax information, and numbering without duplicating inventory records.
+
+**Options Considered**:
+
+1. **Option A**: Store per-entity attributes inside existing `erp_parameters` and reuse current document schema.
+    - ✅ Pros: Minimal schema work, quick to prototype.
+    - ❌ Cons: Hard to manage multiple letterheads, no FK relation to documents, difficult to enforce referential integrity.
+
+2. **Option B**: Create dedicated `company_entities` table and add `company_entity_id` to every document header.
+    - ✅ Pros: Strong referential integrity, scalable for future entities, easy to query/filter, aligns with ERP best practices.
+    - ❌ Cons: Requires new migrations/seeders and updates across many tables.
+
+3. **Option C**: Spin up separate databases per entity.
+    - ✅ Pros: Clear separation of data.
+    - ❌ Cons: Duplicates master data, complicates consolidation, heavy operational overhead.
+
+**Decision**: Adopt Option B—dedicated `company_entities` master table with FK references from all purchasing and sales headers.
+
+**Rationale**:
+
+- Maintains shared inventory/master data while enabling per-entity reporting and numbering.
+- Provides a single source of truth for logos, addresses, tax numbers, and letterhead metadata.
+- Simplifies future UI changes (entity selectors, previews) and reporting filters.
+- Keeps accounting postings aligned by allowing future journal tagging via the same FK.
+- Avoids multi-database complexity and parameter sprawl.
+
+**Implementation**:
+
+- Added `company_entities` table with code, legal name, contact details, logos, and letterhead metadata.
+- Seeded PT Cahaya Sarange Jaya (`code 71`, `logo_pt_csj.png`) and CV Cahaya Saranghae (`code 72`, `logo_cv_saranghae.png`).
+- Added nullable `company_entity_id` foreign keys to purchase_orders, goods_receipt_po, purchase_invoices, purchase_payments, sales_orders, delivery_orders, sales_invoices, and sales_receipts.
+- Extended `document_sequences` table with entity-aware columns (`company_entity_id`, `document_code`, `year`, `current_number`) to prepare the new numbering format.
+- Updated architecture, TODO, decision, and memory docs to reflect the multi-entity foundation.
+
+**Review Date**: 2026-01-31 (after Phase 2/3 UI + numbering rollout).
+
+---
+
+### Decision: Entity-Aware Document Numbering & Services - 2025-11-28
+
+**Context**: After introducing multiple legal entities, document numbering and service layers still produced shared numbers (PREFIX-YYYYMM-######) and did not persist `company_entity_id`, making it impossible to segregate PO/GRPO/PI/SO/DO/SI/SR data per entity.
+
+**Options Considered**:
+
+1. **Option A**: Keep existing numbering and add manual prefixes.
+    - ✅ Pros: Minimal code changes.
+    - ❌ Cons: Users must manually ensure uniqueness, no referential integrity, hard to audit.
+
+2. **Option B**: Create per-entity numbering but keep logic in controllers.
+    - ✅ Pros: Entity-aware numbering.
+    - ❌ Cons: Duplicated logic, error-prone maintenance, inconsistent format.
+
+3. **Option C**: Centralize entity resolution + numbering inside services (Recommended).
+    - ✅ Pros: Single source of truth, seamless inheritance from base documents, easy to extend, minimizes controller logic.
+    - ❌ Cons: Requires coordinated updates across controllers/services/models.
+
+**Decision**: Adopt Option C. Update DocumentNumberingService + DocumentSequence to support `EEYYDDNNNNN` per entity/per doc/per year and introduce CompanyEntityService for default resolution + propagation.
+
+**Rationale**:
+
+- Guarantees unique numbering sequences per legal entity and document family.
+- Keeps controllers thin; services manage default entity/fallback logic.
+- Preserves compatibility for legacy modules (PP/SR/DIS/etc.) still on prefix format.
+- Enables downstream reporting and PDF rendering to know which entity produced each document.
+
+**Implementation**:
+
+- Added `CompanyEntityService` plus `company_entity_id` relationships across PO, GRPO, PI, PP, SO, DO, SI, SR models.
+- Refactored controllers/services to persist entity context, inherit it when copying documents, and pass it to DocumentNumberingService.
+- Enhanced DocumentNumberingService + DocumentSequence with entity-aware fields (`document_code`, `year`, `current_number`) while keeping legacy prefixes untouched.
+- Delivery workflow now generates DO numbers via the numbering service and copies entity context from its Sales Order.
+
+**Review Date**: 2026-02-15 (after UI entity selector rollout and user acceptance).
+
+---
+
 ### Decision: Corrected Accounting Flow with Intermediate Accounts - 2025-09-22
 
 **Context**: The existing accounting system had critical mismatches where GRPO created liabilities before receiving vendor invoices and Purchase Invoices debited cash when no cash was received, violating proper accrual accounting principles. The system needed intermediate accounts to properly track goods received/delivered but not yet invoiced.

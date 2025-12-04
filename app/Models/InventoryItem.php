@@ -128,7 +128,12 @@ class InventoryItem extends Model
 
     public function scopeLowStock($query)
     {
-        return $query->whereRaw('current_stock <= reorder_point');
+        return $query->whereExists(function ($sub) {
+            $sub->selectRaw(1)
+                ->from('inventory_warehouse_stock')
+                ->whereColumn('inventory_warehouse_stock.item_id', 'inventory_items.id')
+                ->whereColumn('inventory_warehouse_stock.quantity_on_hand', '<=', 'inventory_warehouse_stock.reorder_point');
+        });
     }
 
     // Helper methods for price levels

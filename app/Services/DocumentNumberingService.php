@@ -8,7 +8,7 @@ use Carbon\Carbon;
 
 class DocumentNumberingService
 {
-    const DOCUMENT_TYPES = [
+    private const LEGACY_DOCUMENT_TYPES = [
         'purchase_order' => 'PO',
         'sales_order' => 'SO',
         'purchase_invoice' => 'PINV',
@@ -23,100 +23,93 @@ class DocumentNumberingService
         'account_statement' => 'AST'
     ];
 
+    private const ENTITY_DOCUMENT_CODES = [
+        'purchase_order' => '01',
+        'goods_receipt' => '02',
+        'grpo' => '02',
+        'purchase_invoice' => '03',
+        'sales_order' => '06',
+        'delivery_order' => '07',
+        'sales_invoice' => '08',
+    ];
+
+    public function __construct(
+        private CompanyEntityService $companyEntityService
+    ) {}
+
     /**
-     * Generate a document number for the given document type and date
+     * Generate a document number for the given document type and date.
      */
     public function generateNumber(string $documentType, string $date, array $options = []): string
     {
-        if (!isset(self::DOCUMENT_TYPES[$documentType])) {
+        if ($this->usesEntityFormat($documentType)) {
+            $entity = $this->companyEntityService->getEntity($options['company_entity_id'] ?? null);
+            $year = Carbon::parse($date)->year;
+            $docCode = self::ENTITY_DOCUMENT_CODES[$documentType];
+            $sequence = $this->getNextEntitySequence($entity->id, $documentType, $docCode, $year);
+
+            return $this->formatEntityNumber($entity->code, $year, $docCode, $sequence);
+        }
+
+        if (!isset(self::LEGACY_DOCUMENT_TYPES[$documentType])) {
             throw new \InvalidArgumentException("Invalid document type: {$documentType}");
         }
 
-        $prefix = self::DOCUMENT_TYPES[$documentType];
+        $prefix = self::LEGACY_DOCUMENT_TYPES[$documentType];
         $yearMonth = Carbon::parse($date)->format('Ym');
-        $sequence = $this->getNextSequence($documentType, $yearMonth);
+        $sequence = $this->getNextLegacySequence($documentType, $yearMonth);
 
         return sprintf('%s-%s-%06d', $prefix, $yearMonth, $sequence);
     }
 
     /**
-     * Get the next sequence number for a document type and year-month
-     */
-    public function getNextSequence(string $documentType, string $yearMonth): int
-    {
-        return DB::transaction(function () use ($documentType, $yearMonth) {
-            $sequence = DocumentSequence::lockForUpdate()
-                ->where('document_type', $documentType)
-                ->where('year_month', $yearMonth)
-                ->first();
-
-            if (!$sequence) {
-                $sequence = DocumentSequence::create([
-                    'document_type' => $documentType,
-                    'year_month' => $yearMonth,
-                    'last_sequence' => 0
-                ]);
-            }
-
-            $sequence->increment('last_sequence');
-            return $sequence->last_sequence;
-        });
-    }
-
-    /**
-     * Validate a document number format
+     * Validate a document number format.
      */
     public function validateNumber(string $number, string $documentType): bool
     {
-        if (!isset(self::DOCUMENT_TYPES[$documentType])) {
+        if ($this->usesEntityFormat($documentType)) {
+            return preg_match('/^\d{2}\d{2}\d{2}\d{5}$/', $number) === 1;
+        }
+
+        if (!isset(self::LEGACY_DOCUMENT_TYPES[$documentType])) {
             return false;
         }
 
-        $prefix = self::DOCUMENT_TYPES[$documentType];
+        $prefix = self::LEGACY_DOCUMENT_TYPES[$documentType];
         $pattern = '/^' . preg_quote($prefix) . '-\d{6}-\d{6}$/';
 
         return preg_match($pattern, $number) === 1;
     }
 
     /**
-     * Get all supported document types
+     * Get all supported document types.
      */
     public function getSupportedTypes(): array
     {
-        return array_keys(self::DOCUMENT_TYPES);
+        return array_unique(array_merge(
+            array_keys(self::LEGACY_DOCUMENT_TYPES),
+            array_keys(self::ENTITY_DOCUMENT_CODES)
+        ));
     }
 
     /**
-     * Get prefix for a document type
-     */
-    public function getPrefix(string $documentType): string
-    {
-        if (!isset(self::DOCUMENT_TYPES[$documentType])) {
-            throw new \InvalidArgumentException("Invalid document type: {$documentType}");
-        }
-
-        return self::DOCUMENT_TYPES[$documentType];
-    }
-
-    /**
-     * Repair sequences for a document type (handle gaps)
+     * Repair sequences for a legacy document type (handle gaps).
      */
     public function repairSequences(string $documentType, string $yearMonth): int
     {
-        $prefix = $this->getPrefix($documentType);
-        $pattern = $prefix . '-' . $yearMonth . '-%';
+        if ($this->usesEntityFormat($documentType)) {
+            return 0;
+        }
 
-        // Get all existing numbers for this type and month
+        $prefix = $this->getLegacyPrefix($documentType);
         $existingNumbers = $this->getExistingNumbers($documentType, $yearMonth);
 
         if (empty($existingNumbers)) {
             return 0;
         }
 
-        // Find the highest sequence
         $maxSequence = max($existingNumbers);
 
-        // Update the sequence record
         $sequence = DocumentSequence::where('document_type', $documentType)
             ->where('year_month', $yearMonth)
             ->first();
@@ -130,15 +123,88 @@ class DocumentNumberingService
     }
 
     /**
-     * Get existing document numbers for a type and month
+     * Determine if document type should use entity-based numbering.
+     */
+    private function usesEntityFormat(string $documentType): bool
+    {
+        return array_key_exists($documentType, self::ENTITY_DOCUMENT_CODES);
+    }
+
+    private function getLegacyPrefix(string $documentType): string
+    {
+        if (!isset(self::LEGACY_DOCUMENT_TYPES[$documentType])) {
+            throw new \InvalidArgumentException("Invalid document type: {$documentType}");
+        }
+
+        return self::LEGACY_DOCUMENT_TYPES[$documentType];
+    }
+
+    /**
+     * Fetch next sequence for legacy PREFIX-YYYYMM-###### format.
+     */
+    private function getNextLegacySequence(string $documentType, string $yearMonth): int
+    {
+        return DB::transaction(function () use ($documentType, $yearMonth) {
+            $sequence = DocumentSequence::lockForUpdate()
+                ->where('document_type', $documentType)
+                ->where('year_month', $yearMonth)
+                ->first();
+
+            if (!$sequence) {
+                $sequence = DocumentSequence::create([
+                    'document_type' => $documentType,
+                    'year_month' => $yearMonth,
+                    'last_sequence' => 0,
+                ]);
+            }
+
+            $sequence->increment('last_sequence');
+            return $sequence->last_sequence;
+        });
+    }
+
+    /**
+     * Fetch next sequence for entity-based EEYYDD99999 format.
+     */
+    private function getNextEntitySequence(int $entityId, string $documentType, string $documentCode, int $year): int
+    {
+        return DB::transaction(function () use ($entityId, $documentType, $documentCode, $year) {
+            $sequence = DocumentSequence::lockForUpdate()
+                ->where('company_entity_id', $entityId)
+                ->where('document_code', $documentCode)
+                ->where('year', $year)
+                ->first();
+
+            if (!$sequence) {
+                $sequence = DocumentSequence::create([
+                    'company_entity_id' => $entityId,
+                    'document_type' => $documentType . '_entity_' . $entityId,
+                    'document_code' => $documentCode,
+                    'year' => $year,
+                    'year_month' => sprintf('%04d00', $year),
+                    'last_sequence' => 0,
+                    'current_number' => 0,
+                ]);
+            }
+
+            return $sequence->incrementEntitySequence();
+        });
+    }
+
+    private function formatEntityNumber(string $entityCode, int $year, string $documentCode, int $sequence): string
+    {
+        $entityPart = str_pad(substr(preg_replace('/\D/', '', $entityCode), -2) ?: $entityCode, 2, '0', STR_PAD_LEFT);
+        $yearPart = substr((string) $year, -2);
+        $sequencePart = str_pad((string) $sequence, 5, '0', STR_PAD_LEFT);
+
+        return sprintf('%s%s%s%s', $entityPart, $yearPart, $documentCode, $sequencePart);
+    }
+
+    /**
+     * Placeholder for legacy data reconciliation.
      */
     private function getExistingNumbers(string $documentType, string $yearMonth): array
     {
-        $prefix = $this->getPrefix($documentType);
-        $pattern = $prefix . '-' . $yearMonth . '-%';
-
-        // This would need to be implemented based on the specific table structure
-        // For now, return empty array as placeholder
         return [];
     }
 }

@@ -14,6 +14,7 @@ use App\Services\InventoryService;
 use App\Services\DocumentNumberingService;
 use App\Services\ApprovalWorkflowService;
 use App\Services\SalesWorkflowAuditService;
+use App\Services\CompanyEntityService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -25,17 +26,20 @@ class SalesService
     protected $documentNumberingService;
     protected $approvalWorkflowService;
     protected $workflowAuditService;
+    protected $companyEntityService;
 
     public function __construct(
         InventoryService $inventoryService,
         DocumentNumberingService $documentNumberingService,
         ApprovalWorkflowService $approvalWorkflowService,
-        SalesWorkflowAuditService $workflowAuditService
+        SalesWorkflowAuditService $workflowAuditService,
+        CompanyEntityService $companyEntityService
     ) {
         $this->inventoryService = $inventoryService;
         $this->documentNumberingService = $documentNumberingService;
         $this->approvalWorkflowService = $approvalWorkflowService;
         $this->workflowAuditService = $workflowAuditService;
+        $this->companyEntityService = $companyEntityService;
     }
 
     public function createSalesOrder($data)
@@ -43,6 +47,8 @@ class SalesService
         return DB::transaction(function () use ($data) {
             // Check credit limit
             $this->checkCreditLimit($data['business_partner_id'], $data['total_amount']);
+
+            $entityId = $data['company_entity_id'] ?? $this->companyEntityService->getDefaultEntity()->id;
 
             $so = SalesOrder::create([
                 'order_no' => $data['order_no'],
@@ -53,6 +59,7 @@ class SalesService
                 'currency_id' => $data['currency_id'] ?? 1,
                 'exchange_rate' => $data['exchange_rate'] ?? 1.000000,
                 'warehouse_id' => $data['warehouse_id'],
+                'company_entity_id' => $entityId,
                 'description' => $data['description'] ?? null,
                 'notes' => $data['notes'] ?? null,
                 'terms_conditions' => $data['terms_conditions'] ?? null,

@@ -12,6 +12,7 @@ use App\Services\DocumentClosureService;
 use App\Services\GRPOJournalService;
 use App\Services\Accounting\PostingService;
 use App\Services\PurchaseWorkflowAuditService;
+use App\Services\CompanyEntityService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
@@ -23,7 +24,8 @@ class GoodsReceiptPOController extends Controller
         private GRPOCopyService $grpoCopyService,
         private DocumentClosureService $documentClosureService,
         private GRPOJournalService $grpoJournalService,
-        private PostingService $postingService
+        private PostingService $postingService,
+        private CompanyEntityService $companyEntityService
     ) {}
 
     public function index()
@@ -38,8 +40,10 @@ class GoodsReceiptPOController extends Controller
         $taxCodes = DB::table('tax_codes')->orderBy('code')->get();
         $categories = DB::table('product_categories')->orderBy('name')->get();
         $warehouses = DB::table('warehouses')->where('is_active', 1)->where('name', 'not like', '%Transit%')->orderBy('name')->get();
+        $entities = $this->companyEntityService->getActiveEntities();
+        $defaultEntity = $this->companyEntityService->getDefaultEntity();
         // Don't load POs initially - will be loaded via AJAX based on vendor selection
-        return view('goods_receipt_pos.create', compact('vendors', 'accounts', 'taxCodes', 'categories', 'warehouses'));
+        return view('goods_receipt_pos.create', compact('vendors', 'accounts', 'taxCodes', 'categories', 'warehouses', 'entities', 'defaultEntity'));
     }
 
     public function store(Request $request)
@@ -48,6 +52,7 @@ class GoodsReceiptPOController extends Controller
             'date' => ['required', 'date'],
             'business_partner_id' => ['required', 'integer', 'exists:business_partners,id'],
             'warehouse_id' => ['required', 'integer', 'exists:warehouses,id'],
+            'company_entity_id' => ['required', 'integer', 'exists:company_entities,id'],
             'purchase_order_id' => ['nullable', 'integer', 'exists:purchase_orders,id'],
             'description' => ['nullable', 'string', 'max:255'],
             'lines' => ['required', 'array', 'min:1'],
@@ -56,18 +61,27 @@ class GoodsReceiptPOController extends Controller
             'lines.*.qty' => ['required', 'numeric', 'min:0.01'],
         ]);
 
-        return DB::transaction(function () use ($data) {
+        $purchaseOrder = null;
+        if (!empty($data['purchase_order_id'])) {
+            $purchaseOrder = PurchaseOrder::select('id', 'company_entity_id')->find($data['purchase_order_id']);
+        }
+        $entityId = $this->companyEntityService->resolveEntityId($request->input('company_entity_id'), $purchaseOrder);
+
+        return DB::transaction(function () use ($data, $entityId, $purchaseOrder) {
             $grpo = GoodsReceiptPO::create([
                 'grn_no' => null,
                 'date' => $data['date'],
                 'business_partner_id' => $data['business_partner_id'],
+                'company_entity_id' => $entityId,
                 'warehouse_id' => $data['warehouse_id'],
                 'purchase_order_id' => $data['purchase_order_id'] ?? null,
                 'description' => $data['description'] ?? null,
                 'status' => 'received', // Automatically mark as received when saved
                 'total_amount' => 0,
             ]);
-            $grpoNo = $this->documentNumberingService->generateNumber('goods_receipt', $data['date']);
+            $grpoNo = $this->documentNumberingService->generateNumber('goods_receipt', $data['date'], [
+                'company_entity_id' => $entityId,
+            ]);
             $grpo->update(['grn_no' => $grpoNo]);
             $totalAmount = 0;
             foreach ($data['lines'] as $l) {
@@ -92,11 +106,8 @@ class GoodsReceiptPOController extends Controller
             $grpo->update(['total_amount' => $totalAmount]);
 
             // Log GRPO creation in Purchase Order audit trail
-            if (isset($data['purchase_order_id']) && $data['purchase_order_id']) {
-                $po = PurchaseOrder::find($data['purchase_order_id']);
-                if ($po) {
-                    app(PurchaseWorkflowAuditService::class)->logGRPOCreation($po, $grpo->id);
-                }
+            if ($purchaseOrder) {
+                app(PurchaseWorkflowAuditService::class)->logGRPOCreation($purchaseOrder, $grpo->id);
             }
 
             // Automatically create and post journal entries since goods are received

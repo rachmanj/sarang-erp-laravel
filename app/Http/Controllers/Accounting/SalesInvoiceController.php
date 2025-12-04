@@ -6,10 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Models\Accounting\SalesInvoice;
 use App\Models\Accounting\SalesInvoiceLine;
 use App\Models\SalesOrder;
+use App\Models\DeliveryOrder;
 use App\Services\Accounting\PostingService;
 use App\Services\DocumentNumberingService;
 use App\Services\DocumentClosureService;
 use App\Services\SalesWorkflowAuditService;
+use App\Services\CompanyEntityService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\Facades\DataTables;
@@ -19,7 +21,8 @@ class SalesInvoiceController extends Controller
     public function __construct(
         private PostingService $posting,
         private DocumentNumberingService $documentNumberingService,
-        private DocumentClosureService $documentClosureService
+        private DocumentClosureService $documentClosureService,
+        private CompanyEntityService $companyEntityService
     ) {
         $this->middleware(['auth']);
         $this->middleware('permission:ar.invoices.view')->only(['index', 'show']);
@@ -39,7 +42,9 @@ class SalesInvoiceController extends Controller
         $taxCodes = DB::table('tax_codes')->orderBy('code')->get();
         $projects = DB::table('projects')->orderBy('code')->get(['id', 'code', 'name']);
         $departments = DB::table('departments')->orderBy('code')->get(['id', 'code', 'name']);
-        return view('sales_invoices.create', compact('accounts', 'customers', 'taxCodes', 'projects', 'departments'));
+        $entities = $this->companyEntityService->getActiveEntities();
+        $defaultEntity = $this->companyEntityService->getDefaultEntity();
+        return view('sales_invoices.create', compact('accounts', 'customers', 'taxCodes', 'projects', 'departments', 'entities', 'defaultEntity'));
     }
 
     public function store(Request $request)
@@ -47,6 +52,7 @@ class SalesInvoiceController extends Controller
         $data = $request->validate([
             'date' => ['required', 'date'],
             'business_partner_id' => ['required', 'integer', 'exists:business_partners,id'],
+            'company_entity_id' => ['required', 'integer', 'exists:company_entities,id'],
             'description' => ['nullable', 'string', 'max:255'],
             'lines' => ['required', 'array', 'min:1'],
             'lines.*.account_id' => ['required', 'integer', 'exists:accounts,id'],
@@ -58,7 +64,18 @@ class SalesInvoiceController extends Controller
             'lines.*.dept_id' => ['nullable', 'integer'],
         ]);
 
-        return DB::transaction(function () use ($data, $request) {
+        $salesOrder = $request->input('sales_order_id')
+            ? SalesOrder::select('id', 'company_entity_id')->find($request->input('sales_order_id'))
+            : null;
+        $deliveryOrder = $request->input('delivery_order_id')
+            ? DeliveryOrder::select('id', 'company_entity_id')->find($request->input('delivery_order_id'))
+            : null;
+        $entity = $this->companyEntityService->resolveFromModel(
+            $request->input('company_entity_id'),
+            $deliveryOrder ?? $salesOrder
+        );
+
+        return DB::transaction(function () use ($data, $request, $salesOrder, $deliveryOrder, $entity) {
             $invoice = SalesInvoice::create([
                 'invoice_no' => null,
                 'date' => $data['date'],
@@ -67,10 +84,13 @@ class SalesInvoiceController extends Controller
                 'description' => $data['description'] ?? null,
                 'status' => 'draft',
                 'total_amount' => 0,
+                'company_entity_id' => $entity->id,
             ]);
 
             // Generate human-readable number
-            $invoiceNo = $this->documentNumberingService->generateNumber('sales_invoice', $data['date']);
+            $invoiceNo = $this->documentNumberingService->generateNumber('sales_invoice', $data['date'], [
+                'company_entity_id' => $entity->id,
+            ]);
             $invoice->update(['invoice_no' => $invoiceNo]);
 
             $total = 0;
@@ -95,17 +115,14 @@ class SalesInvoiceController extends Controller
             $invoice->update(['total_amount' => $total, 'terms_days' => $termsDays ?: null, 'due_date' => $dueDate]);
 
             // Log invoice creation in Sales Order audit trail
-            if ($request->input('sales_order_id')) {
-                $so = SalesOrder::find($request->input('sales_order_id'));
-                if ($so) {
-                    app(SalesWorkflowAuditService::class)->logSalesInvoiceCreation($so, $invoice->id);
-                }
+            if ($salesOrder) {
+                app(SalesWorkflowAuditService::class)->logSalesInvoiceCreation($salesOrder, $invoice->id);
             }
 
             // Attempt to close related documents if this SI was created from Delivery Order
-            if ($request->input('delivery_order_id')) {
+            if ($deliveryOrder) {
                 try {
-                    $this->documentClosureService->closeDeliveryOrder($request->input('delivery_order_id'), $invoice->id, auth()->id());
+                    $this->documentClosureService->closeDeliveryOrder($deliveryOrder->id, $invoice->id, auth()->id());
                 } catch (\Exception $closureException) {
                     // Log closure failure but don't fail the SI creation
                     \Log::warning('Failed to close Delivery Order after SI creation', [
