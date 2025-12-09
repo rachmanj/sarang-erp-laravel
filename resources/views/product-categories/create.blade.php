@@ -83,13 +83,16 @@
                                                         class="form-control select2bs4 @error('parent_id') is-invalid @enderror"
                                                         id="parent_id" name="parent_id">
                                                         <option value="">Select Parent Category (Optional)</option>
-                                                        @foreach (\App\Models\ProductCategory::orderBy('name')->get() as $parentCategory)
+                                                        @foreach ($parentCategories ?? \App\Models\ProductCategory::root()->active()->orderBy('name')->get() as $parentCategory)
                                                             <option value="{{ $parentCategory->id }}"
                                                                 {{ old('parent_id') == $parentCategory->id ? 'selected' : '' }}>
                                                                 {{ $parentCategory->name }} ({{ $parentCategory->code }})
                                                             </option>
                                                         @endforeach
                                                     </select>
+                                                    <small class="form-text text-muted">
+                                                        Only root categories are shown. Sub-categories will inherit accounts from their parent.
+                                                    </small>
                                                     @error('parent_id')
                                                         <div class="invalid-feedback">{{ $message }}</div>
                                                     @enderror

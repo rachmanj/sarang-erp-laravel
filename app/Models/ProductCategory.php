@@ -193,4 +193,76 @@ class ProductCategory extends Model
             'source_category' => $sourceCategory,
         ];
     }
+
+    /**
+     * Get hierarchical display name (e.g., "Parent > Child > Grandchild")
+     */
+    public function getHierarchicalName(): string
+    {
+        $names = [];
+        $category = $this;
+
+        // Build path from root to current category
+        while ($category) {
+            array_unshift($names, $category->name);
+            $category = $category->parent;
+        }
+
+        return implode(' > ', $names);
+    }
+
+    /**
+     * Get full hierarchical path with codes (e.g., "PARENT (PAR) > CHILD (CHI)")
+     */
+    public function getHierarchicalPath(): string
+    {
+        $paths = [];
+        $category = $this;
+
+        // Build path from root to current category
+        while ($category) {
+            array_unshift($paths, $category->name . ' (' . $category->code . ')');
+            $category = $category->parent;
+        }
+
+        return implode(' > ', $paths);
+    }
+
+    /**
+     * Check if this category is a root category
+     */
+    public function isRoot(): bool
+    {
+        return is_null($this->parent_id);
+    }
+
+    /**
+     * Get all descendants (children, grandchildren, etc.) recursively
+     */
+    public function getDescendants()
+    {
+        $descendants = collect();
+        
+        foreach ($this->children as $child) {
+            $descendants->push($child);
+            $descendants = $descendants->merge($child->getDescendants());
+        }
+        
+        return $descendants;
+    }
+
+    /**
+     * Get category IDs that cannot be used as parent (self + all descendants)
+     */
+    public function getInvalidParentIds(): array
+    {
+        $ids = [$this->id];
+        $descendants = $this->getDescendants();
+        
+        foreach ($descendants as $descendant) {
+            $ids[] = $descendant->id;
+        }
+        
+        return $ids;
+    }
 }

@@ -100,6 +100,9 @@
                                                             </option>
                                                         @endforeach
                                                     </select>
+                                                    <small class="form-text text-muted">
+                                                        Only root categories are shown. Sub-categories will inherit accounts from their parent.
+                                                    </small>
                                                     @error('parent_id')
                                                         <div class="invalid-feedback">{{ $message }}</div>
                                                     @enderror

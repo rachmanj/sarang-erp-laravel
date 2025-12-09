@@ -74,7 +74,7 @@ class GRGIController extends Controller
         $purposes = $this->grgiService->getPurposes($documentType);
         $warehouses = Warehouse::active()->get();
         $items = InventoryItem::active()->get();
-        $categories = ProductCategory::active()->get();
+        $categories = ProductCategory::with('parent')->active()->get();
         $accounts = Account::postable()->get();
 
         return view('gr-gi.create', compact(

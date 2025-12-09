@@ -45,9 +45,34 @@
                                 <i class="fas fa-list mr-2"></i>
                                 All Categories
                             </h3>
+                            <div class="card-tools">
+                                <div class="btn-group" role="group">
+                                    <a href="{{ route('product-categories.index', ['view' => 'table']) }}" 
+                                       class="btn btn-sm {{ ($viewMode ?? 'table') == 'table' ? 'btn-primary' : 'btn-secondary' }}">
+                                        <i class="fas fa-table mr-1"></i> Table View
+                                    </a>
+                                    <a href="{{ route('product-categories.index', ['view' => 'tree']) }}" 
+                                       class="btn btn-sm {{ ($viewMode ?? 'table') == 'tree' ? 'btn-primary' : 'btn-secondary' }}">
+                                        <i class="fas fa-sitemap mr-1"></i> Tree View
+                                    </a>
+                                </div>
+                            </div>
                         </div>
                         <div class="card-body">
-                            @if ($categories->count() > 0)
+                            @if (($viewMode ?? 'table') == 'tree')
+                                @if (isset($rootCategories) && $rootCategories->count() > 0)
+                                    <div class="category-tree">
+                                        @foreach ($rootCategories as $rootCategory)
+                                            @include('product-categories.partials.tree-item', ['category' => $rootCategory, 'level' => 0, 'categories' => $categories])
+                                        @endforeach
+                                    </div>
+                                @else
+                                    <div class="text-center py-4">
+                                        <i class="fas fa-tags fa-3x text-muted mb-3"></i>
+                                        <h5 class="text-muted">No Product Categories Found</h5>
+                                    </div>
+                                @endif
+                            @elseif ($categories->count() > 0)
                                 <div class="table-responsive">
                                     <table class="table table-bordered table-striped">
                                         <thead class="thead-dark">
@@ -71,7 +96,10 @@
                                                         <span class="badge badge-info">{{ $category->code }}</span>
                                                     </td>
                                                     <td>
-                                                        <strong>{{ $category->name }}</strong>
+                                                        <strong>{{ $category->getHierarchicalName() }}</strong>
+                                                        @if ($category->parent)
+                                                            <br><small class="text-muted">{{ $category->code }}</small>
+                                                        @endif
                                                     </td>
                                                     <td>{{ $category->description ?? '-' }}</td>
                                                     <td>
@@ -148,9 +176,11 @@
                                 </div>
 
                                 <!-- Pagination -->
-                                <div class="d-flex justify-content-center">
-                                    {{ $categories->links() }}
-                                </div>
+                                @if (($viewMode ?? 'table') == 'table')
+                                    <div class="d-flex justify-content-center">
+                                        {{ $categories->links() }}
+                                    </div>
+                                @endif
                             @else
                                 <div class="text-center py-4">
                                     <i class="fas fa-tags fa-3x text-muted mb-3"></i>
@@ -198,6 +228,29 @@
         </div>
     </div>
 @endsection
+
+@push('styles')
+    <style>
+        .category-tree {
+            max-width: 100%;
+        }
+        .category-tree-item {
+            margin-bottom: 10px;
+        }
+        .category-tree-item .card {
+            border-left: 3px solid;
+        }
+        .category-tree-item .card-primary {
+            border-left-color: #007bff;
+        }
+        .category-tree-item .card-info {
+            border-left-color: #17a2b8;
+        }
+        .category-tree-item .card-secondary {
+            border-left-color: #6c757d;
+        }
+    </style>
+@endpush
 
 @push('scripts')
     <script>

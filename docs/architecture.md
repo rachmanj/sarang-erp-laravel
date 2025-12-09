@@ -1,5 +1,5 @@
 Purpose: Technical reference for understanding system design and development patterns
-Last Updated: 2025-10-17 (Updated with Multi-Currency Implementation)
+Last Updated: 2025-01-21 (Updated with Product Category Hierarchical UI Improvements)
 
 ## Architecture Documentation Guidelines
 
@@ -178,15 +178,20 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
     -   **COGS Account**: For cost of goods sold (e.g., "COGS - Stationery")
     -   **Sales Account**: For revenue recognition (e.g., "Sales - Stationery")
 -   **Automatic Mapping**: Items inherit account mappings from their category
+-   **Account Inheritance**: Sub-categories can inherit accounts from parent categories if not explicitly set
 -   **Service Categories**: Support for service-only categories without inventory accounts
 -   **CRUD Interface**: Complete Product Category management system with:
-    -   **ProductCategoryController**: Full CRUD operations with validation
-    -   **AdminLTE Views**: Index, create, show, edit views with proper form handling
+    -   **ProductCategoryController**: Full CRUD operations with validation and hierarchical support
+    -   **AdminLTE Views**: Index with table/tree view toggle, create, show, edit views with proper form handling
     -   **Account Selection**: Dropdown interfaces for selecting inventory, COGS, and sales accounts
-    -   **Hierarchical Support**: Parent-child category relationships
+    -   **Hierarchical Support**: Full parent-child category relationships with account inheritance
+    -   **Hierarchical Display**: Categories display with full path (e.g., "Parent > Child > Grandchild") in dropdowns
+    -   **Tree View**: Visual hierarchical tree display with color-coded levels and expandable structure
+    -   **Parent Selection**: Only root categories shown as potential parents to prevent circular references
     -   **Audit Integration**: Complete audit trail for category changes
     -   **Menu Integration**: Accessible via Master Data → Product Categories
--   **Sample Categories**: Stationery, Electronics, Furniture, Vehicles, Services with proper account mappings
+-   **Model Methods**: `getHierarchicalName()`, `getHierarchicalPath()`, `isRoot()`, `getDescendants()`, `getInvalidParentIds()` for hierarchical operations
+-   **Sample Categories**: Welding, Electrical, Otomotif, Lifting Tools, Consumables, Stationery, Electronics, Chemical, Bolt Nut, Safety, Tools with proper account mappings
 
 #### 4.3. Multi-Warehouse Management
 
@@ -593,7 +598,7 @@ The database schema has been consolidated from 51 to 44 migration files for impr
 -   `/purchase-invoices/*`: AP invoice management
 -   `/assets/*`: Fixed asset management
 -   `/inventory/*`: Enhanced inventory management with CRUD operations, stock management, reports, price level management, and audit trails
--   `/product-categories/*`: Product category management with CRUD operations, account mapping, hierarchical support, and audit integration
+-   `/product-categories/*`: Product category management with CRUD operations, account mapping, hierarchical support (parent-child relationships with account inheritance), tree/table view toggle, hierarchical display in dropdowns, and audit integration
 -   `/warehouses/*`: Multi-warehouse management with CRUD operations, stock transfers, and warehouse-specific reporting
 -   `/gr-gi/*`: GR/GI management with CRUD operations, approval workflow, journal integration, and account mapping
 -   `/audit-logs/*`: System-wide audit trail management with filtering and search capabilities. Routes configured but views missing - see Phase 1 implementation plan. Future enhancements include activity dashboard (`/admin/activity-dashboard`), advanced filtering with saved presets, export/reporting, and inline widgets.

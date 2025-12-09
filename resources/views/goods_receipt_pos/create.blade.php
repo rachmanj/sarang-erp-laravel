@@ -225,8 +225,14 @@
                         <div class="col-md-3">
                             <select id="searchCategory" class="form-control form-control-sm">
                                 <option value="">All Categories</option>
-                                @foreach ($categories as $category)
-                                    <option value="{{ $category->id }}">{{ $category->name }}</option>
+                                @foreach ($categories ?? [] as $category)
+                                    <option value="{{ is_object($category) ? $category->id : $category->id }}">
+                                        @if (is_object($category) && method_exists($category, 'getHierarchicalName'))
+                                            {{ $category->getHierarchicalName() }}
+                                        @else
+                                            {{ is_object($category) ? ($category->name ?? '-') : ($category->name ?? '-') }}
+                                        @endif
+                                    </option>
                                 @endforeach
                             </select>
                         </div>

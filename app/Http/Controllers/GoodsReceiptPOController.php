@@ -38,7 +38,7 @@ class GoodsReceiptPOController extends Controller
         $vendors = DB::table('business_partners')->where('partner_type', 'supplier')->orderBy('name')->get();
         $accounts = DB::table('accounts')->where('is_postable', 1)->orderBy('code')->get();
         $taxCodes = DB::table('tax_codes')->orderBy('code')->get();
-        $categories = DB::table('product_categories')->orderBy('name')->get();
+        $categories = \App\Models\ProductCategory::with('parent')->active()->orderBy('name')->get();
         $warehouses = DB::table('warehouses')->where('is_active', 1)->where('name', 'not like', '%Transit%')->orderBy('name')->get();
         $entities = $this->companyEntityService->getActiveEntities();
         $defaultEntity = $this->companyEntityService->getDefaultEntity();

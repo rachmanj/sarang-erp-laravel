@@ -17,14 +17,30 @@ class TradingCoASeeder extends Seeder
 
         $create = function (string $code, string $name, string $type, bool $isPostable = true, ?string $parentCode = null) use (&$codeToId) {
             $parentId = $parentCode ? ($codeToId[$parentCode] ?? null) : null;
-            $account = Account::create([
-                'code' => $code,
-                'name' => $name,
-                'type' => $type,
-                'is_postable' => $isPostable,
-                'parent_id' => $parentId,
-            ]);
-            $codeToId[$code] = $account->id;
+            
+            // Check if account already exists
+            $existingAccount = Account::where('code', $code)->first();
+            
+            if ($existingAccount) {
+                // Update existing account
+                $existingAccount->update([
+                    'name' => $name,
+                    'type' => $type,
+                    'is_postable' => $isPostable,
+                    'parent_id' => $parentId,
+                ]);
+                $codeToId[$code] = $existingAccount->id;
+            } else {
+                // Create new account
+                $account = Account::create([
+                    'code' => $code,
+                    'name' => $name,
+                    'type' => $type,
+                    'is_postable' => $isPostable,
+                    'parent_id' => $parentId,
+                ]);
+                $codeToId[$code] = $account->id;
+            }
         };
 
         // Assets (1) - Aset
@@ -44,12 +60,18 @@ class TradingCoASeeder extends Seeder
         $create('1.1.2.04', 'AR UnInvoice', 'asset', true, '1.1.2');
 
         $create('1.1.3', 'Persediaan', 'asset', false, '1.1');
-        $create('1.1.3.01', 'Persediaan Barang Dagangan', 'asset', true, '1.1.3');
+        $create('1.1.3.01', 'Persediaan Barang Dagangan', 'asset', false, '1.1.3');
         $create('1.1.3.01.01', 'Persediaan Stationery', 'asset', true, '1.1.3.01');
         $create('1.1.3.01.02', 'Persediaan Electronics', 'asset', true, '1.1.3.01');
-        $create('1.1.3.01.03', 'Persediaan Furniture', 'asset', true, '1.1.3.01');
-        $create('1.1.3.01.04', 'Persediaan Vehicles', 'asset', true, '1.1.3.01');
-        $create('1.1.3.01.05', 'Persediaan Services', 'asset', true, '1.1.3.01');
+        $create('1.1.3.01.03', 'Persediaan Welding', 'asset', true, '1.1.3.01');
+        $create('1.1.3.01.04', 'Persediaan Electrical', 'asset', true, '1.1.3.01');
+        $create('1.1.3.01.05', 'Persediaan Otomotif', 'asset', true, '1.1.3.01');
+        $create('1.1.3.01.06', 'Persediaan Lifting Tools', 'asset', true, '1.1.3.01');
+        $create('1.1.3.01.07', 'Persediaan Consumables', 'asset', true, '1.1.3.01');
+        $create('1.1.3.01.08', 'Persediaan Chemical', 'asset', true, '1.1.3.01');
+        $create('1.1.3.01.09', 'Persediaan Bolt Nut', 'asset', true, '1.1.3.01');
+        $create('1.1.3.01.10', 'Persediaan Safety', 'asset', true, '1.1.3.01');
+        $create('1.1.3.01.11', 'Persediaan Tools', 'asset', true, '1.1.3.01');
         $create('1.1.3.02', 'Persediaan dalam Perjalanan', 'asset', true, '1.1.3');
         $create('1.1.3.03', 'Persediaan Konsinyasi', 'asset', true, '1.1.3');
 
@@ -130,9 +152,15 @@ class TradingCoASeeder extends Seeder
         $create('4.1.1', 'Penjualan Barang Dagangan', 'income', false, '4.1');
         $create('4.1.1.01', 'Penjualan Stationery', 'income', true, '4.1.1');
         $create('4.1.1.02', 'Penjualan Electronics', 'income', true, '4.1.1');
-        $create('4.1.1.03', 'Penjualan Furniture', 'income', true, '4.1.1');
-        $create('4.1.1.04', 'Penjualan Vehicles', 'income', true, '4.1.1');
-        $create('4.1.1.05', 'Penjualan Services', 'income', true, '4.1.1');
+        $create('4.1.1.03', 'Penjualan Welding', 'income', true, '4.1.1');
+        $create('4.1.1.04', 'Penjualan Electrical', 'income', true, '4.1.1');
+        $create('4.1.1.05', 'Penjualan Otomotif', 'income', true, '4.1.1');
+        $create('4.1.1.06', 'Penjualan Lifting Tools', 'income', true, '4.1.1');
+        $create('4.1.1.07', 'Penjualan Consumables', 'income', true, '4.1.1');
+        $create('4.1.1.08', 'Penjualan Chemical', 'income', true, '4.1.1');
+        $create('4.1.1.09', 'Penjualan Bolt Nut', 'income', true, '4.1.1');
+        $create('4.1.1.10', 'Penjualan Safety', 'income', true, '4.1.1');
+        $create('4.1.1.11', 'Penjualan Tools', 'income', true, '4.1.1');
         $create('4.1.2', 'Retur Penjualan', 'income', true, '4.1');
         $create('4.1.3', 'Diskon Penjualan', 'income', true, '4.1');
         $create('4.1.4', 'Potongan Penjualan', 'income', true, '4.1');
@@ -147,9 +175,15 @@ class TradingCoASeeder extends Seeder
         $create('5.1', 'HPP Barang Dagangan', 'expense', false, '5');
         $create('5.1.01', 'HPP Stationery', 'expense', true, '5.1');
         $create('5.1.02', 'HPP Electronics', 'expense', true, '5.1');
-        $create('5.1.03', 'HPP Furniture', 'expense', true, '5.1');
-        $create('5.1.04', 'HPP Vehicles', 'expense', true, '5.1');
-        $create('5.1.05', 'HPP Services', 'expense', true, '5.1');
+        $create('5.1.03', 'HPP Welding', 'expense', true, '5.1');
+        $create('5.1.04', 'HPP Electrical', 'expense', true, '5.1');
+        $create('5.1.05', 'HPP Otomotif', 'expense', true, '5.1');
+        $create('5.1.06', 'HPP Lifting Tools', 'expense', true, '5.1');
+        $create('5.1.07', 'HPP Consumables', 'expense', true, '5.1');
+        $create('5.1.08', 'HPP Chemical', 'expense', true, '5.1');
+        $create('5.1.09', 'HPP Bolt Nut', 'expense', true, '5.1');
+        $create('5.1.10', 'HPP Safety', 'expense', true, '5.1');
+        $create('5.1.11', 'HPP Tools', 'expense', true, '5.1');
         $create('5.2', 'Retur Pembelian', 'expense', true, '5');
         $create('5.3', 'Diskon Pembelian', 'expense', true, '5');
         $create('5.4', 'Potongan Pembelian', 'expense', true, '5');

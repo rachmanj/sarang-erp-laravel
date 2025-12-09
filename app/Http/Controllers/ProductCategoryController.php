@@ -18,13 +18,27 @@ class ProductCategoryController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $categories = ProductCategory::with(['inventoryAccount', 'cogsAccount', 'salesAccount'])
-            ->orderBy('name')
-            ->paginate(15);
+        $viewMode = $request->get('view', 'table'); // 'table' or 'tree'
+        
+        // For tree view, get all categories with relationships
+        if ($viewMode === 'tree') {
+            $categories = ProductCategory::with(['inventoryAccount', 'cogsAccount', 'salesAccount', 'parent', 'children'])
+                ->orderBy('name')
+                ->get();
+            
+            $rootCategories = $categories->whereNull('parent_id');
+            
+            return view('product-categories.index', compact('categories', 'viewMode', 'rootCategories'));
+        } else {
+            // For table view, paginate with parent relationship
+            $categories = ProductCategory::with(['inventoryAccount', 'cogsAccount', 'salesAccount', 'parent'])
+                ->orderBy('name')
+                ->paginate(15);
 
-        return view('product-categories.index', compact('categories'));
+            return view('product-categories.index', compact('categories', 'viewMode'));
+        }
     }
 
     /**
@@ -50,7 +64,14 @@ class ProductCategoryController extends Controller
             ->orderBy('code')
             ->get();
 
-        return view('product-categories.create', compact('inventoryAccounts', 'cogsAccounts', 'salesAccounts'));
+        // Get only root categories as potential parents (to prevent circular references)
+        $parentCategories = ProductCategory::root()
+            ->with('parent')
+            ->active()
+            ->orderBy('name')
+            ->get();
+
+        return view('product-categories.create', compact('inventoryAccounts', 'cogsAccounts', 'salesAccounts', 'parentCategories'));
     }
 
     /**
@@ -170,9 +191,12 @@ class ProductCategoryController extends Controller
             ->orderBy('code')
             ->get();
             
-        // Get parent categories (excluding current category and its children)
-        $parentCategories = ProductCategory::where('id', '!=', $productCategory->id)
-            ->where('parent_id', '!=', $productCategory->id)
+        // Get only root categories as potential parents, excluding current category and its descendants
+        $invalidParentIds = $productCategory->getInvalidParentIds();
+        $parentCategories = ProductCategory::root()
+            ->with('parent')
+            ->whereNotIn('id', $invalidParentIds)
+            ->active()
             ->orderBy('name')
             ->get();
 
@@ -270,13 +294,22 @@ class ProductCategoryController extends Controller
     public function getCategories(Request $request)
     {
         $search = $request->get('q');
-        $categories = ProductCategory::where('is_active', true)
-            ->where('name', 'like', "%{$search}%")
-            ->orWhere('code', 'like', "%{$search}%")
+        $categories = ProductCategory::with('parent')
+            ->where('is_active', true)
+            ->where(function($query) use ($search) {
+                $query->where('name', 'like', "%{$search}%")
+                      ->orWhere('code', 'like', "%{$search}%");
+            })
             ->limit(10)
-            ->get(['id', 'name', 'code']);
+            ->get();
 
-        return response()->json($categories);
+        return response()->json($categories->map(function($category) {
+            return [
+                'id' => $category->id,
+                'name' => $category->getHierarchicalName(),
+                'code' => $category->code,
+            ];
+        }));
     }
 
     /**

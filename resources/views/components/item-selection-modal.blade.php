@@ -33,8 +33,8 @@
                             <label for="searchCategory">Category</label>
                             <select class="form-control form-control-sm" id="searchCategory">
                                 <option value="">All Categories</option>
-                                @foreach (\App\Models\ProductCategory::orderBy('name')->get() as $category)
-                                    <option value="{{ $category->id }}">{{ $category->name }}</option>
+                                @foreach (\App\Models\ProductCategory::with('parent')->active()->orderBy('name')->get() as $category)
+                                    <option value="{{ $category->id }}">{{ $category->getHierarchicalName() }}</option>
                                 @endforeach
                             </select>
                         </div>

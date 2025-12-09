@@ -107,6 +107,7 @@ Periodically (when todo.md gets cluttered):
 -   Update multiple files when changes affect multiple areas
 -   Maintain consistency between memory, architecture, and task tracking
 
+since this app already launched, you need to consider existing data in db. live db already restore to this local db for you to access.
 After making change, test it in the browser using chrome-devtools MCP, assume the server is already running
 
 Remember: These documents should provide comprehensive context for future development and AI assistance, evolving as living documentation that stays current with your codebase.

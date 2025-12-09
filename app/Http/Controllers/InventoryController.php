@@ -37,7 +37,7 @@ class InventoryController extends Controller
 
     public function search(Request $request)
     {
-        $query = InventoryItem::with('category')
+        $query = InventoryItem::with(['category.parent'])
             ->active();
 
         // Search by code
@@ -82,6 +82,7 @@ class InventoryController extends Controller
     public function create()
     {
         $categories = ProductCategory::where('is_active', true)
+            ->with('parent')
             ->orderBy('name')
             ->get();
 
@@ -232,6 +233,7 @@ class InventoryController extends Controller
     {
         $item = InventoryItem::findOrFail($id);
         $categories = ProductCategory::where('is_active', true)
+            ->with('parent')
             ->orderBy('name')
             ->get();
 

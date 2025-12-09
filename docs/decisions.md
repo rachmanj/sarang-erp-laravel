@@ -1,5 +1,5 @@
 **Purpose**: Record technical decisions and rationale for future reference
-**Last Updated**: 2025-09-22 (Added Document Relationship Map Feature decision record)
+**Last Updated**: 2025-01-21 (Added Product Category Hierarchical UI Improvements decision record)
 
 # Technical Decision Records
 
@@ -29,6 +29,42 @@ Decision: [Title] - [YYYY-MM-DD]
 ---
 
 ## Recent Decisions
+
+### Decision: Product Category Hierarchical UI Improvements - 2025-01-21
+
+**Context**: Product categories support hierarchical parent-child relationships through `parent_id` field, but the UI did not adequately display these relationships. Users needed clear visualization of category hierarchy and consistent hierarchical display across all dropdowns and selection interfaces.
+
+**Options Considered**:
+
+1. **Option A**: Add hierarchical display only to category index page.
+    - ✅ Pros: Simple, localized change.
+    - ❌ Cons: Inconsistent user experience, hierarchical relationships not visible where categories are selected.
+
+2. **Option B**: Implement comprehensive hierarchical UI improvements across all category interfaces.
+    - ✅ Pros: Consistent user experience, full hierarchy visibility, prevents circular references, improves usability.
+    - ❌ Cons: Requires coordinated updates across multiple controllers and views.
+
+**Decision**: Adopt Option B—implement comprehensive hierarchical UI improvements including model helper methods, controller filtering logic, tree/table view toggle, hierarchical dropdown display, and visual tree hierarchy.
+
+**Rationale**:
+
+- Hierarchical categories provide powerful organizational capability but require clear visualization to be useful.
+- Tree view provides superior visualization for complex hierarchies while table view remains efficient for browsing.
+- Parent category filtering (showing only root categories) prevents circular references and simplifies user experience.
+- Hierarchical display names ("Parent > Child > Grandchild") provide context in dropdowns improving selection accuracy.
+- Consistent implementation pattern ensures maintainability and can be reused for other hierarchical structures.
+
+**Implementation**:
+
+- Added ProductCategory model helper methods: `getHierarchicalName()`, `getHierarchicalPath()`, `isRoot()`, `getDescendants()`, `getInvalidParentIds()`.
+- Enhanced ProductCategoryController::index() to support tree/table view toggle with `$viewMode` parameter.
+- Updated ProductCategoryController::create() and edit() to filter parent categories to root categories only.
+- Created tree view partial (`resources/views/product-categories/partials/tree-item.blade.php`) with recursive rendering and color-coded levels.
+- Updated all category dropdowns across system (inventory forms, item selection modals, goods receipt, etc.) to use `getHierarchicalName()`.
+- Enhanced InventoryController::search() to load category parent relationships for hierarchical display.
+- Added tree view styling with color-coded hierarchy levels and visual indicators.
+
+**Review Date**: 2026-04-21 (after extended production usage of hierarchical categories).
 
 ### Decision: Inventory Low Stock & Valuation Routes and Scope Fix - 2025-11-29
 
