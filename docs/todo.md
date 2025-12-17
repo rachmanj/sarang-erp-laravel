@@ -1,5 +1,5 @@
 **Purpose**: Track current work and immediate priorities
-**Last Updated**: 2025-01-20 (Audit Trail System Analysis and Implementation Planning)
+**Last Updated**: 2025-12-11 (Purchase Management manuals created)
 
 ## Task Management Guidelines
 
@@ -45,6 +45,7 @@ Include relevant context in brackets to help with future AI-assisted coding:
 
 ## Recently Completed
 
+-   `[done] P2: Purchase Management Manuals (EN & ID) [docs/manuals/purchase-module-manual.md, docs/manuals/purchase-module-manual-id.md] (completed: 2025-12-11)`
 -   `[done] P2: Product Category Hierarchical UI Improvements [ProductCategory model helper methods (getHierarchicalName, getHierarchicalPath, isRoot, getDescendants, getInvalidParentIds), ProductCategoryController index method with tree/table view toggle, parent category filtering to show only root categories, hierarchical display in all category dropdowns (inventory forms, item selection modals, goods receipt), tree view with color-coded hierarchy levels, comprehensive view updates across inventory management, purchase orders, sales orders, goods receipt, and item selection components, app/Models/ProductCategory.php, app/Http/Controllers/ProductCategoryController.php, app/Http/Controllers/InventoryController.php, resources/views/product-categories/index.blade.php, resources/views/product-categories/partials/tree-item.blade.php] (completed: 2025-01-21)`
 -   `[done] P0: Multi-Entity Company Profile - Phase 1 Schema Foundation [database/migrations/2025_11_28_165531_create_company_entities_table.php, database/migrations/2025_11_28_165541_add_company_entity_id_to_trade_documents.php, database/migrations/2025_11_28_165537_create_document_sequences_table.php, database/seeders/CompanyEntitySeeder.php, docs/company-profile-multi-entity-plan.md] (completed: 2025-11-28)`
 -   `[done] P1: Inventory Low Stock & Valuation Report Stabilisation [/inventory/low-stock, /inventory/valuation-report, routes/web.php inventory group ordering, InventoryItem::scopeLowStock(), InventoryController::valuationReport(), resources/views/inventory/low-stock.blade.php, resources/views/inventory/valuation-report.blade.php] (completed: 2025-11-29)`

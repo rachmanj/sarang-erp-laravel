@@ -5,15 +5,19 @@
 1. [Pengenalan](#pengenalan)
 2. [Memulai](#memulai)
 3. [Ringkasan Fitur](#ringkasan-fitur)
-4. [Membuat Item Inventory](#membuat-item-inventory)
-5. [Melihat dan Mencari Item](#melihat-dan-mencari-item)
-6. [Mengedit Item Inventory](#mengedit-item-inventory)
-7. [Manajemen Stok](#manajemen-stok)
-8. [Laporan dan Analitik](#laporan-dan-analitik)
-9. [Manajemen Satuan](#manajemen-satuan)
-10. [Tingkat Harga](#tingkat-harga)
-11. [Tugas Umum](#tugas-umum)
-12. [Pemecahan Masalah](#pemecahan-masalah)
+4. [Manajemen Kategori Produk](#manajemen-kategori-produk)
+5. [Membuat Item Inventory](#membuat-item-inventory)
+6. [Melihat dan Mencari Item](#melihat-dan-mencari-item)
+7. [Mengedit Item Inventory](#mengedit-item-inventory)
+8. [Manajemen Stok](#manajemen-stok)
+9. [Manajemen Gudang](#manajemen-gudang)
+10. [Manajemen GR/GI (Goods Receipt/Goods Issue)](#manajemen-grgi-goods-receiptgoods-issue)
+11. [Laporan dan Analitik](#laporan-dan-analitik)
+12. [Manajemen Satuan](#manajemen-satuan)
+13. [Tingkat Harga](#tingkat-harga)
+14. [Pemetaan Akun](#pemetaan-akun)
+15. [Tugas Umum](#tugas-umum)
+16. [Pemecahan Masalah](#pemecahan-masalah)
 
 ---
 
@@ -80,6 +84,7 @@ Modul Inventory mencakup fitur-fitur utama berikut:
 - **FIFO** (First In, First Out): Stok tertua dijual terlebih dahulu
 - **LIFO** (Last In, First Out): Stok terbaru dijual terlebih dahulu
 - **Rata-rata Tertimbang**: Rata-rata biaya dari semua stok
+- **Manual**: Menetapkan biaya secara manual untuk setiap transaksi
 
 ### 4. **Manajemen Harga**
 - Menetapkan harga beli (yang Anda bayar)
@@ -97,6 +102,148 @@ Modul Inventory mencakup fitur-fitur utama berikut:
 - Dukungan untuk beberapa satuan per item (misalnya, kotak dan buah)
 - Konversi otomatis antar satuan
 - Harga berbeda untuk satuan berbeda
+
+### 7. **Manajemen Kategori Produk**
+- Struktur kategori hierarkis (hubungan parent-child)
+- Pemetaan akun per kategori (Akun Inventory, COGS, Sales)
+- Warisan akun dari kategori parent
+- Opsi tampilan tree dan table
+
+### 8. **Manajemen Gudang**
+- Dukungan multi-gudang
+- Pelacakan stok per gudang
+- Transfer stok antar gudang
+- Dukungan gudang transit untuk operasi ITO/ITI
+- Titik pemesanan ulang khusus gudang
+
+### 9. **Manajemen GR/GI**
+- Dokumen Goods Receipt (GR) dan Goods Issue (GI)
+- Tujuan yang dapat dikonfigurasi (Customer Return, Donation, Sample, dll.)
+- Alur persetujuan (Draft → Pending Approval → Approved)
+- Pembuatan jurnal otomatis
+- Pemetaan akun berdasarkan kategori dan tujuan
+
+---
+
+## Manajemen Kategori Produk
+
+### Memahami Kategori Produk
+
+Kategori produk membantu mengorganisir item inventory Anda. Kategori dapat diatur dalam struktur hierarkis (hubungan parent-child) dan dikaitkan dengan akun akuntansi untuk pembuatan jurnal otomatis.
+
+### Konsep Utama
+
+- **Struktur Hierarkis**: Kategori dapat memiliki kategori parent dan child (misalnya, "Elektronik" > "Komputer" > "Laptop")
+- **Pemetaan Akun**: Setiap kategori memetakan ke tiga akun akuntansi:
+  - **Akun Inventory**: Untuk valuasi inventory
+  - **Akun COGS**: Untuk cost of goods sold
+  - **Akun Sales**: Untuk pengakuan pendapatan
+- **Warisan Akun**: Kategori child dapat mewarisi akun dari kategori parent jika tidak ditetapkan secara eksplisit
+
+### Membuat Kategori Produk
+
+#### Langkah 1: Mengakses Manajemen Kategori
+
+1. Dari menu utama, buka **"Master Data"** → **"Product Categories"**
+2. Anda akan melihat daftar kategori dalam tampilan table atau tree
+
+#### Langkah 2: Membuat Kategori Baru
+
+1. Klik tombol **"Add Category"** atau **"Create"**
+2. Isi detail kategori:
+
+**Field Wajib:**
+
+1. **Kode Kategori** *
+   - Masukkan kode unik (misalnya, "ELEC", "FURN")
+   - Kode ini mengidentifikasi kategori
+
+2. **Nama Kategori** *
+   - Masukkan nama yang deskriptif (misalnya, "Elektronik", "Perabotan Kantor")
+   - Buat jelas dan mudah dipahami
+
+3. **Deskripsi** (Opsional)
+   - Tambahkan detail tambahan tentang kategori
+
+4. **Kategori Parent** (Opsional)
+   - Pilih kategori parent jika ini adalah sub-kategori
+   - Hanya kategori root (kategori tanpa parent) yang ditampilkan
+   - Contoh: Jika membuat "Laptop", pilih "Komputer" sebagai parent
+
+5. **Pemetaan Akun** (Opsional tetapi Direkomendasikan)
+   - **Akun Inventory**: Pilih akun untuk valuasi inventory
+   - **Akun COGS**: Pilih akun untuk cost of goods sold
+   - **Akun Sales**: Pilih akun untuk pendapatan penjualan
+   - Jika tidak ditetapkan, kategori child akan mewarisi dari parent
+
+6. **Status Aktif**
+   - Centang untuk membuat kategori aktif
+   - Hapus centang untuk menonaktifkan
+
+#### Langkah 3: Menyimpan Kategori
+
+1. Tinjau semua informasi
+2. Klik **"Save"** atau **"Create Category"**
+3. Kategori dibuat dan tersedia untuk digunakan
+
+### Melihat Kategori
+
+#### Tampilan Table
+
+1. Tampilan default menunjukkan kategori dalam format table
+2. Menampilkan: Kode, Nama, Kategori Parent, Akun, Status
+3. Gunakan filter dan pencarian untuk menemukan kategori tertentu
+
+#### Tampilan Tree
+
+1. Klik tombol toggle **"Tree View"**
+2. Kategori ditampilkan dalam struktur tree hierarkis
+3. Perluas/tutup kategori parent untuk melihat child
+4. Representasi visual dari hubungan kategori
+
+### Mengedit Kategori
+
+1. Temukan kategori dalam daftar
+2. Klik tombol **"Edit"**
+3. Perbarui field apa pun:
+   - Nama dan deskripsi
+   - Kategori parent (hati-hati - dapat mempengaruhi hierarki)
+   - Pemetaan akun
+   - Status aktif
+4. Klik **"Save"**
+
+**Catatan Penting:**
+- Mengubah kategori parent dapat mempengaruhi warisan akun
+- Item yang menggunakan kategori ini akan menggunakan pemetaan akun yang diperbarui
+- Menonaktifkan kategori menyembunyikannya dari pemilihan tetapi mempertahankan item yang ada
+
+### Memahami Warisan Akun
+
+**Cara Kerjanya:**
+
+1. Jika kategori memiliki akun yang ditetapkan, ia menggunakan akun tersebut
+2. Jika kategori tidak memiliki akun yang ditetapkan, ia mewarisi dari parent-nya
+3. Warisan naik ke hierarki sampai akun ditemukan
+4. Jika tidak ada akun ditemukan dalam hierarki, sistem menggunakan default
+
+**Contoh:**
+- Kategori Parent "Elektronik" memiliki:
+  - Akun Inventory: "Inventory - Elektronik"
+  - Akun COGS: "COGS - Elektronik"
+  - Akun Sales: "Sales - Elektronik"
+- Kategori Child "Laptop" (tidak ada akun yang ditetapkan) mewarisi ketiga akun dari "Elektronik"
+- Kategori Child "Ponsel" (memiliki Akun Sales sendiri) menggunakan:
+  - Akun Inventory: Diwarisi dari "Elektronik"
+  - Akun COGS: Diwarisi dari "Elektronik"
+  - Akun Sales: Sendiri "Sales - Ponsel"
+
+### Praktik Terbaik untuk Kategori
+
+- ✅ Buat kategori root terlebih dahulu, lalu sub-kategori
+- ✅ Tetapkan pemetaan akun di level parent jika memungkinkan
+- ✅ Gunakan konvensi penamaan yang konsisten
+- ✅ Jaga hierarki sederhana (2-3 level maksimum direkomendasikan)
+- ✅ Tinjau pemetaan akun sebelum membuat banyak item
 
 ---
 
@@ -185,11 +332,13 @@ Jika Anda memilih tipe "Item", Anda akan melihat field level stok:
    - **FIFO**: Item yang dibeli pertama dijual terlebih dahulu (direkomendasikan untuk sebagian besar bisnis)
    - **LIFO**: Item yang dibeli terakhir dijual terlebih dahulu
    - **Rata-rata Tertimbang**: Rata-rata biaya dari semua item
+   - **Manual**: Menetapkan biaya secara manual untuk setiap transaksi
 
    **Mana yang harus dipilih?**
    - **FIFO**: Terbaik untuk sebagian besar bisnis, sesuai dengan alur fisik
    - **LIFO**: Digunakan di beberapa negara untuk keperluan pajak
    - **Rata-rata Tertimbang**: Paling sederhana, baik untuk item dengan biaya serupa
+   - **Manual**: Gunakan ketika Anda memerlukan kontrol penuh atas penugasan biaya
 
 #### Langkah 6: Pengaturan Tambahan
 
@@ -379,12 +528,18 @@ Penyesuaian stok digunakan untuk memperbaiki perbedaan inventory yang ditemukan 
 
 ### Transfer Stok
 
-Transfer stok memindahkan inventory dari satu item ke item lain. Ini kurang umum tetapi berguna untuk:
+Transfer stok dapat memindahkan inventory dalam dua cara:
+1. **Transfer Item-ke-Item**: Memindahkan stok dari satu item ke item lain
+2. **Transfer Gudang-ke-Gudang**: Memindahkan stok antar gudang
+
+#### Transfer Item-ke-Item
+
+Ini kurang umum tetapi berguna untuk:
 - Menggabungkan item serupa
 - Memisahkan item
 - Mengonversi antar kode item
 
-#### Cara Mentransfer Stok
+**Cara Mentransfer Stok Antar Item:**
 
 **Langkah 1: Mengakses Transfer**
 
@@ -417,6 +572,312 @@ Transfer stok memindahkan inventory dari satu item ke item lain. Ini kurang umum
    - Biaya
    - Dokumen referensi (jika ada)
    - Siapa yang membuatnya
+
+---
+
+## Manajemen Gudang
+
+### Memahami Sistem Multi-Gudang
+
+Sistem mendukung beberapa gudang, memungkinkan Anda untuk:
+- Melacak level stok per gudang
+- Mentransfer stok antar gudang
+- Menetapkan titik pemesanan ulang berbeda per gudang
+- Menggunakan gudang transit untuk transfer antar gudang
+
+### Melihat Stok per Gudang
+
+1. Buka halaman detail item
+2. Cari bagian **"Warehouse Stock"** atau **"Stock by Warehouse"**
+3. Anda akan melihat:
+   - Nama gudang
+   - Kuantitas stok saat ini
+   - Titik pemesanan ulang untuk gudang tersebut
+   - Status (Stok Rendah, OK, Habis)
+
+### Transfer Stok Antar Gudang
+
+Transfer stok dari satu gudang ke gudang lain.
+
+#### Cara Mentransfer Stok Antar Gudang
+
+**Langkah 1: Mengakses Transfer Gudang**
+
+1. Buka halaman detail item
+2. Cari tombol **"Transfer Between Warehouses"** atau **"Warehouse Transfer"**
+3. Atau buka modul Warehouse Management
+
+**Langkah 2: Memasukkan Detail Transfer**
+
+1. **Dari Gudang**: Pilih gudang sumber
+2. **Ke Gudang**: Pilih gudang tujuan
+3. **Item**: Pilih item yang akan ditransfer
+4. **Kuantitas**: Masukkan berapa banyak unit yang akan ditransfer
+5. **Catatan**: Tambahkan informasi relevan apa pun
+
+**Langkah 3: Mengirim Transfer**
+
+1. Tinjau informasi
+2. Klik **"Transfer"** atau **"Submit"**
+3. Stok berkurang di gudang sumber
+4. Stok meningkat di gudang tujuan
+5. Transaksi dicatat
+
+### Gudang Transit (ITO/ITI)
+
+Untuk operasi gudang yang kompleks, sistem mendukung gudang transit:
+
+- **ITO (Inventory Transfer Out)**: Memindahkan item dari gudang sumber ke gudang transit
+- **ITI (Inventory Transfer In)**: Memindahkan item dari gudang transit ke gudang tujuan
+
+**Kapan Menggunakan:**
+- Transfer gudang multi-langkah
+- Item dalam transit antar lokasi
+- Melacak item selama pengiriman
+
+**Cara Kerjanya:**
+
+1. **Buat ITO**: Item berpindah dari gudang sumber ke gudang transit (status: "In Transit")
+2. **Buat ITI**: Item berpindah dari gudang transit ke gudang tujuan (status: "Completed")
+
+**Catatan:** Gudang transit biasanya dikonfigurasi oleh administrator sistem. Hubungi administrator Anda jika Anda perlu menggunakan fitur ini.
+
+### Titik Pemesanan Ulang Khusus Gudang
+
+Anda dapat menetapkan titik pemesanan ulang berbeda untuk item yang sama di gudang berbeda.
+
+**Contoh:**
+- Item "Kursi Kantor" di Gudang Utama: Pemesanan ulang pada 20 unit
+- Item yang sama di Gudang Cabang: Pemesanan ulang pada 10 unit
+
+**Cara Menetapkan:**
+
+1. Buka halaman detail item
+2. Temukan bagian stok gudang
+3. Edit titik pemesanan ulang untuk gudang tertentu
+4. Simpan perubahan
+
+### Penugasan Gudang Default
+
+Saat membuat item, Anda dapat menetapkan gudang default. Ini adalah gudang di mana item biasanya disimpan.
+
+**Catatan:** Gudang default hanyalah saran. Stok dapat disimpan di gudang mana pun, dan Anda dapat mengubah default nanti.
+
+---
+
+## Manajemen GR/GI (Goods Receipt/Goods Issue)
+
+### Memahami Dokumen GR/GI
+
+Dokumen GR/GI (Goods Receipt/Goods Issue) menangani operasi inventory yang **bukan** bagian dari transaksi pembelian atau penjualan normal. Ini termasuk:
+
+- **Goods Receipt (GR)**: Menerima item tanpa purchase order
+  - Customer return
+  - Donasi diterima
+  - Item yang ditemukan
+  - Sample item diterima
+
+- **Goods Issue (GI)**: Mengeluarkan item tanpa sales order
+  - Customer return (mengirim kembali)
+  - Donasi diberikan
+  - Sample item diberikan
+  - Write-off barang rusak
+  - Penggunaan internal
+
+### Fitur Utama
+
+- **Manajemen Tujuan**: Setiap dokumen GR/GI memiliki tujuan (Customer Return, Donation, Sample, dll.)
+- **Alur Persetujuan**: Dokumen melalui Draft → Pending Approval → Approved
+- **Jurnal Otomatis**: Jurnal dibuat secara otomatis saat disetujui
+- **Pemetaan Akun**: Akun dipetakan secara otomatis berdasarkan kategori item dan tujuan
+
+### Membuat Dokumen GR/GI
+
+#### Langkah 1: Mengakses Modul GR/GI
+
+1. Dari menu utama, buka **"Inventory"** → **"GR/GI"** atau **"Goods Receipt/Issue"**
+2. Klik **"Create New"** atau **"Add Document"**
+3. Pilih tipe dokumen: **Goods Receipt** atau **Goods Issue**
+
+#### Langkah 2: Mengisi Header Dokumen
+
+**Field Wajib:**
+
+1. **Tipe Dokumen** *
+   - **Goods Receipt**: Untuk menerima item
+   - **Goods Issue**: Untuk mengeluarkan item
+
+2. **Tujuan** *
+   - Pilih tujuan dari dropdown
+   - Contoh: Customer Return, Donation, Sample, Internal Use, dll.
+   - Tujuan menentukan pemetaan akun
+
+3. **Gudang** *
+   - Pilih gudang untuk transaksi ini
+
+4. **Tanggal Transaksi** *
+   - Masukkan tanggal transaksi
+
+5. **Nomor Referensi** (Opsional)
+   - Nomor referensi eksternal (misalnya, nomor customer return)
+
+6. **Catatan** (Opsional)
+   - Informasi tambahan tentang transaksi
+
+#### Langkah 3: Menambahkan Baris Dokumen
+
+1. Klik **"Add Line"** atau **"Add Item"**
+2. Untuk setiap baris, masukkan:
+   - **Item**: Pilih item inventory
+   - **Kuantitas**: Masukkan kuantitas
+   - **Harga Unit**: Masukkan harga unit (mempengaruhi valuasi)
+   - **Catatan** (Opsional): Catatan khusus baris
+
+3. Ulangi untuk semua item
+4. Sistem menghitung total jumlah secara otomatis
+
+#### Langkah 4: Simpan sebagai Draft
+
+1. Tinjau semua informasi
+2. Klik **"Save"** atau **"Save Draft"**
+3. Dokumen disimpan dengan status "Draft"
+4. Anda dapat mengeditnya nanti sebelum mengirim
+
+### Alur Persetujuan GR/GI
+
+#### Tahapan Alur
+
+1. **Draft**: Dokumen dibuat tetapi belum dikirim
+   - Dapat diedit
+   - Dapat dihapus
+   - Tidak ada dampak inventory
+
+2. **Pending Approval**: Dokumen dikirim untuk persetujuan
+   - Tidak dapat diedit
+   - Menunggu persetujuan
+   - Belum ada dampak inventory
+
+3. **Approved**: Dokumen disetujui
+   - Tidak dapat diedit
+   - Inventory diperbarui
+   - Jurnal dibuat
+   - Status akhir
+
+4. **Cancelled**: Dokumen dibatalkan
+   - Tidak dapat digunakan
+   - Tidak ada dampak inventory
+
+#### Mengirim untuk Persetujuan
+
+1. Buka dokumen draft
+2. Tinjau semua detail
+3. Klik tombol **"Submit for Approval"**
+4. Status dokumen berubah menjadi "Pending Approval"
+5. Pemberi persetujuan akan diberi notifikasi (jika sistem notifikasi diaktifkan)
+
+#### Menyetujui Dokumen
+
+**Siapa yang Dapat Menyetujui:**
+- Pengguna dengan izin persetujuan
+- Biasanya manajer atau supervisor
+
+**Cara Menyetujui:**
+
+1. Buka daftar GR/GI
+2. Temukan dokumen dengan status "Pending Approval"
+3. Buka dokumen
+4. Tinjau semua detail
+5. Klik tombol **"Approve"**
+6. Sistem akan:
+   - Memperbarui stok inventory
+   - Membuat jurnal
+   - Mengubah status menjadi "Approved"
+
+**Penting:**
+- Setelah disetujui, dokumen tidak dapat diedit
+- Inventory dan akuntansi diperbarui segera
+- Tinjau dengan hati-hati sebelum menyetujui
+
+#### Membatalkan Dokumen
+
+1. Buka dokumen draft atau pending approval
+2. Klik tombol **"Cancel"**
+3. Konfirmasi pembatalan
+4. Status dokumen berubah menjadi "Cancelled"
+5. Tidak ada dampak inventory atau akuntansi
+
+### Memahami Pemetaan Akun GR/GI
+
+Sistem secara otomatis memetakan akun berdasarkan:
+
+1. **Kategori Item**: Menggunakan akun dari kategori produk item
+2. **Tujuan**: Tujuan berbeda dapat menggunakan pemetaan akun berbeda
+3. **Tipe Dokumen**: GR vs GI dapat menggunakan akun berbeda
+
+**Jenis Akun yang Digunakan:**
+
+- **Untuk Goods Receipt:**
+  - Debit: Akun Inventory (dari kategori)
+  - Kredit: Akun Expense/Other (berdasarkan tujuan)
+
+- **Untuk Goods Issue:**
+  - Debit: Akun Expense/Other (berdasarkan tujuan)
+  - Kredit: Akun Inventory (dari kategori)
+
+**Contoh:**
+- Dokumen GR: Customer Return, Kategori Item "Elektronik"
+  - Menggunakan Akun Inventory dari kategori "Elektronik"
+  - Menggunakan akun expense Customer Return (dari pemetaan tujuan)
+
+### Melihat Dokumen GR/GI
+
+1. Buka halaman daftar GR/GI
+2. Anda akan melihat:
+   - Nomor dokumen
+   - Tipe dokumen (GR/GI)
+   - Tujuan
+   - Gudang
+   - Status
+   - Total jumlah
+   - Tanggal
+
+3. Filter berdasarkan:
+   - Tipe dokumen
+   - Status
+   - Rentang tanggal
+   - Gudang
+   - Tujuan
+
+4. Klik pada dokumen untuk melihat detail:
+   - Semua informasi header
+   - Semua baris item
+   - Riwayat persetujuan
+   - Jurnal yang dibuat
+   - Dampak inventory
+
+### Tujuan GR/GI Umum
+
+**Tujuan Goods Receipt:**
+- Customer Return: Item dikembalikan oleh pelanggan
+- Donation Received: Item diterima sebagai donasi
+- Sample Received: Sample item diterima
+- Found Items: Item ditemukan selama penghitungan inventory
+
+**Tujuan Goods Issue:**
+- Customer Return: Item dikembalikan ke pelanggan
+- Donation Given: Item diberikan sebagai donasi
+- Sample Given: Sample item diberikan ke pelanggan
+- Internal Use: Item digunakan secara internal
+- Damage Write-off: Item rusak yang dihapuskan
+
+### Praktik Terbaik untuk GR/GI
+
+- ✅ Selalu pilih tujuan yang benar
+- ✅ Tinjau pemetaan akun sebelum menyetujui
+- ✅ Tambahkan catatan jelas yang menjelaskan transaksi
+- ✅ Verifikasi kuantitas sebelum persetujuan
+- ✅ Simpan nomor referensi untuk pelacakan
+- ✅ Tinjau jurnal setelah persetujuan
 
 ---
 
@@ -619,6 +1080,93 @@ Anda dapat menetapkan harga khusus untuk pelanggan tertentu:
 
 ---
 
+## Pemetaan Akun
+
+### Memahami Pemetaan Akun
+
+Pemetaan akun secara otomatis menghubungkan item inventory ke akun akuntansi. Ini memastikan bahwa transaksi inventory membuat jurnal yang benar dalam sistem akuntansi Anda.
+
+### Cara Kerja Pemetaan Akun
+
+**Tiga Jenis Akun:**
+
+1. **Akun Inventory**: Melacak nilai inventory yang tersedia
+   - Contoh: "Inventory - Elektronik", "Inventory - Perlengkapan Kantor"
+   - Digunakan ketika item diterima atau dikeluarkan
+
+2. **Akun COGS (Cost of Goods Sold)**: Melacak biaya ketika item dijual
+   - Contoh: "COGS - Elektronik", "COGS - Perlengkapan Kantor"
+   - Digunakan ketika item dijual ke pelanggan
+
+3. **Akun Sales**: Melacak pendapatan dari penjualan
+   - Contoh: "Sales - Elektronik", "Sales - Perlengkapan Kantor"
+   - Digunakan ketika item dijual ke pelanggan
+
+### Hierarki Pemetaan Akun
+
+Akun dipetakan dalam urutan ini:
+
+1. **Level Item**: Item dapat memiliki akun khusus (jika dikonfigurasi)
+2. **Level Kategori**: Item mewarisi dari kategori produknya
+3. **Kategori Parent**: Jika kategori tidak memiliki akun, mewarisi dari parent
+4. **Default Sistem**: Menggunakan default sistem jika tidak ada akun ditemukan
+
+### Cara Item Mendapatkan Akun
+
+Ketika Anda membuat item inventory:
+
+1. Anda memilih **Kategori Produk**
+2. Item secara otomatis mewarisi akun dari kategori tersebut
+3. Jika kategori tidak memiliki akun, ia mewarisi dari kategori parent
+4. Ini terjadi secara otomatis - tidak perlu setup manual
+
+**Contoh:**
+- Kategori "Elektronik" memiliki:
+  - Akun Inventory: "Inventory - Elektronik"
+  - Akun COGS: "COGS - Elektronik"
+  - Akun Sales: "Sales - Elektronik"
+- Item "Laptop Model X" dalam kategori "Elektronik" secara otomatis menggunakan akun-akun ini
+
+### Pemetaan Akun dalam Transaksi
+
+**Transaksi Pembelian:**
+- Debit: Akun Inventory (meningkatkan nilai inventory)
+- Kredit: Accounts Payable atau Cash (tergantung pembayaran)
+
+**Transaksi Penjualan:**
+- Debit: Accounts Receivable atau Cash (pendapatan diterima)
+- Kredit: Akun Sales (pengakuan pendapatan)
+- Debit: Akun COGS (cost of goods sold)
+- Kredit: Akun Inventory (mengurangi nilai inventory)
+
+**Transaksi GR/GI:**
+- Akun tergantung pada tujuan dan tipe dokumen
+- Sistem secara otomatis memilih akun yang benar
+
+### Melihat Pemetaan Akun
+
+1. Buka halaman detail Kategori Produk
+2. Anda akan melihat:
+   - Akun Inventory yang ditetapkan
+   - Akun COGS yang ditetapkan
+   - Akun Sales yang ditetapkan
+   - Apakah akun diwarisi atau milik sendiri
+
+3. Buka halaman detail Item Inventory
+4. Anda akan melihat:
+   - Akun mana yang digunakan item
+   - Sumber akun (kategori, warisan, dll.)
+
+### Catatan Penting
+
+- ✅ Pemetaan akun ditetapkan di level kategori (direkomendasikan)
+- ✅ Item secara otomatis mewarisi dari kategori
+- ✅ Perubahan pada akun kategori mempengaruhi semua item dalam kategori tersebut
+- ✅ Tinjau pemetaan akun sebelum membuat banyak item
+- ✅ Konsultasikan dengan akuntan Anda untuk setup akun yang benar
+
+---
+
 ## Tugas Umum
 
 ### Tugas 1: Menambahkan Produk Baru ke Inventory
@@ -715,6 +1263,58 @@ Anda dapat menetapkan harga khusus untuk pelanggan tertentu:
 4. Klik "Save"
 5. Item disembunyikan dari penggunaan normal tetapi riwayat dipertahankan
 6. Untuk mengaktifkan kembali nanti, edit dan centang "Active" lagi
+
+### Tugas 8: Membuat Kategori Produk dengan Pemetaan Akun
+
+**Skenario**: Anda perlu menyiapkan kategori produk baru untuk "Perlengkapan Kantor" dengan pemetaan akun yang tepat.
+
+**Langkah-langkah**:
+1. Buka Master Data → Product Categories
+2. Klik "Add Category"
+3. Masukkan kode: "OFF-SUP"
+4. Masukkan nama: "Perlengkapan Kantor"
+5. Biarkan kategori parent kosong (kategori root)
+6. Pilih Akun Inventory: "Inventory - Perlengkapan Kantor"
+7. Pilih Akun COGS: "COGS - Perlengkapan Kantor"
+8. Pilih Akun Sales: "Sales - Perlengkapan Kantor"
+9. Centang "Active"
+10. Klik "Save"
+11. Sekarang semua item dalam kategori ini akan menggunakan akun-akun ini
+
+### Tugas 9: Mentransfer Stok Antar Gudang
+
+**Skenario**: Anda perlu memindahkan 50 unit item dari Gudang Utama ke Gudang Cabang.
+
+**Langkah-langkah**:
+1. Buka Inventory → Temukan item
+2. Klik pada item untuk melihat detail
+3. Cari "Warehouse Transfer" atau "Transfer Between Warehouses"
+4. Pilih "From Warehouse": Gudang Utama
+5. Pilih "To Warehouse": Gudang Cabang
+6. Masukkan kuantitas: 50
+7. Tambahkan catatan: "Transfer ke cabang untuk penjualan"
+8. Klik "Transfer"
+9. Verifikasi level stok diperbarui di kedua gudang
+
+### Tugas 10: Membuat Goods Receipt untuk Customer Return
+
+**Skenario**: Pelanggan mengembalikan 5 unit item. Anda perlu mencatat ini.
+
+**Langkah-langkah**:
+1. Buka Inventory → GR/GI → Create New
+2. Pilih Tipe Dokumen: "Goods Receipt"
+3. Pilih Tujuan: "Customer Return"
+4. Pilih Gudang: Gudang Utama
+5. Masukkan tanggal transaksi
+6. Tambahkan nomor referensi (nomor customer return)
+7. Tambahkan baris item:
+   - Pilih item yang dikembalikan
+   - Masukkan kuantitas: 5
+   - Masukkan harga unit (biaya asli)
+8. Tambahkan catatan: "Customer return - item rusak"
+9. Klik "Save" (membuat sebagai Draft)
+10. Tinjau dan klik "Submit for Approval"
+11. Setelah persetujuan, inventory meningkat dan jurnal dibuat
 
 ---
 
@@ -818,6 +1418,46 @@ Anda dapat menetapkan harga khusus untuk pelanggan tertentu:
 - Nonaktifkan item sebagai gantinya
 - Hubungi administrator jika penghapusan benar-benar diperlukan
 
+### Masalah: Pemetaan Akun Tidak Berfungsi
+
+**Kemungkinan Penyebab**:
+- Kategori tidak memiliki akun yang ditetapkan
+- Kategori parent tidak memiliki akun
+- Akun tidak dikonfigurasi dalam sistem
+
+**Solusi**:
+1. Periksa pemetaan akun kategori
+2. Verifikasi kategori parent memiliki akun (jika menggunakan warisan)
+3. Tetapkan akun di level kategori
+4. Hubungi administrator untuk mengonfigurasi akun default
+
+### Masalah: Dokumen GR/GI Tidak Dapat Disetujui
+
+**Kemungkinan Penyebab**:
+- Dokumen tidak dalam status "Pending Approval"
+- Pemetaan akun hilang
+- Stok tidak mencukupi (untuk Goods Issue)
+- Pengguna tidak memiliki izin persetujuan
+
+**Solusi**:
+1. Verifikasi status dokumen adalah "Pending Approval"
+2. Periksa pemetaan akun dikonfigurasi
+3. Verifikasi ketersediaan stok (untuk GI)
+4. Hubungi administrator untuk izin persetujuan
+
+### Masalah: Transfer Gudang Tidak Berfungsi
+
+**Kemungkinan Penyebab**:
+- Stok tidak mencukupi di gudang sumber
+- Gudang yang sama dipilih untuk sumber dan tujuan
+- Item tidak tersedia di gudang sumber
+
+**Solusi**:
+1. Periksa level stok di gudang sumber
+2. Verifikasi gudang berbeda dipilih
+3. Pastikan item ada di gudang sumber
+4. Periksa gudang aktif
+
 ---
 
 ## Referensi Cepat
@@ -833,9 +1473,14 @@ Anda dapat menetapkan harga khusus untuk pelanggan tertentu:
 - **FIFO**: First In, First Out - stok tertua dijual terlebih dahulu
 - **LIFO**: Last In, First Out - stok terbaru dijual terlebih dahulu
 - **Rata-rata Tertimbang**: Rata-rata biaya dari semua stok
+- **Valuasi Manual**: Menetapkan biaya secara manual per transaksi
 - **Titik Pemesanan Ulang**: Level stok yang memicu peringatan pemesanan ulang
 - **Valuasi**: Total nilai inventory
 - **Satuan Dasar**: Satuan ukuran utama untuk item
+- **GR (Goods Receipt)**: Dokumen untuk menerima item tanpa purchase order
+- **GI (Goods Issue)**: Dokumen untuk mengeluarkan item tanpa sales order
+- **ITO (Inventory Transfer Out)**: Memindahkan item ke gudang transit
+- **ITI (Inventory Transfer In)**: Memindahkan item dari gudang transit
 
 ### Tipe Item Umum
 

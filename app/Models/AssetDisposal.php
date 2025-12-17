@@ -12,6 +12,7 @@ class AssetDisposal extends Model
     protected $fillable = [
         'disposal_no',
         'asset_id',
+        'company_entity_id',
         'disposal_date',
         'disposal_type',
         'disposal_proceeds',
@@ -56,6 +57,11 @@ class AssetDisposal extends Model
     public function poster(): BelongsTo
     {
         return $this->belongsTo(User::class, 'posted_by');
+    }
+
+    public function companyEntity(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\CompanyEntity::class, 'company_entity_id');
     }
 
     // Scopes

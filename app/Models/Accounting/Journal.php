@@ -17,6 +17,7 @@ class Journal extends Model
         'posted_by',
         'posted_at',
         'status',
+        'company_entity_id',
     ];
 
     protected $casts = [
@@ -35,5 +36,10 @@ class Journal extends Model
     public function postedBy(): BelongsTo
     {
         return $this->belongsTo(\App\Models\User::class, 'posted_by');
+    }
+
+    public function companyEntity(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\CompanyEntity::class, 'company_entity_id');
     }
 }

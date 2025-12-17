@@ -5,15 +5,19 @@
 1. [Introduction](#introduction)
 2. [Getting Started](#getting-started)
 3. [Features Overview](#features-overview)
-4. [Creating Inventory Items](#creating-inventory-items)
-5. [Viewing and Searching Items](#viewing-and-searching-items)
-6. [Editing Inventory Items](#editing-inventory-items)
-7. [Stock Management](#stock-management)
-8. [Reports and Analytics](#reports-and-analytics)
-9. [Unit Management](#unit-management)
-10. [Price Levels](#price-levels)
-11. [Common Tasks](#common-tasks)
-12. [Troubleshooting](#troubleshooting)
+4. [Product Category Management](#product-category-management)
+5. [Creating Inventory Items](#creating-inventory-items)
+6. [Viewing and Searching Items](#viewing-and-searching-items)
+7. [Editing Inventory Items](#editing-inventory-items)
+8. [Stock Management](#stock-management)
+9. [Warehouse Management](#warehouse-management)
+10. [GR/GI Management (Goods Receipt/Goods Issue)](#grgi-management-goods-receiptgoods-issue)
+11. [Reports and Analytics](#reports-and-analytics)
+12. [Unit Management](#unit-management)
+13. [Price Levels](#price-levels)
+14. [Account Mapping](#account-mapping)
+15. [Common Tasks](#common-tasks)
+16. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -80,6 +84,7 @@ The Inventory Module includes these main features:
 - **FIFO** (First In, First Out): Oldest stock is sold first
 - **LIFO** (Last In, First Out): Newest stock is sold first
 - **Weighted Average**: Average cost of all stock
+- **Manual**: Manually set cost per transaction
 
 ### 4. **Price Management**
 - Set purchase prices (what you pay)
@@ -97,6 +102,148 @@ The Inventory Module includes these main features:
 - Support for multiple units per item (e.g., boxes and pieces)
 - Automatic conversion between units
 - Different prices for different units
+
+### 7. **Product Category Management**
+- Hierarchical category structure (parent-child relationships)
+- Account mapping per category (Inventory, COGS, Sales accounts)
+- Account inheritance from parent categories
+- Tree and table view options
+
+### 8. **Warehouse Management**
+- Multi-warehouse support
+- Per-warehouse stock tracking
+- Inter-warehouse stock transfers
+- Transit warehouse support for ITO/ITI operations
+- Warehouse-specific reorder points
+
+### 9. **GR/GI Management**
+- Goods Receipt (GR) and Goods Issue (GI) documents
+- Configurable purposes (Customer Return, Donation, Sample, etc.)
+- Approval workflow (Draft → Pending Approval → Approved)
+- Automatic journal entry creation
+- Account mapping based on categories and purposes
+
+---
+
+## Product Category Management
+
+### Understanding Product Categories
+
+Product categories help organize your inventory items. Categories can be arranged in a hierarchical structure (parent-child relationships) and are linked to accounting accounts for automatic journal entry creation.
+
+### Key Concepts
+
+- **Hierarchical Structure**: Categories can have parent and child categories (e.g., "Electronics" > "Computers" > "Laptops")
+- **Account Mapping**: Each category maps to three accounting accounts:
+  - **Inventory Account**: For inventory valuation
+  - **COGS Account**: For cost of goods sold
+  - **Sales Account**: For revenue recognition
+- **Account Inheritance**: Child categories can inherit accounts from parent categories if not explicitly set
+
+### Creating a Product Category
+
+#### Step 1: Access Category Management
+
+1. From the main menu, go to **"Master Data"** → **"Product Categories"**
+2. You'll see the category list in table or tree view
+
+#### Step 2: Create New Category
+
+1. Click the **"Add Category"** or **"Create"** button
+2. Fill in the category details:
+
+**Required Fields:**
+
+1. **Category Code** *
+   - Enter a unique code (e.g., "ELEC", "FURN")
+   - This code identifies the category
+
+2. **Category Name** *
+   - Enter a descriptive name (e.g., "Electronics", "Office Furniture")
+   - Make it clear and easy to understand
+
+3. **Description** (Optional)
+   - Add any additional details about the category
+
+4. **Parent Category** (Optional)
+   - Select a parent category if this is a sub-category
+   - Only root categories (categories without parents) are shown
+   - Example: If creating "Laptops", select "Computers" as parent
+
+5. **Account Mapping** (Optional but Recommended)
+   - **Inventory Account**: Select the account for inventory valuation
+   - **COGS Account**: Select the account for cost of goods sold
+   - **Sales Account**: Select the account for sales revenue
+   - If not set, child categories will inherit from parent
+
+6. **Active Status**
+   - Check to make the category active
+   - Uncheck to deactivate
+
+#### Step 3: Save the Category
+
+1. Review all information
+2. Click **"Save"** or **"Create Category"**
+3. The category is created and available for use
+
+### Viewing Categories
+
+#### Table View
+
+1. Default view shows categories in a table format
+2. Shows: Code, Name, Parent Category, Accounts, Status
+3. Use filters and search to find specific categories
+
+#### Tree View
+
+1. Click **"Tree View"** toggle button
+2. Categories are displayed in a hierarchical tree structure
+3. Expand/collapse parent categories to see children
+4. Visual representation of category relationships
+
+### Editing Categories
+
+1. Find the category in the list
+2. Click **"Edit"** button
+3. Update any fields:
+   - Name and description
+   - Parent category (be careful - can affect hierarchy)
+   - Account mappings
+   - Active status
+4. Click **"Save"**
+
+**Important Notes:**
+- Changing parent category can affect account inheritance
+- Items using this category will use the updated account mappings
+- Deactivating a category hides it from selection but keeps existing items
+
+### Understanding Account Inheritance
+
+**How It Works:**
+
+1. If a category has accounts set, it uses those accounts
+2. If a category doesn't have accounts set, it inherits from its parent
+3. Inheritance goes up the hierarchy until accounts are found
+4. If no accounts found in hierarchy, system uses defaults
+
+**Example:**
+- Parent Category "Electronics" has:
+  - Inventory Account: "Inventory - Electronics"
+  - COGS Account: "COGS - Electronics"
+  - Sales Account: "Sales - Electronics"
+- Child Category "Laptops" (no accounts set) inherits all three accounts from "Electronics"
+- Child Category "Phones" (has own Sales Account) uses:
+  - Inventory Account: Inherited from "Electronics"
+  - COGS Account: Inherited from "Electronics"
+  - Sales Account: Own "Sales - Phones"
+
+### Best Practices for Categories
+
+- ✅ Create root categories first, then sub-categories
+- ✅ Set account mappings at parent level when possible
+- ✅ Use consistent naming conventions
+- ✅ Keep hierarchy simple (2-3 levels maximum recommended)
+- ✅ Review account mappings before creating many items
 
 ---
 
@@ -185,11 +332,13 @@ If you selected "Item" type, you'll see stock level fields:
    - **FIFO**: First items purchased are sold first (recommended for most businesses)
    - **LIFO**: Last items purchased are sold first
    - **Weighted Average**: Average cost of all items
+   - **Manual**: Manually set cost for each transaction
 
    **Which one to choose?**
    - **FIFO**: Best for most businesses, matches physical flow
    - **LIFO**: Used in some countries for tax purposes
    - **Weighted Average**: Simplest, good for similar-cost items
+   - **Manual**: Use when you need full control over cost assignment
 
 #### Step 6: Additional Settings
 
@@ -379,12 +528,18 @@ Stock adjustments are used to correct inventory discrepancies found during:
 
 ### Stock Transfers
 
-Stock transfers move inventory from one item to another. This is less common but useful for:
+Stock transfers can move inventory in two ways:
+1. **Item-to-Item Transfer**: Moving stock from one item to another
+2. **Warehouse-to-Warehouse Transfer**: Moving stock between warehouses
+
+#### Item-to-Item Transfer
+
+This is less common but useful for:
 - Combining similar items
 - Splitting items
 - Converting between item codes
 
-#### How to Transfer Stock
+**How to Transfer Stock Between Items:**
 
 **Step 1: Access Transfer**
 
@@ -417,6 +572,312 @@ Stock transfers move inventory from one item to another. This is less common but
    - Cost
    - Reference document (if any)
    - Who created it
+
+---
+
+## Warehouse Management
+
+### Understanding Multi-Warehouse System
+
+The system supports multiple warehouses, allowing you to:
+- Track stock levels per warehouse
+- Transfer stock between warehouses
+- Set different reorder points per warehouse
+- Use transit warehouses for inter-warehouse transfers
+
+### Viewing Stock by Warehouse
+
+1. Go to an item's detail page
+2. Look for **"Warehouse Stock"** or **"Stock by Warehouse"** section
+3. You'll see:
+   - Warehouse name
+   - Current stock quantity
+   - Reorder point for that warehouse
+   - Status (Low Stock, OK, Out of Stock)
+
+### Inter-Warehouse Stock Transfers
+
+Transfer stock from one warehouse to another.
+
+#### How to Transfer Stock Between Warehouses
+
+**Step 1: Access Warehouse Transfer**
+
+1. Go to the item detail page
+2. Look for **"Transfer Between Warehouses"** or **"Warehouse Transfer"** button
+3. Or go to Warehouse Management module
+
+**Step 2: Enter Transfer Details**
+
+1. **From Warehouse**: Select source warehouse
+2. **To Warehouse**: Select destination warehouse
+3. **Item**: Select the item to transfer
+4. **Quantity**: Enter how many units to transfer
+5. **Notes**: Add any relevant information
+
+**Step 3: Submit Transfer**
+
+1. Review the information
+2. Click **"Transfer"** or **"Submit"**
+3. Stock decreases in source warehouse
+4. Stock increases in destination warehouse
+5. Transaction is recorded
+
+### Transit Warehouses (ITO/ITI)
+
+For complex warehouse operations, the system supports transit warehouses:
+
+- **ITO (Inventory Transfer Out)**: Move items from source warehouse to transit warehouse
+- **ITI (Inventory Transfer In)**: Move items from transit warehouse to destination warehouse
+
+**When to Use:**
+- Multi-step warehouse transfers
+- Items in transit between locations
+- Tracking items during shipment
+
+**How It Works:**
+
+1. **Create ITO**: Items move from source warehouse to transit warehouse (status: "In Transit")
+2. **Create ITI**: Items move from transit warehouse to destination warehouse (status: "Completed")
+
+**Note:** Transit warehouses are typically configured by system administrators. Contact your administrator if you need to use this feature.
+
+### Warehouse-Specific Reorder Points
+
+You can set different reorder points for the same item in different warehouses.
+
+**Example:**
+- Item "Office Chair" in Main Warehouse: Reorder at 20 units
+- Same item in Branch Warehouse: Reorder at 10 units
+
+**How to Set:**
+
+1. Go to item detail page
+2. Find warehouse stock section
+3. Edit reorder point for specific warehouse
+4. Save changes
+
+### Default Warehouse Assignment
+
+When creating items, you can assign a default warehouse. This is the warehouse where items are typically stored.
+
+**Note:** Default warehouse is just a suggestion. Stock can be stored in any warehouse, and you can change the default later.
+
+---
+
+## GR/GI Management (Goods Receipt/Goods Issue)
+
+### Understanding GR/GI Documents
+
+GR/GI (Goods Receipt/Goods Issue) documents handle inventory operations that are **not** part of normal purchase or sales transactions. These include:
+
+- **Goods Receipt (GR)**: Receiving items without a purchase order
+  - Customer returns
+  - Donations received
+  - Found items
+  - Sample items received
+
+- **Goods Issue (GI)**: Issuing items without a sales order
+  - Customer returns (sending back)
+  - Donations given
+  - Sample items given
+  - Damaged goods write-off
+  - Internal use
+
+### Key Features
+
+- **Purpose Management**: Each GR/GI document has a purpose (Customer Return, Donation, Sample, etc.)
+- **Approval Workflow**: Documents go through Draft → Pending Approval → Approved
+- **Automatic Journal Entries**: Journal entries are created automatically when approved
+- **Account Mapping**: Accounts are automatically mapped based on item category and purpose
+
+### Creating a GR/GI Document
+
+#### Step 1: Access GR/GI Module
+
+1. From the main menu, go to **"Inventory"** → **"GR/GI"** or **"Goods Receipt/Issue"**
+2. Click **"Create New"** or **"Add Document"**
+3. Select document type: **Goods Receipt** or **Goods Issue**
+
+#### Step 2: Fill in Document Header
+
+**Required Fields:**
+
+1. **Document Type** *
+   - **Goods Receipt**: For receiving items
+   - **Goods Issue**: For issuing items
+
+2. **Purpose** *
+   - Select the purpose from dropdown
+   - Examples: Customer Return, Donation, Sample, Internal Use, etc.
+   - Purpose determines account mapping
+
+3. **Warehouse** *
+   - Select the warehouse for this transaction
+
+4. **Transaction Date** *
+   - Enter the date of the transaction
+
+5. **Reference Number** (Optional)
+   - External reference number (e.g., customer return number)
+
+6. **Notes** (Optional)
+   - Additional information about the transaction
+
+#### Step 3: Add Document Lines
+
+1. Click **"Add Line"** or **"Add Item"**
+2. For each line, enter:
+   - **Item**: Select the inventory item
+   - **Quantity**: Enter quantity
+   - **Unit Price**: Enter unit price (affects valuation)
+   - **Notes** (Optional): Line-specific notes
+
+3. Repeat for all items
+4. System calculates total amount automatically
+
+#### Step 4: Save as Draft
+
+1. Review all information
+2. Click **"Save"** or **"Save Draft"**
+3. Document is saved with status "Draft"
+4. You can edit it later before submitting
+
+### GR/GI Approval Workflow
+
+#### Workflow Stages
+
+1. **Draft**: Document is created but not submitted
+   - Can be edited
+   - Can be deleted
+   - No inventory impact
+
+2. **Pending Approval**: Document is submitted for approval
+   - Cannot be edited
+   - Waiting for approver
+   - No inventory impact yet
+
+3. **Approved**: Document is approved
+   - Cannot be edited
+   - Inventory is updated
+   - Journal entries are created
+   - Final status
+
+4. **Cancelled**: Document is cancelled
+   - Cannot be used
+   - No inventory impact
+
+#### Submitting for Approval
+
+1. Open the draft document
+2. Review all details
+3. Click **"Submit for Approval"** button
+4. Document status changes to "Pending Approval"
+5. Approvers will be notified (if notification system is enabled)
+
+#### Approving a Document
+
+**Who Can Approve:**
+- Users with approval permissions
+- Typically managers or supervisors
+
+**How to Approve:**
+
+1. Go to GR/GI list
+2. Find documents with "Pending Approval" status
+3. Open the document
+4. Review all details
+5. Click **"Approve"** button
+6. System will:
+   - Update inventory stock
+   - Create journal entries
+   - Change status to "Approved"
+
+**Important:**
+- Once approved, document cannot be edited
+- Inventory and accounting are updated immediately
+- Review carefully before approving
+
+#### Cancelling a Document
+
+1. Open draft or pending approval document
+2. Click **"Cancel"** button
+3. Confirm cancellation
+4. Document status changes to "Cancelled"
+5. No inventory or accounting impact
+
+### Understanding GR/GI Account Mapping
+
+The system automatically maps accounts based on:
+
+1. **Item Category**: Uses accounts from the item's product category
+2. **Purpose**: Different purposes may use different account mappings
+3. **Document Type**: GR vs GI may use different accounts
+
+**Account Types Used:**
+
+- **For Goods Receipt:**
+  - Debit: Inventory Account (from category)
+  - Credit: Expense/Other Account (based on purpose)
+
+- **For Goods Issue:**
+  - Debit: Expense/Other Account (based on purpose)
+  - Credit: Inventory Account (from category)
+
+**Example:**
+- GR Document: Customer Return, Item Category "Electronics"
+  - Uses Inventory Account from "Electronics" category
+  - Uses Customer Return expense account (from purpose mapping)
+
+### Viewing GR/GI Documents
+
+1. Go to GR/GI list page
+2. You'll see:
+   - Document number
+   - Document type (GR/GI)
+   - Purpose
+   - Warehouse
+   - Status
+   - Total amount
+   - Date
+
+3. Filter by:
+   - Document type
+   - Status
+   - Date range
+   - Warehouse
+   - Purpose
+
+4. Click on document to view details:
+   - All header information
+   - All line items
+   - Approval history
+   - Journal entries created
+   - Inventory impact
+
+### Common GR/GI Purposes
+
+**Goods Receipt Purposes:**
+- Customer Return: Items returned by customers
+- Donation Received: Items received as donations
+- Sample Received: Sample items received
+- Found Items: Items found during inventory count
+
+**Goods Issue Purposes:**
+- Customer Return: Items returned to customers
+- Donation Given: Items given as donations
+- Sample Given: Sample items given to customers
+- Internal Use: Items used internally
+- Damage Write-off: Damaged items written off
+
+### Best Practices for GR/GI
+
+- ✅ Always select the correct purpose
+- ✅ Review account mappings before approving
+- ✅ Add clear notes explaining the transaction
+- ✅ Verify quantities before approval
+- ✅ Keep reference numbers for traceability
+- ✅ Review journal entries after approval
 
 ---
 
@@ -619,6 +1080,93 @@ You can set custom prices for specific customers:
 
 ---
 
+## Account Mapping
+
+### Understanding Account Mapping
+
+Account mapping automatically links inventory items to accounting accounts. This ensures that inventory transactions create the correct journal entries in your accounting system.
+
+### How Account Mapping Works
+
+**Three Types of Accounts:**
+
+1. **Inventory Account**: Tracks the value of inventory on hand
+   - Example: "Inventory - Electronics", "Inventory - Stationery"
+   - Used when items are received or issued
+
+2. **COGS Account (Cost of Goods Sold)**: Tracks the cost when items are sold
+   - Example: "COGS - Electronics", "COGS - Stationery"
+   - Used when items are sold to customers
+
+3. **Sales Account**: Tracks revenue from sales
+   - Example: "Sales - Electronics", "Sales - Stationery"
+   - Used when items are sold to customers
+
+### Account Mapping Hierarchy
+
+Accounts are mapped in this order:
+
+1. **Item Level**: Item can have specific accounts (if configured)
+2. **Category Level**: Item inherits from its product category
+3. **Parent Category**: If category doesn't have accounts, inherits from parent
+4. **System Default**: Uses system defaults if no accounts found
+
+### How Items Get Accounts
+
+When you create an inventory item:
+
+1. You select a **Product Category**
+2. The item automatically inherits accounts from that category
+3. If category has no accounts, it inherits from parent category
+4. This happens automatically - no manual setup needed
+
+**Example:**
+- Category "Electronics" has:
+  - Inventory Account: "Inventory - Electronics"
+  - COGS Account: "COGS - Electronics"
+  - Sales Account: "Sales - Electronics"
+- Item "Laptop Model X" in "Electronics" category automatically uses these accounts
+
+### Account Mapping in Transactions
+
+**Purchase Transactions:**
+- Debit: Inventory Account (increases inventory value)
+- Credit: Accounts Payable or Cash (depending on payment)
+
+**Sales Transactions:**
+- Debit: Accounts Receivable or Cash (revenue received)
+- Credit: Sales Account (revenue recognition)
+- Debit: COGS Account (cost of goods sold)
+- Credit: Inventory Account (decreases inventory value)
+
+**GR/GI Transactions:**
+- Accounts depend on purpose and document type
+- System automatically selects correct accounts
+
+### Viewing Account Mappings
+
+1. Go to Product Category detail page
+2. You'll see:
+   - Inventory Account assigned
+   - COGS Account assigned
+   - Sales Account assigned
+   - Whether accounts are inherited or own
+
+3. Go to Inventory Item detail page
+4. You'll see:
+   - Which accounts the item uses
+   - Source of accounts (category, inheritance, etc.)
+
+### Important Notes
+
+- ✅ Account mappings are set at category level (recommended)
+- ✅ Items automatically inherit from categories
+- ✅ Changes to category accounts affect all items in that category
+- ✅ Review account mappings before creating many items
+- ✅ Consult with your accountant for correct account setup
+
+---
+
 ## Common Tasks
 
 ### Task 1: Adding a New Product to Inventory
@@ -715,6 +1263,58 @@ You can set custom prices for specific customers:
 4. Click "Save"
 5. Item is hidden from normal use but history is preserved
 6. To reactivate later, edit and check "Active" again
+
+### Task 8: Creating a Product Category with Account Mapping
+
+**Scenario**: You need to set up a new product category for "Office Supplies" with proper account mapping.
+
+**Steps**:
+1. Go to Master Data → Product Categories
+2. Click "Add Category"
+3. Enter code: "OFF-SUP"
+4. Enter name: "Office Supplies"
+5. Leave parent category empty (root category)
+6. Select Inventory Account: "Inventory - Office Supplies"
+7. Select COGS Account: "COGS - Office Supplies"
+8. Select Sales Account: "Sales - Office Supplies"
+9. Check "Active"
+10. Click "Save"
+11. Now all items in this category will use these accounts
+
+### Task 9: Transferring Stock Between Warehouses
+
+**Scenario**: You need to move 50 units of an item from Main Warehouse to Branch Warehouse.
+
+**Steps**:
+1. Go to Inventory → Find the item
+2. Click on item to view details
+3. Look for "Warehouse Transfer" or "Transfer Between Warehouses"
+4. Select "From Warehouse": Main Warehouse
+5. Select "To Warehouse": Branch Warehouse
+6. Enter quantity: 50
+7. Add notes: "Transfer to branch for sales"
+8. Click "Transfer"
+9. Verify stock levels updated in both warehouses
+
+### Task 10: Creating a Goods Receipt for Customer Return
+
+**Scenario**: A customer returned 5 units of an item. You need to record this.
+
+**Steps**:
+1. Go to Inventory → GR/GI → Create New
+2. Select Document Type: "Goods Receipt"
+3. Select Purpose: "Customer Return"
+4. Select Warehouse: Main Warehouse
+5. Enter transaction date
+6. Add reference number (customer return number)
+7. Add line item:
+   - Select the returned item
+   - Enter quantity: 5
+   - Enter unit price (original cost)
+8. Add notes: "Customer return - defective items"
+9. Click "Save" (creates as Draft)
+10. Review and click "Submit for Approval"
+11. After approval, inventory increases and journal entry is created
 
 ---
 
@@ -818,6 +1418,46 @@ You can set custom prices for specific customers:
 - Deactivate the item instead
 - Contact administrator if deletion is absolutely necessary
 
+### Problem: Account Mapping Not Working
+
+**Possible Causes**:
+- Category has no accounts set
+- Parent category has no accounts
+- Accounts not configured in system
+
+**Solutions**:
+1. Check category account mappings
+2. Verify parent category has accounts (if using inheritance)
+3. Set accounts at category level
+4. Contact administrator to configure default accounts
+
+### Problem: GR/GI Document Can't Be Approved
+
+**Possible Causes**:
+- Document not in "Pending Approval" status
+- Missing account mappings
+- Insufficient stock (for Goods Issue)
+- User doesn't have approval permission
+
+**Solutions**:
+1. Verify document status is "Pending Approval"
+2. Check account mappings are configured
+3. Verify stock availability (for GI)
+4. Contact administrator for approval permissions
+
+### Problem: Warehouse Transfer Not Working
+
+**Possible Causes**:
+- Insufficient stock in source warehouse
+- Same warehouse selected for source and destination
+- Item not available in source warehouse
+
+**Solutions**:
+1. Check stock level in source warehouse
+2. Verify different warehouses selected
+3. Ensure item exists in source warehouse
+4. Check warehouse is active
+
 ---
 
 ## Quick Reference
@@ -833,9 +1473,14 @@ You can set custom prices for specific customers:
 - **FIFO**: First In, First Out - oldest stock sold first
 - **LIFO**: Last In, First Out - newest stock sold first
 - **Weighted Average**: Average cost of all stock
+- **Manual Valuation**: Manually set cost per transaction
 - **Reorder Point**: Stock level that triggers reorder alert
 - **Valuation**: Total value of inventory
 - **Base Unit**: Primary unit of measure for an item
+- **GR (Goods Receipt)**: Document for receiving items without purchase order
+- **GI (Goods Issue)**: Document for issuing items without sales order
+- **ITO (Inventory Transfer Out)**: Moving items to transit warehouse
+- **ITI (Inventory Transfer In)**: Moving items from transit warehouse
 
 ### Common Item Types
 

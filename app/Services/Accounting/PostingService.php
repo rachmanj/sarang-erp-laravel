@@ -8,6 +8,7 @@ use App\Services\Accounting\PeriodCloseService;
 use App\Services\DocumentNumberingService;
 use App\Services\ControlAccountService;
 use App\Services\ExchangeRateService;
+use App\Services\CompanyEntityService;
 
 class PostingService
 {
@@ -15,7 +16,8 @@ class PostingService
         private PeriodCloseService $periods,
         private DocumentNumberingService $documentNumberingService,
         private ControlAccountService $controlAccountService,
-        private ExchangeRateService $exchangeRateService
+        private ExchangeRateService $exchangeRateService,
+        private CompanyEntityService $companyEntityService
     ) {}
     public function postJournal(array $payload): int
     {
@@ -31,6 +33,9 @@ class PostingService
         }
 
         return DB::transaction(function () use ($payload) {
+            // Resolve entity from source document or use default
+            $entityId = $this->resolveJournalEntity($payload['source_type'] ?? null, $payload['source_id'] ?? null);
+
             // Determine journal currency
             $journalCurrency = $this->determineJournalCurrency($payload['lines']);
 
@@ -43,13 +48,16 @@ class PostingService
                 'posted_by' => $payload['posted_by'] ?? null,
                 'currency_id' => $journalCurrency['currency_id'],
                 'exchange_rate' => $journalCurrency['exchange_rate'],
+                'company_entity_id' => $entityId,
                 'posted_at' => now(),
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
 
-            // Generate journal number using centralized service
-            $journalNo = $this->documentNumberingService->generateNumber('journal', $payload['date']);
+            // Generate journal number using centralized service with entity context
+            $journalNo = $this->documentNumberingService->generateNumber('journal', $payload['date'], [
+                'company_entity_id' => $entityId,
+            ]);
             DB::table('journals')->where('id', $journalId)->update(['journal_no' => $journalNo]);
 
             $linesInsert = [];
@@ -308,5 +316,44 @@ class PostingService
 
         // Calculate FX gain/loss
         return $originalTotal - $settlementTotal;
+    }
+
+    /**
+     * Resolve entity for journal from source document or use default.
+     */
+    private function resolveJournalEntity(?string $sourceType, ?int $sourceId): int
+    {
+        // Manual journals use default entity
+        if (!$sourceType || !$sourceId || $sourceType === 'manual_journal') {
+            return $this->companyEntityService->getDefaultEntity()->id;
+        }
+
+        // Try to resolve entity from source document
+        $sourceModel = null;
+        try {
+            switch ($sourceType) {
+                case 'App\Models\Accounting\PurchaseInvoice':
+                case 'App\Models\Accounting\SalesInvoice':
+                case 'App\Models\Accounting\PurchasePayment':
+                case 'App\Models\Accounting\SalesReceipt':
+                    $sourceModel = $sourceType::find($sourceId);
+                    break;
+                case 'App\Models\AssetDisposal':
+                    $sourceModel = \App\Models\AssetDisposal::find($sourceId);
+                    break;
+                case 'cash_expense':
+                    $sourceModel = \App\Models\Accounting\CashExpense::find($sourceId);
+                    break;
+            }
+
+            if ($sourceModel && isset($sourceModel->company_entity_id) && $sourceModel->company_entity_id) {
+                return $sourceModel->company_entity_id;
+            }
+        } catch (\Exception $e) {
+            // If source model doesn't exist or doesn't have company_entity_id, fall through to default
+        }
+
+        // Default fallback
+        return $this->companyEntityService->getDefaultEntity()->id;
     }
 }

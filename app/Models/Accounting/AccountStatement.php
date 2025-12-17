@@ -29,6 +29,7 @@ class AccountStatement extends Model
         'created_by',
         'finalized_by',
         'finalized_at',
+        'company_entity_id',
     ];
 
     protected $casts = [
@@ -61,6 +62,11 @@ class AccountStatement extends Model
     public function finalizer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'finalized_by');
+    }
+
+    public function companyEntity(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\CompanyEntity::class, 'company_entity_id');
     }
 
     public function lines(): HasMany

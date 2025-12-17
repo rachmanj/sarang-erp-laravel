@@ -1,5 +1,5 @@
 **Purpose**: Record technical decisions and rationale for future reference
-**Last Updated**: 2025-01-21 (Added Product Category Hierarchical UI Improvements decision record)
+**Last Updated**: 2025-12-11 (Added Complete Document Numbering System Migration decision record)
 
 # Technical Decision Records
 
@@ -29,6 +29,46 @@ Decision: [Title] - [YYYY-MM-DD]
 ---
 
 ## Recent Decisions
+
+### Decision: Complete Document Numbering System Migration - 2025-12-11
+
+**Context**: The system had a dual numbering format system with entity-aware format (`EEYYDDNNNNN`) for core purchase/sales documents and legacy format (`PREFIX-YYYYMM-######`) for accounting documents (Purchase Payments, Sales Receipts, Asset Disposals, Cash Expenses, Journals, Account Statements). This created inconsistency, confusion, and prevented unified entity-specific reporting and letterhead management across all document types.
+
+**Options Considered**:
+
+1. **Option A**: Keep dual-format system, migrate only high-priority documents.
+    - ✅ Pros: Minimal risk, preserves existing functionality for accounting documents.
+    - ❌ Cons: Inconsistent numbering, duplicate sequence management logic, reporting complexity.
+
+2. **Option B**: Migrate all documents to entity-aware format in single phase.
+    - ✅ Pros: Complete consistency, unified sequence management, simpler reporting, single format standard.
+    - ❌ Cons: More complex migration, requires entity resolution logic for all document types.
+
+3. **Option C**: Phased migration over multiple releases (Recommended).
+    - ✅ Pros: Managed risk, allows testing between phases, maintains backward compatibility, clear migration path.
+    - ❌ Cons: Temporary inconsistency during migration period.
+
+**Decision**: Adopt Option C—implement phased migration: Phase 1 (Purchase Payment, Sales Receipt), Phase 2 (Asset Disposal, Cash Expense), Phase 3 (Journal, Account Statement), Phase 4 (Testing & Documentation).
+
+**Rationale**:
+
+- Phased approach minimizes risk while achieving complete migration goal.
+- Phase 1 focuses on high-impact documents with existing entity context.
+- Phase 2 handles documents requiring entity resolution logic.
+- Phase 3 addresses complex documents with multiple source types (Journals) or default entity assignment (Account Statements).
+- Complete migration ensures unified reporting, consistent letterhead management, and simplified sequence tracking.
+- Legacy format completely deprecated, eliminating dual-format complexity.
+
+**Implementation**:
+
+- **Phase 1**: Added `company_entity_id` to Purchase Payment and Sales Receipt models, updated controllers to pass entity context, added codes `04` and `09` to `ENTITY_DOCUMENT_CODES`.
+- **Phase 2**: Created migrations for Asset Disposal and Cash Expense `company_entity_id`, implemented entity resolution (Asset→PurchaseInvoice for Disposal, default entity for Cash Expense), added codes `10` and `11`.
+- **Phase 3**: Added `company_entity_id` to Journals and Account Statements, implemented `resolveJournalEntity()` method in PostingService supporting multiple source types, Account Statements use default entity, added codes `12` and `13`.
+- **Phase 4**: Updated all documentation, created bilingual manual (`docs/manuals/document-numbering-system-manual.md`), browser testing validation.
+- All documents now use `EEYYDDNNNNN` format exclusively. Legacy format removed from active use.
+- Updated `DocumentNumberingService` with complete document code mapping, entity resolution methods, and year-based sequence management.
+
+**Review Date**: 2026-12-11 (after full year of production use with complete entity-aware numbering).
 
 ### Decision: Product Category Hierarchical UI Improvements - 2025-01-21
 

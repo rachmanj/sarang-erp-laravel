@@ -1,5 +1,5 @@
 Purpose: Technical reference for understanding system design and development patterns
-Last Updated: 2025-01-21 (Updated with Product Category Hierarchical UI Improvements)
+Last Updated: 2025-12-11 (Updated with Complete Entity-Aware Document Numbering System Migration)
 
 ## Architecture Documentation Guidelines
 
@@ -114,7 +114,7 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 ### 1. Financial Management System
 
 -   **Chart of Accounts**: Hierarchical account structure with 5 types (asset, liability, net_assets, income, expense)
--   **Journal Management**: Manual journal entries with automatic numbering (JNL-YYYYMM-######) and multi-currency support
+-   **Journal Management**: Manual journal entries with entity-aware numbering (code 12) and multi-currency support, entity resolution from source documents
 -   **Period Management**: Financial period closing with validation
 -   **Posting Service**: Centralized accounting posting with balance validation and foreign currency handling
 
@@ -127,7 +127,7 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 -   **Sales Dashboard**: Comprehensive sales analytics with `SalesDashboardDataService` providing AR aging analysis, sales order statistics, sales invoice statistics, delivery order statistics, customer statistics, and recent invoices with 300s TTL caching.
 -   **Account Statements**: Comprehensive financial statements for GL accounts and Business Partners with transaction tracking and running balances
 -   **Control Account System**: Enterprise-level control account architecture with automatic balance tracking, subsidiary ledger management, and reconciliation dashboard for financial control and compliance
--   **Auto-Numbering System**: Centralized document numbering service with consistent PREFIX-YYYYMM-###### format across all document types
+-   **Entity-Aware Numbering System**: Centralized document numbering service with universal EEYYDDNNNNN format across all document types
 
 ### 1.1. Multi-Currency Management System
 
@@ -144,7 +144,7 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 -   **Sales Dashboard**: Comprehensive sales analytics dashboard with AR aging analysis, sales KPIs (Sales MTD, Outstanding AR, Pending Approvals, Open Sales Orders), sales order statistics, sales invoice statistics, delivery order statistics, top customers by outstanding AR, and recent invoices visualization.
 -   **Sales Invoices**: Customer billing with line items, tax codes, and dimensions (SINV-YYYYMM-######)
 -   **Sales Receipts**: Payment collection with automatic allocation to invoices (SR-YYYYMM-######)
--   **Sales Orders**: Customer order management with automatic numbering (SO-YYYYMM-######)
+-   **Sales Orders**: Customer order management with entity-aware numbering (code 06)
 -   **AR Aging**: Customer payment tracking and aging analysis with buckets (Current, 1-30, 31-60, 61-90, 90+ days) calculated from sales invoices minus sales receipt allocations
 -   **AR Balances**: Customer account balance reporting
 
@@ -234,7 +234,7 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 -   **Asset Register**: Complete asset lifecycle management
 -   **Asset Categories**: Configurable categories with depreciation settings
 -   **Depreciation Management**: Automated depreciation calculation and posting
--   **Asset Disposal**: Disposal process with gain/loss calculation and automatic numbering (DIS-YYYYMM-######)
+-   **Asset Disposal**: Disposal process with gain/loss calculation and entity-aware numbering (code 10)
 -   **Asset Movement**: Transfer tracking between departments/projects
 -   **Data Quality**: Duplicate detection, completeness checks, consistency validation
 
@@ -395,20 +395,27 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 -   **JSON API Responses**: Proper AJAX handling with JSON success/error responses for seamless user experience
 -   **DataTable Integration**: Dynamic data loading with search, sorting, and pagination capabilities
 
-### 16. Comprehensive Auto-Numbering System
+### 16. Comprehensive Entity-Aware Document Numbering System
 
--   **Centralized Service**: DocumentNumberingService provides unified document numbering across all document types
--   **Consistent Format**:
-    -   Entity-aware purchasing & sales docs (PO, GRPO, PI, SO, DO, SI) now use `EEYYDDNNNNN` (Entity code, 2-digit year, document code, 5-digit sequence) to satisfy multi-letterhead requirements.
-    -   Legacy documents continue with PREFIX-YYYYMM-###### (e.g., CEV-202509-000001) for modules outside the multi-entity scope.
+-   **Centralized Service**: DocumentNumberingService provides unified entity-aware document numbering across all document types
+-   **Universal Entity Format**: All document types now use `EEYYDDNNNNN` format (Entity code, 2-digit year, document code, 5-digit sequence)
+    -   **Format Breakdown**: `EE` (2-digit entity code) + `YY` (2-digit year) + `DD` (2-digit document code) + `NNNNN` (5-digit sequence)
+    -   **Example**: `71250100001` = PT CSJ (71) + 2025 (25) + Purchase Order (01) + Sequence 00001
+-   **Document Code Assignment**: 
+    -   PO `01`, GRPO `02`, PI `03`, Purchase Payment `04`, Sales Order `06`, DO `07`, SI `08`, Sales Receipt `09`
+    -   Asset Disposal `10`, Cash Expense `11`, Journal `12`, Account Statement `13`
+-   **Entity Resolution**: 
+    -   Purchase/Sales documents: Inherit entity from document creator or base document (PO→GRPO, SO→DO)
+    -   Asset Disposal: Resolve from Asset→PurchaseInvoice entity chain, fallback to default
+    -   Cash Expense/Journal/Account Statement: Use default entity
+    -   Manual Journals: Default entity assignment
 -   **Thread-Safe Operations**: Database transactions with proper locking prevent duplicate numbers
--   **Month-Based Sequences**: Automatic sequence reset and tracking per month (legacy) plus per-entity/per-year tracking for the new scheme
--   **Document Type Support**: 
-    -   Entity format codes: PO `01`, GRPO `02`, PI `03`, SO `06`, DO `07`, SI `08`
-    -   Legacy prefixes remain for Purchase Payments (PP), Sales Receipts (SR), Asset Disposals (DIS), Cash Expenses (CEV), Journals (JNL), Account Statements (AST), etc.
--   **Sequence Management**: DocumentSequence model tracks last sequence per document type/month and per-entity/per-document/per-year (`current_number`)
--   **Error Handling**: Comprehensive exception handling and validation
--   **Database Persistence**: Sequence tracking stored in document_sequences table with unique constraints
+-   **Year-Based Sequences**: Automatic sequence reset on January 1st per entity/document type/year
+-   **Sequence Management**: DocumentSequence model tracks last sequence per-entity/per-document/per-year (`company_entity_id`, `document_code`, `year`, `current_number`)
+-   **Legacy Format**: PREFIX-YYYYMM-###### format is completely deprecated
+-   **Error Handling**: Comprehensive exception handling, validation, and entity resolution
+-   **Database Persistence**: Sequence tracking stored in document_sequences table with unique composite keys
+-   **CompanyEntityService Integration**: Automatic entity resolution, default entity fallback, and entity context propagation
 
 ### 17. Document Closure System
 
@@ -446,10 +453,10 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 #### Financial Tables
 
 -   `accounts`: Chart of accounts with hierarchical structure
--   `journals`: Journal headers with automatic numbering and multi-currency support (currency_id, exchange_rate)
+-   `journals`: Journal headers with entity-aware numbering (code 12) and multi-currency support (currency_id, exchange_rate, company_entity_id resolved from source documents)
 -   `journal_lines`: Journal line items with dimensions and foreign currency amounts (currency_id, exchange_rate, debit_foreign, credit_foreign)
 -   `periods`: Financial periods with close/open status
--   `account_statements`: Account statement headers with opening/closing balances
+-   `account_statements`: Account statement headers with opening/closing balances, entity-aware numbering (code 13), `company_entity_id` for default entity assignment
 -   `account_statement_lines`: Statement line items with transaction details and running balances
 -   `control_accounts`: Control account definitions linking GL accounts to control types (AR, AP, Inventory, Fixed Assets)
 -   `subsidiary_ledger_accounts`: Subsidiary ledger accounts linking individual entities to control accounts

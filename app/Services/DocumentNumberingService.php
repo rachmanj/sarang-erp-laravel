@@ -28,9 +28,15 @@ class DocumentNumberingService
         'goods_receipt' => '02',
         'grpo' => '02',
         'purchase_invoice' => '03',
+        'purchase_payment' => '04',
         'sales_order' => '06',
         'delivery_order' => '07',
         'sales_invoice' => '08',
+        'sales_receipt' => '09',
+        'asset_disposal' => '10',
+        'cash_expense' => '11',
+        'journal' => '12',
+        'account_statement' => '13',
     ];
 
     public function __construct(

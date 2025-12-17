@@ -6,6 +6,7 @@ use App\Models\Asset;
 use App\Models\AssetDisposal;
 use App\Services\Accounting\FixedAssetService;
 use App\Services\DocumentNumberingService;
+use App\Services\CompanyEntityService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -15,7 +16,8 @@ class AssetDisposalController extends Controller
 {
     public function __construct(
         private FixedAssetService $fixedAssetService,
-        private DocumentNumberingService $documentNumberingService
+        private DocumentNumberingService $documentNumberingService,
+        private CompanyEntityService $companyEntityService
     ) {}
 
     /**
@@ -125,15 +127,26 @@ class AssetDisposalController extends Controller
             'notes' => 'nullable|string|max:1000',
         ]);
 
-        $asset = Asset::findOrFail($request->asset_id);
+        $asset = Asset::with('purchaseInvoice')->findOrFail($request->asset_id);
 
         if (!$asset->canBeDisposed()) {
             return back()->with('error', 'This asset cannot be disposed.');
         }
 
         DB::transaction(function () use ($request, $asset) {
+            // Resolve entity from Asset → PurchaseInvoice → company_entity_id, or use default
+            $entityId = null;
+            if ($asset->purchase_invoice_id && $asset->purchaseInvoice) {
+                $entityId = $asset->purchaseInvoice->company_entity_id;
+            }
+            
+            if (!$entityId) {
+                $entityId = $this->companyEntityService->getDefaultEntity()->id;
+            }
+
             $disposal = AssetDisposal::create([
                 'asset_id' => $asset->id,
+                'company_entity_id' => $entityId,
                 'disposal_date' => $request->disposal_date,
                 'disposal_type' => $request->disposal_type,
                 'disposal_proceeds' => $request->disposal_proceeds,
@@ -146,8 +159,10 @@ class AssetDisposalController extends Controller
                 'status' => 'draft',
             ]);
 
-            // Generate disposal number
-            $disposalNo = $this->documentNumberingService->generateNumber('asset_disposal', $request->disposal_date);
+            // Generate disposal number with entity context
+            $disposalNo = $this->documentNumberingService->generateNumber('asset_disposal', $request->disposal_date, [
+                'company_entity_id' => $entityId,
+            ]);
             $disposal->update(['disposal_no' => $disposalNo]);
 
             // Update asset status to disposed

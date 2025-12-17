@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Accounting\CashExpense;
 use App\Services\Accounting\PostingService;
 use App\Services\DocumentNumberingService;
+use App\Services\CompanyEntityService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -15,7 +16,8 @@ class CashExpenseController extends Controller
 {
     public function __construct(
         private PostingService $posting,
-        private DocumentNumberingService $documentNumberingService
+        private DocumentNumberingService $documentNumberingService,
+        private CompanyEntityService $companyEntityService
     ) {
         $this->middleware(['auth']);
     }
@@ -52,6 +54,9 @@ class CashExpenseController extends Controller
         $amount = $data['amount_raw'] ?? $data['amount'];
 
         return DB::transaction(function () use ($data, $amount) {
+            // Use default entity for cash expenses
+            $entity = $this->companyEntityService->getDefaultEntity();
+
             $exp = CashExpense::create([
                 'date' => $data['date'],
                 'description' => $data['description'] ?? null,
@@ -59,10 +64,13 @@ class CashExpenseController extends Controller
                 'amount' => $amount,
                 'status' => 'posted',
                 'created_by' => Auth::id(),
+                'company_entity_id' => $entity->id,
             ]);
 
-            // Generate expense number
-            $expenseNo = $this->documentNumberingService->generateNumber('cash_expense', $data['date']);
+            // Generate expense number with entity context
+            $expenseNo = $this->documentNumberingService->generateNumber('cash_expense', $data['date'], [
+                'company_entity_id' => $entity->id,
+            ]);
             $exp->update(['expense_no' => $expenseNo]);
 
             // Post journal: Debit Expense, Credit Cash

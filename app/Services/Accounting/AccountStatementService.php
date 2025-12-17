@@ -16,13 +16,15 @@ use App\Models\Accounting\CashExpense;
 use App\Models\AssetDisposal;
 use App\Models\DeliveryOrder;
 use App\Services\DocumentNumberingService;
+use App\Services\CompanyEntityService;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
 class AccountStatementService
 {
     public function __construct(
-        private DocumentNumberingService $documentNumberingService
+        private DocumentNumberingService $documentNumberingService,
+        private CompanyEntityService $companyEntityService
     ) {}
 
     /**
@@ -43,9 +45,14 @@ class AccountStatementService
         }
 
         return DB::transaction(function () use ($account, $accountId, $fromDate, $toDate, $projectId, $deptId, $userId) {
+            // Use default entity for account statements
+            $entity = $this->companyEntityService->getDefaultEntity();
+
             // Create statement header
             $statement = AccountStatement::create([
-                'statement_no' => $this->documentNumberingService->generateNumber('account_statement', $fromDate),
+                'statement_no' => $this->documentNumberingService->generateNumber('account_statement', $fromDate, [
+                    'company_entity_id' => $entity->id,
+                ]),
                 'statement_type' => 'gl_account',
                 'account_id' => $accountId,
                 'statement_date' => $toDate,
@@ -54,6 +61,7 @@ class AccountStatementService
                 'opening_balance' => $this->calculateOpeningBalance($accountId, $fromDate, $projectId, $deptId),
                 'status' => 'draft',
                 'created_by' => $userId,
+                'company_entity_id' => $entity->id,
             ]);
 
             // Generate statement lines
@@ -80,9 +88,14 @@ class AccountStatementService
         $businessPartner = BusinessPartner::findOrFail($businessPartnerId);
 
         return DB::transaction(function () use ($businessPartner, $businessPartnerId, $fromDate, $toDate, $projectId, $deptId, $userId) {
+            // Use default entity for account statements
+            $entity = $this->companyEntityService->getDefaultEntity();
+
             // Create statement header
             $statement = AccountStatement::create([
-                'statement_no' => $this->documentNumberingService->generateNumber('account_statement', $fromDate),
+                'statement_no' => $this->documentNumberingService->generateNumber('account_statement', $fromDate, [
+                    'company_entity_id' => $entity->id,
+                ]),
                 'statement_type' => 'business_partner',
                 'business_partner_id' => $businessPartnerId,
                 'statement_date' => $toDate,
@@ -91,6 +104,7 @@ class AccountStatementService
                 'opening_balance' => $this->calculateBusinessPartnerOpeningBalance($businessPartnerId, $fromDate, $projectId, $deptId),
                 'status' => 'draft',
                 'created_by' => $userId,
+                'company_entity_id' => $entity->id,
             ]);
 
             // Generate statement lines
