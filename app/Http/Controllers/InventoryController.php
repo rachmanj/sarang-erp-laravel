@@ -117,35 +117,41 @@ class InventoryController extends Controller
                 'is_active' => ['nullable'],
             ];
 
-            // Add stock level validation only for physical items
-            if ($request->input('item_type') === 'item') {
-                $rules['min_stock_level'] = ['required', 'integer', 'min:0'];
-                $rules['max_stock_level'] = ['required', 'integer', 'min:0'];
-                $rules['reorder_point'] = ['required', 'integer', 'min:0'];
-            } else {
-                $rules['min_stock_level'] = ['nullable', 'integer', 'min:0'];
-                $rules['max_stock_level'] = ['nullable', 'integer', 'min:0'];
-                $rules['reorder_point'] = ['nullable', 'integer', 'min:0'];
-            }
+            // Stock level validation - all optional
+            $rules['min_stock_level'] = ['nullable', 'integer', 'min:0'];
+            $rules['max_stock_level'] = ['nullable', 'integer', 'min:0'];
+            $rules['reorder_point'] = ['nullable', 'integer', 'min:0'];
 
             $data = $request->validate($rules);
 
             // Map selected base unit to legacy unit_of_measure string (code)
-            $baseUnit = \App\Models\UnitOfMeasure::findOrFail($data['base_unit_id']);
+            $baseUnitId = $data['base_unit_id'];
+            $baseUnit = \App\Models\UnitOfMeasure::findOrFail($baseUnitId);
             $data['unit_of_measure'] = $baseUnit->code;
+            
+            // Remove base_unit_id from data array as it's not a database column
+            unset($data['base_unit_id']);
+            
+            // Convert empty stock level strings to 0 (database default)
+            $data['min_stock_level'] = $data['min_stock_level'] ?? 0;
+            $data['max_stock_level'] = $data['max_stock_level'] ?? 0;
+            $data['reorder_point'] = $data['reorder_point'] ?? 0;
+            
+            // Set default purchase_price to 0 if not provided (database requires NOT NULL)
+            $data['purchase_price'] = $data['purchase_price'] ?? 0;
 
             Log::info('Validation passed. Validated data:', $data);
 
             // Convert checkbox "on" value to boolean true
             $data['is_active'] = $request->has('is_active') ? true : false;
 
-            return DB::transaction(function () use ($data, $request) {
+            return DB::transaction(function () use ($data, $request, $baseUnitId) {
                 Log::info('Starting DB transaction to create inventory item');
                 $item = InventoryItem::create($data);
                 Log::info('Inventory item created with ID: ' . ($item->id ?? 'null'));
 
                 // Create base unit relationship for this item (1 = base unit)
-                app(UnitConversionService::class)->createItemUnit($item->id, $data['base_unit_id'], [
+                app(UnitConversionService::class)->createItemUnit($item->id, $baseUnitId, [
                     'is_base_unit' => true,
                     'conversion_quantity' => 1,
                     'selling_price' => $data['selling_price'],

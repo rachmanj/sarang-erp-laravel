@@ -450,13 +450,14 @@
                 @endcanany
 
                 <!-- 7. Master Data Group -->
-                @canany(['projects.view', 'departments.view', 'inventory.view', 'manage-company-info'])
+                @canany(['projects.view', 'departments.view', 'inventory.view', 'manage-company-info', 'view_unit_of_measure'])
                     @php
                         $masterDataActive =
                             request()->routeIs('projects.*') ||
                             request()->routeIs('departments.*') ||
                             request()->routeIs('product-categories.*') ||
-                            request()->routeIs('company-info.*');
+                            request()->routeIs('company-info.*') ||
+                            request()->routeIs('unit-of-measures.*');
                     @endphp
                     <li class="nav-item {{ $masterDataActive ? 'menu-is-opening menu-open' : '' }}">
                         <a href="#" class="nav-link {{ $masterDataActive ? 'active' : '' }}">
@@ -482,6 +483,15 @@
                                         class="nav-link {{ request()->routeIs('product-categories.*') ? 'active' : '' }}">
                                         <i class="far fa-circle nav-icon"></i>
                                         <p>Product Categories</p>
+                                    </a>
+                                </li>
+                            @endcan
+                            @can('view_unit_of_measure')
+                                <li class="nav-item">
+                                    <a href="{{ route('unit-of-measures.index') }}"
+                                        class="nav-link {{ request()->routeIs('unit-of-measures.*') ? 'active' : '' }}">
+                                        <i class="far fa-circle nav-icon"></i>
+                                        <p>Units of Measure</p>
                                     </a>
                                 </li>
                             @endcan

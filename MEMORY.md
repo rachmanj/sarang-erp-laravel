@@ -1,5 +1,5 @@
 **Purpose**: AI's persistent knowledge base for project context and learnings
-**Last Updated**: 2025-01-21 (Product Category Hierarchical UI Improvements)
+**Last Updated**: 2025-01-22 (DataTable Pattern Consistency Standardization)
 
 ## Memory Maintenance Guidelines
 
@@ -495,7 +495,13 @@
 **Solution**: Implemented comprehensive hierarchical category UI improvements including: ProductCategory model helper methods (`getHierarchicalName()`, `getHierarchicalPath()`, `isRoot()`, `getDescendants()`, `getInvalidParentIds()`), ProductCategoryController index method with tree/table view toggle supporting both paginated table view and visual tree hierarchy, parent category filtering to show only root categories as potential parents preventing circular references, hierarchical display format ("Parent > Child > Grandchild") in all category dropdowns across inventory forms, purchase orders, sales orders, goods receipt, and item selection modals, visual tree view with color-coded hierarchy levels (root=primary, level 1=info, level 2+=secondary), comprehensive view updates ensuring consistent hierarchical display throughout system.
 **Key Learning**: Hierarchical category support requires coordinated updates across model (helper methods), controller (filtering logic), and views (display formatting). Tree view provides superior visualization for complex hierarchies while table view remains efficient for flat lists. Parent filtering prevents circular references and simplifies user experience. Hierarchical display names improve usability by showing full category context in dropdowns. Implementation pattern (model helpers → controller filtering → view display) can be reused for other hierarchical data structures in the system.
 
-### [071] Complete Entity-Aware Document Numbering System Migration (2025-12-11) ✅ COMPLETE
+### [071] DataTable Pattern Consistency Standardization (2025-01-22) ✅ COMPLETE
+
+**Challenge**: `/unit-of-measures` page had different DataTable implementation pattern compared to `/inventory` page, creating maintenance overhead and inconsistent user experience. Differences included nested card structures, different JavaScript patterns (`@push('scripts')` vs `@section('scripts')`), variable declarations (`var` vs `const`), and custom language configurations.
+**Solution**: Standardized `/unit-of-measures` DataTable to match inventory page pattern: simplified layout structure (removed nested sections, changed to `row` → `col-12` → `card`), moved filters to card-header using `form-inline` class with `d-flex justify-content-between`, changed table ID from `units-table` to `tbl-units` matching `tbl-inventory` pattern, updated JavaScript from `@push('scripts')` to `@section('scripts')`, changed from `var table` to `const table`, implemented `serializeArray()` filter pattern, removed custom language configuration, simplified column render functions, removed unnecessary table classes (`table-hover`, `thead-dark`).
+**Key Learning**: UI consistency significantly improves maintainability and reduces cognitive load for developers. Standardized patterns make it easier to add new DataTable pages following established conventions. Inventory page pattern is cleaner and simpler, providing better foundation for consistency. Using `@section('scripts')` is more explicit than `@push('scripts')` and matches Laravel conventions. `const` instead of `var` follows modern JavaScript best practices. Filter form pattern using `form-inline` in card-header provides better layout consistency. This pattern should be applied to all future DataTable implementations.
+
+### [072] Complete Entity-Aware Document Numbering System Migration (2025-12-11) ✅ COMPLETE
 
 **Challenge**: Migrate all remaining document types from legacy format (PREFIX-YYYYMM-######) to entity-aware format (EEYYDDNNNNN) to achieve unified numbering system, consistent reporting, and proper entity-specific letterhead management across all business documents.
 

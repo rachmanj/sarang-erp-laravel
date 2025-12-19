@@ -76,6 +76,9 @@
 
     @include('layouts.partials.scripts')
 
+    <!-- Modals Stack -->
+    @stack('modals')
+
 </body>
 
 </html>

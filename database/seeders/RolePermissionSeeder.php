@@ -125,6 +125,11 @@ class RolePermissionSeeder extends Seeder
             'sales-orders.update',
             'sales-orders.delete',
             'sales-orders.approve',
+            // Unit of Measure permissions
+            'view_unit_of_measure',
+            'create_unit_of_measure',
+            'update_unit_of_measure',
+            'delete_unit_of_measure',
         ];
 
         foreach ($permissions as $perm) {

@@ -15,7 +15,7 @@ class UnitOfMeasureController extends Controller
     public function __construct(UnitConversionService $unitConversionService)
     {
         $this->unitConversionService = $unitConversionService;
-        $this->middleware('permission:view_unit_of_measure')->only(['index', 'show']);
+        $this->middleware('permission:view_unit_of_measure')->only(['index', 'show', 'data']);
         $this->middleware('permission:create_unit_of_measure')->only(['create', 'store']);
         $this->middleware('permission:update_unit_of_measure')->only(['edit', 'update']);
         $this->middleware('permission:delete_unit_of_measure')->only(['destroy']);
@@ -23,13 +23,88 @@ class UnitOfMeasureController extends Controller
 
     public function index()
     {
-        $units = UnitOfMeasure::with(['fromConversions', 'toConversions'])
-            ->orderBy('unit_type')
-            ->orderBy('name')
-            ->get()
-            ->groupBy('unit_type');
+        return view('unit_of_measures.index');
+    }
 
-        return view('unit_of_measures.index', compact('units'));
+    public function data(Request $request)
+    {
+        $query = UnitOfMeasure::with(['fromConversions', 'toConversions']);
+
+        // Apply search filter
+        if ($request->filled('search') && $request->search['value']) {
+            $searchValue = $request->search['value'];
+            $query->where(function ($q) use ($searchValue) {
+                $q->where('code', 'like', '%' . $searchValue . '%')
+                    ->orWhere('name', 'like', '%' . $searchValue . '%')
+                    ->orWhere('description', 'like', '%' . $searchValue . '%')
+                    ->orWhere('unit_type', 'like', '%' . $searchValue . '%');
+            });
+        }
+
+        // Apply unit type filter
+        if ($request->filled('unit_type')) {
+            $query->where('unit_type', $request->unit_type);
+        }
+
+        // Apply status filter
+        if ($request->filled('status')) {
+            if ($request->status === 'active') {
+                $query->where('is_active', true);
+            } elseif ($request->status === 'inactive') {
+                $query->where('is_active', false);
+            }
+        }
+
+        // Get total count before pagination
+        $totalRecords = UnitOfMeasure::count();
+        $filteredRecords = $query->count();
+
+        // Apply sorting
+        $order = $request->get('order', []);
+        if (!empty($order) && isset($order[0])) {
+            $orderColumn = $order[0]['column'] ?? 0;
+            $orderDir = $order[0]['dir'] ?? 'asc';
+            
+            $columns = ['code', 'name', 'description', 'unit_type', 'is_base_unit', 'is_active', 'conversions'];
+            $orderBy = $columns[$orderColumn] ?? 'name';
+            
+            if ($orderBy === 'conversions') {
+                // For conversions, we'll sort by unit_type and name
+                $query->orderBy('unit_type', $orderDir)->orderBy('name', $orderDir);
+            } else {
+                $query->orderBy($orderBy, $orderDir);
+            }
+        } else {
+            // Default sorting
+            $query->orderBy('unit_type', 'asc')->orderBy('name', 'asc');
+        }
+
+        // Apply DataTables pagination
+        $start = $request->get('start', 0);
+        $length = $request->get('length', 10);
+
+        $units = $query->skip($start)->take($length)->get();
+
+        return response()->json([
+            'draw' => intval($request->get('draw')),
+            'recordsTotal' => $totalRecords,
+            'recordsFiltered' => $filteredRecords,
+            'data' => $units->map(function ($unit) {
+                $conversionCount = $unit->fromConversions->count() + $unit->toConversions->count();
+                
+                return [
+                    'id' => $unit->id,
+                    'code' => $unit->code,
+                    'name' => $unit->name,
+                    'description' => $unit->description ?? '-',
+                    'unit_type' => ucfirst($unit->unit_type),
+                    'is_base_unit' => $unit->is_base_unit,
+                    'is_active' => $unit->is_active,
+                    'conversions' => $conversionCount,
+                    'actions' => view('unit_of_measures.partials.actions', compact('unit'))->render(),
+                ];
+            })
+        ]);
     }
 
     public function create()
@@ -43,6 +118,7 @@ class UnitOfMeasureController extends Controller
             'code' => 'required|string|max:20|unique:units_of_measure',
             'name' => 'required|string|max:100',
             'description' => 'nullable|string',
+            'unit_type' => 'nullable|in:count,weight,length,volume,area,time',
             'is_base_unit' => 'boolean',
         ]);
 
@@ -76,6 +152,7 @@ class UnitOfMeasureController extends Controller
             'code' => 'required|string|max:20|unique:units_of_measure,code,' . $unitOfMeasure->id,
             'name' => 'required|string|max:100',
             'description' => 'nullable|string',
+            'unit_type' => 'nullable|in:count,weight,length,volume,area,time',
             'is_base_unit' => 'boolean',
         ]);
 

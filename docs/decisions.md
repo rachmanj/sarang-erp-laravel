@@ -1,5 +1,5 @@
 **Purpose**: Record technical decisions and rationale for future reference
-**Last Updated**: 2025-12-11 (Added Complete Document Numbering System Migration decision record)
+**Last Updated**: 2025-01-22 (Added DataTable Pattern Consistency decision record)
 
 # Technical Decision Records
 
@@ -29,6 +29,43 @@ Decision: [Title] - [YYYY-MM-DD]
 ---
 
 ## Recent Decisions
+
+### Decision: DataTable Pattern Consistency Standardization - 2025-01-22
+
+**Context**: The `/unit-of-measures` page had a different DataTable implementation pattern compared to the `/inventory` page. The unit-of-measures page used nested card structures, different JavaScript patterns (`@push('scripts')` vs `@section('scripts')`), different variable declarations (`var` vs `const`), and custom language configurations. This inconsistency created maintenance overhead and potential confusion for developers working across multiple pages.
+
+**Options Considered**:
+
+1. **Option A**: Keep existing patterns, document differences.
+    - ✅ Pros: No code changes required, preserves existing functionality.
+    - ❌ Cons: Maintenance overhead, inconsistent user experience, developer confusion.
+
+2. **Option B**: Standardize on inventory page pattern across all DataTable implementations.
+    - ✅ Pros: Consistent codebase, easier maintenance, unified user experience, clear pattern for future pages.
+    - ❌ Cons: Requires refactoring existing pages.
+
+**Decision**: Adopt Option B—standardize all DataTable implementations to match the inventory page pattern.
+
+**Rationale**:
+
+- Consistency improves maintainability and reduces cognitive load for developers.
+- Unified pattern makes it easier to add new DataTable pages following established conventions.
+- Consistent user experience across pages improves usability.
+- Inventory page pattern is simpler and cleaner (removed unnecessary nested structures).
+- Standardized filter form pattern using `form-inline` in card-header provides better layout consistency.
+- Using `@section('scripts')` instead of `@push('scripts')` is more explicit and matches Laravel conventions.
+- `const` instead of `var` follows modern JavaScript best practices.
+
+**Implementation**:
+
+- **Layout Structure**: Simplified from nested `section`/`container-fluid`/`card-outline` to simple `row` → `col-12` → `card` structure matching inventory.
+- **Card Header**: Moved filters to card-header using `d-flex justify-content-between align-items-center` with action buttons on left, filters on right.
+- **Filter Form**: Changed to `form-inline` class with form submission pattern using `serializeArray()`.
+- **Table Structure**: Changed table ID from `units-table` to `tbl-units` (matching `tbl-inventory` pattern), removed `table-hover` and `thead-dark` classes, simplified to `table table-bordered table-striped`.
+- **JavaScript**: Changed from `@push('scripts')` to `@section('scripts')`, changed from `var table` to `const table`, removed custom language configuration, simplified column render functions.
+- **Filter Handling**: Implemented `serializeArray()` pattern matching inventory page for consistent filter data processing.
+
+**Review Date**: 2026-01-22 (after full year of production use with standardized pattern).
 
 ### Decision: Complete Document Numbering System Migration - 2025-12-11
 

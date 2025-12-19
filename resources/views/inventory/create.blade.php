@@ -167,12 +167,11 @@
                         <div class="row">
                             <div class="col-md-4">
                                 <div class="form-group">
-                                    <label for="min_stock_level">Minimum Stock Level <span
-                                            class="text-danger">*</span></label>
+                                    <label for="min_stock_level">Minimum Stock Level</label>
                                     <input type="number"
                                         class="form-control @error('min_stock_level') is-invalid @enderror"
                                         id="min_stock_level" name="min_stock_level"
-                                        value="{{ old('min_stock_level', 0) }}" min="0" required>
+                                        value="{{ old('min_stock_level', 0) }}" min="0">
                                     @error('min_stock_level')
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
@@ -180,12 +179,11 @@
                             </div>
                             <div class="col-md-4">
                                 <div class="form-group">
-                                    <label for="max_stock_level">Maximum Stock Level <span
-                                            class="text-danger">*</span></label>
+                                    <label for="max_stock_level">Maximum Stock Level</label>
                                     <input type="number"
                                         class="form-control @error('max_stock_level') is-invalid @enderror"
                                         id="max_stock_level" name="max_stock_level"
-                                        value="{{ old('max_stock_level', 0) }}" min="0" required>
+                                        value="{{ old('max_stock_level', 0) }}" min="0">
                                     @error('max_stock_level')
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
@@ -193,11 +191,11 @@
                             </div>
                             <div class="col-md-4">
                                 <div class="form-group">
-                                    <label for="reorder_point">Reorder Point <span class="text-danger">*</span></label>
+                                    <label for="reorder_point">Reorder Point</label>
                                     <input type="number"
                                         class="form-control @error('reorder_point') is-invalid @enderror"
                                         id="reorder_point" name="reorder_point" value="{{ old('reorder_point', 0) }}"
-                                        min="0" required>
+                                        min="0">
                                     @error('reorder_point')
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror

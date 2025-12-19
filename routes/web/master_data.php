@@ -27,6 +27,7 @@ Route::prefix('master-data')->name('master-data.')->middleware(['auth', 'permiss
 // Unit of Measure Routes
 Route::prefix('unit-of-measures')->name('unit-of-measures.')->middleware(['auth'])->group(function () {
     Route::get('/', [UnitOfMeasureController::class, 'index'])->name('index');
+    Route::get('/data', [UnitOfMeasureController::class, 'data'])->name('data');
     Route::get('/create', [UnitOfMeasureController::class, 'create'])->name('create');
     Route::post('/', [UnitOfMeasureController::class, 'store'])->name('store');
     Route::get('/{unitOfMeasure}', [UnitOfMeasureController::class, 'show'])->name('show');
