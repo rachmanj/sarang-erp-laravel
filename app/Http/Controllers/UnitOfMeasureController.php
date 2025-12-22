@@ -160,7 +160,7 @@ class UnitOfMeasureController extends Controller
             'code' => $request->code,
             'name' => $request->name,
             'description' => $request->description,
-            'is_base_unit' => $request->boolean('is_base_unit', $unitOfMeasure->is_base_unit),
+            'is_base_unit' => $request->boolean('is_base_unit'),
         ]);
 
         return redirect()->route('unit-of-measures.index')

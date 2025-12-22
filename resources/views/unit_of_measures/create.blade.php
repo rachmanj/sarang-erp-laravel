@@ -86,8 +86,9 @@
 
                                         <div class="form-group">
                                             <div class="custom-control custom-switch">
+                                                <input type="hidden" name="is_base_unit" value="0">
                                                 <input type="checkbox" class="custom-control-input" id="is_base_unit"
-                                                    name="is_base_unit" {{ old('is_base_unit') ? 'checked' : '' }}>
+                                                    name="is_base_unit" value="1" {{ old('is_base_unit') ? 'checked' : '' }}>
                                                 <label class="custom-control-label" for="is_base_unit">
                                                     Base Unit
                                                 </label>
