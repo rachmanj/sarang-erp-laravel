@@ -21,6 +21,7 @@
                 <form action="{{ route('inventory.update', $item->id) }}" method="POST">
                     @csrf
                     @method('PATCH')
+                    <input type="hidden" name="item_type" value="{{ old('item_type', $item->item_type) }}">
                     <div class="card-body">
                         <div class="row">
                             <div class="col-md-6">
