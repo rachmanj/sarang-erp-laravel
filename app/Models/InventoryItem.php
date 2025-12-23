@@ -201,15 +201,23 @@ class InventoryItem extends Model
             return 0;
         }
 
+        // Purchases increase stock
         $totalIn = $this->transactions()
             ->where('transaction_type', 'purchase')
             ->sum('quantity');
 
+        // Sales decrease stock
         $totalOut = $this->transactions()
-            ->whereIn('transaction_type', ['sale', 'adjustment'])
+            ->where('transaction_type', 'sale')
             ->sum('quantity');
 
-        return $totalIn - $totalOut;
+        // Adjustments can be positive (increase) or negative (decrease)
+        // Positive adjustments increase stock, negative adjustments decrease stock
+        $adjustments = $this->transactions()
+            ->where('transaction_type', 'adjustment')
+            ->sum('quantity');
+
+        return $totalIn + $adjustments - $totalOut;
     }
 
     public function getCurrentValueAttribute()
