@@ -45,7 +45,6 @@
 
                             <form action="{{ route('company-info.update') }}" method="POST" id="companyInfoForm">
                                 @csrf
-                                @method('PUT')
 
                                 <div class="row">
                                     <!-- Left Column -->

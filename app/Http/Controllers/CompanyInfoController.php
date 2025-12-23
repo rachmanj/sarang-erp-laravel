@@ -51,7 +51,8 @@ class CompanyInfoController extends Controller
             ];
 
             foreach ($fields as $field) {
-                $this->updateParameter($field, $request->input($field, ''));
+                $value = $request->input($field);
+                $this->updateParameter($field, $value ?? '');
             }
 
             return redirect()->route('company-info.index')
