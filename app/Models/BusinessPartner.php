@@ -15,6 +15,7 @@ class BusinessPartner extends Model
         'partner_type',
         'status',
         'account_id',
+        'default_currency_id',
         'default_sales_price_level',
         'registration_number',
         'tax_id',

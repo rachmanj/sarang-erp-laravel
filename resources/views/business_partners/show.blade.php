@@ -501,7 +501,17 @@
                                                 <h3 class="card-title">Recent Purchase Orders</h3>
                                             </div>
                                             <div class="card-body">
-                                                @if ($businessPartner->purchaseOrders->count() > 0)
+                                                @php
+                                                    $hasPurchaseOrders = false;
+                                                    try {
+                                                        if (\Illuminate\Support\Facades\Schema::hasTable('purchase_orders') && $businessPartner->relationLoaded('purchaseOrders')) {
+                                                            $hasPurchaseOrders = $businessPartner->purchaseOrders->count() > 0;
+                                                        }
+                                                    } catch (\Exception $e) {
+                                                        $hasPurchaseOrders = false;
+                                                    }
+                                                @endphp
+                                                @if ($hasPurchaseOrders)
                                                     <table class="table table-bordered table-striped">
                                                         <thead>
                                                             <tr>
@@ -539,7 +549,17 @@
                                                 <h3 class="card-title">Recent Purchase Invoices</h3>
                                             </div>
                                             <div class="card-body">
-                                                @if ($businessPartner->purchaseInvoices->count() > 0)
+                                                @php
+                                                    $hasPurchaseInvoices = false;
+                                                    try {
+                                                        if (\Illuminate\Support\Facades\Schema::hasTable('purchase_invoices')) {
+                                                            $hasPurchaseInvoices = $businessPartner->purchaseInvoices->count() > 0;
+                                                        }
+                                                    } catch (\Exception $e) {
+                                                        $hasPurchaseInvoices = false;
+                                                    }
+                                                @endphp
+                                                @if ($hasPurchaseInvoices)
                                                     <table class="table table-bordered table-striped">
                                                         <thead>
                                                             <tr>
@@ -579,7 +599,17 @@
                                                 <h3 class="card-title">Recent Sales Orders</h3>
                                             </div>
                                             <div class="card-body">
-                                                @if ($businessPartner->salesOrders->count() > 0)
+                                                @php
+                                                    $hasSalesOrders = false;
+                                                    try {
+                                                        if (\Illuminate\Support\Facades\Schema::hasTable('sales_orders') && $businessPartner->relationLoaded('salesOrders')) {
+                                                            $hasSalesOrders = $businessPartner->salesOrders->count() > 0;
+                                                        }
+                                                    } catch (\Exception $e) {
+                                                        $hasSalesOrders = false;
+                                                    }
+                                                @endphp
+                                                @if ($hasSalesOrders)
                                                     <table class="table table-bordered table-striped">
                                                         <thead>
                                                             <tr>
@@ -617,7 +647,17 @@
                                                 <h3 class="card-title">Recent Sales Invoices</h3>
                                             </div>
                                             <div class="card-body">
-                                                @if ($businessPartner->salesInvoices->count() > 0)
+                                                @php
+                                                    $hasSalesInvoices = false;
+                                                    try {
+                                                        if (\Illuminate\Support\Facades\Schema::hasTable('sales_invoices')) {
+                                                            $hasSalesInvoices = $businessPartner->salesInvoices->count() > 0;
+                                                        }
+                                                    } catch (\Exception $e) {
+                                                        $hasSalesInvoices = false;
+                                                    }
+                                                @endphp
+                                                @if ($hasSalesInvoices)
                                                     <table class="table table-bordered table-striped">
                                                         <thead>
                                                             <tr>

@@ -1,5 +1,5 @@
 **Purpose**: Record technical decisions and rationale for future reference
-**Last Updated**: 2025-01-22 (Added DataTable Pattern Consistency decision record)
+**Last Updated**: 2025-12-24 (Added Business Partner Default Currency decision record)
 
 # Technical Decision Records
 
@@ -29,6 +29,46 @@ Decision: [Title] - [YYYY-MM-DD]
 ---
 
 ## Recent Decisions
+
+### Decision: Business Partner Default Currency Assignment - 2025-12-24
+
+**Context**: Business partners were being created without a default currency (`default_currency_id` was null), violating business rules that require all partners to have a default currency for financial transactions. Additionally, the BusinessPartnerService was eagerly loading relationships (purchaseOrders, salesOrders, purchaseInvoices, salesInvoices) even when the corresponding database tables didn't exist, causing QueryException errors when viewing business partner details.
+
+**Options Considered**:
+
+1. **Option A**: Require explicit currency selection during business partner creation.
+    - ✅ Pros: Explicit user control, clear data entry requirement.
+    - ❌ Cons: User burden, potential for missing currency assignment, data integrity risk.
+
+2. **Option B**: Automatically assign base currency (IDR) as default when not provided, with conditional relationship loading.
+    - ✅ Pros: Ensures data integrity, prevents null currency issues, graceful handling of missing tables, better user experience.
+    - ❌ Cons: Requires service layer logic, conditional loading complexity.
+
+3. **Option C**: Use database default constraint for currency assignment.
+    - ✅ Pros: Database-level enforcement, simple implementation.
+    - ❌ Cons: Less flexible, harder to change base currency, doesn't handle relationship loading issues.
+
+**Decision**: Adopt Option B—automatically assign base currency (IDR) as default in BusinessPartnerService when `default_currency_id` is not provided, and implement conditional relationship loading using Schema::hasTable() checks.
+
+**Rationale**:
+
+- Automatic base currency assignment ensures data integrity without user burden.
+- Base currency (IDR) is appropriate default for Indonesian businesses.
+- Conditional relationship loading prevents errors during schema evolution or partial migrations.
+- Service layer assignment allows for future flexibility (e.g., entity-specific default currencies).
+- Defensive programming approach ensures system remains functional even when schema is incomplete.
+- Blade views should verify both table existence and relationship loading status before accessing data.
+
+**Implementation**:
+
+- **Model Update**: Added `default_currency_id` to BusinessPartner model `$fillable` array.
+- **Service Layer**: Modified `BusinessPartnerService::createBusinessPartner()` to automatically assign base currency using `Currency::getBaseCurrency()` when `default_currency_id` is not provided.
+- **Update Logic**: Enhanced `BusinessPartnerService::updateBusinessPartner()` to set base currency if `default_currency_id` is null during updates.
+- **Conditional Loading**: Updated `BusinessPartnerService::getBusinessPartnerWithDetails()` to conditionally eager load relationships only if their corresponding tables exist using `Schema::hasTable()` checks.
+- **View Protection**: Modified `resources/views/business_partners/show.blade.php` to check both table existence (`Schema::hasTable()`) and relationship loading status (`relationLoaded()`) before accessing relationship data.
+- **Data Migration**: Updated existing business partners to have `default_currency_id = 1` (IDR).
+
+**Review Date**: 2026-12-24 (after full year of production use with automatic currency assignment).
 
 ### Decision: DataTable Pattern Consistency Standardization - 2025-01-22
 

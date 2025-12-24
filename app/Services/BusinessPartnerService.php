@@ -6,6 +6,7 @@ use App\Models\BusinessPartner;
 use App\Models\BusinessPartnerContact;
 use App\Models\BusinessPartnerAddress;
 use App\Models\BusinessPartnerDetail;
+use App\Models\Currency;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 
@@ -14,12 +15,20 @@ class BusinessPartnerService
     public function createBusinessPartner($data)
     {
         return DB::transaction(function () use ($data) {
+            // Get base currency as default if not provided
+            $defaultCurrencyId = $data['default_currency_id'] ?? null;
+            if (!$defaultCurrencyId) {
+                $baseCurrency = Currency::getBaseCurrency();
+                $defaultCurrencyId = $baseCurrency ? $baseCurrency->id : null;
+            }
+            
             // Create main business partner record
             $businessPartner = BusinessPartner::create([
                 'code' => $data['code'],
                 'name' => $data['name'],
                 'partner_type' => $data['partner_type'],
                 'status' => $data['status'] ?? 'active',
+                'default_currency_id' => $defaultCurrencyId,
                 'registration_number' => $data['registration_number'] ?? null,
                 'tax_id' => $data['tax_id'] ?? null,
                 'website' => $data['website'] ?? null,
@@ -49,7 +58,7 @@ class BusinessPartnerService
     {
         return DB::transaction(function () use ($businessPartner, $data) {
             // Update main business partner record
-            $businessPartner->update([
+            $updateData = [
                 'code' => $data['code'],
                 'name' => $data['name'],
                 'partner_type' => $data['partner_type'],
@@ -58,7 +67,17 @@ class BusinessPartnerService
                 'tax_id' => $data['tax_id'] ?? $businessPartner->tax_id,
                 'website' => $data['website'] ?? $businessPartner->website,
                 'notes' => $data['notes'] ?? $businessPartner->notes,
-            ]);
+            ];
+            
+            // Update default_currency_id if provided, otherwise keep existing or set to base currency
+            if (isset($data['default_currency_id'])) {
+                $updateData['default_currency_id'] = $data['default_currency_id'];
+            } elseif (!$businessPartner->default_currency_id) {
+                $baseCurrency = Currency::getBaseCurrency();
+                $updateData['default_currency_id'] = $baseCurrency ? $baseCurrency->id : null;
+            }
+            
+            $businessPartner->update($updateData);
 
             // Update contacts if provided
             if (isset($data['contacts']) && is_array($data['contacts'])) {
@@ -129,17 +148,26 @@ class BusinessPartnerService
 
     public function getBusinessPartnerWithDetails($id)
     {
-        return BusinessPartner::with([
+        $with = [
             'contacts',
             'addresses',
             'details',
-            'purchaseOrders' => function ($query) {
+        ];
+        
+        // Only load relationships if tables exist
+        if (\Illuminate\Support\Facades\Schema::hasTable('purchase_orders')) {
+            $with['purchaseOrders'] = function ($query) {
                 $query->latest()->limit(5);
-            },
-            'salesOrders' => function ($query) {
+            };
+        }
+        
+        if (\Illuminate\Support\Facades\Schema::hasTable('sales_orders')) {
+            $with['salesOrders'] = function ($query) {
                 $query->latest()->limit(5);
-            }
-        ])->findOrFail($id);
+            };
+        }
+        
+        return BusinessPartner::with($with)->findOrFail($id);
     }
 
     protected function createContacts(BusinessPartner $businessPartner, $contacts)

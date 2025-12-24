@@ -13,6 +13,7 @@ The Business Partner module provides a unified approach to managing both custome
     - Primary table for all business relationships
     - Contains shared fields like code, name, status, registration_number
     - Uses partner_type field to distinguish between 'customer', 'supplier', and 'both'
+    - Includes `default_currency_id` field (foreign key to currencies table) - automatically set to base currency (IDR) if not provided during creation
 
 2. **business_partner_contacts**
 
@@ -61,6 +62,8 @@ The Business Partner module provides a unified approach to managing both custome
 -   Manages CRUD operations with transaction safety
 -   Provides specialized methods for searching and filtering
 -   Implements soft delete for partners with transactions
+-   Automatically assigns base currency (IDR) as default when `default_currency_id` is not provided during creation or update
+-   Conditionally loads relationships (purchaseOrders, salesOrders, purchaseInvoices, salesInvoices) only if corresponding database tables exist, preventing errors during schema evolution
 
 ## Controller Structure
 
@@ -79,6 +82,7 @@ The Business Partner module uses a tabbed interface for better organization:
 
     - Basic partner information (code, name, type, status)
     - Website and notes
+    - Default currency (automatically set to base currency if not specified)
 
 2. **Contact Details Tab**
 
@@ -102,8 +106,9 @@ The Business Partner module uses a tabbed interface for better organization:
     - Payment methods
 
 6. **Transactions Tab** (in detail view)
-    - Recent purchase/sales orders
-    - Recent invoices and payments
+    - Recent purchase/sales orders (conditionally displayed if tables exist)
+    - Recent invoices and payments (conditionally displayed if tables exist)
+    - Views check both table existence and relationship loading status before displaying data
 
 ## Integration Points
 
