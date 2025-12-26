@@ -29,7 +29,10 @@ Route::prefix('purchase-invoices')->group(function () {
     Route::get('/create', [PurchaseInvoiceController::class, 'create'])->middleware('permission:ap.invoices.create')->name('purchase-invoices.create');
     Route::post('/', [PurchaseInvoiceController::class, 'store'])->middleware('permission:ap.invoices.create')->name('purchase-invoices.store');
     Route::get('/{id}', [PurchaseInvoiceController::class, 'show'])->middleware('permission:ap.invoices.view')->name('purchase-invoices.show');
+    Route::get('/{id}/edit', [PurchaseInvoiceController::class, 'edit'])->middleware('permission:ap.invoices.create')->name('purchase-invoices.edit');
+    Route::put('/{id}', [PurchaseInvoiceController::class, 'update'])->middleware('permission:ap.invoices.create')->name('purchase-invoices.update');
     Route::post('/{id}/post', [PurchaseInvoiceController::class, 'post'])->middleware('permission:ap.invoices.post')->name('purchase-invoices.post');
+    Route::post('/{id}/unpost', [PurchaseInvoiceController::class, 'unpost'])->middleware('permission:ap.invoices.post')->name('purchase-invoices.unpost');
     Route::get('/{id}/print', [PurchaseInvoiceController::class, 'print'])->middleware('permission:ap.invoices.view')->name('purchase-invoices.print');
     Route::get('/{id}/pdf', [PurchaseInvoiceController::class, 'pdf'])->middleware('permission:ap.invoices.view')->name('purchase-invoices.pdf');
     Route::post('/{id}/queue-pdf', [PurchaseInvoiceController::class, 'queuePdf'])->middleware('permission:ap.invoices.view')->name('purchase-invoices.queuePdf');

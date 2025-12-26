@@ -1,5 +1,5 @@
 Purpose: Technical reference for understanding system design and development patterns
-Last Updated: 2025-12-11 (Updated with Complete Entity-Aware Document Numbering System Migration)
+Last Updated: 2025-12-26 (Updated with Direct Cash Purchase Feature)
 
 ## Architecture Documentation Guidelines
 
@@ -316,13 +316,15 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 
 -   **Intermediate Accounts**: AR UnInvoice (1.1.2.04) and AP UnInvoice (2.1.1.03) for proper accrual accounting
 -   **GRPO Accounting**: Debit Inventory Account, Credit AP UnInvoice (goods received but not yet invoiced)
--   **Purchase Invoice Accounting**: Debit AP UnInvoice, Credit Utang Dagang (liability transfer from intermediate to final)
--   **Purchase Payment Accounting**: Debit Utang Dagang, Credit Cash (liability settlement)
+-   **Purchase Invoice Accounting (Credit)**: Debit AP UnInvoice, Credit Utang Dagang (liability transfer from intermediate to final)
+-   **Purchase Invoice Accounting (Direct Cash)**: Debit Inventory Account, Credit Cash Account (immediate cash payment, no Purchase Payment needed)
+-   **Purchase Payment Accounting**: Debit Utang Dagang, Credit Cash (liability settlement for credit purchases)
 -   **Delivery Order Accounting**: Debit AR UnInvoice, Credit Revenue (goods delivered but not yet invoiced)
 -   **Sales Invoice Accounting**: Debit AR UnInvoice, Credit Piutang Dagang (receivable transfer from intermediate to final)
 -   **Sales Receipt Accounting**: Debit Cash, Credit Piutang Dagang (receivable settlement)
 -   **Automatic Journal Generation**: All transactions automatically create balanced journal entries
 -   **Account Mapping Logic**: Inventory accounts mapped by item categories, liability/receivable accounts by business partner type
+-   **Direct Cash Purchase Flow**: Simplified workflow (PI → Post) for immediate cash purchases with automatic inventory transaction creation and cash account selection support
 
 ### 9. Multi-Dimensional Accounting
 
@@ -375,7 +377,10 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 ### 14. Business Partner Management System
 
 -   **Unified Partner Management**: Single interface for managing customers and suppliers with partner_type classification (customer, supplier)
+-   **Default Currency Assignment**: Business partners automatically receive base currency (IDR) as default when `default_currency_id` is not provided during creation or update, ensuring data integrity and preventing null currency issues
 -   **Account Mapping**: Business partners can be assigned specific GL accounts with automatic default assignment (Customer→AR, Supplier→AP)
+-   **Conditional Relationship Loading**: BusinessPartnerService conditionally loads relationships (purchaseOrders, salesOrders, purchaseInvoices, salesInvoices) only if corresponding database tables exist, preventing errors during schema evolution or partial migrations
+-   **Defensive View Logic**: Blade views verify both table existence (`Schema::hasTable()`) and relationship loading status (`relationLoaded()`) before accessing relationship data, ensuring graceful handling of missing tables or relationships
 -   **Journal History**: Comprehensive transaction history with running balance calculation, multi-source data consolidation, and pagination
 -   **Tabbed Interface**: Organized partner data across General Information, Contact Details, Addresses, Taxation & Terms (with Accounting section), Banking & Financial, Transactions, and Account Balance - Journal History sections
 -   **Flexible Data Storage**: BusinessPartnerDetail model enables custom field storage without schema changes
@@ -488,7 +493,7 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 
 #### Business Partner Tables
 
--   `business_partners`: Unified customer and supplier master data with partner_type classification (customer, supplier) and account_id for GL account mapping
+-   `business_partners`: Unified customer and supplier master data with partner_type classification (customer, supplier), account_id for GL account mapping, and default_currency_id (foreign key to currencies table) - automatically set to base currency (IDR) if not provided during creation or update via BusinessPartnerService
 -   `business_partner_contacts`: Multiple contact persons per partner with contact types
 -   `business_partner_addresses`: Multiple addresses per partner with address types
 -   `business_partner_details`: Flexible custom field storage for partner-specific data

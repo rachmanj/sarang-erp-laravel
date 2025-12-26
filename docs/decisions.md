@@ -1,5 +1,5 @@
 **Purpose**: Record technical decisions and rationale for future reference
-**Last Updated**: 2025-12-24 (Added Business Partner Default Currency decision record)
+**Last Updated**: 2025-12-26 (Added Direct Cash Purchase Feature decision record)
 
 # Technical Decision Records
 
@@ -1872,3 +1872,45 @@ Decision: [Title] - [YYYY-MM-DD]
 -   Professional AdminLTE styling integration
 
 **Review Date**: 2025-12-22 (6 months from implementation)
+
+---
+
+### Decision: Direct Cash Purchase Feature & UI Simplification - 2025-12-26
+
+**Context**: Users frequently perform direct cash purchases (buying items with immediate cash payment) and prefer simplified workflow (Purchase Invoice → Post) instead of full PO → GRPO → PI → PP flow. The system lacked support for direct cash purchases, automatic account selection for non-accounting users, and automatic inventory updates. Additionally, the "Direct Purchase" checkbox overlapped with Payment Method selection, causing user confusion and redundant data entry.
+
+**Options Considered**:
+
+1. **Option A**: Keep existing workflow, require full PO → GRPO → PI → PP flow for all purchases.
+   - ✅ Pros: Consistent workflow, simpler implementation.
+   - ❌ Cons: Doesn't match user needs, too many steps for simple cash purchases, poor user experience.
+
+2. **Option B**: Add Direct Purchase checkbox, keep manual account selection.
+   - ✅ Pros: Supports direct purchases, maintains flexibility.
+   - ❌ Cons: Redundant checkbox (overlaps with Payment Method), manual account selection error-prone, non-accounting users see accounts.
+
+3. **Option C**: Auto-set `is_direct_purchase` based on Payment Method, remove checkbox, auto-select accounts from product categories.
+   - ✅ Pros: Matches user expectations (cash = direct purchase), simplified UI, automatic account selection, better UX.
+   - ❌ Cons: Requires business logic changes, needs product category account mapping.
+
+**Decision**: Adopt Option C—auto-set `is_direct_purchase` when `payment_method = 'cash'` and no PO/GRPO, remove redundant checkbox, implement automatic account selection from product categories, and add cash account selection dropdown.
+
+**Rationale**:
+
+- Auto-setting `is_direct_purchase` based on payment method and context matches user mental model (cash payment = direct purchase).
+- Removing redundant checkbox simplifies UI and reduces user confusion.
+- Automatic account selection from product categories reduces errors and supports non-accounting users.
+- Cash account selection provides flexibility for multiple cash accounts while maintaining backward compatibility.
+- Direct cash purchase accounting flow (Debit Inventory, Credit Cash) is simpler and more accurate than credit flow for immediate cash transactions.
+- Multi-UOM support enables flexible unit management for inventory items.
+
+**Implementation**:
+
+- **Database Schema**: Added `inventory_item_id`, `warehouse_id`, `order_unit_id`, `base_quantity`, `unit_conversion_factor` to `purchase_invoice_lines`; added `payment_method`, `is_direct_purchase`, `cash_account_id` to `purchase_invoices`.
+- **Service Layer**: Created `PurchaseInvoiceService` for business logic encapsulation (auto-account selection, warehouse validation, inventory transaction creation).
+- **Controller Logic**: Updated `PurchaseInvoiceController` to auto-set `is_direct_purchase = 1` when `payment_method = 'cash'` and no PO/GRPO, implemented direct cash accounting flow, integrated `InventoryService` for automatic inventory transactions.
+- **UI Changes**: Removed "Direct Purchase" checkbox, added Item/Warehouse/UOM selection, added cash account dropdown (shown when cash + direct purchase), updated JavaScript to handle field visibility.
+- **Accounting Flow**: Direct cash purchases use Debit Inventory, Credit Cash; credit purchases use Debit AP UnInvoice, Credit Utang Dagang.
+- **Inventory Integration**: Automatic inventory transaction creation for direct purchases with stock updates and valuation.
+
+**Review Date**: 2026-12-26 (after full year of production use with direct cash purchase feature).

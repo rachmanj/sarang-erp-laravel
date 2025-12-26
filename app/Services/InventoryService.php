@@ -171,27 +171,35 @@ class InventoryService
     public function updateItemValuation(InventoryItem $item)
     {
         $currentStock = $item->current_stock;
-        $latestValuation = $item->valuations()
-            ->orderBy('valuation_date', 'desc')
+        $valuationDate = now()->toDateString();
+        
+        // Check if valuation already exists for today
+        $existingValuation = InventoryValuation::where('item_id', $item->id)
+            ->where('valuation_date', $valuationDate)
             ->first();
 
-        // Skip if no change in stock
-        if ($latestValuation && $latestValuation->quantity_on_hand == $currentStock) {
-            return $latestValuation;
+        // Skip if valuation exists and stock hasn't changed
+        if ($existingValuation && $existingValuation->quantity_on_hand == $currentStock) {
+            return $existingValuation;
         }
 
         // Calculate new unit cost based on valuation method
         $unitCost = $this->calculateUnitCost($item);
         $totalValue = $currentStock * $unitCost;
 
-        return InventoryValuation::create([
-            'item_id' => $item->id,
-            'valuation_date' => now()->toDateString(),
-            'quantity_on_hand' => $currentStock,
-            'unit_cost' => $unitCost,
-            'total_value' => $totalValue,
-            'valuation_method' => $item->valuation_method,
-        ]);
+        // Use updateOrCreate to handle duplicate entries gracefully
+        return InventoryValuation::updateOrCreate(
+            [
+                'item_id' => $item->id,
+                'valuation_date' => $valuationDate,
+            ],
+            [
+                'quantity_on_hand' => $currentStock,
+                'unit_cost' => $unitCost,
+                'total_value' => $totalValue,
+                'valuation_method' => $item->valuation_method,
+            ]
+        );
     }
 
     public function calculateUnitCost(InventoryItem $item)

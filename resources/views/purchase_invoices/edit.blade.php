@@ -1,15 +1,16 @@
 @extends('layouts.main')
 
-@section('title', 'Create Purchase Invoice')
+@section('title', 'Edit Purchase Invoice')
 
 @section('title_page')
-    Create Purchase Invoice
+    Edit Purchase Invoice #{{ $invoice->invoice_no }}
 @endsection
 
 @section('breadcrumb_title')
     <li class="breadcrumb-item"><a href="/dashboard">Dashboard</a></li>
     <li class="breadcrumb-item"><a href="{{ route('purchase-invoices.index') }}">Purchase Invoices</a></li>
-    <li class="breadcrumb-item active">Create</li>
+    <li class="breadcrumb-item"><a href="{{ route('purchase-invoices.show', $invoice->id) }}">#{{ $invoice->id }}</a></li>
+    <li class="breadcrumb-item active">Edit</li>
 @endsection
 
 @section('content')
@@ -30,14 +31,15 @@
                         <div class="card-header">
                             <h3 class="card-title">
                                 <i class="fas fa-file-invoice mr-1"></i>
-                                New Purchase Invoice
+                                Edit Purchase Invoice #{{ $invoice->invoice_no }}
                             </h3>
-                            <a href="{{ route('purchase-invoices.index') }}" class="btn btn-sm btn-secondary float-right">
-                                <i class="fas fa-arrow-left"></i> Back to Purchase Invoices
+                            <a href="{{ route('purchase-invoices.show', $invoice->id) }}" class="btn btn-sm btn-secondary float-right">
+                                <i class="fas fa-arrow-left"></i> Back to Invoice
                             </a>
                         </div>
-                        <form method="post" action="{{ route('purchase-invoices.store') }}">
+                        <form method="post" action="{{ route('purchase-invoices.update', $invoice->id) }}">
                             @csrf
+                            @method('PUT')
                             <div class="card-body pb-1">
                                 @isset($purchase_order_id)
                                     <input type="hidden" name="purchase_order_id" value="{{ $purchase_order_id }}" />
@@ -57,9 +59,9 @@
                                                         <span class="input-group-text"><i
                                                                 class="far fa-calendar-alt"></i></span>
                                                     </div>
-                                                    <input type="date" name="date"
-                                                        value="{{ old('date', now()->toDateString()) }}"
-                                                        class="form-control" required>
+                                                <input type="date" name="date"
+                                                    value="{{ old('date', $invoice->date->toDateString()) }}"
+                                                    class="form-control" required>
                                                 </div>
                                             </div>
                                         </div>
@@ -73,7 +75,7 @@
                                                     class="form-control form-control-sm select2bs4" required>
                                                     @foreach ($entities as $entity)
                                                         <option value="{{ $entity->id }}"
-                                                            {{ old('company_entity_id', $defaultEntity->id) == $entity->id ? 'selected' : '' }}>
+                                                            {{ old('company_entity_id', $invoice->company_entity_id) == $entity->id ? 'selected' : '' }}>
                                                             {{ $entity->name }} ({{ $entity->code }})
                                                         </option>
                                                     @endforeach
@@ -91,7 +93,7 @@
                                                     <option value="">-- select vendor --</option>
                                                     @foreach ($vendors as $v)
                                                         <option value="{{ $v->id }}"
-                                                            {{ old('business_partner_id') == $v->id ? 'selected' : '' }}>
+                                                            {{ old('business_partner_id', $invoice->business_partner_id) == $v->id ? 'selected' : '' }}>
                                                             {{ $v->name }}
                                                         </option>
                                                     @endforeach
@@ -106,8 +108,8 @@
                                             <div class="col-sm-9">
                                                 <select name="payment_method" id="payment_method"
                                                     class="form-control form-control-sm" required>
-                                                    <option value="credit" {{ old('payment_method', 'credit') == 'credit' ? 'selected' : '' }}>Credit</option>
-                                                    <option value="cash" {{ old('payment_method') == 'cash' ? 'selected' : '' }}>Cash</option>
+                                                    <option value="credit" {{ old('payment_method', $invoice->payment_method) == 'credit' ? 'selected' : '' }}>Credit</option>
+                                                    <option value="cash" {{ old('payment_method', $invoice->payment_method) == 'cash' ? 'selected' : '' }}>Cash</option>
                                                 </select>
                                             </div>
                                         </div>
@@ -120,7 +122,7 @@
                                             <label class="col-sm-3 col-form-label">Terms (days)</label>
                                             <div class="col-sm-9">
                                                 <input type="number" min="0" name="terms_days"
-                                                    value="{{ old('terms_days', 30) }}"
+                                                    value="{{ old('terms_days', $invoice->terms_days ?? 30) }}"
                                                     class="form-control form-control-sm">
                                             </div>
                                         </div>
@@ -134,7 +136,7 @@
                                                     <option value="">-- Default (Kas di Tangan) --</option>
                                                     @foreach ($cashAccounts ?? [] as $cashAccount)
                                                         <option value="{{ $cashAccount->id }}"
-                                                            {{ old('cash_account_id') == $cashAccount->id ? 'selected' : '' }}>
+                                                            {{ old('cash_account_id', $invoice->cash_account_id) == $cashAccount->id ? 'selected' : '' }}>
                                                             {{ $cashAccount->code }} - {{ $cashAccount->name }}
                                                         </option>
                                                     @endforeach
@@ -150,7 +152,7 @@
                                         <div class="form-group row mb-2">
                                             <label class="col-sm-3 col-form-label">Description</label>
                                             <div class="col-sm-9">
-                                                <input type="text" name="description" value="{{ old('description') }}"
+                                                <input type="text" name="description" value="{{ old('description', $invoice->description) }}"
                                                     class="form-control form-control-sm" placeholder="Invoice description">
                                             </div>
                                         </div>
@@ -206,101 +208,107 @@
                                                     </tr>
                                                 </thead>
                                                 <tbody id="lines">
+                                                    @foreach($invoice->lines as $lineIdx => $line)
                                                     <tr class="line-item">
                                                         @if($showAccounts ?? false)
                                                             <td>
-                                                                <select name="lines[0][account_id]"
+                                                                <select name="lines[{{ $lineIdx }}][account_id]"
                                                                     class="form-control form-control-sm select2bs4 account-select">
                                                                     <option value="">-- select account --</option>
                                                                     @foreach ($accounts as $a)
-                                                                        <option value="{{ $a->id }}">
+                                                                        <option value="{{ $a->id }}" {{ old("lines.$lineIdx.account_id", $line->account_id) == $a->id ? 'selected' : '' }}>
                                                                             {{ $a->code }} - {{ $a->name }}</option>
                                                                     @endforeach
                                                                 </select>
-                                                                <small class="text-muted d-block account-display-0" style="display: none;"></small>
+                                                                <small class="text-muted d-block account-display-{{ $lineIdx }}" style="display: none;"></small>
                                                             </td>
                                                         @else
                                                             <td style="display: none;">
-                                                                <input type="hidden" name="lines[0][account_id]" class="account-input" value="">
-                                                                <small class="text-muted d-block account-display-0" style="display: none;"></small>
+                                                                <input type="hidden" name="lines[{{ $lineIdx }}][account_id]" class="account-input" value="{{ $line->account_id }}">
+                                                                <small class="text-muted d-block account-display-{{ $lineIdx }}" style="display: none;"></small>
                                                             </td>
                                                         @endif
                                                         <td>
                                                             <button type="button" class="btn btn-sm btn-secondary btn-select-item" 
-                                                                onclick="openItemSelectionModal(0)" title="Select Item">
+                                                                onclick="openItemSelectionModal({{ $lineIdx }})" title="Select Item">
                                                                 <i class="fas fa-search"></i> Select Item
                                                             </button>
-                                                            <input type="hidden" name="lines[0][inventory_item_id]" class="item-id-input" value="">
+                                                            <input type="hidden" name="lines[{{ $lineIdx }}][inventory_item_id]" class="item-id-input" value="{{ old("lines.$lineIdx.inventory_item_id", $line->inventory_item_id) }}">
                                                             <div class="mt-1">
-                                                                <span class="item-name-display-0 text-muted small"></span>
+                                                                <span class="item-name-display-{{ $lineIdx }} text-muted small">
+                                                                    @if($line->inventoryItem)
+                                                                        {{ $line->inventoryItem->code }} - {{ $line->inventoryItem->name }}
+                                                                    @endif
+                                                                </span>
                                                             </div>
                                                         </td>
                                                         <td>
-                                                            <select name="lines[0][warehouse_id]"
+                                                            <select name="lines[{{ $lineIdx }}][warehouse_id]"
                                                                 class="form-control form-control-sm select2bs4 warehouse-select">
                                                                 <option value="">-- select --</option>
                                                                 @foreach ($warehouses as $w)
-                                                                    <option value="{{ $w->id }}">{{ $w->name }}</option>
+                                                                    <option value="{{ $w->id }}" {{ old("lines.$lineIdx.warehouse_id", $line->warehouse_id) == $w->id ? 'selected' : '' }}>{{ $w->name }}</option>
                                                                 @endforeach
                                                             </select>
                                                         </td>
                                                         <td>
-                                                            <input type="text" name="lines[0][description]"
+                                                            <input type="text" name="lines[{{ $lineIdx }}][description]"
                                                                 class="form-control form-control-sm"
-                                                                placeholder="Description">
+                                                                placeholder="Description"
+                                                                value="{{ old("lines.$lineIdx.description", $line->description) }}">
                                                         </td>
                                                         <td>
                                                             <input type="number" step="0.01" min="0.01"
-                                                                name="lines[0][qty]"
+                                                                name="lines[{{ $lineIdx }}][qty]"
                                                                 class="form-control form-control-sm text-right qty-input"
-                                                                value="1" required>
+                                                                value="{{ old("lines.$lineIdx.qty", $line->qty) }}" required>
                                                         </td>
                                                         <td>
-                                                            <select name="lines[0][order_unit_id]" class="form-control form-control-sm unit-select select2bs4" data-line-idx="0">
+                                                            <select name="lines[{{ $lineIdx }}][order_unit_id]" class="form-control form-control-sm unit-select select2bs4" data-line-idx="{{ $lineIdx }}" data-item-id="{{ $line->inventory_item_id }}" data-selected-unit="{{ old("lines.$lineIdx.order_unit_id", $line->order_unit_id) }}">
                                                                 <option value="">Select Unit</option>
                                                             </select>
                                                             <div class="conversion-preview mt-1" style="font-size: 0.75rem; color: #6c757d;"></div>
                                                         </td>
                                                         <td>
                                                             <input type="number" step="0.01" min="0"
-                                                                name="lines[0][unit_price]"
+                                                                name="lines[{{ $lineIdx }}][unit_price]"
                                                                 class="form-control form-control-sm text-right price-input"
-                                                                value="0" required>
+                                                                value="{{ old("lines.$lineIdx.unit_price", $line->unit_price) }}" required>
                                                         </td>
                                                         <td>
-                                                            <select name="lines[0][vat_rate]"
+                                                            <select name="lines[{{ $lineIdx }}][vat_rate]"
                                                                 class="form-control form-control-sm vat-select">
-                                                                <option value="0">No</option>
-                                                                <option value="11">11%</option>
-                                                                <option value="12">12%</option>
+                                                                <option value="0" {{ old("lines.$lineIdx.vat_rate", 0) == 0 ? 'selected' : '' }}>No</option>
+                                                                <option value="11" {{ old("lines.$lineIdx.vat_rate", 0) == 11 ? 'selected' : '' }}>11%</option>
+                                                                <option value="12" {{ old("lines.$lineIdx.vat_rate", 0) == 12 ? 'selected' : '' }}>12%</option>
                                                             </select>
                                                         </td>
                                                         <td>
-                                                            <select name="lines[0][wtax_rate]"
+                                                            <select name="lines[{{ $lineIdx }}][wtax_rate]"
                                                                 class="form-control form-control-sm wtax-select">
-                                                                <option value="0">No</option>
-                                                                <option value="2">2%</option>
+                                                                <option value="0" {{ old("lines.$lineIdx.wtax_rate", 0) == 0 ? 'selected' : '' }}>No</option>
+                                                                <option value="2" {{ old("lines.$lineIdx.wtax_rate", 0) == 2 ? 'selected' : '' }}>2%</option>
                                                             </select>
                                                         </td>
                                                         <td class="text-right">
-                                                            <span class="line-amount">0.00</span>
+                                                            <span class="line-amount">{{ number_format($line->amount, 2) }}</span>
                                                         </td>
                                                         <td>
-                                                            <select name="lines[0][project_id]"
+                                                            <select name="lines[{{ $lineIdx }}][project_id]"
                                                                 class="form-control form-control-sm select2bs4">
                                                                 <option value="">-- none --</option>
                                                                 @foreach ($projects as $p)
-                                                                    <option value="{{ $p->id }}">
+                                                                    <option value="{{ $p->id }}" {{ old("lines.$lineIdx.project_id", $line->project_id) == $p->id ? 'selected' : '' }}>
                                                                         {{ $p->code }}</option>
                                                                 @endforeach
                                                             </select>
                                                         </td>
                                                         <td>
-                                                            <select name="lines[0][dept_id]"
+                                                            <select name="lines[{{ $lineIdx }}][dept_id]"
                                                                 class="form-control form-control-sm select2bs4">
                                                                 <option value="">-- none --</option>
                                                                 @foreach ($departments as $d)
-                                                                    <option value="{{ $d->id }}">
+                                                                    <option value="{{ $d->id }}" {{ old("lines.$lineIdx.dept_id", $line->dept_id) == $d->id ? 'selected' : '' }}>
                                                                         {{ $d->code }}</option>
                                                                 @endforeach
                                                             </select>
@@ -311,6 +319,7 @@
                                                             </button>
                                                         </td>
                                                     </tr>
+                                                    @endforeach
                                                 </tbody>
                                                 <tfoot>
                                                     <tr>
@@ -360,9 +369,15 @@
     @include('components.item-selection-modal')
 @endsection
 
-@push('scripts')
+    @push('scripts')
     <script>
-        let idx = 1;
+        let idx = {{ $invoice->lines->count() }};
+        const existingLines = @json($invoice->lines->map(function($line) {
+            return [
+                'inventory_item_id' => $line->inventory_item_id,
+                'order_unit_id' => $line->order_unit_id,
+            ];
+        }));
 
         $(document).ready(function() {
             // Initialize Select2BS4 for all select elements
@@ -370,6 +385,23 @@
                 theme: 'bootstrap4',
                 placeholder: 'Select an option',
                 allowClear: true
+            });
+
+            // Load units for existing lines
+            $('.unit-select').each(function() {
+                const $select = $(this);
+                const lineIdx = $select.data('line-idx');
+                const itemId = $select.data('item-id');
+                const selectedUnitId = $select.data('selected-unit') || null;
+                
+                if (itemId) {
+                    loadItemUnits(itemId, $select.closest('tr'), selectedUnitId);
+                }
+            });
+
+            // Update line amounts for existing lines
+            $('.line-item').each(function() {
+                updateLineAmount($(this));
             });
 
             // Remove line
@@ -669,7 +701,7 @@
             });
 
             // Load units for selected item
-            loadItemUnits(itemId, $(`input[name="lines[${lineIndex}][inventory_item_id]"]`).closest('tr'));
+            loadItemUnits(itemId, $(`input[name="lines[${lineIndex}][inventory_item_id]"]`).closest('tr'), null);
 
             // Update line amount
             const row = $(`input[name="lines[${lineIndex}][inventory_item_id]"]`).closest('tr');
@@ -682,7 +714,7 @@
         });
 
         // Function to load units for an item
-        function loadItemUnits(itemId, $row) {
+        function loadItemUnits(itemId, $row, selectedUnitId = null) {
             if (!itemId) return;
 
             const lineIdx = $row.find('.unit-select').data('line-idx');
@@ -696,7 +728,12 @@
                     $unitSelect.empty().append('<option value="">Select Unit</option>');
 
                     units.forEach(function(unit) {
-                        const selected = unit.is_base_unit ? 'selected' : '';
+                        let selected = '';
+                        if (selectedUnitId && unit.id == selectedUnitId) {
+                            selected = 'selected';
+                        } else if (!selectedUnitId && unit.is_base_unit) {
+                            selected = 'selected';
+                        }
                         $unitSelect.append(
                             `<option value="${unit.id}" ${selected}>${unit.display_name}</option>`);
                     });
@@ -839,8 +876,9 @@
         // Toggle cash account field visibility
         function toggleCashAccountField() {
             const paymentMethod = $('#payment_method').val();
-            const hasPO = $('input[name="purchase_order_id"]').length > 0 && $('input[name="purchase_order_id"]').val();
-            const hasGRPO = $('input[name="goods_receipt_id"]').length > 0 && $('input[name="goods_receipt_id"]').val();
+            // Check if invoice was created from PO/GRPO (read-only, can't change)
+            const hasPO = {{ $invoice->purchase_order_id ? 'true' : 'false' }};
+            const hasGRPO = {{ $invoice->goods_receipt_id ? 'true' : 'false' }};
             
             // Show cash account field when: Cash payment AND no PO/GRPO (direct purchase)
             if (paymentMethod === 'cash' && !hasPO && !hasGRPO) {

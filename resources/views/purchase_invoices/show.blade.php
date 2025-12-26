@@ -36,12 +36,27 @@
                                     onclick="showRelationshipMap('purchase-invoices', {{ $invoice->id }})">
                                     <i class="fas fa-sitemap"></i> Relationship Map
                                 </button>
+                                @can('ap.invoices.create')
+                                    @if ($invoice->status === 'draft')
+                                        <a href="{{ route('purchase-invoices.edit', $invoice->id) }}" class="btn btn-sm btn-primary mr-1">
+                                            <i class="fas fa-edit"></i> Edit
+                                        </a>
+                                    @endif
+                                @endcan
                                 @can('ap.invoices.post')
                                     @if ($invoice->status !== 'posted')
                                         <form method="post" action="{{ route('purchase-invoices.post', $invoice->id) }}"
                                             class="d-inline">
                                             @csrf
                                             <button class="btn btn-sm btn-success" type="submit">Post</button>
+                                        </form>
+                                    @elseif ($invoice->canBeUnposted())
+                                        <form method="post" action="{{ route('purchase-invoices.unpost', $invoice->id) }}"
+                                            class="d-inline unpost-form" data-confirm="Are you sure you want to unpost this invoice? This will reverse all journal entries and inventory transactions.">
+                                            @csrf
+                                            <button class="btn btn-sm btn-warning" type="submit">
+                                                <i class="fas fa-undo"></i> Unpost
+                                            </button>
                                         </form>
                                     @endif
                                 @endcan

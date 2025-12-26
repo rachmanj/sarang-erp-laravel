@@ -308,6 +308,7 @@ Route::middleware('auth')->group(function () {
         // API Endpoints
         Route::get('/api/items', [InventoryController::class, 'getItems'])->name('inventory.get-items');
         Route::get('/api/items/{id}', [InventoryController::class, 'getItemDetails'])->name('inventory.get-item-details');
+        Route::get('/api/items/{id}/account', [InventoryController::class, 'getItemAccount'])->name('inventory.get-item-account');
         Route::get('/api/search', [InventoryController::class, 'search'])->name('inventory.search');
 
         // Export Functions

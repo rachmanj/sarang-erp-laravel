@@ -12,6 +12,7 @@ use App\Models\Warehouse;
 use App\Services\AuditLogService;
 use App\Services\PriceLevelService;
 use App\Services\UnitConversionService;
+use App\Services\PurchaseInvoiceService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
@@ -20,10 +21,14 @@ use Illuminate\Support\Facades\Log;
 class InventoryController extends Controller
 {
     protected $unitConversionService;
+    protected $purchaseInvoiceService;
 
-    public function __construct(UnitConversionService $unitConversionService)
-    {
+    public function __construct(
+        UnitConversionService $unitConversionService,
+        PurchaseInvoiceService $purchaseInvoiceService
+    ) {
         $this->unitConversionService = $unitConversionService;
+        $this->purchaseInvoiceService = $purchaseInvoiceService;
     }
     public function index()
     {
@@ -427,6 +432,33 @@ class InventoryController extends Controller
             'reorder_point' => $item->reorder_point,
             'valuation_method' => $item->valuation_method,
         ]);
+    }
+
+    /**
+     * Get account for inventory item (for auto-selection in Purchase Invoice)
+     */
+    public function getItemAccount(int $id)
+    {
+        $item = InventoryItem::with('category')->findOrFail($id);
+
+        try {
+            $account = $this->purchaseInvoiceService->getAccountForItem($item);
+            
+            return response()->json([
+                'success' => true,
+                'account_id' => $account->id,
+                'account_code' => $account->code,
+                'account_name' => $account->name,
+                'item_id' => $item->id,
+                'item_name' => $item->name,
+                'default_warehouse_id' => $item->default_warehouse_id,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage(),
+            ], 400);
+        }
     }
 
     public function data(Request $request)
