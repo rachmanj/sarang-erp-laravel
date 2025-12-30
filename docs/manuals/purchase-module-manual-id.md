@@ -189,7 +189,7 @@ Modul Manajemen Pembelian mengelola alur procure-to-pay lengkap dan mendukung mu
 -   Periksa **Total**; pastikan pajak sesuai aturan.
 -   Simpan dan setujui untuk memposting akrual.
 
-### Direct Cash Purchase (Pembelian Tunai Langsung)
+### Direct Cash Purchase (Pembelian Tunai Langsung)----
 
 **Kapan Menggunakan**:
 

@@ -9,15 +9,18 @@ use App\Models\GRGIAccountMapping;
 use App\Models\GRGIJournalEntry;
 use App\Models\InventoryItem;
 use App\Models\InventoryWarehouseStock;
-use App\Models\Journal;
-use App\Models\JournalLine;
+use App\Models\Accounting\Journal;
 use App\Models\Accounting\Account;
 use App\Models\ProductCategory;
+use App\Services\Accounting\PostingService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 
 class GRGIService
 {
+    public function __construct(
+        private PostingService $postingService
+    ) {}
     /**
      * Create a new GR/GI header
      */
@@ -263,7 +266,7 @@ class GRGIService
     public function generateJournalEntries($headerId)
     {
         return DB::transaction(function () use ($headerId) {
-            $header = GRGIHeader::with(['lines.item.productCategory', 'purpose'])->findOrFail($headerId);
+            $header = GRGIHeader::with(['lines.item.category', 'purpose'])->findOrFail($headerId);
 
             if ($header->status !== 'approved') {
                 throw new \Exception('Can only generate journal entries for approved documents');
@@ -285,17 +288,6 @@ class GRGIService
      */
     protected function createJournalEntry($header, $line)
     {
-        $journal = Journal::create([
-            'journal_number' => $this->generateJournalNumber(),
-            'journal_date' => $header->transaction_date,
-            'reference' => $header->document_number,
-            'description' => "{$header->document_type_name} - {$line->item->name}",
-            'total_debit' => $line->total_amount,
-            'total_credit' => $line->total_amount,
-            'status' => 'posted',
-            'created_by' => Auth::id(),
-        ]);
-
         // Get account mappings
         $accountMapping = $this->getAccountMapping($header->purpose_id, $line->item->category_id);
 
@@ -309,22 +301,36 @@ class GRGIService
             $creditAccountId = $this->getItemCategoryAccount($line->item->category_id);
         }
 
-        // Create journal lines
-        JournalLine::create([
-            'journal_id' => $journal->id,
-            'account_id' => $debitAccountId,
-            'debit_amount' => $line->total_amount,
-            'credit_amount' => 0,
-            'description' => "Debit for {$line->item->name}",
-        ]);
+        // Create journal payload for PostingService
+        $payload = [
+            'date' => $header->transaction_date,
+            'description' => "{$header->document_type_name} - {$line->item->name}",
+            'source_type' => 'gr_gi',
+            'source_id' => $header->id,
+            'posted_by' => Auth::id(),
+            'lines' => [
+                [
+                    'account_id' => $debitAccountId,
+                    'debit' => $line->total_amount,
+                    'credit' => 0,
+                    'project_id' => null,
+                    'dept_id' => null,
+                    'memo' => "Debit for {$line->item->name}",
+                ],
+                [
+                    'account_id' => $creditAccountId,
+                    'debit' => 0,
+                    'credit' => $line->total_amount,
+                    'project_id' => null,
+                    'dept_id' => null,
+                    'memo' => "Credit for {$line->item->name}",
+                ],
+            ],
+        ];
 
-        JournalLine::create([
-            'journal_id' => $journal->id,
-            'account_id' => $creditAccountId,
-            'debit_amount' => 0,
-            'credit_amount' => $line->total_amount,
-            'description' => "Credit for {$line->item->name}",
-        ]);
+        // Post journal using PostingService
+        $journalId = $this->postingService->postJournal($payload);
+        $journal = Journal::findOrFail($journalId);
 
         // Link to GR/GI
         GRGIJournalEntry::create([
