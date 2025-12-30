@@ -7,12 +7,15 @@ use App\Models\GRGILine;
 use App\Models\GRGIPurpose;
 use App\Models\GRGIAccountMapping;
 use App\Models\InventoryItem;
+use App\Models\InventoryTransaction;
 use App\Models\Warehouse;
 use App\Models\ProductCategory;
 use App\Models\Accounting\Account;
 use App\Services\GRGIService;
+use App\Services\InventoryService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class GRGIController extends Controller
 {
@@ -382,5 +385,75 @@ class GRGIController extends Controller
             ->get();
 
         return response()->json($warehouses);
+    }
+
+    /**
+     * Fix missing inventory transactions for a GR/GI document
+     */
+    public function fixInventoryTransactions(GRGIHeader $grGi)
+    {
+        if ($grGi->status !== 'approved') {
+            return back()->with('error', 'GR/GI document must be in "approved" status to create inventory transactions.');
+        }
+
+        try {
+            $createdCount = DB::transaction(function () use ($grGi) {
+                $count = 0;
+                $inventoryService = app(InventoryService::class);
+                
+                foreach ($grGi->lines as $line) {
+                    $item = $line->item;
+                    if (!$item) {
+                        continue;
+                    }
+
+                    // Check if inventory transaction already exists for this line
+                    $existingTransaction = InventoryTransaction::where('reference_type', 'gr_gi')
+                        ->where('reference_id', $grGi->id)
+                        ->where('item_id', $line->item_id)
+                        ->first();
+
+                    if (!$existingTransaction) {
+                        $quantityChange = $grGi->document_type === 'goods_receipt'
+                            ? $line->quantity
+                            : -$line->quantity;
+
+                        $unitPrice = $line->unit_price ?? $item->purchase_price ?? 0;
+                        $totalCost = abs($quantityChange) * $unitPrice;
+                        if ($quantityChange < 0) {
+                            $totalCost = -$totalCost;
+                        }
+
+                        // Create inventory transaction
+                        InventoryTransaction::create([
+                            'item_id' => $line->item_id,
+                            'warehouse_id' => $grGi->warehouse_id,
+                            'transaction_type' => $grGi->document_type === 'goods_receipt' ? 'purchase' : 'sale',
+                            'quantity' => $quantityChange,
+                            'unit_cost' => $unitPrice,
+                            'total_cost' => $totalCost,
+                            'reference_type' => 'gr_gi',
+                            'reference_id' => $grGi->id,
+                            'transaction_date' => $grGi->transaction_date->toDateString(),
+                            'notes' => "GR/GI: {$grGi->document_number}",
+                            'created_by' => Auth::id(),
+                        ]);
+
+                        // Update item valuation
+                        $inventoryService->updateItemValuation($item);
+                        $count++;
+                    }
+                }
+                return $count;
+            });
+
+            if ($createdCount > 0) {
+                return back()->with('success', "Created {$createdCount} inventory transaction(s) for GR/GI {$grGi->document_number}");
+            } else {
+                return back()->with('info', 'All inventory transactions already exist for this GR/GI document');
+            }
+        } catch (\Exception $e) {
+            return back()->with('error', 'Error fixing inventory transactions: ' . $e->getMessage());
+        }
     }
 }

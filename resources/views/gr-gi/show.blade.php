@@ -165,7 +165,7 @@
                                                                 <td>{{ $line->item->name }}</td>
                                                                 <td>{{ $line->item->unit_of_measure }}</td>
                                                                 <td class="text-right">
-                                                                    {{ number_format($line->quantity, 3) }}</td>
+                                                                    {{ number_format($line->quantity, 2) }}</td>
                                                                 <td class="text-right">
                                                                     {{ number_format($line->unit_price, 2) }}</td>
                                                                 <td class="text-right">

@@ -1,5 +1,5 @@
 Purpose: Technical reference for understanding system design and development patterns
-Last Updated: 2025-12-26 (Updated with Direct Cash Purchase Feature)
+Last Updated: 2025-12-30 (Updated with Inventory Transaction Creation for GRPO & GR/GI)
 
 ## Architecture Documentation Guidelines
 
@@ -260,6 +260,8 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 -   **Route Structure**: goods-receipt-pos.\* routes with enhanced AJAX endpoints (/vendor-pos, /remaining-lines)
 -   **JavaScript Enhancement**: Dynamic form handling with vendor selection triggering PO filtering, copy functionality, and item filtering
 -   **User Interface**: Professional AdminLTE integration with enhanced form controls, remaining quantity tracking, and guided user experience
+-   **Inventory Transaction Creation**: Automatic inventory transaction creation when GRPO is created or received using `InventoryService::processPurchaseTransaction()` with reference_type='goods_receipt_po', ensuring complete audit trail and proper stock tracking
+-   **Retroactive Fix Support**: `fixInventoryTransactions()` method available for existing GRPOs that were created before inventory transaction creation was implemented
 
 ### 6. Sales Management
 
@@ -287,9 +289,14 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 -   **Purpose Management**: Configurable GR/GI purposes (Customer Return, Donation, Sample, etc.)
 -   **Account Mapping**: Automatic account mapping based on item categories and purposes
 -   **Approval Workflow**: Draft → Pending Approval → Approved status progression
--   **Journal Integration**: Automatic journal entry creation on document approval
+-   **Inventory Transaction Creation**: Automatic inventory transaction creation when GR/GI is approved using `GRGIService::updateWarehouseStock()` with reference_type='gr_gi', proper unit cost calculation, and item valuation updates
+-   **Retroactive Fix Support**: `fixInventoryTransactions()` method available for existing GR/GI documents that were approved before inventory transaction creation was implemented
+-   **Quantity Display Format**: Quantity column displays with 2 decimal places for consistency
+-   **Journal Integration**: Automatic journal entry creation on document approval via PostingService integration (GR: Debit=item category account, Credit=purpose account; GI: Debit=purpose account, Credit=item category account)
+-   **PostingService Integration**: GRGIService uses centralized PostingService for journal creation, ensuring consistent journal schema, entity resolution, currency handling, and control account balance updates
 -   **Valuation Methods**: Multiple cost calculation methods (FIFO, LIFO, Average, Manual)
 -   **SweetAlert2 Integration**: Professional confirmation dialogs for critical operations
+-   **Seeder Requirements**: GRGIPurposeSeeder and GRGIAccountMappingSeeder must be run for system initialization
 
 ### 6.3. Delivery Order System
 
@@ -537,7 +544,7 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 
 -   `product_categories`: Hierarchical product categorization with account mapping (inventory_account_id, cogs_account_id, sales_account_id)
 -   `inventory_items`: Product master data with pricing, stock levels, item_type (item/service), default_warehouse_id, and price levels (selling_price_level_2, selling_price_level_3, percentage fields)
--   `inventory_transactions`: Stock movement tracking with cost allocation and warehouse_id
+-   `inventory_transactions`: Stock movement tracking with cost allocation and warehouse_id. All inventory-affecting documents (GRPO, GR/GI, Purchase Invoice, Sales Invoice) create inventory transactions with proper reference_type and reference_id for complete audit trail and transaction history.
 -   `inventory_valuations`: Real-time inventory valuation with multiple methods
 -   `warehouses`: Warehouse master data with contact information and status
 -   `inventory_warehouse_stock`: Per-warehouse stock tracking with quantity_on_hand, reserved_quantity, available_quantity, and warehouse-specific reorder points
@@ -751,7 +758,7 @@ The system has been analyzed for trading company (perusahaan dagang) operations 
 ```sql
 -- Inventory Management
 inventory_items: Product master data with trading-specific fields
-inventory_transactions: Stock movement tracking with cost allocation
+inventory_transactions: Stock movement tracking with cost allocation. All inventory-affecting documents create inventory transactions with reference_type and reference_id for audit trail.
 inventory_valuations: Cost tracking with multiple valuation methods
 
 -- Tax Compliance

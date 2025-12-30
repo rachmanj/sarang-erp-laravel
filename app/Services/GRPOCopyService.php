@@ -69,6 +69,7 @@ class GRPOCopyService
 
                 GoodsReceiptPOLine::create([
                     'grpo_id' => $grpo->id,
+                    'item_id' => $line->inventory_item_id,
                     'account_id' => $line->account_id,
                     'description' => $line->description,
                     'qty' => $line->qty,

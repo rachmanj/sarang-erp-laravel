@@ -13,6 +13,7 @@ use App\Services\GRPOJournalService;
 use App\Services\Accounting\PostingService;
 use App\Services\PurchaseWorkflowAuditService;
 use App\Services\CompanyEntityService;
+use App\Services\InventoryService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
@@ -25,7 +26,8 @@ class GoodsReceiptPOController extends Controller
         private DocumentClosureService $documentClosureService,
         private GRPOJournalService $grpoJournalService,
         private PostingService $postingService,
-        private CompanyEntityService $companyEntityService
+        private CompanyEntityService $companyEntityService,
+        private InventoryService $inventoryService
     ) {}
 
     public function index()
@@ -105,6 +107,31 @@ class GoodsReceiptPOController extends Controller
             // Update total amount
             $grpo->update(['total_amount' => $totalAmount]);
 
+            // Create inventory transactions for each line
+            foreach ($data['lines'] as $l) {
+                $item = InventoryItem::find($l['item_id']);
+                if ($item) {
+                    try {
+                        $this->inventoryService->processPurchaseTransaction(
+                            $l['item_id'],
+                            (float)$l['qty'],
+                            $item->purchase_price,
+                            'goods_receipt_po',
+                            $grpo->id,
+                            "GRPO {$grpoNo}: {$l['description'] ?? $item->name}",
+                            $data['warehouse_id']
+                        );
+                    } catch (\Exception $e) {
+                        \Log::error('Failed to create inventory transaction for GRPO', [
+                            'grpo_id' => $grpo->id,
+                            'item_id' => $l['item_id'],
+                            'error' => $e->getMessage()
+                        ]);
+                        throw new \Exception("Failed to create inventory transaction: " . $e->getMessage());
+                    }
+                }
+            }
+
             // Log GRPO creation in Purchase Order audit trail
             if ($purchaseOrder) {
                 app(PurchaseWorkflowAuditService::class)->logGRPOCreation($purchaseOrder, $grpo->id);
@@ -144,8 +171,14 @@ class GoodsReceiptPOController extends Controller
 
     public function show(int $id)
     {
-        $grpo = GoodsReceiptPO::with('lines')->findOrFail($id);
-        return view('goods_receipt_pos.show', compact('grpo'));
+        $grpo = GoodsReceiptPO::with(['lines.item', 'businessPartner', 'warehouse'])->findOrFail($id);
+        
+        // Check if inventory transactions exist for this GRPO
+        $hasInventoryTransactions = \App\Models\InventoryTransaction::where('reference_type', 'goods_receipt_po')
+            ->where('reference_id', $grpo->id)
+            ->exists();
+        
+        return view('goods_receipt_pos.show', compact('grpo', 'hasInventoryTransactions'));
     }
 
     public function receive(int $id)
@@ -160,6 +193,39 @@ class GoodsReceiptPOController extends Controller
             DB::transaction(function () use ($grpo) {
                 // Update status to received
                 $grpo->update(['status' => 'received']);
+
+                // Create inventory transactions for each line if not already created
+                foreach ($grpo->lines as $line) {
+                    $item = $line->item;
+                    if ($item) {
+                        // Check if inventory transaction already exists for this line
+                        $existingTransaction = \App\Models\InventoryTransaction::where('reference_type', 'goods_receipt_po')
+                            ->where('reference_id', $grpo->id)
+                            ->where('item_id', $line->item_id)
+                            ->first();
+
+                        if (!$existingTransaction) {
+                            try {
+                                $this->inventoryService->processPurchaseTransaction(
+                                    $line->item_id,
+                                    (float)$line->qty,
+                                    $line->unit_price ?? $item->purchase_price,
+                                    'goods_receipt_po',
+                                    $grpo->id,
+                                    "GRPO {$grpo->grn_no}: {$line->description ?? $item->name}",
+                                    $grpo->warehouse_id
+                                );
+                            } catch (\Exception $e) {
+                                \Log::error('Failed to create inventory transaction for GRPO receive', [
+                                    'grpo_id' => $grpo->id,
+                                    'item_id' => $line->item_id,
+                                    'error' => $e->getMessage()
+                                ]);
+                                throw new \Exception("Failed to create inventory transaction: " . $e->getMessage());
+                            }
+                        }
+                    }
+                }
 
                 // Create journal entries automatically
                 $journal = $this->grpoJournalService->createJournalEntries($grpo);
@@ -409,5 +475,66 @@ class GoodsReceiptPOController extends Controller
         $journalEntries = $this->grpoJournalService->getJournalEntries($grpo);
 
         return view('goods_receipt_pos.journal', compact('grpo', 'journalEntries'));
+    }
+
+    /**
+     * Fix missing inventory transactions for a GRPO
+     */
+    public function fixInventoryTransactions(int $id)
+    {
+        $grpo = GoodsReceiptPO::with(['lines.item'])->findOrFail($id);
+
+        if ($grpo->status !== 'received') {
+            return back()->with('error', 'GRPO must be in "received" status to create inventory transactions.');
+        }
+
+        try {
+            $createdCount = DB::transaction(function () use ($grpo) {
+                $count = 0;
+                foreach ($grpo->lines as $line) {
+                    $item = $line->item;
+                    if (!$item) {
+                        continue;
+                    }
+
+                    // Check if inventory transaction already exists for this line
+                    $existingTransaction = \App\Models\InventoryTransaction::where('reference_type', 'goods_receipt_po')
+                        ->where('reference_id', $grpo->id)
+                        ->where('item_id', $line->item_id)
+                        ->first();
+
+                    if (!$existingTransaction) {
+                        try {
+                            $this->inventoryService->processPurchaseTransaction(
+                                $line->item_id,
+                                (float)$line->qty,
+                                $line->unit_price ?? $item->purchase_price,
+                                'goods_receipt_po',
+                                $grpo->id,
+                                "GRPO {$grpo->grn_no}: {$line->description ?? $item->name}",
+                                $grpo->warehouse_id
+                            );
+                            $count++;
+                        } catch (\Exception $e) {
+                            \Log::error('Failed to create inventory transaction for GRPO fix', [
+                                'grpo_id' => $grpo->id,
+                                'item_id' => $line->item_id,
+                                'error' => $e->getMessage()
+                            ]);
+                            throw new \Exception("Failed to create inventory transaction for item {$item->name}: " . $e->getMessage());
+                        }
+                    }
+                }
+                return $count;
+            });
+
+            if ($createdCount > 0) {
+                return back()->with('success', "Created {$createdCount} inventory transaction(s) for GRPO {$grpo->grn_no}");
+            } else {
+                return back()->with('info', 'All inventory transactions already exist for this GRPO');
+            }
+        } catch (\Exception $e) {
+            return back()->with('error', 'Error fixing inventory transactions: ' . $e->getMessage());
+        }
     }
 }

@@ -305,7 +305,7 @@ class InventoryController extends Controller
             'notes' => ['nullable', 'string', 'max:500'],
         ]);
 
-        return DB::transaction(function () use ($data, $item) {
+        return DB::transaction(function () use ($data, $item, $request) {
             $quantity = $data['adjustment_type'] === 'increase'
                 ? $data['quantity']
                 : -$data['quantity'];
@@ -328,6 +328,13 @@ class InventoryController extends Controller
 
             // Update valuation
             $this->updateValuation($item);
+
+            if ($request->ajax()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Stock adjustment recorded successfully'
+                ]);
+            }
 
             return back()->with('success', 'Stock adjustment recorded successfully');
         });
@@ -601,26 +608,25 @@ class InventoryController extends Controller
     private function updateValuation(InventoryItem $item)
     {
         $currentStock = $item->current_stock;
-        $latestValuation = $item->valuations()
-            ->orderBy('valuation_date', 'desc')
-            ->first();
-
-        if ($latestValuation && $latestValuation->quantity_on_hand == $currentStock) {
-            return; // No change in stock
-        }
+        $valuationDate = now()->toDateString();
 
         // Calculate new valuation based on method
         $unitCost = $this->calculateUnitCost($item);
         $totalValue = $currentStock * $unitCost;
 
-        InventoryValuation::create([
-            'item_id' => $item->id,
-            'valuation_date' => now()->toDateString(),
-            'quantity_on_hand' => $currentStock,
-            'unit_cost' => $unitCost,
-            'total_value' => $totalValue,
-            'valuation_method' => $item->valuation_method,
-        ]);
+        // Use updateOrCreate to handle existing valuations for the same date
+        InventoryValuation::updateOrCreate(
+            [
+                'item_id' => $item->id,
+                'valuation_date' => $valuationDate,
+            ],
+            [
+                'quantity_on_hand' => $currentStock,
+                'unit_cost' => $unitCost,
+                'total_value' => $totalValue,
+                'valuation_method' => $item->valuation_method,
+            ]
+        );
     }
 
     private function calculateUnitCost(InventoryItem $item)

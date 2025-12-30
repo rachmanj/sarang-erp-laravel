@@ -422,6 +422,24 @@
 @section('scripts')
     <script>
         $(function() {
+            // Stock adjustment modal
+            $('.btn-adjust-stock').on('click', function() {
+                const itemId = $(this).data('item-id');
+                const itemName = $(this).data('item-name');
+                $('#adjust_item_id').val(itemId);
+                $('#adjustStockModal .modal-title').text('Adjust Stock - ' + itemName);
+                $('#adjustStockModal').modal('show');
+            });
+
+            // Stock transfer modal
+            $('.btn-transfer-stock').on('click', function() {
+                const itemId = $(this).data('item-id');
+                const itemName = $(this).data('item-name');
+                $('#transfer_from_item_id').val(itemId);
+                $('#transferStockModal .modal-title').text('Transfer Stock - ' + itemName);
+                $('#transferStockModal').modal('show');
+            });
+
             // Stock adjustment form
             $('#adjustStockForm').on('submit', function(e) {
                 e.preventDefault();

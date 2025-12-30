@@ -9,6 +9,7 @@ use App\Models\GRGIAccountMapping;
 use App\Models\GRGIJournalEntry;
 use App\Models\InventoryItem;
 use App\Models\InventoryWarehouseStock;
+use App\Models\InventoryTransaction;
 use App\Models\Accounting\Journal;
 use App\Models\Accounting\Account;
 use App\Models\ProductCategory;
@@ -476,16 +477,20 @@ class GRGIService
                 $quantityChange,
                 $header->document_type,
                 $header->id,
-                "GR/GI: {$header->document_number}"
+                "GR/GI: {$header->document_number}",
+                $line->unit_price ?? 0
             );
         }
     }
 
     /**
-     * Update warehouse stock
+     * Update warehouse stock and create inventory transaction
      */
-    protected function updateWarehouseStock($itemId, $warehouseId, $quantityChange, $transactionType, $referenceId, $notes)
+    protected function updateWarehouseStock($itemId, $warehouseId, $quantityChange, $transactionType, $referenceId, $notes, $unitPrice = 0)
     {
+        $item = InventoryItem::findOrFail($itemId);
+        
+        // Get or create warehouse stock record
         $warehouseStock = InventoryWarehouseStock::firstOrCreate(
             ['item_id' => $itemId, 'warehouse_id' => $warehouseId],
             [
@@ -501,6 +506,34 @@ class GRGIService
         $warehouseStock->quantity_on_hand += $quantityChange;
         $warehouseStock->updateAvailableQuantity();
         $warehouseStock->save();
+
+        // Use unit price from line, or calculate from item if not provided
+        if ($unitPrice <= 0) {
+            $unitPrice = $item->purchase_price ?? 0;
+        }
+        
+        $totalCost = abs($quantityChange) * $unitPrice;
+        if ($quantityChange < 0) {
+            $totalCost = -$totalCost;
+        }
+
+        // Create inventory transaction
+        InventoryTransaction::create([
+            'item_id' => $itemId,
+            'warehouse_id' => $warehouseId,
+            'transaction_type' => $transactionType === 'goods_receipt' ? 'purchase' : 'sale',
+            'quantity' => $quantityChange,
+            'unit_cost' => $unitPrice,
+            'total_cost' => $totalCost,
+            'reference_type' => 'gr_gi',
+            'reference_id' => $referenceId,
+            'transaction_date' => $transactionType === 'goods_receipt' ? now()->toDateString() : now()->toDateString(),
+            'notes' => $notes ?? "GR/GI transaction",
+            'created_by' => Auth::id(),
+        ]);
+
+        // Update item valuation
+        app(InventoryService::class)->updateItemValuation($item);
     }
 
     /**

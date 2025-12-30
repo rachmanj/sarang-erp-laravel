@@ -346,4 +346,7 @@ Route::prefix('goods-receipt-pos')->group(function () {
     Route::post('/{id}/create-journal', [GoodsReceiptPOController::class, 'createJournal'])->name('goods-receipt-pos.create-journal');
     Route::post('/{id}/reverse-journal', [GoodsReceiptPOController::class, 'reverseJournal'])->name('goods-receipt-pos.reverse-journal');
     Route::get('/{id}/journal', [GoodsReceiptPOController::class, 'showJournal'])->name('goods-receipt-pos.journal');
+    
+    // Inventory transaction fix route
+    Route::post('/{id}/fix-inventory', [GoodsReceiptPOController::class, 'fixInventoryTransactions'])->name('goods-receipt-pos.fix-inventory');
 });

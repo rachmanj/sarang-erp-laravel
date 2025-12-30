@@ -379,6 +379,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/{grGi}/submit', [App\Http\Controllers\GRGIController::class, 'submit'])->name('gr-gi.submit');
         Route::post('/{grGi}/approve', [App\Http\Controllers\GRGIController::class, 'approve'])->name('gr-gi.approve');
         Route::post('/{grGi}/cancel', [App\Http\Controllers\GRGIController::class, 'cancel'])->name('gr-gi.cancel');
+        Route::post('/{grGi}/fix-inventory', [App\Http\Controllers\GRGIController::class, 'fixInventoryTransactions'])->name('gr-gi.fix-inventory');
 
         // API routes
         Route::get('/api/purposes', [App\Http\Controllers\GRGIController::class, 'getPurposes'])->name('gr-gi.purposes');

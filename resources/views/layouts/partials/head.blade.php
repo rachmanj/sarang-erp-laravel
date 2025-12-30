@@ -4,7 +4,7 @@
 @if (session('pdf_url'))
     <meta name="pdf_url" content="{{ session('pdf_url') }}">
 @endif
-<title>DDS - ARKA</title>
+<title>Sarang-ERP</title>
 
 <!-- Google Font: Source Sans Pro -->
 <link rel="stylesheet" href="{{ asset('adminlte/fontgoogle.css') }}">

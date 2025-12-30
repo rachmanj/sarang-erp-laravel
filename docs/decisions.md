@@ -1,5 +1,5 @@
 **Purpose**: Record technical decisions and rationale for future reference
-**Last Updated**: 2025-12-26 (Added Direct Cash Purchase Feature decision record)
+**Last Updated**: 2025-12-30 (Added Inventory Transaction Creation Fix decision record)
 
 # Technical Decision Records
 
@@ -29,6 +29,44 @@ Decision: [Title] - [YYYY-MM-DD]
 ---
 
 ## Recent Decisions
+
+### Decision: GR/GI Journal Entry Integration via PostingService - 2025-12-30
+
+**Context**: GR/GI system initially created journal entries directly using `Journal` and `JournalLine` models, which caused schema mismatches (missing `status` field) and bypassed centralized accounting logic. The system needed to leverage existing PostingService for consistent journal creation, entity resolution, currency handling, and control account balance updates.
+
+**Options Considered**:
+
+1. **Option A**: Continue direct journal creation, fix schema issues.
+    - ✅ Pros: Minimal code changes, direct control.
+    - ❌ Cons: Duplicates logic, bypasses PostingService features, inconsistent with other modules, maintenance overhead.
+
+2. **Option B**: Refactor GRGIService to use PostingService for journal creation.
+    - ✅ Pros: Consistent with other modules, leverages existing infrastructure, automatic entity/currency handling, control account updates, single source of truth.
+    - ❌ Cons: Requires refactoring existing code, need to understand PostingService API.
+
+**Decision**: Adopt Option B—refactor GRGIService to use PostingService for all journal entry creation.
+
+**Rationale**:
+
+- PostingService provides centralized accounting logic used by all other modules (Purchase Invoice, Sales Invoice, etc.).
+- Automatic entity resolution ensures proper company entity context for multi-entity environments.
+- Currency handling and exchange rate management handled automatically.
+- Control account balance updates integrated seamlessly.
+- Consistent journal schema and validation across all document types.
+- Single source of truth for accounting logic reduces maintenance burden.
+- Follows established architectural patterns in the codebase.
+
+**Implementation**:
+
+- **Service Refactoring**: Updated `GRGIService::createJournalEntry()` to use `PostingService::postJournal()` instead of direct `Journal`/`JournalLine` creation.
+- **Model Namespace Fix**: Corrected `Journal` and `JournalLine` imports from `App\Models\Journal` to `App\Models\Accounting\Journal` in both `GRGIService.php` and `GRGIJournalEntry.php`.
+- **Relationship Fix**: Changed relationship name from `productCategory` to `category` in `GRGIService` to match `InventoryItem` model relationship.
+- **Payload Structure**: Created proper payload structure for PostingService with date, description, source_type, source_id, posted_by, and lines array with account_id, debit, credit, and memo.
+- **Account Mapping Logic**: Maintained existing account mapping logic (GR: debit=item category auto, credit=manual; GI: debit=manual, credit=item category auto) while leveraging PostingService for execution.
+- **Dependency Injection**: Added `PostingService` to `GRGIService` constructor for proper dependency injection.
+- **Seeder Execution**: Ran `GRGIPurposeSeeder` and `GRGIAccountMappingSeeder` to ensure required master data exists.
+
+**Review Date**: 2026-12-30 (after full year of production use with PostingService integration).
 
 ### Decision: Business Partner Default Currency Assignment - 2025-12-24
 
