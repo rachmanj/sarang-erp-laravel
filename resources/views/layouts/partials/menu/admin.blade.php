@@ -38,6 +38,15 @@
     </ul>
 </li>
 
+<!-- Approval Workflows -->
+<li class="nav-item">
+    <a href="{{ route('admin.approval-workflows.index') }}"
+        class="nav-link {{ request()->routeIs('admin.approval-workflows.*') ? 'active' : '' }}">
+        <i class="nav-icon fas fa-check-double"></i>
+        <p>Approval Workflows</p>
+    </a>
+</li>
+
 <!-- ERP Parameters -->
 <li class="nav-item">
     <a href="{{ route('erp-parameters.index') }}"

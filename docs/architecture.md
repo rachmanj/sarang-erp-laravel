@@ -1,5 +1,5 @@
 Purpose: Technical reference for understanding system design and development patterns
-Last Updated: 2025-12-30 (Updated with Inventory Transaction Creation for GRPO & GR/GI)
+Last Updated: 2025-01-22 (Updated with Approval Workflow Admin UI)
 
 ## Architecture Documentation Guidelines
 
@@ -243,6 +243,18 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 -   **Purchase Orders**: Vendor order management with approval workflow (PO-YYYYMM-######)
 -   **Goods Receipt PO**: Purchase Order-based inventory receipt processing (GR-YYYYMM-######)
 -   **Vendor Management**: Vendor master data with performance tracking
+
+#### 5.0 Approval Workflow Management System
+
+-   **Workflow Configuration**: Admin UI for creating and managing approval workflows by document type (Purchase Order, Sales Order)
+-   **Workflow Steps**: Configurable sequential approval steps with role assignments (Officer, Supervisor, Manager)
+-   **Approval Thresholds**: Amount-based threshold configuration determining required approval levels
+-   **Threshold Management**: Create, edit, and delete approval thresholds with overlap validation
+-   **Workflow Steps Management**: Dynamic step addition/removal with step order, role, approval type (Sequential/Parallel), and required flag
+-   **Admin Interface**: Complete CRUD operations with DataTables integration, modal-based threshold management, and comprehensive validation
+-   **Database Schema**: `approval_workflows`, `approval_workflow_steps`, `approval_thresholds` tables with proper relationships
+-   **Service Integration**: ApprovalWorkflowService integration with PurchaseService and SalesService for automatic workflow creation
+-   **Default Configuration**: ApprovalWorkflowSeeder provides default workflows and thresholds for purchase_order and sales_order document types
 
 #### 5.1 Goods Receipt PO System Architecture
 
@@ -633,6 +645,7 @@ The database schema has been consolidated from 51 to 44 migration files for impr
 -   `/reports/open-items/*`: Open Items reporting with comprehensive document status monitoring, aging analysis, and Excel export
 -   `/reports/*`: Comprehensive reporting suite
 -   `/admin/*`: User and role management
+-   `/admin/approval-workflows/*`: Approval workflow management with CRUD operations, workflow step configuration, and threshold management
 
 ## Data Flow
 
@@ -689,6 +702,7 @@ graph TD
 -   **Analytics Permissions**: COGS, supplier analytics, business intelligence, and unified analytics access control
 -   **Document Closure Permissions**: manage-erp-parameters for ERP Parameters management, reports.open-items for Open Items reporting access
 -   **GR/GI Permissions**: gr-gi.view/create/update/delete/approve for comprehensive GR/GI management access control
+-   **Approval Workflow Permissions**: admin.approval-workflows for approval workflow configuration and management
 -   **Data-Level Security**: Dimension-based data access control
 
 ### Data Protection

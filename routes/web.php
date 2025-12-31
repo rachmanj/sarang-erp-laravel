@@ -7,6 +7,7 @@ use App\Http\Controllers\Accounting\ManualJournalController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Admin\RoleController as AdminRoleController;
 use App\Http\Controllers\Admin\PermissionController as AdminPermissionController;
+use App\Http\Controllers\Admin\ApprovalWorkflowController;
 use App\Http\Controllers\Accounting\PeriodController;
 use App\Http\Controllers\Accounting\SalesInvoiceController;
 use App\Http\Controllers\Accounting\PurchaseInvoiceController;
@@ -146,6 +147,18 @@ Route::middleware('auth')->group(function () {
         Route::post('/permissions', [AdminPermissionController::class, 'store'])->name('admin.permissions.store');
         Route::patch('/permissions/{permission}', [AdminPermissionController::class, 'update'])->name('admin.permissions.update');
         Route::delete('/permissions/{permission}', [AdminPermissionController::class, 'destroy'])->name('admin.permissions.destroy');
+
+        // Approval Workflows
+        Route::get('/approval-workflows', [ApprovalWorkflowController::class, 'index'])->name('admin.approval-workflows.index');
+        Route::get('/approval-workflows/data', [ApprovalWorkflowController::class, 'data'])->name('admin.approval-workflows.data');
+        Route::get('/approval-workflows/create', [ApprovalWorkflowController::class, 'create'])->name('admin.approval-workflows.create');
+        Route::post('/approval-workflows', [ApprovalWorkflowController::class, 'store'])->name('admin.approval-workflows.store');
+        Route::get('/approval-workflows/{approvalWorkflow}', [ApprovalWorkflowController::class, 'show'])->name('admin.approval-workflows.show');
+        Route::get('/approval-workflows/{approvalWorkflow}/edit', [ApprovalWorkflowController::class, 'edit'])->name('admin.approval-workflows.edit');
+        Route::put('/approval-workflows/{approvalWorkflow}', [ApprovalWorkflowController::class, 'update'])->name('admin.approval-workflows.update');
+        Route::post('/approval-workflows/thresholds', [ApprovalWorkflowController::class, 'storeThreshold'])->name('admin.approval-workflows.thresholds.store');
+        Route::put('/approval-workflows/thresholds/{approvalThreshold}', [ApprovalWorkflowController::class, 'updateThreshold'])->name('admin.approval-workflows.thresholds.update');
+        Route::delete('/approval-workflows/thresholds/{approvalThreshold}', [ApprovalWorkflowController::class, 'destroyThreshold'])->name('admin.approval-workflows.thresholds.destroy');
     });
 
     // ERP Parameters

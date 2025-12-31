@@ -1,5 +1,5 @@
 **Purpose**: Record technical decisions and rationale for future reference
-**Last Updated**: 2025-12-30 (Added Inventory Transaction Creation Fix decision record)
+**Last Updated**: 2025-01-22 (Added Approval Workflow Admin UI decision record)
 
 # Technical Decision Records
 
@@ -29,6 +29,44 @@ Decision: [Title] - [YYYY-MM-DD]
 ---
 
 ## Recent Decisions
+
+### Decision: Approval Workflow Admin UI Implementation - 2025-01-22
+
+**Context**: Approval workflows were previously configured only through database seeders and direct database manipulation, making it difficult for administrators to manage workflows, steps, and thresholds without technical knowledge. Users needed a user-friendly interface to configure approval workflows for different document types and amount ranges.
+
+**Options Considered**:
+
+1. **Option A**: Continue using database seeders and direct database manipulation only.
+    - ✅ Pros: No UI development required, maintains current workflow.
+    - ❌ Cons: Requires technical knowledge, error-prone, no validation, difficult to maintain, poor user experience.
+
+2. **Option B**: Create comprehensive admin UI for approval workflow management.
+    - ✅ Pros: User-friendly interface, validation, error prevention, better maintainability, professional admin experience, threshold overlap validation.
+    - ❌ Cons: Requires UI development, additional routes and controllers.
+
+**Decision**: Adopt Option B—create comprehensive admin UI for approval workflow management with full CRUD operations, workflow step configuration, and threshold management.
+
+**Rationale**:
+
+- User-friendly interface enables non-technical administrators to configure workflows.
+- Validation prevents configuration errors (overlapping thresholds, invalid step orders).
+- Better maintainability with centralized workflow management.
+- Professional admin experience consistent with other ERP admin features.
+- Threshold overlap validation ensures data integrity.
+- Dynamic workflow step management provides flexibility.
+- Modal-based threshold management improves UX.
+
+**Implementation**:
+
+- **Controller**: Created `ApprovalWorkflowController` with full CRUD operations (index, create, store, show, edit, update, destroy) and threshold management methods (storeThreshold, updateThreshold, destroyThreshold).
+- **Views**: Created comprehensive AdminLTE views (index with DataTables, create, show, edit) with modal-based threshold management, dynamic workflow step addition/removal, and professional UI styling.
+- **Routes**: Added routes in `routes/web/admin.php` with proper middleware and permissions (`admin.approval-workflows`).
+- **Validation**: Implemented threshold overlap validation to prevent conflicting amount ranges, workflow step validation for required fields and proper ordering.
+- **Service Integration**: Leveraged existing `ApprovalWorkflowService` for workflow creation logic, ensuring consistency with automatic workflow generation in PurchaseService and SalesService.
+- **Database Schema**: Utilized existing `approval_workflows`, `approval_workflow_steps`, and `approval_thresholds` tables with proper relationships.
+- **Default Configuration**: `ApprovalWorkflowSeeder` continues to provide default workflows and thresholds for system initialization.
+
+**Review Date**: 2026-01-22 (after full year of production use with admin UI).
 
 ### Decision: GR/GI Journal Entry Integration via PostingService - 2025-12-30
 
