@@ -300,6 +300,7 @@ Route::middleware('auth')->group(function () {
         // Stock Management
         Route::post('/{item}/adjust-stock', [InventoryController::class, 'adjustStock'])->middleware('permission:inventory.adjust')->name('inventory.adjust-stock');
         Route::post('/{item}/transfer-stock', [InventoryController::class, 'transferStock'])->middleware('permission:inventory.transfer')->name('inventory.transfer-stock');
+        Route::post('/{item}/recalculate-warehouse-stock', [InventoryController::class, 'recalculateWarehouseStock'])->middleware('permission:inventory.adjust')->name('inventory.recalculate-warehouse-stock');
 
         // Reports and Analytics (static routes before catch-all)
         Route::get('/low-stock', [InventoryController::class, 'lowStock'])->name('inventory.low-stock');

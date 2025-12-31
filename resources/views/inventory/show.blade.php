@@ -114,6 +114,99 @@
                     </table>
                 </div>
             </div>
+
+            @if($item->warehouseStock && $item->warehouseStock->count() > 0)
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h3 class="card-title">Stock by Warehouse</h3>
+                    <form action="{{ route('inventory.recalculate-warehouse-stock', $item->id) }}" method="POST" style="display: inline;">
+                        @csrf
+                        <button type="submit" class="btn btn-sm btn-warning" onclick="return confirm('Recalculate warehouse stock from transactions? This will update warehouse stock based on all transactions.')">
+                            <i class="fas fa-sync-alt"></i> Recalculate
+                        </button>
+                    </form>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-striped table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Warehouse</th>
+                                    <th class="text-right">On Hand</th>
+                                    <th class="text-right">Reserved</th>
+                                    <th class="text-right">Available</th>
+                                    <th class="text-right">Reorder Point</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($item->warehouseStock as $stock)
+                                <tr>
+                                    <td>
+                                        @if($stock->warehouse)
+                                            <strong>{{ $stock->warehouse->code ?? 'N/A' }}</strong><br>
+                                            <small class="text-muted">{{ $stock->warehouse->name ?? 'N/A' }}</small>
+                                        @else
+                                            <strong>N/A</strong>
+                                        @endif
+                                    </td>
+                                    <td class="text-right">
+                                        <span class="badge badge-{{ $stock->quantity_on_hand <= 0 ? 'danger' : ($stock->quantity_on_hand <= $stock->reorder_point ? 'warning' : 'success') }}">
+                                            {{ number_format($stock->quantity_on_hand, 0) }} {{ $item->unit_of_measure }}
+                                        </span>
+                                    </td>
+                                    <td class="text-right">{{ number_format($stock->reserved_quantity, 0) }} {{ $item->unit_of_measure }}</td>
+                                    <td class="text-right">
+                                        <span class="badge badge-info">
+                                            {{ number_format($stock->available_quantity, 0) }} {{ $item->unit_of_measure }}
+                                        </span>
+                                    </td>
+                                    <td class="text-right">{{ number_format($stock->reorder_point, 0) }} {{ $item->unit_of_measure }}</td>
+                                    <td>
+                                        @if($stock->isLowStock())
+                                            <span class="badge badge-warning">
+                                                <i class="fas fa-exclamation-triangle"></i> Low Stock
+                                            </span>
+                                        @else
+                                            <span class="badge badge-success">
+                                                <i class="fas fa-check-circle"></i> OK
+                                            </span>
+                                        @endif
+                                    </td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                            <tfoot>
+                                <tr class="bg-light">
+                                    <td><strong>Total</strong></td>
+                                    <td class="text-right">
+                                        <strong>{{ number_format($item->warehouseStock->sum('quantity_on_hand'), 0) }} {{ $item->unit_of_measure }}</strong>
+                                    </td>
+                                    <td class="text-right">
+                                        <strong>{{ number_format($item->warehouseStock->sum('reserved_quantity'), 0) }} {{ $item->unit_of_measure }}</strong>
+                                    </td>
+                                    <td class="text-right">
+                                        <strong>{{ number_format($item->warehouseStock->sum('available_quantity'), 0) }} {{ $item->unit_of_measure }}</strong>
+                                    </td>
+                                    <td colspan="2"></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            @elseif($item->item_type === 'item')
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Stock by Warehouse</h3>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> No warehouse stock records found for this item. Stock will be created automatically when inventory transactions occur.
+                    </div>
+                </div>
+            </div>
+            @endif
         </div>
 
         <div class="col-md-8">
@@ -354,6 +447,18 @@
                         <div class="form-group">
                             <label>Quantity</label>
                             <input type="number" class="form-control" name="quantity" min="1" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Warehouse</label>
+                            <select class="form-control" name="warehouse_id">
+                                <option value="">Default Warehouse ({{ $item->defaultWarehouse->name ?? 'Not Set' }})</option>
+                                @foreach($warehouses as $warehouse)
+                                    <option value="{{ $warehouse->id }}" {{ $item->default_warehouse_id == $warehouse->id ? 'selected' : '' }}>
+                                        {{ $warehouse->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            <small class="form-text text-muted">Leave empty to use default warehouse</small>
                         </div>
                         <div class="form-group">
                             <label>Unit Cost</label>

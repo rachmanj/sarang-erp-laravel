@@ -9,10 +9,12 @@ use App\Models\InventoryItemUnit;
 use App\Models\UnitOfMeasure;
 use App\Models\ProductCategory;
 use App\Models\Warehouse;
+use App\Models\InventoryWarehouseStock;
 use App\Services\AuditLogService;
 use App\Services\PriceLevelService;
 use App\Services\UnitConversionService;
 use App\Services\PurchaseInvoiceService;
+use App\Services\InventoryService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
@@ -22,12 +24,15 @@ class InventoryController extends Controller
 {
     protected $unitConversionService;
     protected $purchaseInvoiceService;
+    protected $inventoryService;
 
     public function __construct(
         UnitConversionService $unitConversionService,
-        PurchaseInvoiceService $purchaseInvoiceService
+        PurchaseInvoiceService $purchaseInvoiceService,
+        InventoryService $inventoryService
     ) {
         $this->unitConversionService = $unitConversionService;
+        $this->inventoryService = $inventoryService;
         $this->purchaseInvoiceService = $purchaseInvoiceService;
     }
     public function index()
@@ -234,10 +239,16 @@ class InventoryController extends Controller
             ->orderBy('valuation_date', 'desc')
             ->paginate(10);
 
+        // Get warehouses for adjustment form (exclude transit warehouses)
+        $warehouses = Warehouse::where('is_active', true)
+            ->where('name', 'not like', '%Transit%')
+            ->orderBy('name')
+            ->get();
+
         // Get audit trail
         $auditTrail = app(AuditLogService::class)->getAuditTrail('inventory_item', $id);
 
-        return view('inventory.show', compact('item', 'transactions', 'valuations', 'auditTrail'));
+        return view('inventory.show', compact('item', 'transactions', 'valuations', 'auditTrail', 'warehouses'));
     }
 
     public function edit(int $id)
@@ -302,6 +313,7 @@ class InventoryController extends Controller
             'adjustment_type' => ['required', 'in:increase,decrease'],
             'quantity' => ['required', 'integer', 'min:1'],
             'unit_cost' => ['required', 'numeric', 'min:0'],
+            'warehouse_id' => ['nullable', 'exists:warehouses,id'],
             'notes' => ['nullable', 'string', 'max:500'],
         ]);
 
@@ -312,9 +324,13 @@ class InventoryController extends Controller
 
             $totalCost = $quantity * $data['unit_cost'];
 
+            // Determine warehouse - use provided warehouse or default warehouse
+            $warehouseId = $data['warehouse_id'] ?? $item->default_warehouse_id;
+
             // Create adjustment transaction
-            InventoryTransaction::create([
+            $transaction = InventoryTransaction::create([
                 'item_id' => $item->id,
+                'warehouse_id' => $warehouseId,
                 'transaction_type' => 'adjustment',
                 'quantity' => $quantity,
                 'unit_cost' => $data['unit_cost'],
@@ -325,6 +341,11 @@ class InventoryController extends Controller
                 'notes' => $data['notes'] ?? 'Stock adjustment',
                 'created_by' => Auth::id(),
             ]);
+
+            // Update warehouse stock if warehouse is specified
+            if ($warehouseId) {
+                $this->updateWarehouseStock($item->id, $warehouseId, $quantity);
+            }
 
             // Update valuation
             $this->updateValuation($item);
@@ -337,6 +358,71 @@ class InventoryController extends Controller
             }
 
             return back()->with('success', 'Stock adjustment recorded successfully');
+        });
+    }
+
+    /**
+     * Update warehouse stock for an item
+     */
+    private function updateWarehouseStock(int $itemId, int $warehouseId, int $quantityChange)
+    {
+        $warehouseStock = InventoryWarehouseStock::firstOrCreate(
+            ['item_id' => $itemId, 'warehouse_id' => $warehouseId],
+            [
+                'quantity_on_hand' => 0,
+                'reserved_quantity' => 0,
+                'available_quantity' => 0,
+                'min_stock_level' => 0,
+                'max_stock_level' => 0,
+                'reorder_point' => 0,
+            ]
+        );
+
+        $warehouseStock->quantity_on_hand += $quantityChange;
+        $warehouseStock->updateAvailableQuantity();
+        $warehouseStock->save();
+
+        return $warehouseStock;
+    }
+
+    /**
+     * Recalculate warehouse stock from transactions
+     */
+    public function recalculateWarehouseStock(int $id)
+    {
+        $item = InventoryItem::findOrFail($id);
+
+        return DB::transaction(function () use ($item) {
+            // Get all transactions with warehouse_id
+            $transactions = InventoryTransaction::where('item_id', $item->id)
+                ->whereNotNull('warehouse_id')
+                ->get();
+
+            // Group by warehouse and calculate totals
+            $warehouseTotals = $transactions->groupBy('warehouse_id')->map(function ($group) {
+                return $group->sum('quantity');
+            });
+
+            // Update warehouse stock for each warehouse
+            foreach ($warehouseTotals as $warehouseId => $totalQuantity) {
+                $warehouseStock = InventoryWarehouseStock::firstOrCreate(
+                    ['item_id' => $item->id, 'warehouse_id' => $warehouseId],
+                    [
+                        'quantity_on_hand' => 0,
+                        'reserved_quantity' => 0,
+                        'available_quantity' => 0,
+                        'min_stock_level' => 0,
+                        'max_stock_level' => 0,
+                        'reorder_point' => 0,
+                    ]
+                );
+
+                $warehouseStock->quantity_on_hand = $totalQuantity;
+                $warehouseStock->updateAvailableQuantity();
+                $warehouseStock->save();
+            }
+
+            return back()->with('success', 'Warehouse stock recalculated successfully');
         });
     }
 
