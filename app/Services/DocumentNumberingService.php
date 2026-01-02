@@ -29,6 +29,7 @@ class DocumentNumberingService
         'grpo' => '02',
         'purchase_invoice' => '03',
         'purchase_payment' => '04',
+        'sales_quotation' => '05',
         'sales_order' => '06',
         'delivery_order' => '07',
         'sales_invoice' => '08',

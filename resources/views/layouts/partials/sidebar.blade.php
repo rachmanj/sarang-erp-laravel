@@ -172,12 +172,13 @@
                 @endcanany
 
                 <!-- 3. Sales Group -->
-                @canany(['ar.invoices.view', 'ar.receipts.view'])
+                @canany(['ar.invoices.view', 'ar.receipts.view', 'ar.quotations.view'])
                     @php
                         $salesActive =
                             request()->routeIs('sales-invoices.*') ||
                             request()->routeIs('sales-receipts.*') ||
                             request()->routeIs('sales-orders.*') ||
+                            request()->routeIs('sales-quotations.*') ||
                             request()->routeIs('delivery-orders.*');
                     @endphp
                     <li class="nav-item {{ $salesActive ? 'menu-is-opening menu-open' : '' }}">
@@ -196,6 +197,15 @@
                                     <p>Dashboard</p>
                                 </a>
                             </li>
+                            @can('ar.quotations.view')
+                                <li class="nav-item">
+                                    <a href="{{ route('sales-quotations.index') }}"
+                                        class="nav-link {{ request()->routeIs('sales-quotations.*') ? 'active' : '' }}">
+                                        <i class="far fa-circle nav-icon"></i>
+                                        <p>Sales Quotations</p>
+                                    </a>
+                                </li>
+                            @endcan
                             <li class="nav-item">
                                 <a href="{{ route('sales-orders.index') }}"
                                     class="nav-link {{ request()->routeIs('sales-orders.*') ? 'active' : '' }}">

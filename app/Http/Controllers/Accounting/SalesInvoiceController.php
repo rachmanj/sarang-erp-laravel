@@ -7,6 +7,7 @@ use App\Models\Accounting\SalesInvoice;
 use App\Models\Accounting\SalesInvoiceLine;
 use App\Models\SalesOrder;
 use App\Models\DeliveryOrder;
+use App\Models\SalesQuotation;
 use App\Services\Accounting\PostingService;
 use App\Services\DocumentNumberingService;
 use App\Services\DocumentClosureService;
@@ -35,7 +36,7 @@ class SalesInvoiceController extends Controller
         return view('sales_invoices.index');
     }
 
-    public function create()
+    public function create(Request $request)
     {
         $accounts = DB::table('accounts')->where('is_postable', 1)->orderBy('code')->get();
         $customers = DB::table('business_partners')->where('partner_type', 'customer')->orderBy('name')->get();
@@ -44,7 +45,33 @@ class SalesInvoiceController extends Controller
         $departments = DB::table('departments')->orderBy('code')->get(['id', 'code', 'name']);
         $entities = $this->companyEntityService->getActiveEntities();
         $defaultEntity = $this->companyEntityService->getDefaultEntity();
-        return view('sales_invoices.create', compact('accounts', 'customers', 'taxCodes', 'projects', 'departments', 'entities', 'defaultEntity'));
+        
+        $prefill = null;
+        $salesQuotation = null;
+        
+        if ($request->has('quotation_id')) {
+            $salesQuotation = SalesQuotation::with(['lines', 'businessPartner', 'companyEntity'])->findOrFail($request->quotation_id);
+            
+            $prefill = [
+                'date' => now()->toDateString(),
+                'business_partner_id' => $salesQuotation->business_partner_id,
+                'company_entity_id' => $salesQuotation->company_entity_id ?? $defaultEntity->id,
+                'description' => 'From Quotation ' . ($salesQuotation->quotation_no ?: ('#' . $salesQuotation->id)),
+                'lines' => $salesQuotation->lines->map(function ($line) {
+                    return [
+                        'account_id' => (int)$line->account_id,
+                        'description' => $line->description ?? $line->item_name,
+                        'qty' => (float)$line->qty,
+                        'unit_price' => (float)$line->unit_price,
+                        'tax_code_id' => $line->tax_code_id ? (int)$line->tax_code_id : null,
+                        'project_id' => null,
+                        'dept_id' => null,
+                    ];
+                }),
+            ];
+        }
+        
+        return view('sales_invoices.create', compact('accounts', 'customers', 'taxCodes', 'projects', 'departments', 'entities', 'defaultEntity', 'prefill', 'salesQuotation'));
     }
 
     public function store(Request $request)
@@ -70,12 +97,15 @@ class SalesInvoiceController extends Controller
         $deliveryOrder = $request->input('delivery_order_id')
             ? DeliveryOrder::select('id', 'company_entity_id')->find($request->input('delivery_order_id'))
             : null;
+        $salesQuotation = $request->input('sales_quotation_id')
+            ? SalesQuotation::select('id', 'company_entity_id')->find($request->input('sales_quotation_id'))
+            : null;
         $entity = $this->companyEntityService->resolveFromModel(
             $request->input('company_entity_id'),
-            $deliveryOrder ?? $salesOrder
+            $deliveryOrder ?? $salesOrder ?? $salesQuotation
         );
 
-        return DB::transaction(function () use ($data, $request, $salesOrder, $deliveryOrder, $entity) {
+        return DB::transaction(function () use ($data, $request, $salesOrder, $deliveryOrder, $salesQuotation, $entity) {
             $invoice = SalesInvoice::create([
                 'invoice_no' => null,
                 'date' => $data['date'],
@@ -86,6 +116,18 @@ class SalesInvoiceController extends Controller
                 'total_amount' => 0,
                 'company_entity_id' => $entity->id,
             ]);
+            
+            // Store quotation reference if provided
+            if ($salesQuotation && $salesQuotation->quotation_no) {
+                $quotationRef = 'From Quotation: ' . $salesQuotation->quotation_no;
+                $currentDesc = $data['description'] ?? '';
+                // Only append if not already in description
+                if ($currentDesc && strpos($currentDesc, $quotationRef) === false) {
+                    $invoice->update(['description' => $currentDesc . ' (' . $quotationRef . ')']);
+                } elseif (!$currentDesc) {
+                    $invoice->update(['description' => $quotationRef]);
+                }
+            }
 
             // Generate human-readable number
             $invoiceNo = $this->documentNumberingService->generateNumber('sales_invoice', $data['date'], [

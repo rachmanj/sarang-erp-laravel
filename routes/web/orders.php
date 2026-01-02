@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\SalesOrderController;
+use App\Http\Controllers\SalesQuotationController;
 use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\GoodsReceiptPOController;
 use App\Http\Controllers\DeliveryOrderController;
@@ -85,6 +86,71 @@ Route::prefix('sales-orders')->group(function () {
     // Currency API Routes
     Route::get('/api/exchange-rate', [SalesOrderController::class, 'getExchangeRate'])->name('sales-orders.api.exchange-rate');
     Route::get('/api/document-number', [SalesOrderController::class, 'getDocumentNumber'])->name('sales-orders.api.document-number');
+});
+
+// Sales Quotations
+Route::prefix('sales-quotations')->middleware(['auth'])->group(function () {
+    Route::get('/', [SalesQuotationController::class, 'index'])->middleware('permission:ar.quotations.view')->name('sales-quotations.index');
+    Route::get('/data', [SalesQuotationController::class, 'data'])->middleware('permission:ar.quotations.view')->name('sales-quotations.data');
+    Route::get('/csv', function () {
+        $q = \Illuminate\Support\Facades\DB::table('sales_quotations as sq')
+            ->leftJoin('business_partners as bp', 'bp.id', '=', 'sq.business_partner_id')
+            ->select('sq.date', 'sq.quotation_no', 'sq.valid_until_date', 'bp.name as customer', 'sq.total_amount', 'sq.net_amount', 'sq.status', 'sq.approval_status');
+        if (request()->filled('status')) {
+            $q->where('sq.status', request('status'));
+        }
+        if (request()->filled('from')) {
+            $q->whereDate('sq.date', '>=', request('from'));
+        }
+        if (request()->filled('to')) {
+            $q->whereDate('sq.date', '<=', request('to'));
+        }
+        if (request()->filled('business_partner_id')) {
+            $q->where('sq.business_partner_id', (int)request('business_partner_id'));
+        }
+        if (request()->filled('q')) {
+            $kw = request('q');
+            $q->where(function ($w) use ($kw) {
+                $w->where('sq.quotation_no', 'like', '%' . $kw . '%')
+                    ->orWhere('sq.reference_no', 'like', '%' . $kw . '%')
+                    ->orWhere('bp.name', 'like', '%' . $kw . '%');
+            });
+        }
+        $rows = $q->orderBy('sq.date', 'desc')->get();
+        $csv = "date,quotation_no,valid_until_date,customer,total_amount,net_amount,status,approval_status\n";
+        foreach ($rows as $r) {
+            $csv .= sprintf(
+                "%s,%s,%s,%s,%.2f,%.2f,%s,%s\n",
+                $r->date,
+                $r->quotation_no,
+                $r->valid_until_date,
+                str_replace(',', ' ', (string)$r->customer),
+                (float)$r->total_amount,
+                (float)$r->net_amount,
+                $r->status,
+                $r->approval_status
+            );
+        }
+        return response($csv, 200, ['Content-Type' => 'text/csv', 'Content-Disposition' => 'attachment; filename="sales-quotations.csv"']);
+    })->middleware('permission:ar.quotations.view')->name('sales-quotations.csv');
+    Route::get('/create', [SalesQuotationController::class, 'create'])->middleware('permission:ar.quotations.create')->name('sales-quotations.create');
+    Route::post('/', [SalesQuotationController::class, 'store'])->middleware('permission:ar.quotations.create')->name('sales-quotations.store');
+    Route::get('/{id}', [SalesQuotationController::class, 'show'])->middleware('permission:ar.quotations.view')->name('sales-quotations.show');
+    Route::get('/{id}/edit', [SalesQuotationController::class, 'edit'])->middleware('permission:ar.quotations.update')->name('sales-quotations.edit');
+    Route::put('/{id}', [SalesQuotationController::class, 'update'])->middleware('permission:ar.quotations.update')->name('sales-quotations.update');
+    Route::delete('/{id}', [SalesQuotationController::class, 'destroy'])->middleware('permission:ar.quotations.delete')->name('sales-quotations.destroy');
+    Route::post('/{id}/send', [SalesQuotationController::class, 'send'])->middleware('permission:ar.quotations.update')->name('sales-quotations.send');
+    Route::post('/{id}/accept', [SalesQuotationController::class, 'accept'])->middleware('permission:ar.quotations.update')->name('sales-quotations.accept');
+    Route::post('/{id}/reject', [SalesQuotationController::class, 'reject'])->middleware('permission:ar.quotations.update')->name('sales-quotations.reject');
+    Route::get('/{id}/convert', [SalesQuotationController::class, 'convert'])->middleware('permission:ar.quotations.convert')->name('sales-quotations.convert');
+    Route::post('/{id}/convert-to-sales-order', [SalesQuotationController::class, 'convertToSalesOrder'])->middleware('permission:ar.quotations.convert')->name('sales-quotations.convert-to-sales-order');
+    Route::get('/{id}/print', [SalesQuotationController::class, 'print'])->middleware('permission:ar.quotations.view')->name('sales-quotations.print');
+    Route::post('/{id}/approve', [SalesQuotationController::class, 'approve'])->middleware('permission:ar.quotations.approve')->name('sales-quotations.approve');
+    Route::post('/{id}/reject-approval', [SalesQuotationController::class, 'rejectApproval'])->middleware('permission:ar.quotations.approve')->name('sales-quotations.reject-approval');
+
+    // API Routes
+    Route::get('/api/exchange-rate', [SalesQuotationController::class, 'getExchangeRate'])->name('sales-quotations.api.exchange-rate');
+    Route::get('/api/document-number', [SalesQuotationController::class, 'getDocumentNumber'])->name('sales-quotations.api.document-number');
 });
 
 // Delivery Orders

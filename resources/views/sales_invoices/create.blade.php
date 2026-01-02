@@ -42,6 +42,9 @@
                                 @isset($sales_order_id)
                                     <input type="hidden" name="sales_order_id" value="{{ $sales_order_id }}" />
                                 @endisset
+                                @if(isset($salesQuotation))
+                                    <input type="hidden" name="sales_quotation_id" value="{{ $salesQuotation->id }}" />
+                                @endif
 
                                 <div class="row">
                                     <div class="col-md-4">
@@ -55,7 +58,7 @@
                                                                 class="far fa-calendar-alt"></i></span>
                                                     </div>
                                                     <input type="date" name="date"
-                                                        value="{{ old('date', now()->toDateString()) }}"
+                                                        value="{{ old('date', $prefill['date'] ?? now()->toDateString()) }}"
                                                         class="form-control" required>
                                                 </div>
                                             </div>
@@ -87,11 +90,11 @@
                                                     class="form-control form-control-sm select2bs4" required>
                                                     <option value="">-- select customer --</option>
                                                     @foreach ($customers as $c)
-                                                        <option value="{{ $c->id }}"
-                                                            {{ old('business_partner_id') == $c->id ? 'selected' : '' }}>
-                                                            {{ $c->name }}
-                                                        </option>
-                                                    @endforeach
+                                                    <option value="{{ $c->id }}"
+                                                        {{ old('business_partner_id', $prefill['business_partner_id'] ?? null) == $c->id ? 'selected' : '' }}>
+                                                        {{ $c->name }}
+                                                    </option>
+                                                @endforeach
                                                 </select>
                                             </div>
                                         </div>
@@ -113,7 +116,7 @@
                                         <div class="form-group row mb-2">
                                             <label class="col-sm-3 col-form-label">Description</label>
                                             <div class="col-sm-9">
-                                                <input type="text" name="description" value="{{ old('description') }}"
+                                                <input type="text" name="description" value="{{ old('description', $prefill['description'] ?? '') }}"
                                                     class="form-control form-control-sm" placeholder="Invoice description">
                                             </div>
                                         </div>
@@ -165,75 +168,149 @@
                                                     </tr>
                                                 </thead>
                                                 <tbody id="lines">
-                                                    <tr class="line-item">
-                                                        <td>
-                                                            <select name="lines[0][account_id]"
-                                                                class="form-control form-control-sm select2bs4" required>
-                                                                @foreach ($accounts as $a)
-                                                                    <option value="{{ $a->id }}">
-                                                                        {{ $a->code }} - {{ $a->name }}</option>
-                                                                @endforeach
-                                                            </select>
-                                                        </td>
-                                                        <td>
-                                                            <input type="text" name="lines[0][description]"
-                                                                class="form-control form-control-sm"
-                                                                placeholder="Description">
-                                                        </td>
-                                                        <td>
-                                                            <input type="number" step="0.01" min="0.01"
-                                                                name="lines[0][qty]"
-                                                                class="form-control form-control-sm text-right qty-input"
-                                                                value="1" required>
-                                                        </td>
-                                                        <td>
-                                                            <input type="number" step="0.01" min="0"
-                                                                name="lines[0][unit_price]"
-                                                                class="form-control form-control-sm text-right price-input"
-                                                                value="0" required>
-                                                        </td>
-                                                        <td>
-                                                            <select name="lines[0][tax_code_id]"
-                                                                class="form-control form-control-sm select2bs4">
-                                                                <option value="">-- none --</option>
-                                                                @foreach ($taxCodes as $t)
-                                                                    <option value="{{ $t->id }}">
-                                                                        {{ $t->code }}</option>
-                                                                @endforeach
-                                                            </select>
-                                                        </td>
-                                                        <td>
-                                                            <select name="lines[0][project_id]"
-                                                                class="form-control form-control-sm select2bs4">
-                                                                <option value="">-- none --</option>
-                                                                @foreach ($projects as $p)
-                                                                    <option value="{{ $p->id }}">
-                                                                        {{ $p->code }}</option>
-                                                                @endforeach
-                                                            </select>
-                                                        </td>
-                                                        <td>
-                                                            <select name="lines[0][fund_id]"
-                                                                class="form-control form-control-sm select2bs4">
-                                                                <option value="">-- none --</option>
-                                                            </select>
-                                                        </td>
-                                                        <td>
-                                                            <select name="lines[0][dept_id]"
-                                                                class="form-control form-control-sm select2bs4">
-                                                                <option value="">-- none --</option>
-                                                                @foreach ($departments as $d)
-                                                                    <option value="{{ $d->id }}">
-                                                                        {{ $d->code }}</option>
-                                                                @endforeach
-                                                            </select>
-                                                        </td>
-                                                        <td class="text-center">
-                                                            <button type="button" class="btn btn-xs btn-danger rm">
-                                                                <i class="fas fa-trash-alt"></i>
-                                                            </button>
-                                                        </td>
-                                                    </tr>
+                                                    @if(isset($prefill) && isset($prefill['lines']) && count($prefill['lines']) > 0)
+                                                        @foreach($prefill['lines'] as $index => $line)
+                                                            <tr class="line-item">
+                                                                <td>
+                                                                    <select name="lines[{{ $index }}][account_id]"
+                                                                        class="form-control form-control-sm select2bs4" required>
+                                                                        @foreach ($accounts as $a)
+                                                                            <option value="{{ $a->id }}" {{ $line['account_id'] == $a->id ? 'selected' : '' }}>
+                                                                                {{ $a->code }} - {{ $a->name }}</option>
+                                                                        @endforeach
+                                                                    </select>
+                                                                </td>
+                                                                <td>
+                                                                    <input type="text" name="lines[{{ $index }}][description]"
+                                                                        class="form-control form-control-sm"
+                                                                        placeholder="Description" value="{{ $line['description'] ?? '' }}">
+                                                                </td>
+                                                                <td>
+                                                                    <input type="number" step="0.01" min="0.01"
+                                                                        name="lines[{{ $index }}][qty]"
+                                                                        class="form-control form-control-sm text-right qty-input"
+                                                                        value="{{ $line['qty'] }}" required>
+                                                                </td>
+                                                                <td>
+                                                                    <input type="number" step="0.01" min="0"
+                                                                        name="lines[{{ $index }}][unit_price]"
+                                                                        class="form-control form-control-sm text-right price-input"
+                                                                        value="{{ $line['unit_price'] }}" required>
+                                                                </td>
+                                                                <td>
+                                                                    <select name="lines[{{ $index }}][tax_code_id]"
+                                                                        class="form-control form-control-sm select2bs4">
+                                                                        <option value="">-- none --</option>
+                                                                        @foreach ($taxCodes as $t)
+                                                                            <option value="{{ $t->id }}" {{ isset($line['tax_code_id']) && $line['tax_code_id'] == $t->id ? 'selected' : '' }}>
+                                                                                {{ $t->code }}</option>
+                                                                        @endforeach
+                                                                    </select>
+                                                                </td>
+                                                                <td>
+                                                                    <select name="lines[{{ $index }}][project_id]"
+                                                                        class="form-control form-control-sm select2bs4">
+                                                                        <option value="">-- none --</option>
+                                                                        @foreach ($projects as $p)
+                                                                            <option value="{{ $p->id }}" {{ isset($line['project_id']) && $line['project_id'] == $p->id ? 'selected' : '' }}>
+                                                                                {{ $p->code }}</option>
+                                                                        @endforeach
+                                                                    </select>
+                                                                </td>
+                                                                <td>
+                                                                    <select name="lines[{{ $index }}][fund_id]"
+                                                                        class="form-control form-control-sm select2bs4">
+                                                                        <option value="">-- none --</option>
+                                                                    </select>
+                                                                </td>
+                                                                <td>
+                                                                    <select name="lines[{{ $index }}][dept_id]"
+                                                                        class="form-control form-control-sm select2bs4">
+                                                                        <option value="">-- none --</option>
+                                                                        @foreach ($departments as $d)
+                                                                            <option value="{{ $d->id }}" {{ isset($line['dept_id']) && $line['dept_id'] == $d->id ? 'selected' : '' }}>
+                                                                                {{ $d->code }}</option>
+                                                                        @endforeach
+                                                                    </select>
+                                                                </td>
+                                                                <td class="text-center">
+                                                                    <button type="button" class="btn btn-xs btn-danger rm">
+                                                                        <i class="fas fa-trash-alt"></i>
+                                                                    </button>
+                                                                </td>
+                                                            </tr>
+                                                        @endforeach
+                                                    @else
+                                                        <tr class="line-item">
+                                                            <td>
+                                                                <select name="lines[0][account_id]"
+                                                                    class="form-control form-control-sm select2bs4" required>
+                                                                    @foreach ($accounts as $a)
+                                                                        <option value="{{ $a->id }}">
+                                                                            {{ $a->code }} - {{ $a->name }}</option>
+                                                                    @endforeach
+                                                                </select>
+                                                            </td>
+                                                            <td>
+                                                                <input type="text" name="lines[0][description]"
+                                                                    class="form-control form-control-sm"
+                                                                    placeholder="Description">
+                                                            </td>
+                                                            <td>
+                                                                <input type="number" step="0.01" min="0.01"
+                                                                    name="lines[0][qty]"
+                                                                    class="form-control form-control-sm text-right qty-input"
+                                                                    value="1" required>
+                                                            </td>
+                                                            <td>
+                                                                <input type="number" step="0.01" min="0"
+                                                                    name="lines[0][unit_price]"
+                                                                    class="form-control form-control-sm text-right price-input"
+                                                                    value="0" required>
+                                                            </td>
+                                                            <td>
+                                                                <select name="lines[0][tax_code_id]"
+                                                                    class="form-control form-control-sm select2bs4">
+                                                                    <option value="">-- none --</option>
+                                                                    @foreach ($taxCodes as $t)
+                                                                        <option value="{{ $t->id }}">
+                                                                            {{ $t->code }}</option>
+                                                                    @endforeach
+                                                                </select>
+                                                            </td>
+                                                            <td>
+                                                                <select name="lines[0][project_id]"
+                                                                    class="form-control form-control-sm select2bs4">
+                                                                    <option value="">-- none --</option>
+                                                                    @foreach ($projects as $p)
+                                                                        <option value="{{ $p->id }}">
+                                                                            {{ $p->code }}</option>
+                                                                    @endforeach
+                                                                </select>
+                                                            </td>
+                                                            <td>
+                                                                <select name="lines[0][fund_id]"
+                                                                    class="form-control form-control-sm select2bs4">
+                                                                    <option value="">-- none --</option>
+                                                                </select>
+                                                            </td>
+                                                            <td>
+                                                                <select name="lines[0][dept_id]"
+                                                                    class="form-control form-control-sm select2bs4">
+                                                                    <option value="">-- none --</option>
+                                                                    @foreach ($departments as $d)
+                                                                        <option value="{{ $d->id }}">
+                                                                            {{ $d->code }}</option>
+                                                                    @endforeach
+                                                                </select>
+                                                            </td>
+                                                            <td class="text-center">
+                                                                <button type="button" class="btn btn-xs btn-danger rm">
+                                                                    <i class="fas fa-trash-alt"></i>
+                                                                </button>
+                                                            </td>
+                                                        </tr>
+                                                    @endif
                                                 </tbody>
                                                 <tfoot>
                                                     <tr>
@@ -274,7 +351,7 @@
 
 @push('scripts')
     <script>
-        let idx = 1;
+        let idx = {{ isset($prefill) && isset($prefill['lines']) ? count($prefill['lines']) : 1 }};
 
         $(document).ready(function() {
             // Initialize Select2BS4 for all select elements
