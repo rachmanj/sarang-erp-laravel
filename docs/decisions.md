@@ -722,6 +722,53 @@ Decision: [Title] - [YYYY-MM-DD]
 
 ---
 
+### Decision: Inventory Stock Calculation Fix - 2026-01-22
+
+**Context**: Critical bug discovered in inventory stock calculation causing discrepancies between Stock by Warehouse and Valuation History sections. Sales transactions store negative quantities, but the calculation was subtracting them again, causing double subtraction and incorrect stock totals.
+
+**Options Considered**:
+
+1. **Option A**: Fix calculation logic only
+   - ✅ Pros: Simple fix, addresses root cause
+   - ❌ Cons: Doesn't fix existing incorrect valuation records
+
+2. **Option B**: Fix calculation logic + create manual SQL update script
+   - ✅ Pros: Fixes both code and data
+   - ❌ Cons: Manual process, error-prone, doesn't scale
+
+3. **Option C**: Fix calculation logic + create automated correction command
+   - ✅ Pros: Fixes code, provides reusable tool for data correction, scalable
+   - ❌ Cons: Additional development effort
+
+**Decision**: Fix calculation logic + create automated correction command (Option C)
+
+**Rationale**:
+
+- Calculation bug affects all items with sales transactions
+- Existing valuation records may be incorrect and need correction
+- Automated command enables systematic correction of all affected items
+- Command can be reused for future data integrity checks
+- Provides audit trail of corrections made
+
+**Implementation**:
+
+- Fixed `InventoryItem::getCurrentStockAttribute()` to add sales quantities (already negative) instead of subtracting them
+- Created `FixInventoryValuation` artisan command with detection and correction capabilities
+- Command compares calculated stock vs recorded valuation and updates when mismatch detected
+- Supports fixing specific items or all items in the system
+- Verified fix on item ID 2, correcting quantity from 424 to 306 PCS
+
+**Impact**:
+
+- All future stock calculations are now accurate
+- Existing incorrect valuations can be systematically corrected
+- Stock by Warehouse, Current Stock, and Valuation History sections now display consistent values
+- Improved data integrity and financial reporting accuracy
+
+**Review Date**: 2026-04-22 (after running correction command on all items and verifying accuracy)
+
+---
+
 ### Decision: Tax Compliance Implementation Strategy - 2025-01-15
 
 **Context**: Indonesian trading companies must comply with PPN (VAT) and PPh regulations with automated calculation and reporting.

@@ -206,7 +206,7 @@ class InventoryItem extends Model
             ->where('transaction_type', 'purchase')
             ->sum('quantity');
 
-        // Sales decrease stock
+        // Sales decrease stock (quantities are already negative, so we add them)
         $totalOut = $this->transactions()
             ->where('transaction_type', 'sale')
             ->sum('quantity');
@@ -217,7 +217,8 @@ class InventoryItem extends Model
             ->where('transaction_type', 'adjustment')
             ->sum('quantity');
 
-        return $totalIn + $adjustments - $totalOut;
+        // Sales quantities are already negative, so we add them (not subtract)
+        return $totalIn + $adjustments + $totalOut;
     }
 
     public function getCurrentValueAttribute()
