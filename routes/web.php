@@ -364,6 +364,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/', [WarehouseController::class, 'store'])->middleware('permission:warehouse.create')->name('warehouses.store');
 
         // Warehouse Stock Management - Must be before /{warehouse} route
+        Route::get('/transfer', [WarehouseController::class, 'showTransferPage'])->middleware('permission:warehouse.transfer')->name('warehouses.transfer-page');
         Route::get('/api/warehouses', [WarehouseController::class, 'getWarehouses'])->name('warehouses.get-warehouses');
         Route::get('/api/items/{itemId}/stock', [WarehouseController::class, 'getItemStock'])->name('warehouses.get-item-stock');
         Route::post('/transfer-stock', [WarehouseController::class, 'transferStock'])->middleware('permission:warehouse.transfer')->name('warehouses.transfer-stock');
@@ -415,7 +416,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/by-action/{action}', [AuditLogController::class, 'byAction'])->name('audit-logs.by-action');
         Route::get('/{id}/changes', [AuditLogController::class, 'getChanges'])->name('audit-logs.changes');
         Route::get('/{entityType}/{entityId}', [AuditLogController::class, 'show'])->name('audit-logs.show');
-        
+
         // Filter presets
         Route::get('/filter-presets', [AuditLogController::class, 'getFilterPresets'])->name('audit-logs.filter-presets');
         Route::post('/filter-presets', [AuditLogController::class, 'saveFilterPreset'])->name('audit-logs.filter-presets.save');

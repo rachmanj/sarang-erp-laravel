@@ -22,11 +22,10 @@
                             </a>
                         @endcan
                         @can('warehouse.transfer')
-                            <button type="button" class="btn btn-success btn-sm ml-2" data-toggle="modal"
-                                data-target="#warehouseTransferModalEnhanced">
+                            <a href="{{ route('warehouses.transfer-page') }}" class="btn btn-success btn-sm ml-2">
                                 <i class="fas fa-exchange-alt"></i>
                                 Transfer Stock
-                            </button>
+                            </a>
                             <a href="{{ route('warehouses.transfer-history') }}" class="btn btn-info btn-sm ml-1">
                                 <i class="fas fa-history"></i>
                                 Transfer History

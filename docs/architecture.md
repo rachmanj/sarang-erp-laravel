@@ -1,5 +1,5 @@
 Purpose: Technical reference for understanding system design and development patterns
-Last Updated: 2025-01-22 (Updated with Approval Workflow Admin UI)
+Last Updated: 2026-02-03 (Updated with Warehouse Transfer Custom Autocomplete Search)
 
 ## Architecture Documentation Guidelines
 
@@ -198,9 +198,11 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 -   **Warehouse Master Data**: Complete warehouse information with contact details and status
 -   **Per-Warehouse Stock Tracking**: Individual stock levels for each item-warehouse combination
 -   **Default Warehouse Assignment**: Items can have default warehouses for automatic assignment
--   **Stock Transfers**: Inter-warehouse stock transfer capabilities with full audit trail
+-   **Stock Transfers**: Inter-warehouse stock transfer capabilities with full audit trail. Dedicated transfer page (`/warehouses/transfer`) with custom Bootstrap autocomplete search for efficient item selection from large inventories (case-insensitive search by code or name, debounced AJAX, keyboard navigation, search term highlighting), comprehensive stock information display (source warehouse stock, destination warehouse stock, after-transfer projections), and real-time stock updates with validation alerts
 -   **Warehouse-Specific Reorder Points**: Different reorder points per warehouse
 -   **Sample Warehouses**: Main Warehouse, Branch Warehouse, Storage Facility
+-   **Stock Accuracy Verification**: `php artisan inventory:check-accuracy {item_code?}` command verifies accuracy between `current_stock` (from transactions) and sum of warehouse stock records, showing detailed breakdown including transaction analysis and warehouse allocation
+-   **Stock Reconciliation**: `php artisan inventory:reconcile-warehouse-stock {item_code?} {--warehouse_id=}` command reconciles warehouse stock from transactions, allocating stock to warehouses for transactions missing `warehouse_id` and creating/updating warehouse stock records to ensure `current_stock` equals sum of warehouse stock records
 
 #### 4.4. Sales Price Level System
 
@@ -210,7 +212,7 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 -   **Percentage-Based Calculations**: Support for percentage-based price calculations
 -   **Customer Overrides**: Customer-specific price overrides for individual items
 -   **Flexible Pricing**: Both fixed prices and percentage-based calculations supported
- -   **UI Entry Points**: Price levels are configured on the Inventory Item create/edit forms and resolved at runtime via AJAX when selecting items and customers on Sales documents
+-   **UI Entry Points**: Price levels are configured on the Inventory Item create/edit forms and resolved at runtime via AJAX when selecting items and customers on Sales documents
 
 #### 4.5. Comprehensive Audit Trail System
 
@@ -221,12 +223,12 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 -   **Action Types**: Created, Updated, Deleted, Approved, Rejected, Transferred, Adjusted
 -   **Search and Filtering**: Comprehensive audit log management with filtering capabilities
 -   **Current Status**: Foundation implemented (database schema, model, service, controller, routes) - See `docs/audit-trail-analysis-and-recommendations.md` for detailed analysis and 5-phase implementation plan
--   **Implementation Plan**: 
-    - Phase 1: Complete Core UI (2-3 days) - Create missing views, sidebar integration, DataTables
-    - Phase 2: Automatic Logging (2-3 days) - Model Observers, Auditable trait, comprehensive model integration
-    - Phase 3: Module Integration (5-8 days) - Workflow logging (Purchase/Sales/Accounting), Business Partner activity, Fixed Asset lifecycle
-    - Phase 4: Enhanced Features (6-10 days) - Activity dashboard, advanced filtering, export/reporting, inline widgets
-    - Phase 5: Optimization (5-9 days) - Log archiving, retention policies, performance optimization
+-   **Implementation Plan**:
+    -   Phase 1: Complete Core UI (2-3 days) - Create missing views, sidebar integration, DataTables
+    -   Phase 2: Automatic Logging (2-3 days) - Model Observers, Auditable trait, comprehensive model integration
+    -   Phase 3: Module Integration (5-8 days) - Workflow logging (Purchase/Sales/Accounting), Business Partner activity, Fixed Asset lifecycle
+    -   Phase 4: Enhanced Features (6-10 days) - Activity dashboard, advanced filtering, export/reporting, inline widgets
+    -   Phase 5: Optimization (5-9 days) - Log archiving, retention policies, performance optimization
 -   **Documentation**: Detailed action plans available in `docs/audit-trail-phase1-detailed-action-plan.md` through `docs/audit-trail-phase4-detailed-action-plan.md`
 
 ### 5. Fixed Asset Management
@@ -425,10 +427,10 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 -   **Universal Entity Format**: All document types now use `EEYYDDNNNNN` format (Entity code, 2-digit year, document code, 5-digit sequence)
     -   **Format Breakdown**: `EE` (2-digit entity code) + `YY` (2-digit year) + `DD` (2-digit document code) + `NNNNN` (5-digit sequence)
     -   **Example**: `71250100001` = PT CSJ (71) + 2025 (25) + Purchase Order (01) + Sequence 00001
--   **Document Code Assignment**: 
+-   **Document Code Assignment**:
     -   PO `01`, GRPO `02`, PI `03`, Purchase Payment `04`, Sales Order `06`, DO `07`, SI `08`, Sales Receipt `09`
     -   Asset Disposal `10`, Cash Expense `11`, Journal `12`, Account Statement `13`
--   **Entity Resolution**: 
+-   **Entity Resolution**:
     -   Purchase/Sales documents: Inherit entity from document creator or base document (PO→GRPO, SO→DO)
     -   Asset Disposal: Resolve from Asset→PurchaseInvoice entity chain, fallback to default
     -   Cash Expense/Journal/Account Statement: Use default entity

@@ -47,46 +47,106 @@ class InventoryController extends Controller
 
     public function search(Request $request)
     {
-        $query = InventoryItem::with(['category.parent'])
-            ->active();
+        try {
+            $query = InventoryItem::with(['category'])
+                ->active();
 
-        // Search by code
-        if ($request->filled('code')) {
-            $query->where('code', 'like', '%' . $request->code . '%');
+            // Handle search - prioritize 'q' parameter, but also check 'code' and 'name'
+            // Combine all search terms with OR logic
+            $searchTerms = [];
+            if ($request->filled('q')) {
+                $searchTerms[] = $request->q;
+            }
+            if ($request->filled('code')) {
+                $searchTerms[] = $request->code;
+            }
+            if ($request->filled('name')) {
+                $searchTerms[] = $request->name;
+            }
+
+            // If we have any search terms, search in both code and name (case-insensitive)
+            if (!empty($searchTerms)) {
+                // Use the first search term (or combine them)
+                $searchTerm = trim($searchTerms[0]);
+                if (!empty($searchTerm)) {
+                    $query->where(function ($q) use ($searchTerm) {
+                        $q->whereRaw('LOWER(code) LIKE ?', ['%' . strtolower($searchTerm) . '%'])
+                            ->orWhereRaw('LOWER(name) LIKE ?', ['%' . strtolower($searchTerm) . '%']);
+                    });
+                }
+            }
+
+            // Filter by category
+            if ($request->filled('category_id')) {
+                $query->where('category_id', $request->category_id);
+            }
+
+            // Filter by item type
+            if ($request->filled('item_type')) {
+                $query->where('item_type', $request->item_type);
+            }
+
+            // Order by relevance: items matching code first, then by name
+            // This helps users find items by code faster
+            if (!empty($searchTerms)) {
+                $searchTerm = trim($searchTerms[0]);
+                $query->orderByRaw("CASE WHEN LOWER(code) LIKE ? THEN 0 ELSE 1 END", ['%' . strtolower($searchTerm) . '%'])
+                    ->orderBy('name');
+            } else {
+                $query->orderBy('name');
+            }
+
+            // Pagination
+            $perPage = $request->get('per_page', 20);
+            $items = $query->paginate($perPage);
+
+            // Transform items to include category name safely
+            $transformedItems = $items->map(function ($item) {
+                return [
+                    'id' => $item->id,
+                    'code' => $item->code,
+                    'name' => $item->name,
+                    'description' => $item->description,
+                    'category' => $item->category ? [
+                        'id' => $item->category->id,
+                        'name' => $item->category->name,
+                    ] : null,
+                    'unit_of_measure' => $item->unit_of_measure,
+                    'purchase_price' => $item->purchase_price,
+                    'selling_price' => $item->selling_price,
+                    'current_stock' => $item->current_stock,
+                    'min_stock_level' => $item->min_stock_level,
+                    'max_stock_level' => $item->max_stock_level,
+                    'reorder_point' => $item->reorder_point,
+                    'valuation_method' => $item->valuation_method,
+                ];
+            });
+
+            return response()->json([
+                'items' => $transformedItems->values()->all(),
+                'pagination' => [
+                    'current_page' => $items->currentPage(),
+                    'last_page' => $items->lastPage(),
+                    'per_page' => $items->perPage(),
+                    'total' => $items->total(),
+                    'has_more' => $items->hasMorePages()
+                ]
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error in inventory search: ' . $e->getMessage());
+            Log::error($e->getTraceAsString());
+            return response()->json([
+                'items' => [],
+                'pagination' => [
+                    'current_page' => 1,
+                    'last_page' => 1,
+                    'per_page' => 20,
+                    'total' => 0,
+                    'has_more' => false
+                ],
+                'error' => 'An error occurred while searching items'
+            ], 500);
         }
-
-        // Search by name
-        if ($request->filled('name')) {
-            $query->where('name', 'like', '%' . $request->name . '%');
-        }
-
-        // Filter by category
-        if ($request->filled('category_id')) {
-            $query->where('category_id', $request->category_id);
-        }
-
-        // Filter by item type
-        if ($request->filled('item_type')) {
-            $query->where('item_type', $request->item_type);
-        }
-
-        // Order by name
-        $query->orderBy('name');
-
-        // Pagination
-        $perPage = $request->get('per_page', 20);
-        $items = $query->paginate($perPage);
-
-        return response()->json([
-            'items' => $items->items(),
-            'pagination' => [
-                'current_page' => $items->currentPage(),
-                'last_page' => $items->lastPage(),
-                'per_page' => $items->perPage(),
-                'total' => $items->total(),
-                'has_more' => $items->hasMorePages()
-            ]
-        ]);
     }
 
     public function create()

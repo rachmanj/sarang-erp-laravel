@@ -1,5 +1,5 @@
 **Purpose**: Record technical decisions and rationale for future reference
-**Last Updated**: 2025-01-22 (Added Approval Workflow Admin UI decision record)
+**Last Updated**: 2026-02-03 (Added Warehouse Transfer Search Enhancement - Custom Autocomplete decision)
 
 # Technical Decision Records
 
@@ -37,6 +37,7 @@ Decision: [Title] - [YYYY-MM-DD]
 **Options Considered**:
 
 1. **Option A**: Continue using database seeders and direct database manipulation only.
+
     - ✅ Pros: No UI development required, maintains current workflow.
     - ❌ Cons: Requires technical knowledge, error-prone, no validation, difficult to maintain, poor user experience.
 
@@ -48,23 +49,23 @@ Decision: [Title] - [YYYY-MM-DD]
 
 **Rationale**:
 
-- User-friendly interface enables non-technical administrators to configure workflows.
-- Validation prevents configuration errors (overlapping thresholds, invalid step orders).
-- Better maintainability with centralized workflow management.
-- Professional admin experience consistent with other ERP admin features.
-- Threshold overlap validation ensures data integrity.
-- Dynamic workflow step management provides flexibility.
-- Modal-based threshold management improves UX.
+-   User-friendly interface enables non-technical administrators to configure workflows.
+-   Validation prevents configuration errors (overlapping thresholds, invalid step orders).
+-   Better maintainability with centralized workflow management.
+-   Professional admin experience consistent with other ERP admin features.
+-   Threshold overlap validation ensures data integrity.
+-   Dynamic workflow step management provides flexibility.
+-   Modal-based threshold management improves UX.
 
 **Implementation**:
 
-- **Controller**: Created `ApprovalWorkflowController` with full CRUD operations (index, create, store, show, edit, update, destroy) and threshold management methods (storeThreshold, updateThreshold, destroyThreshold).
-- **Views**: Created comprehensive AdminLTE views (index with DataTables, create, show, edit) with modal-based threshold management, dynamic workflow step addition/removal, and professional UI styling.
-- **Routes**: Added routes in `routes/web/admin.php` with proper middleware and permissions (`admin.approval-workflows`).
-- **Validation**: Implemented threshold overlap validation to prevent conflicting amount ranges, workflow step validation for required fields and proper ordering.
-- **Service Integration**: Leveraged existing `ApprovalWorkflowService` for workflow creation logic, ensuring consistency with automatic workflow generation in PurchaseService and SalesService.
-- **Database Schema**: Utilized existing `approval_workflows`, `approval_workflow_steps`, and `approval_thresholds` tables with proper relationships.
-- **Default Configuration**: `ApprovalWorkflowSeeder` continues to provide default workflows and thresholds for system initialization.
+-   **Controller**: Created `ApprovalWorkflowController` with full CRUD operations (index, create, store, show, edit, update, destroy) and threshold management methods (storeThreshold, updateThreshold, destroyThreshold).
+-   **Views**: Created comprehensive AdminLTE views (index with DataTables, create, show, edit) with modal-based threshold management, dynamic workflow step addition/removal, and professional UI styling.
+-   **Routes**: Added routes in `routes/web/admin.php` with proper middleware and permissions (`admin.approval-workflows`).
+-   **Validation**: Implemented threshold overlap validation to prevent conflicting amount ranges, workflow step validation for required fields and proper ordering.
+-   **Service Integration**: Leveraged existing `ApprovalWorkflowService` for workflow creation logic, ensuring consistency with automatic workflow generation in PurchaseService and SalesService.
+-   **Database Schema**: Utilized existing `approval_workflows`, `approval_workflow_steps`, and `approval_thresholds` tables with proper relationships.
+-   **Default Configuration**: `ApprovalWorkflowSeeder` continues to provide default workflows and thresholds for system initialization.
 
 **Review Date**: 2026-01-22 (after full year of production use with admin UI).
 
@@ -75,6 +76,7 @@ Decision: [Title] - [YYYY-MM-DD]
 **Options Considered**:
 
 1. **Option A**: Continue direct journal creation, fix schema issues.
+
     - ✅ Pros: Minimal code changes, direct control.
     - ❌ Cons: Duplicates logic, bypasses PostingService features, inconsistent with other modules, maintenance overhead.
 
@@ -86,23 +88,23 @@ Decision: [Title] - [YYYY-MM-DD]
 
 **Rationale**:
 
-- PostingService provides centralized accounting logic used by all other modules (Purchase Invoice, Sales Invoice, etc.).
-- Automatic entity resolution ensures proper company entity context for multi-entity environments.
-- Currency handling and exchange rate management handled automatically.
-- Control account balance updates integrated seamlessly.
-- Consistent journal schema and validation across all document types.
-- Single source of truth for accounting logic reduces maintenance burden.
-- Follows established architectural patterns in the codebase.
+-   PostingService provides centralized accounting logic used by all other modules (Purchase Invoice, Sales Invoice, etc.).
+-   Automatic entity resolution ensures proper company entity context for multi-entity environments.
+-   Currency handling and exchange rate management handled automatically.
+-   Control account balance updates integrated seamlessly.
+-   Consistent journal schema and validation across all document types.
+-   Single source of truth for accounting logic reduces maintenance burden.
+-   Follows established architectural patterns in the codebase.
 
 **Implementation**:
 
-- **Service Refactoring**: Updated `GRGIService::createJournalEntry()` to use `PostingService::postJournal()` instead of direct `Journal`/`JournalLine` creation.
-- **Model Namespace Fix**: Corrected `Journal` and `JournalLine` imports from `App\Models\Journal` to `App\Models\Accounting\Journal` in both `GRGIService.php` and `GRGIJournalEntry.php`.
-- **Relationship Fix**: Changed relationship name from `productCategory` to `category` in `GRGIService` to match `InventoryItem` model relationship.
-- **Payload Structure**: Created proper payload structure for PostingService with date, description, source_type, source_id, posted_by, and lines array with account_id, debit, credit, and memo.
-- **Account Mapping Logic**: Maintained existing account mapping logic (GR: debit=item category auto, credit=manual; GI: debit=manual, credit=item category auto) while leveraging PostingService for execution.
-- **Dependency Injection**: Added `PostingService` to `GRGIService` constructor for proper dependency injection.
-- **Seeder Execution**: Ran `GRGIPurposeSeeder` and `GRGIAccountMappingSeeder` to ensure required master data exists.
+-   **Service Refactoring**: Updated `GRGIService::createJournalEntry()` to use `PostingService::postJournal()` instead of direct `Journal`/`JournalLine` creation.
+-   **Model Namespace Fix**: Corrected `Journal` and `JournalLine` imports from `App\Models\Journal` to `App\Models\Accounting\Journal` in both `GRGIService.php` and `GRGIJournalEntry.php`.
+-   **Relationship Fix**: Changed relationship name from `productCategory` to `category` in `GRGIService` to match `InventoryItem` model relationship.
+-   **Payload Structure**: Created proper payload structure for PostingService with date, description, source_type, source_id, posted_by, and lines array with account_id, debit, credit, and memo.
+-   **Account Mapping Logic**: Maintained existing account mapping logic (GR: debit=item category auto, credit=manual; GI: debit=manual, credit=item category auto) while leveraging PostingService for execution.
+-   **Dependency Injection**: Added `PostingService` to `GRGIService` constructor for proper dependency injection.
+-   **Seeder Execution**: Ran `GRGIPurposeSeeder` and `GRGIAccountMappingSeeder` to ensure required master data exists.
 
 **Review Date**: 2026-12-30 (after full year of production use with PostingService integration).
 
@@ -113,10 +115,12 @@ Decision: [Title] - [YYYY-MM-DD]
 **Options Considered**:
 
 1. **Option A**: Require explicit currency selection during business partner creation.
+
     - ✅ Pros: Explicit user control, clear data entry requirement.
     - ❌ Cons: User burden, potential for missing currency assignment, data integrity risk.
 
 2. **Option B**: Automatically assign base currency (IDR) as default when not provided, with conditional relationship loading.
+
     - ✅ Pros: Ensures data integrity, prevents null currency issues, graceful handling of missing tables, better user experience.
     - ❌ Cons: Requires service layer logic, conditional loading complexity.
 
@@ -128,21 +132,21 @@ Decision: [Title] - [YYYY-MM-DD]
 
 **Rationale**:
 
-- Automatic base currency assignment ensures data integrity without user burden.
-- Base currency (IDR) is appropriate default for Indonesian businesses.
-- Conditional relationship loading prevents errors during schema evolution or partial migrations.
-- Service layer assignment allows for future flexibility (e.g., entity-specific default currencies).
-- Defensive programming approach ensures system remains functional even when schema is incomplete.
-- Blade views should verify both table existence and relationship loading status before accessing data.
+-   Automatic base currency assignment ensures data integrity without user burden.
+-   Base currency (IDR) is appropriate default for Indonesian businesses.
+-   Conditional relationship loading prevents errors during schema evolution or partial migrations.
+-   Service layer assignment allows for future flexibility (e.g., entity-specific default currencies).
+-   Defensive programming approach ensures system remains functional even when schema is incomplete.
+-   Blade views should verify both table existence and relationship loading status before accessing data.
 
 **Implementation**:
 
-- **Model Update**: Added `default_currency_id` to BusinessPartner model `$fillable` array.
-- **Service Layer**: Modified `BusinessPartnerService::createBusinessPartner()` to automatically assign base currency using `Currency::getBaseCurrency()` when `default_currency_id` is not provided.
-- **Update Logic**: Enhanced `BusinessPartnerService::updateBusinessPartner()` to set base currency if `default_currency_id` is null during updates.
-- **Conditional Loading**: Updated `BusinessPartnerService::getBusinessPartnerWithDetails()` to conditionally eager load relationships only if their corresponding tables exist using `Schema::hasTable()` checks.
-- **View Protection**: Modified `resources/views/business_partners/show.blade.php` to check both table existence (`Schema::hasTable()`) and relationship loading status (`relationLoaded()`) before accessing relationship data.
-- **Data Migration**: Updated existing business partners to have `default_currency_id = 1` (IDR).
+-   **Model Update**: Added `default_currency_id` to BusinessPartner model `$fillable` array.
+-   **Service Layer**: Modified `BusinessPartnerService::createBusinessPartner()` to automatically assign base currency using `Currency::getBaseCurrency()` when `default_currency_id` is not provided.
+-   **Update Logic**: Enhanced `BusinessPartnerService::updateBusinessPartner()` to set base currency if `default_currency_id` is null during updates.
+-   **Conditional Loading**: Updated `BusinessPartnerService::getBusinessPartnerWithDetails()` to conditionally eager load relationships only if their corresponding tables exist using `Schema::hasTable()` checks.
+-   **View Protection**: Modified `resources/views/business_partners/show.blade.php` to check both table existence (`Schema::hasTable()`) and relationship loading status (`relationLoaded()`) before accessing relationship data.
+-   **Data Migration**: Updated existing business partners to have `default_currency_id = 1` (IDR).
 
 **Review Date**: 2026-12-24 (after full year of production use with automatic currency assignment).
 
@@ -153,6 +157,7 @@ Decision: [Title] - [YYYY-MM-DD]
 **Options Considered**:
 
 1. **Option A**: Keep existing patterns, document differences.
+
     - ✅ Pros: No code changes required, preserves existing functionality.
     - ❌ Cons: Maintenance overhead, inconsistent user experience, developer confusion.
 
@@ -164,22 +169,22 @@ Decision: [Title] - [YYYY-MM-DD]
 
 **Rationale**:
 
-- Consistency improves maintainability and reduces cognitive load for developers.
-- Unified pattern makes it easier to add new DataTable pages following established conventions.
-- Consistent user experience across pages improves usability.
-- Inventory page pattern is simpler and cleaner (removed unnecessary nested structures).
-- Standardized filter form pattern using `form-inline` in card-header provides better layout consistency.
-- Using `@section('scripts')` instead of `@push('scripts')` is more explicit and matches Laravel conventions.
-- `const` instead of `var` follows modern JavaScript best practices.
+-   Consistency improves maintainability and reduces cognitive load for developers.
+-   Unified pattern makes it easier to add new DataTable pages following established conventions.
+-   Consistent user experience across pages improves usability.
+-   Inventory page pattern is simpler and cleaner (removed unnecessary nested structures).
+-   Standardized filter form pattern using `form-inline` in card-header provides better layout consistency.
+-   Using `@section('scripts')` instead of `@push('scripts')` is more explicit and matches Laravel conventions.
+-   `const` instead of `var` follows modern JavaScript best practices.
 
 **Implementation**:
 
-- **Layout Structure**: Simplified from nested `section`/`container-fluid`/`card-outline` to simple `row` → `col-12` → `card` structure matching inventory.
-- **Card Header**: Moved filters to card-header using `d-flex justify-content-between align-items-center` with action buttons on left, filters on right.
-- **Filter Form**: Changed to `form-inline` class with form submission pattern using `serializeArray()`.
-- **Table Structure**: Changed table ID from `units-table` to `tbl-units` (matching `tbl-inventory` pattern), removed `table-hover` and `thead-dark` classes, simplified to `table table-bordered table-striped`.
-- **JavaScript**: Changed from `@push('scripts')` to `@section('scripts')`, changed from `var table` to `const table`, removed custom language configuration, simplified column render functions.
-- **Filter Handling**: Implemented `serializeArray()` pattern matching inventory page for consistent filter data processing.
+-   **Layout Structure**: Simplified from nested `section`/`container-fluid`/`card-outline` to simple `row` → `col-12` → `card` structure matching inventory.
+-   **Card Header**: Moved filters to card-header using `d-flex justify-content-between align-items-center` with action buttons on left, filters on right.
+-   **Filter Form**: Changed to `form-inline` class with form submission pattern using `serializeArray()`.
+-   **Table Structure**: Changed table ID from `units-table` to `tbl-units` (matching `tbl-inventory` pattern), removed `table-hover` and `thead-dark` classes, simplified to `table table-bordered table-striped`.
+-   **JavaScript**: Changed from `@push('scripts')` to `@section('scripts')`, changed from `var table` to `const table`, removed custom language configuration, simplified column render functions.
+-   **Filter Handling**: Implemented `serializeArray()` pattern matching inventory page for consistent filter data processing.
 
 **Review Date**: 2026-01-22 (after full year of production use with standardized pattern).
 
@@ -190,10 +195,12 @@ Decision: [Title] - [YYYY-MM-DD]
 **Options Considered**:
 
 1. **Option A**: Keep dual-format system, migrate only high-priority documents.
+
     - ✅ Pros: Minimal risk, preserves existing functionality for accounting documents.
     - ❌ Cons: Inconsistent numbering, duplicate sequence management logic, reporting complexity.
 
 2. **Option B**: Migrate all documents to entity-aware format in single phase.
+
     - ✅ Pros: Complete consistency, unified sequence management, simpler reporting, single format standard.
     - ❌ Cons: More complex migration, requires entity resolution logic for all document types.
 
@@ -205,21 +212,21 @@ Decision: [Title] - [YYYY-MM-DD]
 
 **Rationale**:
 
-- Phased approach minimizes risk while achieving complete migration goal.
-- Phase 1 focuses on high-impact documents with existing entity context.
-- Phase 2 handles documents requiring entity resolution logic.
-- Phase 3 addresses complex documents with multiple source types (Journals) or default entity assignment (Account Statements).
-- Complete migration ensures unified reporting, consistent letterhead management, and simplified sequence tracking.
-- Legacy format completely deprecated, eliminating dual-format complexity.
+-   Phased approach minimizes risk while achieving complete migration goal.
+-   Phase 1 focuses on high-impact documents with existing entity context.
+-   Phase 2 handles documents requiring entity resolution logic.
+-   Phase 3 addresses complex documents with multiple source types (Journals) or default entity assignment (Account Statements).
+-   Complete migration ensures unified reporting, consistent letterhead management, and simplified sequence tracking.
+-   Legacy format completely deprecated, eliminating dual-format complexity.
 
 **Implementation**:
 
-- **Phase 1**: Added `company_entity_id` to Purchase Payment and Sales Receipt models, updated controllers to pass entity context, added codes `04` and `09` to `ENTITY_DOCUMENT_CODES`.
-- **Phase 2**: Created migrations for Asset Disposal and Cash Expense `company_entity_id`, implemented entity resolution (Asset→PurchaseInvoice for Disposal, default entity for Cash Expense), added codes `10` and `11`.
-- **Phase 3**: Added `company_entity_id` to Journals and Account Statements, implemented `resolveJournalEntity()` method in PostingService supporting multiple source types, Account Statements use default entity, added codes `12` and `13`.
-- **Phase 4**: Updated all documentation, created bilingual manual (`docs/manuals/document-numbering-system-manual.md`), browser testing validation.
-- All documents now use `EEYYDDNNNNN` format exclusively. Legacy format removed from active use.
-- Updated `DocumentNumberingService` with complete document code mapping, entity resolution methods, and year-based sequence management.
+-   **Phase 1**: Added `company_entity_id` to Purchase Payment and Sales Receipt models, updated controllers to pass entity context, added codes `04` and `09` to `ENTITY_DOCUMENT_CODES`.
+-   **Phase 2**: Created migrations for Asset Disposal and Cash Expense `company_entity_id`, implemented entity resolution (Asset→PurchaseInvoice for Disposal, default entity for Cash Expense), added codes `10` and `11`.
+-   **Phase 3**: Added `company_entity_id` to Journals and Account Statements, implemented `resolveJournalEntity()` method in PostingService supporting multiple source types, Account Statements use default entity, added codes `12` and `13`.
+-   **Phase 4**: Updated all documentation, created bilingual manual (`docs/manuals/document-numbering-system-manual.md`), browser testing validation.
+-   All documents now use `EEYYDDNNNNN` format exclusively. Legacy format removed from active use.
+-   Updated `DocumentNumberingService` with complete document code mapping, entity resolution methods, and year-based sequence management.
 
 **Review Date**: 2026-12-11 (after full year of production use with complete entity-aware numbering).
 
@@ -230,6 +237,7 @@ Decision: [Title] - [YYYY-MM-DD]
 **Options Considered**:
 
 1. **Option A**: Add hierarchical display only to category index page.
+
     - ✅ Pros: Simple, localized change.
     - ❌ Cons: Inconsistent user experience, hierarchical relationships not visible where categories are selected.
 
@@ -241,21 +249,21 @@ Decision: [Title] - [YYYY-MM-DD]
 
 **Rationale**:
 
-- Hierarchical categories provide powerful organizational capability but require clear visualization to be useful.
-- Tree view provides superior visualization for complex hierarchies while table view remains efficient for browsing.
-- Parent category filtering (showing only root categories) prevents circular references and simplifies user experience.
-- Hierarchical display names ("Parent > Child > Grandchild") provide context in dropdowns improving selection accuracy.
-- Consistent implementation pattern ensures maintainability and can be reused for other hierarchical structures.
+-   Hierarchical categories provide powerful organizational capability but require clear visualization to be useful.
+-   Tree view provides superior visualization for complex hierarchies while table view remains efficient for browsing.
+-   Parent category filtering (showing only root categories) prevents circular references and simplifies user experience.
+-   Hierarchical display names ("Parent > Child > Grandchild") provide context in dropdowns improving selection accuracy.
+-   Consistent implementation pattern ensures maintainability and can be reused for other hierarchical structures.
 
 **Implementation**:
 
-- Added ProductCategory model helper methods: `getHierarchicalName()`, `getHierarchicalPath()`, `isRoot()`, `getDescendants()`, `getInvalidParentIds()`.
-- Enhanced ProductCategoryController::index() to support tree/table view toggle with `$viewMode` parameter.
-- Updated ProductCategoryController::create() and edit() to filter parent categories to root categories only.
-- Created tree view partial (`resources/views/product-categories/partials/tree-item.blade.php`) with recursive rendering and color-coded levels.
-- Updated all category dropdowns across system (inventory forms, item selection modals, goods receipt, etc.) to use `getHierarchicalName()`.
-- Enhanced InventoryController::search() to load category parent relationships for hierarchical display.
-- Added tree view styling with color-coded hierarchy levels and visual indicators.
+-   Added ProductCategory model helper methods: `getHierarchicalName()`, `getHierarchicalPath()`, `isRoot()`, `getDescendants()`, `getInvalidParentIds()`.
+-   Enhanced ProductCategoryController::index() to support tree/table view toggle with `$viewMode` parameter.
+-   Updated ProductCategoryController::create() and edit() to filter parent categories to root categories only.
+-   Created tree view partial (`resources/views/product-categories/partials/tree-item.blade.php`) with recursive rendering and color-coded levels.
+-   Updated all category dropdowns across system (inventory forms, item selection modals, goods receipt, etc.) to use `getHierarchicalName()`.
+-   Enhanced InventoryController::search() to load category parent relationships for hierarchical display.
+-   Added tree view styling with color-coded hierarchy levels and visual indicators.
 
 **Review Date**: 2026-04-21 (after extended production usage of hierarchical categories).
 
@@ -276,16 +284,16 @@ Decision: [Title] - [YYYY-MM-DD]
 
 **Rationale**:
 
-- Ensures `/inventory/low-stock` and `/inventory/valuation-report` are always handled by their dedicated controller methods and never misrouted to `InventoryController::show()`.
-- Centralises low stock logic in the model using real schema (`inventory_warehouse_stock.quantity_on_hand` and `reorder_point`), fixing all callers (`InventoryController`, `InventoryService`, dashboard).
-- Keeps the valuation report controller returning a standard `InventoryItem` collection while the view derives latest valuation data from the eager-loaded `valuations` relation, avoiding array-mapped collections that break route helpers.
+-   Ensures `/inventory/low-stock` and `/inventory/valuation-report` are always handled by their dedicated controller methods and never misrouted to `InventoryController::show()`.
+-   Centralises low stock logic in the model using real schema (`inventory_warehouse_stock.quantity_on_hand` and `reorder_point`), fixing all callers (`InventoryController`, `InventoryService`, dashboard).
+-   Keeps the valuation report controller returning a standard `InventoryItem` collection while the view derives latest valuation data from the eager-loaded `valuations` relation, avoiding array-mapped collections that break route helpers.
 
 **Implementation**:
 
-- Updated `routes/web.php` inventory group so `/inventory/low-stock` and `/inventory/valuation-report` are declared before `Route::get('/{item}', ...)` and grouped item detail routes (`show/edit/update/destroy`) at the end.
-- Refactored `InventoryItem::scopeLowStock()` to use an `EXISTS` subquery on `inventory_warehouse_stock` (`quantity_on_hand <= reorder_point`) instead of `whereRaw('current_stock <= reorder_point')`.
-- Simplified `InventoryController::valuationReport()` to return `InventoryItem::with(['category', 'valuations'])->active()->get()` and adjusted `inventory/valuation-report.blade.php` to compute `$latestValuation` from the eager-loaded `valuations` collection.
-- Fixed JS helpers in `inventory/low-stock.blade.php` and `inventory/valuation-report.blade.php` to generate URLs for `inventory.adjust-stock` and `inventory.show` using placeholder replacement instead of calling `route()` with missing parameters.
+-   Updated `routes/web.php` inventory group so `/inventory/low-stock` and `/inventory/valuation-report` are declared before `Route::get('/{item}', ...)` and grouped item detail routes (`show/edit/update/destroy`) at the end.
+-   Refactored `InventoryItem::scopeLowStock()` to use an `EXISTS` subquery on `inventory_warehouse_stock` (`quantity_on_hand <= reorder_point`) instead of `whereRaw('current_stock <= reorder_point')`.
+-   Simplified `InventoryController::valuationReport()` to return `InventoryItem::with(['category', 'valuations'])->active()->get()` and adjusted `inventory/valuation-report.blade.php` to compute `$latestValuation` from the eager-loaded `valuations` collection.
+-   Fixed JS helpers in `inventory/low-stock.blade.php` and `inventory/valuation-report.blade.php` to generate URLs for `inventory.adjust-stock` and `inventory.show` using placeholder replacement instead of calling `route()` with missing parameters.
 
 **Review Date**: 2026-03-31 (after more extensive inventory operations and reporting usage in production).
 
@@ -296,10 +304,12 @@ Decision: [Title] - [YYYY-MM-DD]
 **Options Considered**:
 
 1. **Option A**: Store per-entity attributes inside existing `erp_parameters` and reuse current document schema.
+
     - ✅ Pros: Minimal schema work, quick to prototype.
     - ❌ Cons: Hard to manage multiple letterheads, no FK relation to documents, difficult to enforce referential integrity.
 
 2. **Option B**: Create dedicated `company_entities` table and add `company_entity_id` to every document header.
+
     - ✅ Pros: Strong referential integrity, scalable for future entities, easy to query/filter, aligns with ERP best practices.
     - ❌ Cons: Requires new migrations/seeders and updates across many tables.
 
@@ -311,19 +321,19 @@ Decision: [Title] - [YYYY-MM-DD]
 
 **Rationale**:
 
-- Maintains shared inventory/master data while enabling per-entity reporting and numbering.
-- Provides a single source of truth for logos, addresses, tax numbers, and letterhead metadata.
-- Simplifies future UI changes (entity selectors, previews) and reporting filters.
-- Keeps accounting postings aligned by allowing future journal tagging via the same FK.
-- Avoids multi-database complexity and parameter sprawl.
+-   Maintains shared inventory/master data while enabling per-entity reporting and numbering.
+-   Provides a single source of truth for logos, addresses, tax numbers, and letterhead metadata.
+-   Simplifies future UI changes (entity selectors, previews) and reporting filters.
+-   Keeps accounting postings aligned by allowing future journal tagging via the same FK.
+-   Avoids multi-database complexity and parameter sprawl.
 
 **Implementation**:
 
-- Added `company_entities` table with code, legal name, contact details, logos, and letterhead metadata.
-- Seeded PT Cahaya Sarange Jaya (`code 71`, `logo_pt_csj.png`) and CV Cahaya Saranghae (`code 72`, `logo_cv_saranghae.png`).
-- Added nullable `company_entity_id` foreign keys to purchase_orders, goods_receipt_po, purchase_invoices, purchase_payments, sales_orders, delivery_orders, sales_invoices, and sales_receipts.
-- Extended `document_sequences` table with entity-aware columns (`company_entity_id`, `document_code`, `year`, `current_number`) to prepare the new numbering format.
-- Updated architecture, TODO, decision, and memory docs to reflect the multi-entity foundation.
+-   Added `company_entities` table with code, legal name, contact details, logos, and letterhead metadata.
+-   Seeded PT Cahaya Sarange Jaya (`code 71`, `logo_pt_csj.png`) and CV Cahaya Saranghae (`code 72`, `logo_cv_saranghae.png`).
+-   Added nullable `company_entity_id` foreign keys to purchase_orders, goods_receipt_po, purchase_invoices, purchase_payments, sales_orders, delivery_orders, sales_invoices, and sales_receipts.
+-   Extended `document_sequences` table with entity-aware columns (`company_entity_id`, `document_code`, `year`, `current_number`) to prepare the new numbering format.
+-   Updated architecture, TODO, decision, and memory docs to reflect the multi-entity foundation.
 
 **Review Date**: 2026-01-31 (after Phase 2/3 UI + numbering rollout).
 
@@ -336,10 +346,12 @@ Decision: [Title] - [YYYY-MM-DD]
 **Options Considered**:
 
 1. **Option A**: Keep existing numbering and add manual prefixes.
+
     - ✅ Pros: Minimal code changes.
     - ❌ Cons: Users must manually ensure uniqueness, no referential integrity, hard to audit.
 
 2. **Option B**: Create per-entity numbering but keep logic in controllers.
+
     - ✅ Pros: Entity-aware numbering.
     - ❌ Cons: Duplicated logic, error-prone maintenance, inconsistent format.
 
@@ -351,17 +363,17 @@ Decision: [Title] - [YYYY-MM-DD]
 
 **Rationale**:
 
-- Guarantees unique numbering sequences per legal entity and document family.
-- Keeps controllers thin; services manage default entity/fallback logic.
-- Preserves compatibility for legacy modules (PP/SR/DIS/etc.) still on prefix format.
-- Enables downstream reporting and PDF rendering to know which entity produced each document.
+-   Guarantees unique numbering sequences per legal entity and document family.
+-   Keeps controllers thin; services manage default entity/fallback logic.
+-   Preserves compatibility for legacy modules (PP/SR/DIS/etc.) still on prefix format.
+-   Enables downstream reporting and PDF rendering to know which entity produced each document.
 
 **Implementation**:
 
-- Added `CompanyEntityService` plus `company_entity_id` relationships across PO, GRPO, PI, PP, SO, DO, SI, SR models.
-- Refactored controllers/services to persist entity context, inherit it when copying documents, and pass it to DocumentNumberingService.
-- Enhanced DocumentNumberingService + DocumentSequence with entity-aware fields (`document_code`, `year`, `current_number`) while keeping legacy prefixes untouched.
-- Delivery workflow now generates DO numbers via the numbering service and copies entity context from its Sales Order.
+-   Added `CompanyEntityService` plus `company_entity_id` relationships across PO, GRPO, PI, PP, SO, DO, SI, SR models.
+-   Refactored controllers/services to persist entity context, inherit it when copying documents, and pass it to DocumentNumberingService.
+-   Enhanced DocumentNumberingService + DocumentSequence with entity-aware fields (`document_code`, `year`, `current_number`) while keeping legacy prefixes untouched.
+-   Delivery workflow now generates DO numbers via the numbering service and copies entity context from its Sales Order.
 
 **Review Date**: 2026-02-15 (after UI entity selector rollout and user acceptance).
 
@@ -729,41 +741,43 @@ Decision: [Title] - [YYYY-MM-DD]
 **Options Considered**:
 
 1. **Option A**: Fix calculation logic only
-   - ✅ Pros: Simple fix, addresses root cause
-   - ❌ Cons: Doesn't fix existing incorrect valuation records
+
+    - ✅ Pros: Simple fix, addresses root cause
+    - ❌ Cons: Doesn't fix existing incorrect valuation records
 
 2. **Option B**: Fix calculation logic + create manual SQL update script
-   - ✅ Pros: Fixes both code and data
-   - ❌ Cons: Manual process, error-prone, doesn't scale
+
+    - ✅ Pros: Fixes both code and data
+    - ❌ Cons: Manual process, error-prone, doesn't scale
 
 3. **Option C**: Fix calculation logic + create automated correction command
-   - ✅ Pros: Fixes code, provides reusable tool for data correction, scalable
-   - ❌ Cons: Additional development effort
+    - ✅ Pros: Fixes code, provides reusable tool for data correction, scalable
+    - ❌ Cons: Additional development effort
 
 **Decision**: Fix calculation logic + create automated correction command (Option C)
 
 **Rationale**:
 
-- Calculation bug affects all items with sales transactions
-- Existing valuation records may be incorrect and need correction
-- Automated command enables systematic correction of all affected items
-- Command can be reused for future data integrity checks
-- Provides audit trail of corrections made
+-   Calculation bug affects all items with sales transactions
+-   Existing valuation records may be incorrect and need correction
+-   Automated command enables systematic correction of all affected items
+-   Command can be reused for future data integrity checks
+-   Provides audit trail of corrections made
 
 **Implementation**:
 
-- Fixed `InventoryItem::getCurrentStockAttribute()` to add sales quantities (already negative) instead of subtracting them
-- Created `FixInventoryValuation` artisan command with detection and correction capabilities
-- Command compares calculated stock vs recorded valuation and updates when mismatch detected
-- Supports fixing specific items or all items in the system
-- Verified fix on item ID 2, correcting quantity from 424 to 306 PCS
+-   Fixed `InventoryItem::getCurrentStockAttribute()` to add sales quantities (already negative) instead of subtracting them
+-   Created `FixInventoryValuation` artisan command with detection and correction capabilities
+-   Command compares calculated stock vs recorded valuation and updates when mismatch detected
+-   Supports fixing specific items or all items in the system
+-   Verified fix on item ID 2, correcting quantity from 424 to 306 PCS
 
 **Impact**:
 
-- All future stock calculations are now accurate
-- Existing incorrect valuations can be systematically corrected
-- Stock by Warehouse, Current Stock, and Valuation History sections now display consistent values
-- Improved data integrity and financial reporting accuracy
+-   All future stock calculations are now accurate
+-   Existing incorrect valuations can be systematically corrected
+-   Stock by Warehouse, Current Stock, and Valuation History sections now display consistent values
+-   Improved data integrity and financial reporting accuracy
 
 **Review Date**: 2026-04-22 (after running correction command on all items and verifying accuracy)
 
@@ -2005,35 +2019,149 @@ Decision: [Title] - [YYYY-MM-DD]
 **Options Considered**:
 
 1. **Option A**: Keep existing workflow, require full PO → GRPO → PI → PP flow for all purchases.
-   - ✅ Pros: Consistent workflow, simpler implementation.
-   - ❌ Cons: Doesn't match user needs, too many steps for simple cash purchases, poor user experience.
+
+    - ✅ Pros: Consistent workflow, simpler implementation.
+    - ❌ Cons: Doesn't match user needs, too many steps for simple cash purchases, poor user experience.
 
 2. **Option B**: Add Direct Purchase checkbox, keep manual account selection.
-   - ✅ Pros: Supports direct purchases, maintains flexibility.
-   - ❌ Cons: Redundant checkbox (overlaps with Payment Method), manual account selection error-prone, non-accounting users see accounts.
+
+    - ✅ Pros: Supports direct purchases, maintains flexibility.
+    - ❌ Cons: Redundant checkbox (overlaps with Payment Method), manual account selection error-prone, non-accounting users see accounts.
 
 3. **Option C**: Auto-set `is_direct_purchase` based on Payment Method, remove checkbox, auto-select accounts from product categories.
-   - ✅ Pros: Matches user expectations (cash = direct purchase), simplified UI, automatic account selection, better UX.
-   - ❌ Cons: Requires business logic changes, needs product category account mapping.
+    - ✅ Pros: Matches user expectations (cash = direct purchase), simplified UI, automatic account selection, better UX.
+    - ❌ Cons: Requires business logic changes, needs product category account mapping.
 
 **Decision**: Adopt Option C—auto-set `is_direct_purchase` when `payment_method = 'cash'` and no PO/GRPO, remove redundant checkbox, implement automatic account selection from product categories, and add cash account selection dropdown.
 
 **Rationale**:
 
-- Auto-setting `is_direct_purchase` based on payment method and context matches user mental model (cash payment = direct purchase).
-- Removing redundant checkbox simplifies UI and reduces user confusion.
-- Automatic account selection from product categories reduces errors and supports non-accounting users.
-- Cash account selection provides flexibility for multiple cash accounts while maintaining backward compatibility.
-- Direct cash purchase accounting flow (Debit Inventory, Credit Cash) is simpler and more accurate than credit flow for immediate cash transactions.
-- Multi-UOM support enables flexible unit management for inventory items.
+-   Auto-setting `is_direct_purchase` based on payment method and context matches user mental model (cash payment = direct purchase).
+-   Removing redundant checkbox simplifies UI and reduces user confusion.
+-   Automatic account selection from product categories reduces errors and supports non-accounting users.
+-   Cash account selection provides flexibility for multiple cash accounts while maintaining backward compatibility.
+-   Direct cash purchase accounting flow (Debit Inventory, Credit Cash) is simpler and more accurate than credit flow for immediate cash transactions.
+-   Multi-UOM support enables flexible unit management for inventory items.
 
 **Implementation**:
 
-- **Database Schema**: Added `inventory_item_id`, `warehouse_id`, `order_unit_id`, `base_quantity`, `unit_conversion_factor` to `purchase_invoice_lines`; added `payment_method`, `is_direct_purchase`, `cash_account_id` to `purchase_invoices`.
-- **Service Layer**: Created `PurchaseInvoiceService` for business logic encapsulation (auto-account selection, warehouse validation, inventory transaction creation).
-- **Controller Logic**: Updated `PurchaseInvoiceController` to auto-set `is_direct_purchase = 1` when `payment_method = 'cash'` and no PO/GRPO, implemented direct cash accounting flow, integrated `InventoryService` for automatic inventory transactions.
-- **UI Changes**: Removed "Direct Purchase" checkbox, added Item/Warehouse/UOM selection, added cash account dropdown (shown when cash + direct purchase), updated JavaScript to handle field visibility.
-- **Accounting Flow**: Direct cash purchases use Debit Inventory, Credit Cash; credit purchases use Debit AP UnInvoice, Credit Utang Dagang.
-- **Inventory Integration**: Automatic inventory transaction creation for direct purchases with stock updates and valuation.
+-   **Database Schema**: Added `inventory_item_id`, `warehouse_id`, `order_unit_id`, `base_quantity`, `unit_conversion_factor` to `purchase_invoice_lines`; added `payment_method`, `is_direct_purchase`, `cash_account_id` to `purchase_invoices`.
+-   **Service Layer**: Created `PurchaseInvoiceService` for business logic encapsulation (auto-account selection, warehouse validation, inventory transaction creation).
+-   **Controller Logic**: Updated `PurchaseInvoiceController` to auto-set `is_direct_purchase = 1` when `payment_method = 'cash'` and no PO/GRPO, implemented direct cash accounting flow, integrated `InventoryService` for automatic inventory transactions.
+-   **UI Changes**: Removed "Direct Purchase" checkbox, added Item/Warehouse/UOM selection, added cash account dropdown (shown when cash + direct purchase), updated JavaScript to handle field visibility.
+-   **Accounting Flow**: Direct cash purchases use Debit Inventory, Credit Cash; credit purchases use Debit AP UnInvoice, Credit Utang Dagang.
+-   **Inventory Integration**: Automatic inventory transaction creation for direct purchases with stock updates and valuation.
 
 **Review Date**: 2026-12-26 (after full year of production use with direct cash purchase feature).
+
+---
+
+### Decision: Inventory-Warehouse Stock Accuracy Verification & Reconciliation - 2026-02-03
+
+**Context**: Discovered data integrity issue where inventory items had stock calculated from transactions (`current_stock`) but warehouse stock records (`inventory_warehouse_stock`) were missing or incorrect. System-wide check revealed 78 items with discrepancies, 72 items with stock but no warehouse records. This caused inconsistencies between Current Stock (from transactions) and Stock by Warehouse sections, making warehouse-level stock tracking unreliable.
+
+**Options Considered**:
+
+1. **Option A**: Manual database queries and updates to fix discrepancies.
+
+    - ✅ Pros: Direct control, immediate fixes.
+    - ❌ Cons: Error-prone, time-consuming, no systematic verification, no reusable solution.
+
+2. **Option B**: Create artisan commands for verification and reconciliation.
+    - ✅ Pros: Systematic approach, reusable, safe (transaction-wrapped), provides detailed reporting, enables batch processing.
+    - ❌ Cons: Requires command development.
+
+**Decision**: Adopt Option B—create `CheckInventoryAccuracy` command for verification and `ReconcileWarehouseStock` command for systematic reconciliation.
+
+**Rationale**:
+
+-   Artisan commands provide systematic, repeatable approach to data integrity verification and correction.
+-   Verification command enables proactive monitoring of stock accuracy across all items.
+-   Reconciliation command safely allocates stock to warehouses for transactions missing `warehouse_id` and creates/updates warehouse stock records.
+-   Transaction-wrapped operations ensure data consistency during reconciliation.
+-   Detailed reporting helps identify root causes of discrepancies (missing warehouse_id, incorrect warehouse allocation).
+-   Batch processing capability enables fixing all items at once or specific items individually.
+
+**Implementation**:
+
+-   **CheckInventoryAccuracy Command**: Verifies accuracy between `current_stock` (from transactions) and sum of warehouse stock records. Shows detailed breakdown including transaction analysis, warehouse allocation, and discrepancy detection. Supports checking specific items or all items.
+-   **ReconcileWarehouseStock Command**: Reconciles warehouse stock from transactions by grouping transactions by warehouse, allocating stock to default warehouse for transactions without `warehouse_id`, and creating/updating warehouse stock records. Supports specific items or batch processing.
+-   **Data Integrity**: Ensures `current_stock` always equals sum of warehouse stock records for accurate multi-warehouse inventory management.
+
+**Review Date**: 2026-08-03 (6 months from implementation).
+
+---
+
+### Decision: Warehouse Transfer Page Enhancement - Dedicated Page with Searchable Items - 2026-02-03
+
+**Context**: Warehouse transfer functionality was implemented as a modal form, which became ineffective with many items (84+ items) due to select dropdown limitations. Modal also lacked sufficient space to display comprehensive stock information (source warehouse stock, destination warehouse stock, after-transfer projections). Users needed better visibility into stock levels and more efficient item selection mechanism for warehouse transfers.
+
+**Options Considered**:
+
+1. **Option A**: Keep modal form, improve dropdown with pagination or filtering.
+
+    - ✅ Pros: Minimal changes, maintains current UI pattern.
+    - ❌ Cons: Still limited by modal space, dropdowns inefficient for large datasets, poor UX for comprehensive information display.
+
+2. **Option B**: Create dedicated page with Select2 AJAX search and comprehensive stock information display.
+    - ✅ Pros: Efficient item selection (searchable), comprehensive stock information display, real-time updates, better UX, scales to large inventories.
+    - ❌ Cons: Requires new page creation, more development effort.
+
+**Decision**: Adopt Option B—create dedicated warehouse transfer page with Select2 AJAX search and comprehensive stock information display.
+
+**Rationale**:
+
+-   Dedicated pages provide better UX for complex forms with many options and comprehensive information display.
+-   Select2 AJAX search is essential for large datasets (84+ items) as it enables efficient searching without loading all options upfront.
+-   Real-time stock information display improves decision-making by showing current stock levels, projected stock after transfer, and validation alerts.
+-   Visual progress bars and color-coded alerts enhance user experience.
+-   The dedicated page approach scales better than modals for feature-rich forms requiring extensive data display and validation.
+
+**Implementation**:
+
+-   **New Route**: Created `/warehouses/transfer` route with `WarehouseController::showTransferPage()` method.
+-   **Select2 AJAX Integration**: Implemented searchable item selection using Select2 with AJAX against `/inventory/api/search` endpoint, enabling efficient item search from large inventory.
+-   **Stock Information Display**: Added comprehensive stock information cards showing source warehouse stock, destination warehouse stock, and after-transfer projections with visual progress bars and status alerts.
+-   **Real-time Updates**: Implemented JavaScript to update stock information dynamically when selecting warehouses or changing quantity.
+-   **Transfer Types**: Maintained support for all transfer types (Direct, ITO, ITI) with dynamic form switching.
+-   **UI Updates**: Updated warehouses index page to link to new transfer page instead of opening modal.
+
+**Review Date**: 2026-08-03 (6 months from implementation).
+
+---
+
+### Decision: Warehouse Transfer Item Search Enhancement - Custom Autocomplete Replacement - 2026-02-03
+
+**Context**: After implementing Select2 AJAX search for warehouse transfer page, users experienced issues: Select2 dropdown showed "No results found" even when API returned data correctly, search endpoint returned 500 errors due to problematic `category.parent` eager loading causing serialization issues, and search logic incorrectly combined multiple parameters (`q`, `code`, `name`) with AND logic instead of OR, limiting results. When users typed "CO", only one item (CON000006) appeared instead of all items matching "CO" in code or name. Users needed reliable search that works for both item codes and names with proper case-insensitive matching.
+
+**Options Considered**:
+
+1. **Option A**: Fix Select2 configuration and search endpoint issues, keep Select2.
+
+    - ✅ Pros: Uses existing library, familiar pattern, less custom code.
+    - ❌ Cons: Select2 has complex event handling, difficult to debug, Bootstrap theme compatibility issues, limited control over search behavior, ongoing maintenance burden.
+
+2. **Option B**: Replace Select2 with custom autocomplete solution using Bootstrap-native components.
+    - ✅ Pros: Full control over search behavior, easier debugging, Bootstrap-native styling, no external library dependencies, better error handling, simpler code, case-insensitive search with proper OR logic, search term highlighting, keyboard navigation.
+    - ❌ Cons: Requires custom implementation, need to handle edge cases manually.
+
+**Decision**: Adopt Option B—replace Select2 with custom autocomplete solution using regular input field with AJAX search and Bootstrap-styled dropdown.
+
+**Rationale**:
+
+-   Custom solution provides full control over search behavior and error handling, making debugging easier.
+-   Bootstrap-native styling ensures consistent UI without external library dependencies or theme compatibility issues.
+-   Case-insensitive search with proper OR logic (searching both code and name) improves user experience.
+-   Debounced search (300ms) reduces API calls while maintaining responsive feel.
+-   Visual feedback (highlighting matching text, loading states) improves usability.
+-   Keyboard navigation (arrow keys, Enter, Escape) provides accessibility.
+-   Simpler codebase without Select2 dependency reduces maintenance burden.
+-   Fixed search endpoint ensures reliable results for both code and name searches.
+
+**Implementation**:
+
+-   **Frontend**: Replaced Select2 with custom autocomplete in `resources/views/warehouses/transfer.blade.php`: regular input field (`#item_search`), hidden input for form submission (`#item_id`), Bootstrap-styled dropdown (`#item_search_results`), debounced AJAX search (300ms delay), keyboard navigation support, click-to-select functionality, clear button, auto-hide dropdown on outside click, search term highlighting in results.
+-   **Backend**: Fixed `/inventory/search` endpoint in `app/Http/Controllers/InventoryController.php`: removed problematic `category.parent` eager loading, made search case-insensitive using `LOWER()` SQL functions, fixed search logic to use single `q` parameter with OR logic (`LOWER(code) LIKE ... OR LOWER(name) LIKE ...`), improved ordering (code matches first, then name matches), increased result limit to 50 items, added proper error handling with try-catch.
+-   **Search Features**: Case-insensitive search, searches both code and name fields, highlights matching text in results, shows up to 50 results, proper error messages, loading states.
+
+**Review Date**: 2026-08-03 (6 months from implementation).

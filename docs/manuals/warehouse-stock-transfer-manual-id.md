@@ -5,13 +5,14 @@
 1. [Pengenalan](#pengenalan)
 2. [Prasyarat](#prasyarat)
 3. [Memahami Jenis Transfer](#memahami-jenis-transfer)
-4. [Metode 1: Transfer Langsung](#metode-1-transfer-langsung)
-5. [Metode 2: Transfer Dua Langkah (ITO/ITI)](#metode-2-transfer-dua-langkah-itoiti)
-6. [Melihat Riwayat Transfer](#melihat-riwayat-transfer)
-7. [Mengelola Transfer Tertunda](#mengelola-transfer-tertunda)
-8. [Best Practices](#best-practices)
-9. [Troubleshooting](#troubleshooting)
-10. [FAQ](#faq)
+4. [Fitur Pencarian Item yang Ditingkatkan](#fitur-pencarian-item-yang-ditingkatkan)
+5. [Metode 1: Transfer Langsung](#metode-1-transfer-langsung)
+6. [Metode 2: Transfer Dua Langkah (ITO/ITI)](#metode-2-transfer-dua-langkah-itoiti)
+7. [Melihat Riwayat Transfer](#melihat-riwayat-transfer)
+8. [Mengelola Transfer Tertunda](#mengelola-transfer-tertunda)
+9. [Best Practices](#best-practices)
+10. [Troubleshooting](#troubleshooting)
+11. [FAQ](#faq)
 
 ---
 
@@ -73,6 +74,43 @@ Sistem mendukung tiga metode transfer:
 
 ---
 
+## Fitur Pencarian Item yang Ditingkatkan
+
+### Pencarian Otomatis yang Cerdas
+
+Halaman transfer stok menggunakan sistem pencarian otomatis yang cerdas untuk membantu Anda menemukan item dengan cepat:
+
+#### Cara Kerja Pencarian
+
+1. **Mulai Ketik**: Ketik minimal 2 karakter di kolom pencarian item
+2. **Hasil Otomatis**: Sistem akan menampilkan daftar item yang cocok secara otomatis
+3. **Pencarian Fleksibel**:
+    - Cari berdasarkan **kode item** (contoh: ketik "CON" untuk menemukan CON000001, CON000002, dll.)
+    - Cari berdasarkan **nama item** (contoh: ketik "Orange" untuk menemukan semua item dengan nama mengandung "Orange")
+4. **Case-Insensitive**: Tidak perlu khawatir dengan huruf besar/kecil (ketik "co" atau "CO" akan memberikan hasil yang sama)
+
+#### Fitur Navigasi Keyboard
+
+-   **Tombol Panah Bawah (↓)**: Navigasi ke item berikutnya
+-   **Tombol Panah Atas (↑)**: Navigasi ke item sebelumnya
+-   **Enter**: Pilih item yang sedang disorot
+-   **Escape**: Tutup dropdown hasil pencarian
+
+#### Tips Pencarian Efektif
+
+-   **Gunakan kode item**: Jika Anda tahu kode item, gunakan kode untuk hasil yang lebih cepat dan akurat
+-   **Gunakan nama unik**: Ketik bagian nama item yang unik untuk mempersempit hasil
+-   **Kata kunci spesifik**: Sistem menampilkan hingga 50 hasil teratas, jadi gunakan kata kunci yang lebih spesifik jika ada banyak item
+-   **Highlighting**: Teks yang cocok akan ditandai dengan warna kuning untuk memudahkan identifikasi
+
+#### Contoh Pencarian
+
+-   **Mencari dengan kode**: Ketik "CON" → Menampilkan semua item dengan kode mengandung "CON" (CON000001, CON000002, CON000006, dll.)
+-   **Mencari dengan nama**: Ketik "Paint" → Menampilkan semua item dengan nama mengandung "Paint" (Avian Orange Paint, Avian Red Paint, dll.)
+-   **Pencarian kombinasi**: Sistem mencari di kedua kode dan nama secara bersamaan
+
+---
+
 ## Metode 1: Transfer Langsung
 
 ### Gambaran Umum
@@ -96,13 +134,19 @@ Transfer Langsung langsung memindahkan stok dari satu gudang ke gudang lain dala
 
 #### Langkah 2: Isi Form Transfer
 
-Modal transfer akan terbuka. Isi field berikut:
+Halaman transfer stok akan terbuka. Isi field berikut:
 
 1. **Item** (Wajib)
 
-    - Klik dropdown dan pilih item yang akan ditransfer
-    - Item ditampilkan sebagai: `KODE - Nama`
-    - Contoh: `SUMATOSM05 - Sumato SM-05`
+    - **Pencarian Otomatis**: Mulai ketik kode atau nama item di kolom pencarian
+    - Sistem akan menampilkan daftar item yang cocok secara otomatis
+    - **Pencarian Case-Insensitive**: Tidak perlu khawatir dengan huruf besar/kecil
+    - **Pencarian Fleksibel**: Cari berdasarkan kode item (contoh: "CON") atau nama item (contoh: "Orange")
+    - **Navigasi Keyboard**: Gunakan tombol panah untuk navigasi, Enter untuk memilih, Escape untuk menutup
+    - Klik item dari hasil pencarian untuk memilih
+    - Item yang dipilih ditampilkan sebagai: `KODE - Nama`
+    - Contoh: `CON000002 - Avian Orange Paint 1 Kg`
+    - **Tombol Hapus**: Setelah memilih item, tombol X akan muncul untuk menghapus pilihan
 
 2. **Dari Gudang** (Wajib)
 
@@ -198,7 +242,10 @@ Transfer dua langkah menggunakan gudang transit untuk melacak item selama pengir
 
 1. **Item** (Wajib)
 
-    - Pilih item yang akan ditransfer
+    - **Pencarian Otomatis**: Mulai ketik kode atau nama item di kolom pencarian
+    - Sistem akan menampilkan daftar item yang cocok secara otomatis
+    - Pencarian case-insensitive dan fleksibel (berdasarkan kode atau nama)
+    - Gunakan tombol panah untuk navigasi, Enter untuk memilih
     - Hanya item dengan stok di gudang sumber yang tersedia
 
 2. **Dari Gudang** (Wajib)
@@ -263,7 +310,7 @@ Daftar transfer tertunda menampilkan:
 4. Tambahkan catatan jika jumlah berbeda
 5. Klik **"Complete Transfer"**
 
-**Opsi B: Selesaikan via Modal Transfer**
+**Opsi B: Selesaikan via Halaman Transfer**
 
 1. Pergi ke **Warehouses** → Klik **"Transfer Stock"**
 2. Pilih **Transfer Type**: **"Inventory Transfer In (ITI)"**
@@ -521,6 +568,29 @@ Jika transfer perlu dibatalkan:
 2. Minta izin `warehouse.transfer`
 3. Verifikasi peran pengguna memiliki izin yang benar
 
+### Masalah: Pencarian item tidak menampilkan hasil
+
+**Penyebab**: Beberapa kemungkinan penyebab
+
+**Solusi**:
+
+1. **Pastikan mengetik minimal 2 karakter**: Sistem memerlukan minimal 2 karakter untuk memulai pencarian
+2. **Periksa koneksi internet**: Pastikan koneksi internet stabil
+3. **Coba refresh halaman**: Tekan F5 atau refresh browser
+4. **Coba kata kunci berbeda**: Coba cari dengan kode item atau nama item yang berbeda
+5. **Periksa konsol browser**: Tekan F12 untuk membuka Developer Tools dan periksa tab Console untuk pesan error
+6. Hubungi dukungan IT jika masalah berlanjut
+
+### Masalah: Hasil pencarian tidak lengkap
+
+**Penyebab**: Sistem menampilkan maksimal 50 hasil teratas
+
+**Solusi**:
+
+1. **Gunakan kata kunci yang lebih spesifik**: Ketik lebih banyak karakter untuk mempersempit hasil
+2. **Cari berdasarkan kode**: Jika Anda tahu kode item, gunakan kode untuk hasil yang lebih akurat
+3. **Cari berdasarkan nama**: Ketik bagian nama item yang unik
+
 ### Masalah: Stok tidak diperbarui setelah transfer
 
 **Penyebab**: Kemungkinan masalah sistem atau cache
@@ -536,38 +606,48 @@ Jika transfer perlu dibatalkan:
 
 ## FAQ
 
-### Q1: Bisakah saya mentransfer beberapa item dalam satu transfer?
+### Q1: Bagaimana cara mencari item dengan efisien?
+
+**A**: Gunakan fitur pencarian otomatis:
+
+-   **Ketika mengetik kode**: Sistem akan mencari semua item dengan kode yang mengandung teks yang Anda ketik (contoh: ketik "CON" untuk menemukan CON000001, CON000002, dll.)
+-   **Ketika mengetik nama**: Sistem akan mencari semua item dengan nama yang mengandung teks yang Anda ketik (contoh: ketik "Orange" untuk menemukan semua item dengan nama mengandung "Orange")
+-   **Pencarian case-insensitive**: Tidak perlu khawatir dengan huruf besar/kecil (ketik "co" atau "CO" akan memberikan hasil yang sama)
+-   **Navigasi keyboard**: Gunakan tombol panah atas/bawah untuk navigasi, Enter untuk memilih, Escape untuk menutup dropdown
+-   **Hasil maksimal**: Sistem menampilkan hingga 50 hasil teratas, jadi gunakan kata kunci yang lebih spesifik jika ada banyak item
+
+### Q2: Bisakah saya mentransfer beberapa item dalam satu transfer?
 
 **A**: Saat ini, setiap transfer menangani satu item sekaligus. Buat transfer terpisah untuk setiap item.
 
-### Q2: Apa yang terjadi jika saya membuat kesalahan dalam transfer?
+### Q3: Apa yang terjadi jika saya membuat kesalahan dalam transfer?
 
 **A**: Anda dapat membuat transfer balik (transfer kembali) atau menggunakan stock adjustment untuk memperbaiki. Hubungi administrator untuk bantuan.
 
-### Q3: Bisakah saya membatalkan transfer yang sudah selesai?
+### Q4: Bisakah saya membatalkan transfer yang sudah selesai?
 
 **A**: Transfer yang sudah selesai tidak dapat dibatalkan, tetapi Anda dapat membuat transfer balik untuk memindahkan stok kembali.
 
-### Q4: Bagaimana saya tahu gudang transit mana yang digunakan?
+### Q5: Bagaimana saya tahu gudang transit mana yang digunakan?
 
 **A**: Sistem secara otomatis menggunakan gudang transit yang dikonfigurasi untuk gudang sumber. Periksa pengaturan gudang atau hubungi administrator.
 
-### Q5: Apa perbedaan antara Transfer Langsung dan ITO/ITI?
+### Q6: Apa perbedaan antara Transfer Langsung dan ITO/ITI?
 
 **A**:
 
 -   **Transfer Langsung**: Langsung, satu langkah, tanpa pelacakan transit
 -   **ITO/ITI**: Dua langkah, menggunakan gudang transit, melacak item selama pengiriman
 
-### Q6: Bisakah saya mentransfer stok antar item?
+### Q7: Bisakah saya mentransfer stok antar item?
 
 **A**: Fungsi transfer gudang memindahkan stok antar gudang untuk item yang sama. Untuk mentransfer antar item berbeda, gunakan fungsi "Transfer Stock" di halaman detail item inventori (fitur berbeda).
 
-### Q7: Berapa lama transfer tertunda tetap dalam sistem?
+### Q8: Berapa lama transfer tertunda tetap dalam sistem?
 
 **A**: Transfer tertunda tetap sampai diselesaikan. Tidak ada kedaluwarsa otomatis. Selesaikan segera setelah item diterima.
 
-### Q8: Bagaimana jika saya menerima item yang rusak?
+### Q9: Bagaimana jika saya menerima item yang rusak?
 
 **A**: Saat menyelesaikan ITI, masukkan jumlah baik aktual yang diterima. Buat adjustment terpisah atau catat untuk item yang rusak. Dokumentasikan dalam catatan transfer.
 

@@ -222,18 +222,142 @@
 </div>
 
 <script>
-    $(document).ready(function() {
-        let warehouses = [];
-        let items = [];
-        let currentStock = {};
-        let pendingTransfers = [];
+    // Make functions available globally to avoid scope issues
+    let warehouses = [];
+    let items = [];
+    let currentStock = {};
+    let pendingTransfers = [];
 
-        // Load data when modal opens
-        $('#warehouseTransferModalEnhanced').on('show.bs.modal', function() {
+    // Load warehouses
+    function loadWarehouses() {
+        console.log('Loading warehouses...');
+        $.get('/warehouses/api/warehouses')
+            .done(function(data) {
+                console.log('Warehouses loaded:', data.length);
+                warehouses = data;
+                populateWarehouseSelects();
+            })
+            .fail(function(xhr, status, error) {
+                console.error('Error loading warehouses:', error, xhr.responseText);
+                showAlert('Error loading warehouses: ' + error, 'error');
+            });
+    }
+
+    // Load items
+    function loadItems() {
+        console.log('Loading items...');
+        $.get('/inventory/api/items')
+            .done(function(data) {
+                console.log('Items loaded:', data.length);
+                items = data;
+                populateItemSelects();
+            })
+            .fail(function(xhr, status, error) {
+                console.error('Error loading items:', error, xhr.responseText);
+                showAlert('Error loading items: ' + error, 'error');
+            });
+    }
+
+    // Load pending transfers
+    function loadPendingTransfers() {
+        $.get('{{ route('warehouses.pending-transfers') }}')
+            .done(function(data) {
+                pendingTransfers = data;
+                populatePendingTransfers();
+            })
+            .fail(function() {
+                showAlert('Error loading pending transfers', 'error');
+            });
+    }
+
+    // Populate warehouse selects
+    function populateWarehouseSelects() {
+        const selects = ['#direct_from_warehouse', '#direct_to_warehouse', '#ito_from_warehouse',
+            '#ito_to_warehouse'
+        ];
+
+        selects.forEach(function(selector) {
+            const select = $(selector);
+            select.empty().append('<option value="">Select Warehouse</option>');
+
+            warehouses.forEach(function(warehouse) {
+                if (!warehouse.is_transit) { // Only show physical warehouses
+                    select.append(
+                        `<option value="${warehouse.id}">${warehouse.code} - ${warehouse.name}</option>`
+                    );
+                }
+            });
+        });
+    }
+
+    // Populate item selects
+    function populateItemSelects() {
+        const selects = ['#direct_item_id', '#ito_item_id'];
+
+        selects.forEach(function(selector) {
+            const select = $(selector);
+            select.empty().append('<option value="">Select Item</option>');
+
+            items.forEach(function(item) {
+                select.append(
+                    `<option value="${item.id}">${item.code} - ${item.name}</option>`);
+            });
+        });
+    }
+
+    // Populate pending transfers
+    function populatePendingTransfers() {
+        const select = $('#iti_transfer_out_id');
+        select.empty().append('<option value="">Select Pending Transfer</option>');
+
+        pendingTransfers.forEach(function(transfer) {
+            const itemName = transfer.item ? `${transfer.item.code} - ${transfer.item.name}` :
+                'Unknown Item';
+            const warehouseName = transfer.warehouse ? transfer.warehouse.name :
+                'Unknown Warehouse';
+            select.append(
+                `<option value="${transfer.id}" data-quantity="${Math.abs(transfer.quantity)}">${itemName} from ${warehouseName} (Qty: ${Math.abs(transfer.quantity)})</option>`
+            );
+        });
+    }
+
+    $(document).ready(function() {
+        // Use event delegation to ensure handlers are attached
+        $(document).on('show.bs.modal', '#warehouseTransferModalEnhanced', function() {
+            console.log('Modal opening, loading data...');
             loadWarehouses();
             loadItems();
             loadPendingTransfers();
         });
+
+        // Also trigger on shown event as a fallback
+        $(document).on('shown.bs.modal', '#warehouseTransferModalEnhanced', function() {
+            console.log('Modal shown, checking data...');
+            // Ensure data is loaded even if show event didn't fire
+            const itemSelect = $('#direct_item_id');
+            const warehouseSelect = $('#direct_from_warehouse');
+            if (itemSelect.length > 0 && itemSelect.find('option').length <= 1) {
+                console.log('Items not loaded, triggering loadItems...');
+                loadItems();
+            }
+            if (warehouseSelect.length > 0 && warehouseSelect.find('option').length <= 1) {
+                console.log('Warehouses not loaded, triggering loadWarehouses...');
+                loadWarehouses();
+            }
+        });
+
+        // Also handle button clicks that open the modal
+        $(document).on('click',
+            '[data-target="#warehouseTransferModalEnhanced"], [data-toggle="modal"][data-target="#warehouseTransferModalEnhanced"]',
+            function() {
+                console.log('Transfer Stock button clicked, pre-loading data...');
+                // Pre-load data when button is clicked
+                setTimeout(function() {
+                    loadWarehouses();
+                    loadItems();
+                    loadPendingTransfers();
+                }, 100);
+            });
 
         // Handle transfer type change
         $('#transfer_type').on('change', function() {
@@ -254,93 +378,6 @@
             resetStockInfo();
             $('#transfer_submit_btn').prop('disabled', true);
         });
-
-        // Load warehouses
-        function loadWarehouses() {
-            $.get('{{ route('warehouses.get-warehouses') }}')
-                .done(function(data) {
-                    warehouses = data;
-                    populateWarehouseSelects();
-                })
-                .fail(function() {
-                    showAlert('Error loading warehouses', 'error');
-                });
-        }
-
-        // Load items
-        function loadItems() {
-            $.get('{{ route('inventory.get-items') }}')
-                .done(function(data) {
-                    items = data;
-                    populateItemSelects();
-                })
-                .fail(function() {
-                    showAlert('Error loading items', 'error');
-                });
-        }
-
-        // Load pending transfers
-        function loadPendingTransfers() {
-            $.get('{{ route('warehouses.pending-transfers') }}')
-                .done(function(data) {
-                    pendingTransfers = data;
-                    populatePendingTransfers();
-                })
-                .fail(function() {
-                    showAlert('Error loading pending transfers', 'error');
-                });
-        }
-
-        // Populate warehouse selects
-        function populateWarehouseSelects() {
-            const selects = ['#direct_from_warehouse', '#direct_to_warehouse', '#ito_from_warehouse',
-                '#ito_to_warehouse'
-            ];
-
-            selects.forEach(function(selector) {
-                const select = $(selector);
-                select.empty().append('<option value="">Select Warehouse</option>');
-
-                warehouses.forEach(function(warehouse) {
-                    if (!warehouse.is_transit) { // Only show physical warehouses
-                        select.append(
-                            `<option value="${warehouse.id}">${warehouse.code} - ${warehouse.name}</option>`
-                            );
-                    }
-                });
-            });
-        }
-
-        // Populate item selects
-        function populateItemSelects() {
-            const selects = ['#direct_item_id', '#ito_item_id'];
-
-            selects.forEach(function(selector) {
-                const select = $(selector);
-                select.empty().append('<option value="">Select Item</option>');
-
-                items.forEach(function(item) {
-                    select.append(
-                        `<option value="${item.id}">${item.code} - ${item.name}</option>`);
-                });
-            });
-        }
-
-        // Populate pending transfers
-        function populatePendingTransfers() {
-            const select = $('#iti_transfer_out_id');
-            select.empty().append('<option value="">Select Pending Transfer</option>');
-
-            pendingTransfers.forEach(function(transfer) {
-                const itemName = transfer.item ? `${transfer.item.code} - ${transfer.item.name}` :
-                    'Unknown Item';
-                const warehouseName = transfer.warehouse ? transfer.warehouse.name :
-                'Unknown Warehouse';
-                select.append(
-                    `<option value="${transfer.id}" data-quantity="${Math.abs(transfer.quantity)}">${itemName} from ${warehouseName} (Qty: ${Math.abs(transfer.quantity)})</option>`
-                    );
-            });
-        }
 
         // Handle ITI transfer selection
         $('#iti_transfer_out_id').on('change', function() {
@@ -471,25 +508,25 @@
                 alertDiv.removeClass('alert-info alert-warning alert-danger').addClass('alert-danger');
                 messageSpan.html(
                     `<strong>Insufficient Stock!</strong> Only ${formatNumber(fromStock)} ${selectedItem?.unit_of_measure || 'units'} available in source warehouse.`
-                    );
+                );
                 alertDiv.show();
             } else if (fromStock === quantity) {
                 alertDiv.removeClass('alert-info alert-warning alert-danger').addClass('alert-warning');
                 messageSpan.html(
                     `<strong>Stock Depletion Warning!</strong> This transfer will completely deplete the source warehouse stock.`
-                    );
+                );
                 alertDiv.show();
             } else if (fromStock - quantity < 10) { // Assuming 10 is low stock threshold
                 alertDiv.removeClass('alert-info alert-warning alert-danger').addClass('alert-warning');
                 messageSpan.html(
                     `<strong>Low Stock Alert!</strong> Source warehouse will have only ${formatNumber(fromStock - quantity)} ${selectedItem?.unit_of_measure || 'units'} remaining after transfer.`
-                    );
+                );
                 alertDiv.show();
             } else if (toStock === 0) {
                 alertDiv.removeClass('alert-info alert-warning alert-danger').addClass('alert-info');
                 messageSpan.html(
                     `<strong>New Stock!</strong> This will be the first stock of this item in the destination warehouse.`
-                    );
+                );
                 alertDiv.show();
             }
         }

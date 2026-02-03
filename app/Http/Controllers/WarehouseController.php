@@ -129,7 +129,7 @@ class WarehouseController extends Controller
     {
         return response()->json(
             Warehouse::active()
-                ->select('id', 'code', 'name')
+                ->select('id', 'code', 'name', 'is_transit')
                 ->orderBy('name')
                 ->get()
         );
@@ -249,6 +249,15 @@ class WarehouseController extends Controller
         $pendingTransfers = $this->warehouseService->getPendingTransfers($warehouseId);
 
         return response()->json($pendingTransfers);
+    }
+
+    /**
+     * Show warehouse transfer page
+     */
+    public function showTransferPage()
+    {
+        $this->authorize('warehouse.transfer');
+        return view('warehouses.transfer');
     }
 
     /**
