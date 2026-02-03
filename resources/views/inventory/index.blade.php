@@ -176,31 +176,38 @@
                     }
                 },
                 columns: [{
-                        data: 'code'
+                        data: 'code',
+                        name: 'code'
                     },
                     {
-                        data: 'name'
+                        data: 'name',
+                        name: 'name'
                     },
                     {
-                        data: 'category'
+                        data: 'category',
+                        name: 'category_id'
                     },
                     {
-                        data: 'unit_of_measure'
+                        data: 'unit_of_measure',
+                        name: 'unit_of_measure'
                     },
                     {
                         data: 'purchase_price',
+                        name: 'purchase_price',
                         render: function(data) {
                             return 'Rp ' + parseFloat(data).toLocaleString('id-ID');
                         }
                     },
                     {
                         data: 'selling_price',
+                        name: 'selling_price',
                         render: function(data) {
                             return 'Rp ' + parseFloat(data).toLocaleString('id-ID');
                         }
                     },
                     {
                         data: 'current_stock',
+                        name: 'current_stock',
                         render: function(data, type, row) {
                             const stock = parseInt(data);
                             const minLevel = parseInt(row.min_stock_level);
@@ -216,10 +223,12 @@
                         }
                     },
                     {
-                        data: 'min_stock_level'
+                        data: 'min_stock_level',
+                        name: 'min_stock_level'
                     },
                     {
                         data: 'is_active',
+                        name: 'is_active',
                         render: function(data) {
                             return data ? '<span class="badge badge-success">Active</span>' :
                                 '<span class="badge badge-secondary">Inactive</span>';
@@ -227,6 +236,7 @@
                     },
                     {
                         data: 'actions',
+                        name: 'actions',
                         orderable: false,
                         searchable: false
                     }

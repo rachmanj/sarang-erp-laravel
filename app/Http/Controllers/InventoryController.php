@@ -138,15 +138,15 @@ class InventoryController extends Controller
             $baseUnitId = $data['base_unit_id'];
             $baseUnit = \App\Models\UnitOfMeasure::findOrFail($baseUnitId);
             $data['unit_of_measure'] = $baseUnit->code;
-            
+
             // Remove base_unit_id from data array as it's not a database column
             unset($data['base_unit_id']);
-            
+
             // Convert empty stock level strings to 0 (database default)
             $data['min_stock_level'] = $data['min_stock_level'] ?? 0;
             $data['max_stock_level'] = $data['max_stock_level'] ?? 0;
             $data['reorder_point'] = $data['reorder_point'] ?? 0;
-            
+
             // Set default purchase_price to 0 if not provided (database requires NOT NULL)
             $data['purchase_price'] = $data['purchase_price'] ?? 0;
 
@@ -536,7 +536,7 @@ class InventoryController extends Controller
 
         try {
             $account = $this->purchaseInvoiceService->getAccountForItem($item);
-            
+
             return response()->json([
                 'success' => true,
                 'account_id' => $account->id,
@@ -591,12 +591,47 @@ class InventoryController extends Controller
         // Get total count before pagination
         $totalRecords = $query->count();
 
+        // Apply sorting
+        $order = $request->get('order', []);
+        if (!empty($order) && isset($order[0])) {
+            $orderColumn = $order[0]['column'] ?? 0;
+            $orderDir = $order[0]['dir'] ?? 'asc';
+
+            // Map column indices to database columns
+            $columns = [
+                'code',
+                'name',
+                'category_id', // Will need special handling for category name
+                'unit_of_measure',
+                'purchase_price',
+                'selling_price',
+                'current_stock', // Calculated field, may need special handling
+                'min_stock_level',
+                'is_active'
+            ];
+
+            $orderBy = $columns[$orderColumn] ?? 'name';
+
+            // Handle special cases
+            if ($orderBy === 'category_id') {
+                // Join with categories table for sorting by category name
+                $query->leftJoin('product_categories as pc', 'inventory_items.category_id', '=', 'pc.id')
+                    ->orderBy('pc.name', $orderDir)
+                    ->select('inventory_items.*');
+            } else {
+                // Use table prefix to avoid ambiguity
+                $query->orderBy('inventory_items.' . $orderBy, $orderDir);
+            }
+        } else {
+            // Default sorting
+            $query->orderBy('inventory_items.name', 'asc');
+        }
+
         // Apply DataTables pagination
         $start = $request->get('start', 0);
         $length = $request->get('length', 10);
 
-        $items = $query->orderBy('name')
-            ->skip($start)
+        $items = $query->skip($start)
             ->take($length)
             ->get();
 
