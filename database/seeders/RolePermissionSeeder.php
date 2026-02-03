@@ -36,6 +36,9 @@ class RolePermissionSeeder extends Seeder
             'customers.manage',
             'vendors.view',
             'vendors.manage',
+            // Business Partners (unified customers & suppliers)
+            'business_partners.view',
+            'business_partners.manage',
             'taxcodes.view',
             'taxcodes.manage',
             // Admin RBAC management
