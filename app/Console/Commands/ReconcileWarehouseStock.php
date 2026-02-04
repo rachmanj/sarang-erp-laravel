@@ -130,6 +130,10 @@ class ReconcileWarehouseStock extends Command
                 }
             }
 
+            // Get all existing warehouse stock records for this item
+            $existingWarehouseStocks = InventoryWarehouseStock::where('item_id', $item->id)->get();
+            $processedWarehouseIds = [];
+
             // Update warehouse stock records
             foreach ($warehouseTotals as $warehouseId => $totalQuantity) {
                 $warehouseStock = InventoryWarehouseStock::firstOrCreate(
@@ -151,6 +155,21 @@ class ReconcileWarehouseStock extends Command
 
                 $warehouse = \App\Models\Warehouse::find($warehouseId);
                 $this->info("Updated warehouse '{$warehouse->code}' stock: {$oldQuantity} -> {$totalQuantity}");
+
+                $processedWarehouseIds[] = $warehouseId;
+            }
+
+            // Remove or zero out warehouse stock records that have no transactions
+            foreach ($existingWarehouseStocks as $existingStock) {
+                if (!in_array($existingStock->warehouse_id, $processedWarehouseIds)) {
+                    $warehouse = \App\Models\Warehouse::find($existingStock->warehouse_id);
+                    if ($existingStock->quantity_on_hand != 0) {
+                        $this->warn("Warehouse '{$warehouse->code}' has stock ({$existingStock->quantity_on_hand}) but no transactions. Zeroing out.");
+                        $existingStock->quantity_on_hand = 0;
+                        $existingStock->updateAvailableQuantity();
+                        $existingStock->save();
+                    }
+                }
             }
 
             // Verify reconciliation
@@ -188,15 +207,57 @@ class ReconcileWarehouseStock extends Command
         foreach ($items as $item) {
             try {
                 DB::transaction(function () use ($item, $defaultWarehouseId) {
-                    // Get all transactions with warehouse_id
+                    // Get ALL transactions (including those without warehouse_id)
                     $transactions = InventoryTransaction::where('item_id', $item->id)
-                        ->whereNotNull('warehouse_id')
+                        ->orderBy('transaction_date')
+                        ->orderBy('created_at')
                         ->get();
 
-                    // Group by warehouse and calculate totals
-                    $warehouseTotals = $transactions->groupBy('warehouse_id')->map(function ($group) {
-                        return $group->sum('quantity');
-                    });
+                    // Group transactions by warehouse
+                    $warehouseTotals = [];
+                    $transactionsWithoutWarehouse = [];
+
+                    foreach ($transactions as $transaction) {
+                        if ($transaction->warehouse_id) {
+                            if (!isset($warehouseTotals[$transaction->warehouse_id])) {
+                                $warehouseTotals[$transaction->warehouse_id] = 0;
+                            }
+                            $warehouseTotals[$transaction->warehouse_id] += $transaction->quantity;
+                        } else {
+                            $transactionsWithoutWarehouse[] = $transaction;
+                        }
+                    }
+
+                    // Handle transactions without warehouse_id
+                    if (!empty($transactionsWithoutWarehouse)) {
+                        $targetWarehouseId = null;
+
+                        if ($defaultWarehouseId) {
+                            $targetWarehouseId = $defaultWarehouseId;
+                        } elseif ($item->default_warehouse_id) {
+                            $targetWarehouseId = $item->default_warehouse_id;
+                        } else {
+                            // Skip items without default warehouse and no --warehouse_id provided
+                            return;
+                        }
+
+                        $totalUnallocated = array_sum(array_column($transactionsWithoutWarehouse, 'quantity'));
+
+                        // Update transactions to have warehouse_id
+                        foreach ($transactionsWithoutWarehouse as $transaction) {
+                            $transaction->warehouse_id = $targetWarehouseId;
+                            $transaction->save();
+                        }
+
+                        if (!isset($warehouseTotals[$targetWarehouseId])) {
+                            $warehouseTotals[$targetWarehouseId] = 0;
+                        }
+                        $warehouseTotals[$targetWarehouseId] += $totalUnallocated;
+                    }
+
+                    // Get all existing warehouse stock records for this item
+                    $existingWarehouseStocks = InventoryWarehouseStock::where('item_id', $item->id)->get();
+                    $processedWarehouseIds = [];
 
                     // Update warehouse stock for each warehouse
                     foreach ($warehouseTotals as $warehouseId => $totalQuantity) {
@@ -215,6 +276,19 @@ class ReconcileWarehouseStock extends Command
                         $warehouseStock->quantity_on_hand = $totalQuantity;
                         $warehouseStock->updateAvailableQuantity();
                         $warehouseStock->save();
+
+                        $processedWarehouseIds[] = $warehouseId;
+                    }
+
+                    // Remove or zero out warehouse stock records that have no transactions
+                    foreach ($existingWarehouseStocks as $existingStock) {
+                        if (!in_array($existingStock->warehouse_id, $processedWarehouseIds)) {
+                            if ($existingStock->quantity_on_hand != 0) {
+                                $existingStock->quantity_on_hand = 0;
+                                $existingStock->updateAvailableQuantity();
+                                $existingStock->save();
+                            }
+                        }
                     }
                 });
                 $reconciled++;
