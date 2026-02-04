@@ -64,4 +64,7 @@ Route::middleware(['web', 'auth'])->group(function () {
     Route::get('/units/conversion-factor', [UnitOfMeasureController::class, 'getConversionFactor']);
     Route::get('/units/conversion-preview', [UnitOfMeasureController::class, 'getConversionPreview']);
     Route::post('/units/validate-conversion', [UnitOfMeasureController::class, 'validateConversion']);
+
+    // Menu Search API Routes
+    Route::get('/menu/search', [\App\Http\Controllers\Api\MenuSearchController::class, 'index']);
 });

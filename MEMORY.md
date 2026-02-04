@@ -1,5 +1,5 @@
 **Purpose**: AI's persistent knowledge base for project context and learnings
-**Last Updated**: 2026-02-03 (Warehouse Transfer Search Enhancement - Custom Autocomplete & Search Fix)
+**Last Updated**: 2026-02-04 (Menu Search Bar Implementation)
 
 ## Memory Maintenance Guidelines
 
@@ -572,3 +572,11 @@
 **Solution**: Modified `SalesInvoiceController::post()` to detect opening balance invoices (invoices without `sales_order_id`). For opening balance invoices: Debit AR Account (Piutang Dagang) for revenue+VAT, Credit Revenue Accounts from invoice lines (grouped by account_id), Credit VAT Output Account if applicable. For regular invoices: Maintain existing AR UnInvoice flow (Debit AR UnInvoice, Credit AR Account, Credit VAT Output). Opening balance invoices now properly recognize revenue directly from invoice line accounts instead of assuming AR UnInvoice reduction.
 
 **Key Learning**: Opening balance transactions require different accounting treatment than regular workflow transactions. Service invoices without Delivery Orders need direct revenue recognition from invoice line accounts, not AR UnInvoice reduction. Detection logic based on `sales_order_id` presence distinguishes opening balance from regular invoices. Revenue grouping by account_id ensures proper multi-account revenue recognition for invoices with multiple revenue accounts.
+
+### [080] Menu Search Bar Implementation (2026-02-04) ✅ COMPLETE
+
+**Challenge**: Users needed a faster way to navigate to menu items without manually expanding sidebar menus. With 50+ menu items across multiple sections, finding specific features required multiple clicks and menu expansions, reducing productivity and user experience.
+
+**Solution**: Implemented global menu search bar in navbar with permission-aware filtering. Created `MenuSearchService` to build menu structure programmatically respecting Spatie Permission checks, `MenuSearchController` API endpoint with user/permission-based caching (1-hour TTL), jQuery-based autocomplete component with debounced search (300ms), keyboard navigation (Arrow keys, Enter, Escape), click-to-select functionality, and AdminLTE-styled dropdown results. Search bar positioned in navbar center-left with white background for visibility, includes "Search Menu here" label, and supports Ctrl+K keyboard shortcut to focus.
+
+**Key Learning**: Global menu search significantly improves navigation efficiency in complex ERP systems. Permission-aware filtering ensures users only see accessible menu items, maintaining security while improving discoverability. Client-side caching with server-side permission filtering balances performance and security. Keyboard navigation and shortcuts provide power-user capabilities. White background on dark navbar creates visual contrast for better discoverability. The implementation follows AdminLTE design patterns for consistent user experience.

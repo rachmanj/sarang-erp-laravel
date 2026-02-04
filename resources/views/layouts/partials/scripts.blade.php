@@ -17,6 +17,8 @@
 <script src="{{ asset('adminlte/plugins/datatables-responsive/js/responsive.bootstrap4.min.js') }}"></script>
 <!-- Select2 -->
 <script src="{{ asset('adminlte/plugins/select2/js/select2.full.min.js') }}"></script>
+<!-- Menu Search -->
+<script src="{{ asset('js/menu-search.js') }}"></script>
 
 <script>
     const DISPLAY_TZ = 'Asia/Singapore';

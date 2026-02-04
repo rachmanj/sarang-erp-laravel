@@ -1,5 +1,5 @@
 Purpose: Technical reference for understanding system design and development patterns
-Last Updated: 2026-02-03 (Updated with Warehouse Transfer Custom Autocomplete Search)
+Last Updated: 2026-02-04 (Updated with Menu Search Bar Implementation)
 
 ## Architecture Documentation Guidelines
 
@@ -108,6 +108,7 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 -   **Responsive Design**: Collapsible sidebar with mobile-friendly navigation
 -   **Icon Integration**: FontAwesome icons for visual navigation cues
 -   **Breadcrumb Navigation**: Page-level breadcrumb trails for deep navigation
+-   **Menu Search Bar**: Global search functionality in navbar for quick menu item discovery and navigation with permission-aware filtering, keyboard navigation (Arrow keys, Enter, Escape), and real-time autocomplete results
 
 ## Core Components
 
@@ -647,6 +648,10 @@ The database schema has been consolidated from 51 to 44 migration files for impr
 -   `/reports/open-items/*`: Open Items reporting with comprehensive document status monitoring, aging analysis, and Excel export
 -   `/reports/*`: Comprehensive reporting suite
 -   `/admin/*`: User and role management
+
+### API Endpoints
+
+-   `/api/menu/search`: Menu search API endpoint returning permission-filtered menu items for authenticated users with optional query parameter for server-side filtering
 -   `/admin/approval-workflows/*`: Approval workflow management with CRUD operations, workflow step configuration, and threshold management
 
 ## Data Flow
@@ -1039,6 +1044,66 @@ The Document Navigation & Journal Preview system provides comprehensive workflow
 -   Interactive zoom controls and graph navigation
 -   Clickable document nodes for direct navigation
 -   Comprehensive error handling and loading states
+
+**Menu Search Component (menu-search.js)**
+
+-   jQuery-based autocomplete search functionality
+-   Real-time menu item filtering with 300ms debounce
+-   Keyboard navigation support (Arrow keys, Enter, Escape)
+-   Click-to-select and keyboard-to-select navigation
+-   Text highlighting for matching search terms
+-   Permission-aware menu item display
+-   AdminLTE-styled dropdown results with breadcrumb paths
+-   Keyboard shortcut support (Ctrl+K / Cmd+K to focus)
+
+### Menu Search System Architecture
+
+The Menu Search System provides global search functionality for navigating menu items across the ERP system, enabling users to quickly find and access any menu item without manually navigating through the sidebar hierarchy.
+
+#### Service Layer Architecture
+
+**MenuSearchService**
+
+-   Permission-aware menu structure builder
+-   Extracts menu metadata (title, route, icon, category, breadcrumb, keywords)
+-   Filters menu items based on user permissions using Spatie Permission
+-   Generates searchable menu item array with hierarchical structure preservation
+-   Covers all menu sections: Dashboard, MAIN (Inventory, Purchase, Sales, Fixed Assets, Business Partner, Accounting, Master Data), Reports, and Admin
+
+#### API Architecture
+
+**MenuSearchController**
+
+-   RESTful API endpoint: `GET /api/menu/search`
+-   Returns JSON array of accessible menu items for authenticated user
+-   Caches menu structure per user/permission combination (1-hour TTL)
+-   Supports optional query parameter for server-side filtering
+-   Permission-based access control ensuring users only see accessible menu items
+
+#### Frontend Architecture
+
+**Menu Search Component (menu-search.js)**
+
+-   jQuery-based autocomplete component integrated with AdminLTE
+-   Debounced search input (300ms delay) for performance
+-   Client-side filtering of cached menu items
+-   Keyboard navigation (ArrowDown/ArrowUp for selection, Enter for navigation, Escape to close)
+-   Click-to-select functionality
+-   Text highlighting in search results
+-   Responsive design (hidden on mobile, visible on tablet/desktop)
+-   Keyboard shortcut: Ctrl+K (or Cmd+K on Mac) to focus search input
+
+#### Data Flow Architecture
+
+**Menu Search Flow**
+
+1. **Initialization**: Component loads menu items from `/api/menu/search` endpoint on page load
+2. **Caching**: Menu items cached client-side for fast filtering
+3. **User Input**: User types in search input, triggering debounced search
+4. **Filtering**: Client-side filtering matches search query against menu item titles, breadcrumbs, and keywords
+5. **Results Display**: Filtered results displayed in dropdown with icons, titles, and breadcrumb paths
+6. **Navigation**: User selects item via click or Enter key, navigating to selected route
+7. **Permission Filtering**: Server-side filtering ensures only accessible menu items are returned
 
 ### Data Flow Architecture
 

@@ -1,5 +1,5 @@
 **Purpose**: Record technical decisions and rationale for future reference
-**Last Updated**: 2026-02-03 (Added Warehouse Transfer Search Enhancement - Custom Autocomplete decision)
+**Last Updated**: 2026-02-04 (Added Menu Search Bar Implementation decision)
 
 # Technical Decision Records
 
@@ -29,6 +29,47 @@ Decision: [Title] - [YYYY-MM-DD]
 ---
 
 ## Recent Decisions
+
+### Decision: Menu Search Bar Implementation - 2026-02-04
+
+**Context**: Users needed a faster way to navigate to menu items in the ERP system. With 50+ menu items across multiple hierarchical sections (Dashboard, MAIN, Reports, Admin), finding specific features required multiple clicks and menu expansions, reducing productivity and user experience. The sidebar navigation, while comprehensive, became cumbersome for power users who frequently switch between different modules.
+
+**Options Considered**:
+
+1. **Option A**: Client-side only approach - Generate menu structure server-side in Blade and pass as JavaScript variable.
+
+    - ✅ Pros: Simpler implementation, no API endpoint needed, faster initial load for small menu sets.
+    - ❌ Cons: Larger initial page load, less dynamic, menu changes require page reload, harder to maintain menu structure in JavaScript.
+
+2. **Option B**: API-based approach with server-side permission filtering and client-side caching.
+
+    - ✅ Pros: Dynamic menu loading, permission-aware filtering, better performance with caching, easier to maintain menu structure in PHP service, supports future enhancements (recent searches, favorites).
+    - ❌ Cons: Requires API endpoint, additional service layer, slightly more complex architecture.
+
+**Decision**: Adopt Option B—API-based menu search with server-side permission filtering, client-side caching, and jQuery-based autocomplete component.
+
+**Rationale**:
+
+-   API approach provides better separation of concerns—menu structure logic stays in PHP service layer.
+-   Server-side permission filtering ensures security—users only receive accessible menu items.
+-   Caching per user/permission combination optimizes performance (1-hour TTL).
+-   Client-side filtering provides instant search results without additional API calls.
+-   Easier to maintain—menu structure changes only require updating MenuSearchService.
+-   Scalable architecture supports future enhancements (recent searches, favorites, analytics).
+-   Follows established patterns in the codebase (similar to Document Navigation API).
+-   Permission-aware filtering maintains security while improving discoverability.
+
+**Implementation**:
+
+-   **Service Layer**: Created `MenuSearchService` to build permission-aware menu structure programmatically, respecting Spatie Permission checks (`can()`, `hasAnyPermission()`).
+-   **API Controller**: Created `MenuSearchController` with `GET /api/menu/search` endpoint, user/permission-based caching (1-hour TTL), and optional query parameter for server-side filtering.
+-   **Frontend Component**: Created `menu-search.js` jQuery-based autocomplete with debounced search (300ms), keyboard navigation (Arrow keys, Enter, Escape), click-to-select, text highlighting, and AdminLTE-styled dropdown.
+-   **UI Integration**: Added search bar to navbar (`navbar.blade.php`) with white background for visibility, "Search Menu here" label, and responsive design (hidden on mobile).
+-   **Styling**: Created `menu-search.css` with AdminLTE-compatible styling, proper z-index for dropdown, and mobile-responsive adjustments.
+-   **Routes**: Added API route in `routes/api.php` under `['web', 'auth']` middleware group.
+-   **Keyboard Shortcut**: Implemented Ctrl+K (Cmd+K on Mac) to focus search input for power users.
+
+**Review Date**: 2027-02-04 (after full year of production use to assess usage patterns and potential enhancements).
 
 ### Decision: Approval Workflow Admin UI Implementation - 2025-01-22
 
