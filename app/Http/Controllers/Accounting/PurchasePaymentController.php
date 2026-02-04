@@ -14,6 +14,7 @@ use App\Services\CompanyEntityService;
 use App\Services\PurchaseWorkflowAuditService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Yajra\DataTables\Facades\DataTables;
 
 class PurchasePaymentController extends Controller
@@ -26,7 +27,7 @@ class PurchasePaymentController extends Controller
     ) {
         $this->middleware(['auth']);
         $this->middleware('permission:ap.payments.view')->only(['index', 'show']);
-        $this->middleware('permission:ap.payments.create')->only(['create', 'store']);
+        $this->middleware('permission:ap.payments.create')->only(['create', 'store', 'getAvailableInvoices', 'previewAllocation']);
         $this->middleware('permission:ap.payments.post')->only(['post']);
     }
 
@@ -55,11 +56,57 @@ class PurchasePaymentController extends Controller
             'lines.*.account_id' => ['required', 'integer', 'exists:accounts,id'],
             'lines.*.description' => ['nullable', 'string', 'max:255'],
             'lines.*.amount' => ['required', 'numeric', 'min:0.01'],
+            'allocations' => ['required', 'array', 'min:1'],
+            'allocations.*.invoice_id' => ['required', 'integer', 'exists:purchase_invoices,id'],
+            'allocations.*.amount' => ['required', 'numeric', 'min:0.01'],
         ]);
 
         $entity = $this->companyEntityService->getEntity($request->input('company_entity_id'));
 
-        return DB::transaction(function () use ($data, $entity) {
+        return DB::transaction(function () use ($data, $entity, $request) {
+            // Calculate total payment amount
+            $totalPayment = 0;
+            foreach ($data['lines'] as $l) {
+                $totalPayment += (float)$l['amount'];
+            }
+
+            // Calculate total allocation amount
+            $totalAllocation = 0;
+            foreach ($data['allocations'] as $alloc) {
+                $totalAllocation += (float)$alloc['amount'];
+            }
+
+            // Validate that payment total matches allocation total
+            if (abs($totalPayment - $totalAllocation) > 0.01) {
+                return back()->withErrors(['lines' => 'Payment total must match allocation total.'])->withInput();
+            }
+
+            // Validate allocations don't exceed remaining balances
+            foreach ($data['allocations'] as $alloc) {
+                $invoice = PurchaseInvoice::findOrFail($alloc['invoice_id']);
+
+                // Verify invoice belongs to selected vendor
+                if ($invoice->business_partner_id != $data['business_partner_id']) {
+                    return back()->withErrors(['allocations' => 'Selected invoice does not belong to selected vendor.'])->withInput();
+                }
+
+                // Verify invoice is posted
+                if ($invoice->status !== 'posted') {
+                    return back()->withErrors(['allocations' => 'Invoice must be posted before payment allocation.'])->withInput();
+                }
+
+                // Calculate remaining balance
+                $allocated = DB::table('purchase_payment_allocations')
+                    ->where('invoice_id', $invoice->id)
+                    ->sum('amount');
+                $remaining = (float)$invoice->total_amount - (float)$allocated;
+                $allocAmount = (float)$alloc['amount'];
+
+                if ($allocAmount > $remaining + 0.01) {
+                    return back()->withErrors(['allocations' => "Allocation amount for invoice {$invoice->invoice_no} exceeds remaining balance."])->withInput();
+                }
+            }
+
             $payment = PurchasePayment::create([
                 'payment_no' => null,
                 'date' => $data['date'],
@@ -67,7 +114,7 @@ class PurchasePaymentController extends Controller
                 'company_entity_id' => $entity->id,
                 'description' => $data['description'] ?? null,
                 'status' => 'draft',
-                'total_amount' => 0,
+                'total_amount' => $totalPayment,
             ]);
 
             $paymentNo = $this->documentNumberingService->generateNumber('purchase_payment', $data['date'], [
@@ -75,45 +122,25 @@ class PurchasePaymentController extends Controller
             ]);
             $payment->update(['payment_no' => $paymentNo]);
 
-            $total = 0;
+            // Create payment lines
             foreach ($data['lines'] as $l) {
-                $amount = (float) $l['amount'];
-                $total += $amount;
                 PurchasePaymentLine::create([
                     'payment_id' => $payment->id,
                     'account_id' => $l['account_id'],
                     'description' => $l['description'] ?? null,
-                    'amount' => $amount,
+                    'amount' => (float)$l['amount'],
                 ]);
             }
 
-            $payment->update(['total_amount' => $total]);
-            // Auto-allocate to oldest open vendor invoices
-            $remainingPool = $total;
-            if ($remainingPool > 0) {
-                $open = DB::table('purchase_invoices as pi')
-                    ->leftJoin('purchase_payment_allocations as ppa', 'ppa.invoice_id', '=', 'pi.id')
-                    ->select('pi.id', 'pi.total_amount', DB::raw('COALESCE(SUM(ppa.amount),0) as allocated'), DB::raw('COALESCE(pi.due_date, pi.date) as eff_date'))
-                    ->where('pi.business_partner_id', $payment->business_partner_id)
-                    ->where('pi.status', 'posted')
-                    ->groupBy('pi.id', 'pi.total_amount', 'eff_date')
-                    ->orderBy('eff_date')
-                    ->orderBy('pi.id')
-                    ->get();
-                foreach ($open as $inv) {
-                    $remainingInv = (float)$inv->total_amount - (float)$inv->allocated;
-                    if ($remainingInv <= 0) continue;
-                    if ($remainingPool <= 0) break;
-                    $alloc = min($remainingInv, $remainingPool);
-                    DB::table('purchase_payment_allocations')->insert([
-                        'payment_id' => $payment->id,
-                        'invoice_id' => $inv->id,
-                        'amount' => $alloc,
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ]);
-                    $remainingPool -= $alloc;
-                }
+            // Create explicit allocations
+            foreach ($data['allocations'] as $alloc) {
+                DB::table('purchase_payment_allocations')->insert([
+                    'payment_id' => $payment->id,
+                    'invoice_id' => $alloc['invoice_id'],
+                    'amount' => (float)$alloc['amount'],
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
             }
 
             // Attempt to close related Purchase Invoices if fully paid
@@ -121,7 +148,7 @@ class PurchasePaymentController extends Controller
                 $this->documentClosureService->closePurchaseInvoiceByPayment($payment->id, auth()->id());
             } catch (\Exception $closureException) {
                 // Log closure failure but don't fail the payment creation
-                \Log::warning('Failed to close Purchase Invoices after payment creation', [
+                Log::warning('Failed to close Purchase Invoices after payment creation', [
                     'payment_id' => $payment->id,
                     'error' => $closureException->getMessage()
                 ]);
@@ -156,8 +183,41 @@ class PurchasePaymentController extends Controller
 
     public function show(int $id)
     {
-        $payment = PurchasePayment::with('lines')->findOrFail($id);
-        return view('purchase_payments.show', compact('payment'));
+        $payment = PurchasePayment::with(['lines', 'allocations.invoice'])->findOrFail($id);
+
+        // Load allocations with invoice details
+        $allocations = DB::table('purchase_payment_allocations as ppa')
+            ->join('purchase_invoices as pi', 'pi.id', '=', 'ppa.invoice_id')
+            ->leftJoin('business_partners as bp', 'bp.id', '=', 'pi.business_partner_id')
+            ->select(
+                'ppa.id as allocation_id',
+                'ppa.amount as allocation_amount',
+                'pi.id as invoice_id',
+                'pi.invoice_no',
+                'pi.date as invoice_date',
+                'pi.due_date',
+                'pi.total_amount as invoice_total',
+                'pi.status as invoice_status'
+            )
+            ->where('ppa.payment_id', $id)
+            ->orderBy('pi.date', 'ASC')
+            ->orderBy('pi.invoice_no', 'ASC')
+            ->get();
+
+        // Get creator from audit log if available
+        $creator = null;
+        $auditLog = DB::table('audit_logs')
+            ->where('entity_type', 'purchase_payment')
+            ->where('entity_id', $id)
+            ->where('action', 'created')
+            ->orderBy('created_at', 'ASC')
+            ->first();
+
+        if ($auditLog && $auditLog->user_id) {
+            $creator = DB::table('users')->find($auditLog->user_id);
+        }
+
+        return view('purchase_payments.show', compact('payment', 'allocations', 'creator'));
     }
 
     public function pdf(int $id)
@@ -269,6 +329,58 @@ class PurchasePaymentController extends Controller
             })
             ->rawColumns(['actions'])
             ->toJson();
+    }
+
+    public function getAvailableInvoices(Request $request)
+    {
+        $request->validate([
+            'business_partner_id' => ['required', 'integer', 'exists:business_partners,id'],
+        ]);
+
+        $invoices = DB::table('purchase_invoices as pi')
+            ->leftJoin('purchase_payment_allocations as ppa', 'ppa.invoice_id', '=', 'pi.id')
+            ->select(
+                'pi.id',
+                'pi.invoice_no',
+                'pi.date',
+                'pi.due_date',
+                'pi.total_amount',
+                DB::raw('COALESCE(SUM(ppa.amount), 0) as allocated_amount'),
+                DB::raw('pi.total_amount - COALESCE(SUM(ppa.amount), 0) as remaining_balance'),
+                DB::raw('COALESCE(pi.due_date, pi.date) as effective_due_date'),
+                DB::raw('DATEDIFF(CURDATE(), COALESCE(pi.due_date, pi.date)) as days_overdue')
+            )
+            ->where('pi.business_partner_id', (int)$request->input('business_partner_id'))
+            ->where('pi.status', 'posted')
+            ->where(function ($query) {
+                $query->where('pi.payment_method', '!=', 'cash')
+                    ->orWhere(function ($q) {
+                        $q->whereNull('pi.payment_method')
+                            ->where('pi.is_direct_purchase', 0);
+                    })
+                    ->orWhereNull('pi.is_direct_purchase');
+            })
+            ->groupBy('pi.id', 'pi.invoice_no', 'pi.date', 'pi.due_date', 'pi.total_amount')
+            ->havingRaw('remaining_balance > 0')
+            ->orderBy('effective_due_date', 'ASC')
+            ->orderBy('pi.id', 'ASC')
+            ->get();
+
+        return response()->json([
+            'invoices' => $invoices->map(function ($inv) {
+                return [
+                    'id' => $inv->id,
+                    'invoice_no' => $inv->invoice_no,
+                    'date' => $inv->date,
+                    'due_date' => $inv->due_date,
+                    'total_amount' => (float)$inv->total_amount,
+                    'allocated_amount' => (float)$inv->allocated_amount,
+                    'remaining_balance' => (float)$inv->remaining_balance,
+                    'days_overdue' => (int)$inv->days_overdue,
+                    'is_overdue' => (int)$inv->days_overdue > 0,
+                ];
+            })
+        ]);
     }
 
     public function previewAllocation(Request $request)

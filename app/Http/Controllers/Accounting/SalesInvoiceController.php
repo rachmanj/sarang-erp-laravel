@@ -45,13 +45,13 @@ class SalesInvoiceController extends Controller
         $departments = DB::table('departments')->orderBy('code')->get(['id', 'code', 'name']);
         $entities = $this->companyEntityService->getActiveEntities();
         $defaultEntity = $this->companyEntityService->getDefaultEntity();
-        
+
         $prefill = null;
         $salesQuotation = null;
-        
+
         if ($request->has('quotation_id')) {
             $salesQuotation = SalesQuotation::with(['lines', 'businessPartner', 'companyEntity'])->findOrFail($request->quotation_id);
-            
+
             $prefill = [
                 'date' => now()->toDateString(),
                 'business_partner_id' => $salesQuotation->business_partner_id,
@@ -70,7 +70,7 @@ class SalesInvoiceController extends Controller
                 }),
             ];
         }
-        
+
         return view('sales_invoices.create', compact('accounts', 'customers', 'taxCodes', 'projects', 'departments', 'entities', 'defaultEntity', 'prefill', 'salesQuotation'));
     }
 
@@ -116,7 +116,7 @@ class SalesInvoiceController extends Controller
                 'total_amount' => 0,
                 'company_entity_id' => $entity->id,
             ]);
-            
+
             // Store quotation reference if provided
             if ($salesQuotation && $salesQuotation->quotation_no) {
                 $quotationRef = 'From Quotation: ' . $salesQuotation->quotation_no;
@@ -220,7 +220,7 @@ class SalesInvoiceController extends Controller
         $revenueTotal = 0.0;
         $ppnTotal = 0.0;
         $lines = [];
-        
+
         // Calculate totals first
         foreach ($invoice->lines as $l) {
             $revenueTotal += (float) $l->amount;
@@ -230,40 +230,92 @@ class SalesInvoiceController extends Controller
             }
         }
 
-        // Debit AR UnInvoice (reducing un-invoiced receivable)
-        $lines[] = [
-            'account_id' => $arUnInvoiceAccountId,
-            'debit' => $revenueTotal + $ppnTotal,
-            'credit' => 0,
-            'project_id' => null,
-            'dept_id' => null,
-            'memo' => 'Reduce AR UnInvoice',
-        ];
+        // Check if this is an opening balance invoice (no related Delivery Order)
+        // Opening balance invoices post directly to AR and Revenue accounts
+        $isOpeningBalance = !$invoice->sales_order_id;
 
-        // Note: Revenue recognition is handled by Delivery Order, not Sales Invoice
-        // Sales Invoice only handles receivable transition and VAT
+        if ($isOpeningBalance) {
+            // Opening balance invoice: Post directly to AR and Revenue
+            // Group revenue by account_id for proper revenue recognition
+            $revenueByAccount = [];
+            foreach ($invoice->lines as $l) {
+                $accountId = (int) $l->account_id;
+                if (!isset($revenueByAccount[$accountId])) {
+                    $revenueByAccount[$accountId] = 0;
+                }
+                $revenueByAccount[$accountId] += (float) $l->amount;
+            }
 
-        // Credit VAT Output Account (recognizing VAT liability)
-        if ($ppnTotal > 0) {
+            // Debit AR Account (creating accounts receivable)
             $lines[] = [
-                'account_id' => $ppnOutputId,
-                'debit' => 0,
-                'credit' => $ppnTotal,
+                'account_id' => $arAccountId,
+                'debit' => $revenueTotal + $ppnTotal,
+                'credit' => 0,
                 'project_id' => null,
                 'dept_id' => null,
-                'memo' => 'PPN Keluaran',
+                'memo' => 'Accounts Receivable - Opening Balance',
+            ];
+
+            // Credit Revenue Accounts (from invoice lines)
+            foreach ($revenueByAccount as $accountId => $amount) {
+                $lines[] = [
+                    'account_id' => $accountId,
+                    'debit' => 0,
+                    'credit' => $amount,
+                    'project_id' => null,
+                    'dept_id' => null,
+                    'memo' => 'Revenue Recognition - Opening Balance',
+                ];
+            }
+
+            // Credit VAT Output Account (recognizing VAT liability)
+            if ($ppnTotal > 0) {
+                $lines[] = [
+                    'account_id' => $ppnOutputId,
+                    'debit' => 0,
+                    'credit' => $ppnTotal,
+                    'project_id' => null,
+                    'dept_id' => null,
+                    'memo' => 'PPN Keluaran',
+                ];
+            }
+        } else {
+            // Regular invoice: Post using AR UnInvoice flow
+            // Debit AR UnInvoice (reducing un-invoiced receivable)
+            $lines[] = [
+                'account_id' => $arUnInvoiceAccountId,
+                'debit' => $revenueTotal + $ppnTotal,
+                'credit' => 0,
+                'project_id' => null,
+                'dept_id' => null,
+                'memo' => 'Reduce AR UnInvoice',
+            ];
+
+            // Note: Revenue recognition is handled by Delivery Order, not Sales Invoice
+            // Sales Invoice only handles receivable transition and VAT
+
+            // Credit VAT Output Account (recognizing VAT liability)
+            if ($ppnTotal > 0) {
+                $lines[] = [
+                    'account_id' => $ppnOutputId,
+                    'debit' => 0,
+                    'credit' => $ppnTotal,
+                    'project_id' => null,
+                    'dept_id' => null,
+                    'memo' => 'PPN Keluaran',
+                ];
+            }
+
+            // Credit AR Account (creating accounts receivable for revenue only)
+            $lines[] = [
+                'account_id' => $arAccountId,
+                'debit' => 0,
+                'credit' => $revenueTotal,
+                'project_id' => null,
+                'dept_id' => null,
+                'memo' => 'Accounts Receivable',
             ];
         }
-
-        // Credit AR Account (creating accounts receivable for revenue only)
-        $lines[] = [
-            'account_id' => $arAccountId,
-            'debit' => 0,
-            'credit' => $revenueTotal,
-            'project_id' => null,
-            'dept_id' => null,
-            'memo' => 'Accounts Receivable',
-        ];
 
         DB::transaction(function () use ($invoice, $lines) {
             $jid = $this->posting->postJournal([

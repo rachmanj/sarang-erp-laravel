@@ -58,6 +58,7 @@ Route::prefix('sales-receipts')->group(function () {
 // AP - Purchase Payments
 Route::prefix('purchase-payments')->group(function () {
     Route::get('/', [PurchasePaymentController::class, 'index'])->middleware('permission:ap.payments.view')->name('purchase-payments.index');
+    Route::get('/available-invoices', [PurchasePaymentController::class, 'getAvailableInvoices'])->middleware('permission:ap.payments.create')->name('purchase-payments.availableInvoices');
     Route::get('/preview-allocation', [PurchasePaymentController::class, 'previewAllocation'])->middleware('permission:ap.payments.create')->name('purchase-payments.previewAllocation');
     Route::get('/data', [PurchasePaymentController::class, 'data'])->middleware('permission:ap.payments.view')->name('purchase-payments.data');
     Route::get('/create', [PurchasePaymentController::class, 'create'])->middleware('permission:ap.payments.create')->name('purchase-payments.create');

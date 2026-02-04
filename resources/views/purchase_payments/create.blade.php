@@ -36,32 +36,33 @@
                                 <i class="fas fa-arrow-left"></i> Back to Purchase Payments
                             </a>
                         </div>
-                        <form method="post" action="{{ route('purchase-payments.store') }}">
+                        <form method="post" action="{{ route('purchase-payments.store') }}" id="payment-form">
                             @csrf
                             <div class="card-body pb-1">
+                                <!-- Basic Information Section -->
                                 <div class="row">
-                                    <div class="col-md-4">
+                                    <div class="col-md-3">
                                         <div class="form-group row mb-2">
-                                            <label class="col-sm-3 col-form-label">Date <span
+                                            <label class="col-sm-4 col-form-label">Date <span
                                                     class="text-danger">*</span></label>
-                                            <div class="col-sm-9">
+                                            <div class="col-sm-8">
                                                 <div class="input-group input-group-sm">
                                                     <div class="input-group-prepend">
                                                         <span class="input-group-text"><i
                                                                 class="far fa-calendar-alt"></i></span>
                                                     </div>
-                                                    <input type="date" name="date"
+                                                    <input type="date" name="date" id="payment_date"
                                                         value="{{ old('date', now()->toDateString()) }}"
                                                         class="form-control" required>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="col-md-4">
+                                    <div class="col-md-3">
                                         <div class="form-group row mb-2">
-                                            <label class="col-sm-3 col-form-label">Company <span
+                                            <label class="col-sm-4 col-form-label">Company <span
                                                     class="text-danger">*</span></label>
-                                            <div class="col-sm-9">
+                                            <div class="col-sm-8">
                                                 <select name="company_entity_id" id="company_entity_id"
                                                     class="form-control form-control-sm select2bs4" required>
                                                     @foreach ($entities as $entity)
@@ -74,12 +75,12 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="col-md-4">
+                                    <div class="col-md-3">
                                         <div class="form-group row mb-2">
-                                            <label class="col-sm-3 col-form-label">Vendor <span
+                                            <label class="col-sm-4 col-form-label">Vendor <span
                                                     class="text-danger">*</span></label>
-                                            <div class="col-sm-9">
-                                                <select name="business_partner_id"
+                                            <div class="col-sm-8">
+                                                <select name="business_partner_id" id="business_partner_id"
                                                     class="form-control form-control-sm select2bs4" required>
                                                     <option value="">-- select vendor --</option>
                                                     @foreach ($vendors as $v)
@@ -92,10 +93,10 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="col-md-4">
+                                    <div class="col-md-3">
                                         <div class="form-group row mb-2">
-                                            <label class="col-sm-3 col-form-label">Description</label>
-                                            <div class="col-sm-9">
+                                            <label class="col-sm-4 col-form-label">Description</label>
+                                            <div class="col-sm-8">
                                                 <input type="text" name="description" value="{{ old('description') }}"
                                                     class="form-control form-control-sm" placeholder="Payment description">
                                             </div>
@@ -103,16 +104,76 @@
                                     </div>
                                 </div>
 
-                                <div class="card card-secondary card-outline mt-3 mb-2">
+                                <!-- Invoice Selection Section -->
+                                <div class="card card-success card-outline mt-3 mb-2" id="invoice-selection-card"
+                                    style="display: none;">
+                                    <div class="card-header py-2">
+                                        <h3 class="card-title">
+                                            <i class="fas fa-file-invoice mr-1"></i>
+                                            Select Invoices to Pay
+                                        </h3>
+                                        <div class="float-right">
+                                            <button type="button" class="btn btn-xs btn-info"
+                                                onclick="selectAllInvoices()">
+                                                <i class="fas fa-check-square"></i> Select All
+                                            </button>
+                                            <button type="button" class="btn btn-xs btn-secondary"
+                                                onclick="deselectAllInvoices()">
+                                                <i class="fas fa-square"></i> Deselect All
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="card-body p-0">
+                                        <div class="table-responsive">
+                                            <table class="table table-sm table-striped mb-0" id="invoices-table">
+                                                <thead>
+                                                    <tr>
+                                                        <th style="width: 5%">
+                                                            <input type="checkbox" id="select-all-checkbox"
+                                                                onchange="toggleAllInvoices()">
+                                                        </th>
+                                                        <th style="width: 12%">Invoice #</th>
+                                                        <th style="width: 10%">Date</th>
+                                                        <th style="width: 10%">Due Date</th>
+                                                        <th style="width: 12%" class="text-right">Total Amount</th>
+                                                        <th style="width: 12%" class="text-right">Allocated</th>
+                                                        <th style="width: 12%" class="text-right">Remaining</th>
+                                                        <th style="width: 15%" class="text-right">Allocation Amount <span
+                                                                class="text-danger">*</span></th>
+                                                        <th style="width: 10%">Status</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="invoices-tbody">
+                                                    <tr>
+                                                        <td colspan="9" class="text-center text-muted">
+                                                            <i class="fas fa-info-circle"></i> Select a vendor to load
+                                                            available invoices
+                                                        </td>
+                                                    </tr>
+                                                </tbody>
+                                                <tfoot>
+                                                    <tr>
+                                                        <th colspan="7" class="text-right">Total Allocation:</th>
+                                                        <th class="text-right" id="total-allocation">0.00</th>
+                                                        <th></th>
+                                                    </tr>
+                                                </tfoot>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Payment Lines Section -->
+                                <div class="card card-secondary card-outline mt-3 mb-2" id="payment-lines-card"
+                                    style="display: none;">
                                     <div class="card-header py-2">
                                         <h3 class="card-title">
                                             <i class="fas fa-list-ul mr-1"></i>
                                             Payment Lines
                                         </h3>
-                                        <button type="button" class="btn btn-xs btn-primary float-right"
-                                            onclick="addLine()">
-                                            <i class="fas fa-plus"></i> Add Line
-                                        </button>
+                                        <small class="text-muted float-right mt-2">
+                                            <span id="validation-message" class="text-danger"></span>
+                                        </small>
                                     </div>
                                     <div class="card-body p-0">
                                         <div class="table-responsive">
@@ -121,74 +182,22 @@
                                                     <tr>
                                                         <th style="width: 60%">Bank/Cash Account <span
                                                                 class="text-danger">*</span></th>
-                                                        <th style="width: 20%">Amount <span class="text-danger">*</span>
-                                                        </th>
-                                                        <th style="width: 15%">Notes</th>
+                                                        <th style="width: 25%" class="text-right">Amount <span
+                                                                class="text-danger">*</span></th>
+                                                        <th style="width: 10%">Notes</th>
                                                         <th style="width: 5%">Actions</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody id="lines">
-                                                    <tr class="line-item">
-                                                        <td>
-                                                            <select name="lines[0][account_id]"
-                                                                class="form-control form-control-sm select2bs4" required>
-                                                                @foreach ($accounts as $a)
-                                                                    <option value="{{ $a->id }}">{{ $a->code }}
-                                                                        - {{ $a->name }}</option>
-                                                                @endforeach
-                                                            </select>
-                                                        </td>
-                                                        <td>
-                                                            <input type="number" step="0.01" min="0.01"
-                                                                name="lines[0][amount]"
-                                                                class="form-control form-control-sm text-right amount-input"
-                                                                value="0" required>
-                                                        </td>
-                                                        <td>
-                                                            <input type="text" name="lines[0][description]"
-                                                                class="form-control form-control-sm" placeholder="Notes">
-                                                        </td>
-                                                        <td class="text-center">
-                                                            <button type="button" class="btn btn-xs btn-danger rm">
-                                                                <i class="fas fa-trash-alt"></i>
-                                                            </button>
-                                                        </td>
-                                                    </tr>
+                                                    <!-- Will be auto-populated -->
                                                 </tbody>
                                                 <tfoot>
                                                     <tr>
-                                                        <th class="text-right">Total:</th>
-                                                        <th class="text-right" id="total-amount">0.00</th>
+                                                        <th class="text-right">Total Payment:</th>
+                                                        <th class="text-right" id="total-payment">0.00</th>
                                                         <th colspan="2"></th>
                                                     </tr>
                                                 </tfoot>
-                                            </table>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div class="card card-info card-outline mt-3 mb-2">
-                                    <div class="card-header py-2">
-                                        <h3 class="card-title">
-                                            <i class="fas fa-eye mr-1"></i>
-                                            Allocation Preview
-                                        </h3>
-                                        <button type="button" class="btn btn-xs btn-info float-right"
-                                            onclick="previewAlloc()">
-                                            <i class="fas fa-search"></i> Preview Allocation
-                                        </button>
-                                    </div>
-                                    <div class="card-body p-0">
-                                        <div class="table-responsive">
-                                            <table class="table table-sm table-striped mb-0" id="alloc-table">
-                                                <thead>
-                                                    <tr>
-                                                        <th>Invoice</th>
-                                                        <th class="text-right">Remaining</th>
-                                                        <th class="text-right">Allocate</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody></tbody>
                                             </table>
                                         </div>
                                     </div>
@@ -197,7 +206,7 @@
                             <div class="card-footer">
                                 <div class="row">
                                     <div class="col-md-6">
-                                        <button class="btn btn-primary" type="submit">
+                                        <button class="btn btn-primary" type="submit" id="submit-btn" disabled>
                                             <i class="fas fa-save mr-1"></i> Save Payment
                                         </button>
                                         <a href="{{ route('purchase-payments.index') }}" class="btn btn-default">
@@ -221,106 +230,383 @@
 
 @push('scripts')
     <script>
-        let idx = 1;
+        let availableInvoices = [];
+        let selectedInvoices = new Set();
+        let allocationIndex = 0;
 
         $(document).ready(function() {
-            // Initialize Select2BS4 for all select elements
+            // Initialize Select2BS4
             $('.select2bs4').select2({
                 theme: 'bootstrap4',
                 placeholder: 'Select an option',
                 allowClear: true
             });
 
-            // Remove line
-            $(document).on('click', '.rm', function() {
+            // Load invoices when vendor is selected
+            $('#business_partner_id').on('change', function() {
+                const vendorId = $(this).val();
+                if (vendorId) {
+                    loadAvailableInvoices(vendorId);
+                } else {
+                    hideInvoiceSelection();
+                }
+            });
+
+            // Real-time validation
+            $(document).on('input', '.allocation-amount-input', function() {
+                validateAllocation($(this));
+                updateTotals();
+                validateForm();
+            });
+
+            $(document).on('input', '.payment-amount-input', function() {
+                updateTotals();
+                validateForm();
+            });
+
+            // Remove payment line
+            $(document).on('click', '.remove-payment-line', function() {
                 $(this).closest('tr').remove();
-                updateTotalAmount();
+                updateTotals();
+                validateForm();
             });
-
-            // Update total when amount changes
-            $(document).on('input', '.amount-input', function() {
-                updateTotalAmount();
-            });
-
-            updateTotalAmount();
         });
 
-        function addLine() {
-            const container = document.getElementById('lines');
-            const row = document.createElement('tr');
-            row.className = 'line-item';
-            row.innerHTML = `
-                <td>
-                    <select name="lines[${idx}][account_id]" class="form-control form-control-sm select2bs4" required>
-                        @foreach ($accounts as $a)
-                            <option value="{{ $a->id }}">{{ $a->code }} - {{ $a->name }}</option>
-                        @endforeach
-                    </select>
-                </td>
-                <td>
-                    <input type="number" step="0.01" min="0.01" name="lines[${idx}][amount]" 
-                        class="form-control form-control-sm text-right amount-input" value="0" required>
-                </td>
-                <td>
-                    <input type="text" name="lines[${idx}][description]" class="form-control form-control-sm" placeholder="Notes">
-                </td>
-                <td class="text-center">
-                    <button type="button" class="btn btn-xs btn-danger rm">
-                        <i class="fas fa-trash-alt"></i>
-                    </button>
-                </td>
-            `;
-            container.appendChild(row);
+        async function loadAvailableInvoices(vendorId) {
+            try {
+                const response = await fetch(
+                    `{{ route('purchase-payments.availableInvoices') }}?business_partner_id=${vendorId}`
+                );
+                const data = await response.json();
+                availableInvoices = data.invoices || [];
+                renderInvoiceTable();
+                showInvoiceSelection();
+            } catch (error) {
+                console.error('Error loading invoices:', error);
+                toastr.error('Failed to load invoices. Please try again.');
+            }
+        }
 
-            // Initialize Select2BS4 for the newly added select elements
-            $(row).find('.select2bs4').select2({
+        function renderInvoiceTable() {
+            const tbody = $('#invoices-tbody');
+            tbody.empty();
+            allocationIndex = 0;
+            selectedInvoices.clear();
+
+            if (availableInvoices.length === 0) {
+                tbody.html(
+                    '<tr><td colspan="9" class="text-center text-muted"><i class="fas fa-info-circle"></i> No outstanding invoices found for this vendor</td></tr>'
+                );
+                return;
+            }
+
+            availableInvoices.forEach((invoice) => {
+                const isOverdue = invoice.is_overdue;
+                const rowClass = isOverdue ? 'table-warning' : '';
+                const row = `
+                    <tr class="${rowClass}" data-invoice-id="${invoice.id}">
+                        <td>
+                            <input type="checkbox" class="invoice-checkbox" 
+                                data-invoice-id="${invoice.id}" 
+                                onchange="toggleInvoiceSelection(${invoice.id})">
+                        </td>
+                        <td>${invoice.invoice_no}</td>
+                        <td>${formatDate(invoice.date)}</td>
+                        <td>${invoice.due_date ? formatDate(invoice.due_date) : '-'}</td>
+                        <td class="text-right">${formatCurrency(invoice.total_amount)}</td>
+                        <td class="text-right">${formatCurrency(invoice.allocated_amount)}</td>
+                        <td class="text-right"><strong>${formatCurrency(invoice.remaining_balance)}</strong></td>
+                        <td>
+                            <input type="number" 
+                                step="0.01" 
+                                min="0" 
+                                max="${invoice.remaining_balance}"
+                                class="form-control form-control-sm text-right allocation-amount-input" 
+                                data-invoice-id="${invoice.id}"
+                                data-max="${invoice.remaining_balance}"
+                                name=""
+                                value="0"
+                                disabled
+                                style="display: none;">
+                            <input type="hidden" class="allocation-invoice-id" data-invoice-id="${invoice.id}" name="" value="${invoice.id}">
+                        </td>
+                        <td>
+                            ${isOverdue ? `<span class="badge badge-warning">Overdue ${invoice.days_overdue} days</span>` : '<span class="badge badge-success">Current</span>'}
+                        </td>
+                    </tr>
+                `;
+                tbody.append(row);
+            });
+        }
+
+        function toggleInvoiceSelection(invoiceId) {
+            const checkbox = $(`.invoice-checkbox[data-invoice-id="${invoiceId}"]`);
+            const row = checkbox.closest('tr');
+            const allocationInput = row.find('.allocation-amount-input');
+            const hiddenInput = row.find('.allocation-invoice-id[data-invoice-id="' + invoiceId + '"]');
+
+            if (checkbox.is(':checked')) {
+                selectedInvoices.add(invoiceId);
+                allocationInput.show().prop('disabled', false);
+                const invoice = availableInvoices.find(inv => inv.id === invoiceId);
+                allocationInput.val(invoice.remaining_balance);
+
+                // Assign sequential index
+                const currentIndex = allocationIndex++;
+                allocationInput.attr('name', `allocations[${currentIndex}][amount]`);
+                hiddenInput.attr('name', `allocations[${currentIndex}][invoice_id]`);
+            } else {
+                selectedInvoices.delete(invoiceId);
+                allocationInput.hide().prop('disabled', true).val(0);
+                allocationInput.attr('name', '');
+                hiddenInput.attr('name', '');
+
+                // Rebuild indices to ensure sequential numbering
+                rebuildAllocationIndices();
+            }
+
+            updateTotals();
+            updatePaymentLine();
+            validateForm();
+        }
+
+        function rebuildAllocationIndices() {
+            allocationIndex = 0;
+            $('.invoice-checkbox:checked').each(function() {
+                const invoiceId = $(this).data('invoice-id');
+                const row = $(this).closest('tr');
+                const allocationInput = row.find('.allocation-amount-input');
+                const hiddenInput = row.find('.allocation-invoice-id[data-invoice-id="' + invoiceId + '"]');
+
+                allocationInput.attr('name', `allocations[${allocationIndex}][amount]`);
+                hiddenInput.attr('name', `allocations[${allocationIndex}][invoice_id]`);
+                allocationIndex++;
+            });
+        }
+
+        function selectAllInvoices() {
+            $('.invoice-checkbox').each(function() {
+                if (!$(this).is(':checked')) {
+                    $(this).prop('checked', true).trigger('change');
+                }
+            });
+        }
+
+        function deselectAllInvoices() {
+            $('.invoice-checkbox').each(function() {
+                if ($(this).is(':checked')) {
+                    $(this).prop('checked', false).trigger('change');
+                }
+            });
+        }
+
+        function toggleAllInvoices() {
+            const selectAll = $('#select-all-checkbox').is(':checked');
+            if (selectAll) {
+                selectAllInvoices();
+            } else {
+                deselectAllInvoices();
+            }
+        }
+
+        function validateAllocation(input) {
+            const max = parseFloat(input.data('max'));
+            const value = parseFloat(input.val() || 0);
+
+            if (value > max) {
+                input.val(max);
+                toastr.warning(`Allocation amount cannot exceed remaining balance of ${formatCurrency(max)}`);
+            }
+
+            if (value < 0) {
+                input.val(0);
+            }
+        }
+
+        function updateTotals() {
+            let totalAllocation = 0;
+
+            $('.allocation-amount-input:visible').each(function() {
+                const amount = parseFloat($(this).val() || 0);
+                totalAllocation += amount;
+            });
+
+            $('#total-allocation').text(formatCurrency(totalAllocation));
+
+            // Update payment line total
+            updatePaymentLineAmount(totalAllocation);
+        }
+
+        function updatePaymentLine() {
+            const totalAllocation = parseFloat($('#total-allocation').text().replace(/[^\d.-]/g, '') || 0);
+
+            if (totalAllocation > 0 && selectedInvoices.size > 0) {
+                showPaymentLines();
+                updatePaymentLineAmount(totalAllocation);
+            } else {
+                hidePaymentLines();
+            }
+        }
+
+        function updatePaymentLineAmount(amount) {
+            const linesTbody = $('#lines');
+            const paymentAmountInput = linesTbody.find('.payment-amount-input');
+
+            if (paymentAmountInput.length === 0) {
+                // Create payment line if it doesn't exist
+                createPaymentLine(amount);
+            } else {
+                // Update existing payment line
+                paymentAmountInput.val(amount.toFixed(2));
+            }
+
+            updatePaymentTotal();
+        }
+
+        function createPaymentLine(amount) {
+            const linesTbody = $('#lines');
+            const accounts = @json($accounts);
+            let accountOptions = '';
+            accounts.forEach(account => {
+                accountOptions += `<option value="${account.id}">${account.code} - ${account.name}</option>`;
+            });
+
+            const row = `
+                <tr class="payment-line-item">
+                    <td>
+                        <select name="lines[0][account_id]" class="form-control form-control-sm select2bs4" required>
+                            ${accountOptions}
+                        </select>
+                    </td>
+                    <td>
+                        <input type="number" 
+                            step="0.01" 
+                            min="0.01" 
+                            name="lines[0][amount]" 
+                            class="form-control form-control-sm text-right payment-amount-input" 
+                            value="${amount.toFixed(2)}" 
+                            required>
+                    </td>
+                    <td>
+                        <input type="text" 
+                            name="lines[0][description]" 
+                            class="form-control form-control-sm" 
+                            placeholder="Notes">
+                    </td>
+                    <td class="text-center">
+                        <button type="button" class="btn btn-xs btn-danger remove-payment-line">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+            linesTbody.html(row);
+
+            // Initialize Select2BS4 for the new select
+            $('.select2bs4').select2({
                 theme: 'bootstrap4',
                 placeholder: 'Select an option',
                 allowClear: true
             });
-
-            updateTotalAmount();
-            idx++;
         }
 
-        function updateTotalAmount() {
+        function updatePaymentTotal() {
             let total = 0;
-
-            // Calculate total from all line items
-            $('#lines tr').each(function() {
-                const amount = parseFloat($(this).find('.amount-input').val() || 0);
-                total += amount;
+            $('.payment-amount-input').each(function() {
+                total += parseFloat($(this).val() || 0);
             });
+            $('#total-payment').text(formatCurrency(total));
+        }
 
-            // Update total display with Indonesian number formatting
-            $('#total-amount').text(total.toLocaleString('id-ID', {
+        function validateForm() {
+            const totalAllocation = parseFloat($('#total-allocation').text().replace(/[^\d.-]/g, '') || 0);
+            const totalPayment = parseFloat($('#total-payment').text().replace(/[^\d.-]/g, '') || 0);
+            const diff = Math.abs(totalAllocation - totalPayment);
+            const validationMsg = $('#validation-message');
+            const submitBtn = $('#submit-btn');
+
+            if (selectedInvoices.size === 0) {
+                validationMsg.text('Please select at least one invoice to pay');
+                submitBtn.prop('disabled', true);
+                return false;
+            }
+
+            if (totalAllocation === 0) {
+                validationMsg.text('Please enter allocation amounts for selected invoices');
+                submitBtn.prop('disabled', true);
+                return false;
+            }
+
+            if (diff > 0.01) {
+                validationMsg.text(
+                    `Payment total (${formatCurrency(totalPayment)}) must match allocation total (${formatCurrency(totalAllocation)})`
+                    );
+                submitBtn.prop('disabled', true);
+                return false;
+            }
+
+            validationMsg.text('');
+            submitBtn.prop('disabled', false);
+            return true;
+        }
+
+        function showInvoiceSelection() {
+            $('#invoice-selection-card').slideDown();
+        }
+
+        function hideInvoiceSelection() {
+            $('#invoice-selection-card').slideUp();
+            $('#invoices-tbody').html(
+                '<tr><td colspan="9" class="text-center text-muted"><i class="fas fa-info-circle"></i> Select a vendor to load available invoices</td></tr>'
+            );
+            selectedInvoices.clear();
+        }
+
+        function showPaymentLines() {
+            $('#payment-lines-card').slideDown();
+        }
+
+        function hidePaymentLines() {
+            $('#payment-lines-card').slideUp();
+            $('#lines').empty();
+        }
+
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('id-ID', {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2
-            }));
+            }).format(amount);
         }
 
-        async function previewAlloc() {
-            const amount = Array.from(document.querySelectorAll('input[name^="lines"][name$="[amount]"]'))
-                .reduce((s, el) => s + parseFloat(el.value || 0), 0);
-            const businessPartnerId = document.querySelector('select[name="business_partner_id"]').value;
-            if (!businessPartnerId || amount <= 0) {
-                toastr.warning('Select vendor and enter amount');
-                return;
-            }
-            const params = new URLSearchParams({
-                business_partner_id: businessPartnerId,
-                amount: amount
-            });
-            const res = await fetch(`{{ route('purchase-payments.previewAllocation') }}?${params.toString()}`);
-            const data = await res.json();
-            const tbody = document.querySelector('#alloc-table tbody');
-            tbody.innerHTML = '';
-            data.rows.forEach(r => {
-                const tr = document.createElement('tr');
-                tr.innerHTML =
-                    `<td>${r.invoice_no}</td><td class="text-right">${Number(r.remaining_before).toFixed(2)}</td><td class="text-right">${Number(r.allocate).toFixed(2)}</td>`;
-                tbody.appendChild(tr);
+        function formatDate(dateString) {
+            if (!dateString) return '-';
+            const date = new Date(dateString);
+            return date.toLocaleDateString('id-ID', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric'
             });
         }
+
+        // Form submission validation
+        $('#payment-form').on('submit', function(e) {
+            if (!validateForm()) {
+                e.preventDefault();
+                toastr.error('Please fix the validation errors before submitting');
+                return false;
+            }
+
+            // Clean up unused allocation inputs before submission
+            $('.allocation-amount-input[disabled]').closest('tr').find('.allocation-invoice-id').remove();
+            $('.allocation-amount-input[disabled]').remove();
+
+            // Ensure sequential indices
+            rebuildAllocationIndices();
+        });
+
+        // Initialize if vendor is pre-selected
+        @if (old('business_partner_id'))
+            $('#business_partner_id').trigger('change');
+        @endif
     </script>
 @endpush
