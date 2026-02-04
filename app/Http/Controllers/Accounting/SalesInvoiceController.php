@@ -80,6 +80,7 @@ class SalesInvoiceController extends Controller
             'date' => ['required', 'date'],
             'business_partner_id' => ['required', 'integer', 'exists:business_partners,id'],
             'company_entity_id' => ['required', 'integer', 'exists:company_entities,id'],
+            'is_opening_balance' => ['nullable', 'boolean'],
             'description' => ['nullable', 'string', 'max:255'],
             'lines' => ['required', 'array', 'min:1'],
             'lines.*.account_id' => ['required', 'integer', 'exists:accounts,id'],
@@ -111,6 +112,7 @@ class SalesInvoiceController extends Controller
                 'date' => $data['date'],
                 'business_partner_id' => $data['business_partner_id'],
                 'sales_order_id' => $request->input('sales_order_id'),
+                'is_opening_balance' => $request->boolean('is_opening_balance', false),
                 'description' => $data['description'] ?? null,
                 'status' => 'draft',
                 'total_amount' => 0,
@@ -230,9 +232,9 @@ class SalesInvoiceController extends Controller
             }
         }
 
-        // Check if this is an opening balance invoice (no related Delivery Order)
+        // Check if this is an opening balance invoice
         // Opening balance invoices post directly to AR and Revenue accounts
-        $isOpeningBalance = !$invoice->sales_order_id;
+        $isOpeningBalance = $invoice->is_opening_balance;
 
         if ($isOpeningBalance) {
             // Opening balance invoice: Post directly to AR and Revenue

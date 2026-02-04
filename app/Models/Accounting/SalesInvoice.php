@@ -16,6 +16,7 @@ class SalesInvoice extends Model
         'business_partner_id',
         'company_entity_id',
         'sales_order_id',
+        'is_opening_balance',
         'description',
         'total_amount',
         'status',
@@ -26,6 +27,7 @@ class SalesInvoice extends Model
         'date' => 'date',
         'posted_at' => 'datetime',
         'total_amount' => 'float',
+        'is_opening_balance' => 'boolean',
     ];
 
     protected $auditLogIgnore = ['updated_at', 'created_at'];

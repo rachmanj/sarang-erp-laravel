@@ -15,10 +15,25 @@ class AccountController extends Controller
         $this->middleware('permission:accounts.manage')->only(['create', 'store', 'edit', 'update']);
     }
 
-    public function index()
+    public function index(Request $request)
     {
-        $accounts = Account::query()->orderBy('code')->paginate(20);
-        return view('accounts.index', compact('accounts'));
+        $query = Account::query();
+
+        if ($request->filled('type')) {
+            $query->where('type', $request->type);
+        }
+
+        $accounts = $query->orderBy('code')->paginate(20)->appends($request->query());
+
+        $accountTypes = [
+            'asset' => 'Asset',
+            'liability' => 'Liability',
+            'net_assets' => 'Net Assets',
+            'income' => 'Income',
+            'expense' => 'Expense',
+        ];
+
+        return view('accounts.index', compact('accounts', 'accountTypes'));
     }
 
     public function create()

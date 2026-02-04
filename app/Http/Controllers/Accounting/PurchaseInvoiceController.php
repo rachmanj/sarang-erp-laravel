@@ -50,14 +50,14 @@ class PurchaseInvoiceController extends Controller
         $warehouses = Warehouse::where('name', 'not like', '%Transit%')->orderBy('name')->get();
         $entities = $this->companyEntityService->getActiveEntities();
         $defaultEntity = $this->companyEntityService->getDefaultEntity();
-        
+
         // Only show accounts to accounting users
         $accounts = null;
         $showAccounts = auth()->user()->can('accounts.view');
         if ($showAccounts) {
             $accounts = DB::table('accounts')->where('is_postable', 1)->orderBy('code')->get();
         }
-        
+
         // Load cash accounts (for direct cash purchases)
         $cashAccounts = DB::table('accounts')
             ->where('code', 'LIKE', '1.1.1%')
@@ -65,15 +65,15 @@ class PurchaseInvoiceController extends Controller
             ->where('is_postable', 1)
             ->orderBy('code')
             ->get(['id', 'code', 'name']);
-        
+
         return view('purchase_invoices.create', compact(
-            'accounts', 
-            'vendors', 
-            'taxCodes', 
-            'projects', 
-            'departments', 
+            'accounts',
+            'vendors',
+            'taxCodes',
+            'projects',
+            'departments',
             'warehouses',
-            'entities', 
+            'entities',
             'defaultEntity',
             'showAccounts',
             'cashAccounts'
@@ -83,13 +83,14 @@ class PurchaseInvoiceController extends Controller
     public function store(Request $request)
     {
         $isAccountingUser = auth()->user()->can('accounts.view');
-        
+
         $validationRules = [
             'date' => ['required', 'date'],
             'business_partner_id' => ['required', 'integer', 'exists:business_partners,id'],
             'company_entity_id' => ['required', 'integer', 'exists:company_entities,id'],
             'payment_method' => ['required', 'in:credit,cash'],
             'is_direct_purchase' => ['nullable', 'boolean'],
+            'is_opening_balance' => ['nullable', 'boolean'],
             'cash_account_id' => ['nullable', 'integer', 'exists:accounts,id'],
             'description' => ['nullable', 'string', 'max:255'],
             'lines' => ['required', 'array', 'min:1'],
@@ -102,7 +103,7 @@ class PurchaseInvoiceController extends Controller
             'lines.*.project_id' => ['nullable', 'integer'],
             'lines.*.dept_id' => ['nullable', 'integer'],
         ];
-        
+
         // For accounting users: allow manual account selection OR inventory item
         if ($isAccountingUser) {
             $validationRules['lines.*.account_id'] = ['nullable', 'integer', 'exists:accounts,id'];
@@ -111,7 +112,7 @@ class PurchaseInvoiceController extends Controller
             // For non-accounting users: require inventory item (account will be auto-selected)
             $validationRules['lines.*.inventory_item_id'] = ['required', 'integer', 'exists:inventory_items,id'];
         }
-        
+
         $data = $request->validate($validationRules);
 
         $purchaseOrder = $request->input('purchase_order_id')
@@ -151,9 +152,11 @@ class PurchaseInvoiceController extends Controller
 
             // Auto-set is_direct_purchase: Cash payment without PO/GRPO = Direct Purchase
             $isDirectPurchase = false;
-            if ($data['payment_method'] === 'cash' && 
-                !$request->input('purchase_order_id') && 
-                !$request->input('goods_receipt_id')) {
+            if (
+                $data['payment_method'] === 'cash' &&
+                !$request->input('purchase_order_id') &&
+                !$request->input('goods_receipt_id')
+            ) {
                 $isDirectPurchase = true;
             } else {
                 // Allow manual override via checkbox (for edge cases like credit direct purchase)
@@ -173,6 +176,7 @@ class PurchaseInvoiceController extends Controller
                 'company_entity_id' => $entity->id,
                 'payment_method' => $data['payment_method'],
                 'is_direct_purchase' => $isDirectPurchase,
+                'is_opening_balance' => $request->boolean('is_opening_balance', false),
                 'cash_account_id' => $request->input('cash_account_id'),
             ];
 
@@ -189,17 +193,17 @@ class PurchaseInvoiceController extends Controller
             foreach ($data['lines'] as $l) {
                 $amount = (float) $l['qty'] * (float) $l['unit_price'];
                 $total += $amount;
-                
+
                 // Auto-select account from inventory item if not provided
                 $accountId = $l['account_id'] ?? null;
                 $inventoryItemId = $l['inventory_item_id'] ?? null;
-                
+
                 if (!$accountId && !empty($inventoryItemId)) {
                     try {
                         $item = InventoryItem::find($inventoryItemId);
                         if ($item) {
                             $accountId = $this->purchaseInvoiceService->getAccountIdForItem($item);
-                            
+
                             // Validate warehouse for inventory items
                             if ($item->item_type !== 'service') {
                                 $this->purchaseInvoiceService->validateWarehouseForItem(
@@ -212,15 +216,15 @@ class PurchaseInvoiceController extends Controller
                         throw new \Exception("Line item error: " . $e->getMessage());
                     }
                 }
-                
+
                 if (!$accountId) {
                     throw new \Exception('Account is required. Please select account or inventory item.');
                 }
-                
+
                 // Handle UOM conversion if unit is selected
                 $baseQuantity = (float) $l['qty'];
                 $conversionFactor = 1.0;
-                
+
                 if (!empty($l['order_unit_id']) && !empty($inventoryItemId)) {
                     try {
                         $processedLine = $this->unitConversionService->processOrderLine($l, $inventoryItemId);
@@ -234,7 +238,7 @@ class PurchaseInvoiceController extends Controller
                         // Continue with original values if conversion fails
                     }
                 }
-                
+
                 PurchaseInvoiceLine::create([
                     'invoice_id' => $invoice->id,
                     'inventory_item_id' => $inventoryItemId,
@@ -282,14 +286,19 @@ class PurchaseInvoiceController extends Controller
 
     public function show(int $id)
     {
-        $invoice = PurchaseInvoice::with(['lines', 'paymentAllocations'])->findOrFail($id);
+        $invoice = PurchaseInvoice::with([
+            'lines.inventoryItem',
+            'lines.warehouse',
+            'lines.orderUnit',
+            'paymentAllocations'
+        ])->findOrFail($id);
         return view('purchase_invoices.show', compact('invoice'));
     }
 
     public function edit(int $id)
     {
         $invoice = PurchaseInvoice::with(['lines.inventoryItem', 'lines.warehouse', 'lines.orderUnit'])->findOrFail($id);
-        
+
         // Only allow editing of draft invoices
         if ($invoice->status !== 'draft') {
             return redirect()->route('purchase-invoices.show', $id)
@@ -303,14 +312,14 @@ class PurchaseInvoiceController extends Controller
         $warehouses = Warehouse::where('name', 'not like', '%Transit%')->orderBy('name')->get();
         $entities = $this->companyEntityService->getActiveEntities();
         $defaultEntity = $this->companyEntityService->getDefaultEntity();
-        
+
         // Only show accounts to accounting users
         $accounts = null;
         $showAccounts = auth()->user()->can('accounts.view');
         if ($showAccounts) {
             $accounts = DB::table('accounts')->where('is_postable', 1)->orderBy('code')->get();
         }
-        
+
         // Load cash accounts (for direct cash purchases)
         $cashAccounts = DB::table('accounts')
             ->where('code', 'LIKE', '1.1.1%')
@@ -318,16 +327,16 @@ class PurchaseInvoiceController extends Controller
             ->where('is_postable', 1)
             ->orderBy('code')
             ->get(['id', 'code', 'name']);
-        
+
         return view('purchase_invoices.edit', compact(
             'invoice',
-            'accounts', 
-            'vendors', 
-            'taxCodes', 
-            'projects', 
-            'departments', 
+            'accounts',
+            'vendors',
+            'taxCodes',
+            'projects',
+            'departments',
             'warehouses',
-            'entities', 
+            'entities',
             'defaultEntity',
             'showAccounts',
             'cashAccounts'
@@ -337,7 +346,7 @@ class PurchaseInvoiceController extends Controller
     public function update(Request $request, int $id)
     {
         $invoice = PurchaseInvoice::findOrFail($id);
-        
+
         // Only allow updating draft invoices
         if ($invoice->status !== 'draft') {
             return redirect()->route('purchase-invoices.show', $id)
@@ -345,13 +354,14 @@ class PurchaseInvoiceController extends Controller
         }
 
         $isAccountingUser = auth()->user()->can('accounts.view');
-        
+
         $validationRules = [
             'date' => ['required', 'date'],
             'business_partner_id' => ['required', 'integer', 'exists:business_partners,id'],
             'company_entity_id' => ['required', 'integer', 'exists:company_entities,id'],
             'payment_method' => ['required', 'in:credit,cash'],
             'is_direct_purchase' => ['nullable', 'boolean'],
+            'is_opening_balance' => ['nullable', 'boolean'],
             'description' => ['nullable', 'string', 'max:255'],
             'lines' => ['required', 'array', 'min:1'],
             'lines.*.description' => ['nullable', 'string', 'max:255'],
@@ -363,7 +373,7 @@ class PurchaseInvoiceController extends Controller
             'lines.*.project_id' => ['nullable', 'integer'],
             'lines.*.dept_id' => ['nullable', 'integer'],
         ];
-        
+
         // For accounting users: allow manual account selection OR inventory item
         if ($isAccountingUser) {
             $validationRules['lines.*.account_id'] = ['nullable', 'integer', 'exists:accounts,id'];
@@ -372,7 +382,7 @@ class PurchaseInvoiceController extends Controller
             // For non-accounting users: require inventory item (account will be auto-selected)
             $validationRules['lines.*.inventory_item_id'] = ['required', 'integer', 'exists:inventory_items,id'];
         }
-        
+
         $data = $request->validate($validationRules);
 
         $entity = $this->companyEntityService->resolveFromModel(
@@ -383,9 +393,11 @@ class PurchaseInvoiceController extends Controller
         return DB::transaction(function () use ($data, $request, $invoice, $entity, $isAccountingUser) {
             // Auto-set is_direct_purchase: Cash payment without PO/GRPO = Direct Purchase
             $isDirectPurchase = false;
-            if ($data['payment_method'] === 'cash' && 
-                !$invoice->purchase_order_id && 
-                !$invoice->goods_receipt_id) {
+            if (
+                $data['payment_method'] === 'cash' &&
+                !$invoice->purchase_order_id &&
+                !$invoice->goods_receipt_id
+            ) {
                 $isDirectPurchase = true;
             } else {
                 // Allow manual override via checkbox (for edge cases like credit direct purchase)
@@ -400,6 +412,7 @@ class PurchaseInvoiceController extends Controller
                 'description' => $data['description'] ?? null,
                 'payment_method' => $data['payment_method'],
                 'is_direct_purchase' => $isDirectPurchase,
+                'is_opening_balance' => $request->boolean('is_opening_balance', false),
                 'cash_account_id' => $request->input('cash_account_id'),
             ]);
 
@@ -411,17 +424,17 @@ class PurchaseInvoiceController extends Controller
             foreach ($data['lines'] as $l) {
                 $amount = (float) $l['qty'] * (float) $l['unit_price'];
                 $total += $amount;
-                
+
                 // Auto-select account from inventory item if not provided
                 $accountId = $l['account_id'] ?? null;
                 $inventoryItemId = $l['inventory_item_id'] ?? null;
-                
+
                 if (!$accountId && !empty($inventoryItemId)) {
                     try {
                         $item = InventoryItem::find($inventoryItemId);
                         if ($item) {
                             $accountId = $this->purchaseInvoiceService->getAccountIdForItem($item);
-                            
+
                             // Validate warehouse for inventory items
                             if ($item->item_type !== 'service') {
                                 $this->purchaseInvoiceService->validateWarehouseForItem(
@@ -434,15 +447,15 @@ class PurchaseInvoiceController extends Controller
                         throw new \Exception("Line item error: " . $e->getMessage());
                     }
                 }
-                
+
                 if (!$accountId) {
                     throw new \Exception('Account is required. Please select account or inventory item.');
                 }
-                
+
                 // Handle UOM conversion if unit is selected
                 $baseQuantity = (float) $l['qty'];
                 $conversionFactor = 1.0;
-                
+
                 if (!empty($l['order_unit_id']) && !empty($inventoryItemId)) {
                     try {
                         $processedLine = $this->unitConversionService->processOrderLine($l, $inventoryItemId);
@@ -456,7 +469,7 @@ class PurchaseInvoiceController extends Controller
                         // Continue with original values if conversion fails
                     }
                 }
-                
+
                 PurchaseInvoiceLine::create([
                     'invoice_id' => $invoice->id,
                     'inventory_item_id' => $inventoryItemId,
@@ -487,14 +500,14 @@ class PurchaseInvoiceController extends Controller
     {
         try {
             $invoice = PurchaseInvoice::with(['lines.inventoryItem', 'lines.warehouse'])->findOrFail($id);
-            
+
             if ($invoice->status === 'posted') {
                 return back()->with('success', 'Already posted');
             }
 
             DB::transaction(function () use ($invoice) {
-                // Create inventory transactions for direct purchases
-                if ($invoice->is_direct_purchase) {
+                // Create inventory transactions for direct purchases (but NOT for opening balance invoices)
+                if ($invoice->is_direct_purchase && !$invoice->is_opening_balance) {
                     foreach ($invoice->lines as $line) {
                         if ($line->inventory_item_id) {
                             try {
@@ -581,18 +594,18 @@ class PurchaseInvoiceController extends Controller
                 }
             }
 
-            // Delete inventory transactions if any (for direct purchases)
-            if ($invoice->is_direct_purchase) {
+            // Delete inventory transactions if any (for direct purchases, but not opening balance)
+            if ($invoice->is_direct_purchase && !$invoice->is_opening_balance) {
                 $inventoryTransactions = $invoice->inventoryTransactions;
                 $itemsToUpdate = [];
-                
+
                 foreach ($inventoryTransactions as $transaction) {
                     try {
                         // Track items that need valuation updates
                         if (!in_array($transaction->item_id, $itemsToUpdate)) {
                             $itemsToUpdate[] = $transaction->item_id;
                         }
-                        
+
                         // Reverse inventory transaction by creating opposite transaction
                         \App\Models\InventoryTransaction::create([
                             'item_id' => $transaction->item_id,
@@ -619,7 +632,7 @@ class PurchaseInvoiceController extends Controller
                         // Continue even if inventory reversal fails
                     }
                 }
-                
+
                 // Update valuations for affected items after reversing transactions
                 foreach ($itemsToUpdate as $itemId) {
                     try {
@@ -756,7 +769,7 @@ class PurchaseInvoiceController extends Controller
         $ppnTotal = 0.0;
         $withholdingTotal = 0.0;
         $lines = [];
-        
+
         foreach ($invoice->lines as $l) {
             $expenseTotal += (float) $l->amount;
             if (!empty($l->tax_code_id)) {

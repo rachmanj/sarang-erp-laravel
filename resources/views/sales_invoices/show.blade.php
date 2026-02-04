@@ -68,6 +68,15 @@
                             <p>Customer:
                                 {{ optional(DB::table('business_partners')->find($invoice->business_partner_id))->name }}
                             </p>
+                            @if ($invoice->is_opening_balance)
+                                <p>
+                                    <span class="badge badge-warning">
+                                        <i class="fas fa-info-circle"></i> Opening Balance Invoice
+                                    </span>
+                                    <small class="text-muted ml-2">This invoice posts directly to AR and Revenue
+                                        accounts</small>
+                                </p>
+                            @endif
                             <p>Description: {{ $invoice->description }}</p>
                             @if (!empty($invoice->sales_order_id))
                                 <p><strong>Related:</strong> <a

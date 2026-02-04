@@ -26,6 +26,7 @@ class PurchaseInvoice extends Model
         'due_date',
         'payment_method',
         'is_direct_purchase',
+        'is_opening_balance',
         'cash_account_id',
     ];
 
@@ -34,6 +35,7 @@ class PurchaseInvoice extends Model
         'posted_at' => 'datetime',
         'total_amount' => 'float',
         'is_direct_purchase' => 'boolean',
+        'is_opening_balance' => 'boolean',
     ];
 
     protected $auditLogIgnore = ['updated_at', 'created_at'];

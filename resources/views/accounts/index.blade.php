@@ -18,6 +18,36 @@
                     <a href="{{ route('accounts.create') }}" class="btn btn-sm btn-primary">Create</a>
                 @endcan
             </div>
+            <div class="card card-primary card-outline mb-3">
+                <div class="card-body">
+                    <form method="GET" action="{{ route('accounts.index') }}" id="filterForm">
+                        <div class="row">
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label for="type">Account Type</label>
+                                    <select name="type" id="type" class="form-control form-control-sm">
+                                        <option value="">All Types</option>
+                                        @foreach ($accountTypes as $value => $label)
+                                            <option value="{{ $value }}"
+                                                {{ request('type') == $value ? 'selected' : '' }}>
+                                                {{ $label }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-3 d-flex align-items-end">
+                                <div class="form-group mb-0">
+                                    <button type="submit" class="btn btn-sm btn-primary">Filter</button>
+                                    @if (request('type'))
+                                        <a href="{{ route('accounts.index') }}" class="btn btn-sm btn-secondary">Clear</a>
+                                    @endif
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
             @if (session('success'))
                 <script>
                     toastr.success(@json(session('success')));
@@ -57,3 +87,13 @@
         </div>
     </section>
 @endsection
+
+@push('scripts')
+    <script>
+        $(document).ready(function() {
+            $('#type').on('change', function() {
+                $('#filterForm').submit();
+            });
+        });
+    </script>
+@endpush

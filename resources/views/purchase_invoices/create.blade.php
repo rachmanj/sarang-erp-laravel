@@ -106,8 +106,12 @@
                                             <div class="col-sm-9">
                                                 <select name="payment_method" id="payment_method"
                                                     class="form-control form-control-sm" required>
-                                                    <option value="credit" {{ old('payment_method', 'credit') == 'credit' ? 'selected' : '' }}>Credit</option>
-                                                    <option value="cash" {{ old('payment_method') == 'cash' ? 'selected' : '' }}>Cash</option>
+                                                    <option value="credit"
+                                                        {{ old('payment_method', 'credit') == 'credit' ? 'selected' : '' }}>
+                                                        Credit</option>
+                                                    <option value="cash"
+                                                        {{ old('payment_method') == 'cash' ? 'selected' : '' }}>Cash
+                                                    </option>
                                                 </select>
                                             </div>
                                         </div>
@@ -139,7 +143,27 @@
                                                         </option>
                                                     @endforeach
                                                 </select>
-                                                <small class="form-text text-muted">Leave empty to use default cash account</small>
+                                                <small class="form-text text-muted">Leave empty to use default cash
+                                                    account</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="form-group row mb-2">
+                                            <div class="col-sm-9 offset-sm-3">
+                                                <div class="form-check">
+                                                    <input type="checkbox" name="is_opening_balance" id="is_opening_balance"
+                                                        value="1" class="form-check-input"
+                                                        {{ old('is_opening_balance') ? 'checked' : '' }}>
+                                                    <label class="form-check-label" for="is_opening_balance">
+                                                        Opening Balance Invoice
+                                                    </label>
+                                                </div>
+                                                <small class="form-text text-muted">
+                                                    <i class="fas fa-info-circle"></i> Check this for invoices recorded as
+                                                    opening balance.
+                                                    These invoices will NOT affect inventory quantities.
+                                                </small>
                                             </div>
                                         </div>
                                     </div>
@@ -150,8 +174,9 @@
                                         <div class="form-group row mb-2">
                                             <label class="col-sm-3 col-form-label">Description</label>
                                             <div class="col-sm-9">
-                                                <input type="text" name="description" value="{{ old('description') }}"
-                                                    class="form-control form-control-sm" placeholder="Invoice description">
+                                                <input type="text" name="description"
+                                                    value="{{ old('description') }}" class="form-control form-control-sm"
+                                                    placeholder="Invoice description">
                                             </div>
                                         </div>
                                     </div>
@@ -188,15 +213,18 @@
                                             <table class="table table-sm table-striped mb-0" id="lines-table">
                                                 <thead>
                                                     <tr>
-                                                        @if($showAccounts ?? false)
-                                                            <th style="width: 12%">Account <span class="text-danger">*</span></th>
+                                                        @if ($showAccounts ?? false)
+                                                            <th style="width: 12%">Account <span
+                                                                    class="text-danger">*</span></th>
                                                         @endif
-                                                        <th style="width: {{ $showAccounts ? '12%' : '14%' }}">Item <span class="text-danger">*</span></th>
+                                                        <th style="width: {{ $showAccounts ? '12%' : '14%' }}">Item <span
+                                                                class="text-danger">*</span></th>
                                                         <th style="width: 8%">Warehouse</th>
                                                         <th style="width: 10%">Description</th>
                                                         <th style="width: 6%">Qty <span class="text-danger">*</span></th>
                                                         <th style="width: 8%">UOM</th>
-                                                        <th style="width: 8%">Unit Price <span class="text-danger">*</span></th>
+                                                        <th style="width: 8%">Unit Price <span
+                                                                class="text-danger">*</span></th>
                                                         <th style="width: 5%">VAT</th>
                                                         <th style="width: 5%">WTax</th>
                                                         <th style="width: 9%">Amount</th>
@@ -207,30 +235,36 @@
                                                 </thead>
                                                 <tbody id="lines">
                                                     <tr class="line-item">
-                                                        @if($showAccounts ?? false)
+                                                        @if ($showAccounts ?? false)
                                                             <td>
                                                                 <select name="lines[0][account_id]"
                                                                     class="form-control form-control-sm select2bs4 account-select">
                                                                     <option value="">-- select account --</option>
                                                                     @foreach ($accounts as $a)
                                                                         <option value="{{ $a->id }}">
-                                                                            {{ $a->code }} - {{ $a->name }}</option>
+                                                                            {{ $a->code }} - {{ $a->name }}
+                                                                        </option>
                                                                     @endforeach
                                                                 </select>
-                                                                <small class="text-muted d-block account-display-0" style="display: none;"></small>
+                                                                <small class="text-muted d-block account-display-0"
+                                                                    style="display: none;"></small>
                                                             </td>
                                                         @else
                                                             <td style="display: none;">
-                                                                <input type="hidden" name="lines[0][account_id]" class="account-input" value="">
-                                                                <small class="text-muted d-block account-display-0" style="display: none;"></small>
+                                                                <input type="hidden" name="lines[0][account_id]"
+                                                                    class="account-input" value="">
+                                                                <small class="text-muted d-block account-display-0"
+                                                                    style="display: none;"></small>
                                                             </td>
                                                         @endif
                                                         <td>
-                                                            <button type="button" class="btn btn-sm btn-secondary btn-select-item" 
+                                                            <button type="button"
+                                                                class="btn btn-sm btn-secondary btn-select-item"
                                                                 onclick="openItemSelectionModal(0)" title="Select Item">
                                                                 <i class="fas fa-search"></i> Select Item
                                                             </button>
-                                                            <input type="hidden" name="lines[0][inventory_item_id]" class="item-id-input" value="">
+                                                            <input type="hidden" name="lines[0][inventory_item_id]"
+                                                                class="item-id-input" value="">
                                                             <div class="mt-1">
                                                                 <span class="item-name-display-0 text-muted small"></span>
                                                             </div>
@@ -240,7 +274,8 @@
                                                                 class="form-control form-control-sm select2bs4 warehouse-select">
                                                                 <option value="">-- select --</option>
                                                                 @foreach ($warehouses as $w)
-                                                                    <option value="{{ $w->id }}">{{ $w->name }}</option>
+                                                                    <option value="{{ $w->id }}">
+                                                                        {{ $w->name }}</option>
                                                                 @endforeach
                                                             </select>
                                                         </td>
@@ -256,10 +291,13 @@
                                                                 value="1" required>
                                                         </td>
                                                         <td>
-                                                            <select name="lines[0][order_unit_id]" class="form-control form-control-sm unit-select select2bs4" data-line-idx="0">
+                                                            <select name="lines[0][order_unit_id]"
+                                                                class="form-control form-control-sm unit-select select2bs4"
+                                                                data-line-idx="0">
                                                                 <option value="">Select Unit</option>
                                                             </select>
-                                                            <div class="conversion-preview mt-1" style="font-size: 0.75rem; color: #6c757d;"></div>
+                                                            <div class="conversion-preview mt-1"
+                                                                style="font-size: 0.75rem; color: #6c757d;"></div>
                                                         </td>
                                                         <td>
                                                             <input type="number" step="0.01" min="0"
@@ -314,7 +352,8 @@
                                                 </tbody>
                                                 <tfoot>
                                                     <tr>
-                                                        <th colspan="{{ ($showAccounts ?? false) ? '4' : '3' }}" class="text-right">Original Amount:</th>
+                                                        <th colspan="{{ $showAccounts ?? false ? '4' : '3' }}"
+                                                            class="text-right">Original Amount:</th>
                                                         <th class="text-right" id="original-amount">0.00</th>
                                                         <th class="text-right" id="total-vat">0.00</th>
                                                         <th class="text-right" id="total-wtax">0.00</th>
@@ -322,7 +361,8 @@
                                                         <th colspan="3"></th>
                                                     </tr>
                                                     <tr>
-                                                        <th colspan="{{ ($showAccounts ?? false) ? '4' : '3' }}" class="text-right">Amount Due:</th>
+                                                        <th colspan="{{ $showAccounts ?? false ? '4' : '3' }}"
+                                                            class="text-right">Amount Due:</th>
                                                         <th colspan="4" class="text-right" id="amount-due">0.00</th>
                                                         <th colspan="3"></th>
                                                     </tr>
@@ -372,6 +412,132 @@
                 allowClear: true
             });
 
+            // Handle prefill data from GRPO
+            @if (isset($prefill))
+                const prefill = @json($prefill);
+
+                // Prefill header fields
+                if (prefill.date) {
+                    $('input[name="date"]').val(prefill.date);
+                }
+                if (prefill.business_partner_id) {
+                    $('select[name="business_partner_id"]').val(prefill.business_partner_id).trigger('change');
+                }
+                if (prefill.company_entity_id) {
+                    $('select[name="company_entity_id"]').val(prefill.company_entity_id).trigger('change');
+                }
+                if (prefill.description) {
+                    $('input[name="description"]').val(prefill.description);
+                }
+
+                // Prefill lines
+                if (prefill.lines && prefill.lines.length > 0) {
+                    // Remove the default empty line
+                    $('#lines tr:first').remove();
+                    idx = 0;
+
+                    prefill.lines.forEach(function(lineData, arrayIndex) {
+                        if (arrayIndex > 0) {
+                            addLine();
+                        }
+
+                        const row = $('#lines tr').eq(arrayIndex);
+                        const lineIndex = arrayIndex; // Use array index as line index
+
+                        // Set account
+                        if (lineData.account_id) {
+                            row.find('.account-select, .account-input').val(lineData.account_id);
+                            if (row.find('.account-select').length) {
+                                row.find('.account-select').trigger('change');
+                            }
+                        }
+
+                        // Set inventory item
+                        if (lineData.inventory_item_id) {
+                            row.find('.item-id-input').val(lineData.inventory_item_id);
+
+                            // Load item details and account via AJAX
+                            $.ajax({
+                                url: `/inventory/api/items/${lineData.inventory_item_id}/account`,
+                                method: 'GET',
+                                success: function(response) {
+                                    if (response.success) {
+                                        // Update account field
+                                        const accountInput = row.find('.account-input');
+                                        const accountSelect = row.find('.account-select');
+
+                                        if (accountInput.length) {
+                                            accountInput.val(response.account_id);
+                                        }
+                                        if (accountSelect.length) {
+                                            accountSelect.val(response.account_id).trigger(
+                                                'change');
+                                        }
+
+                                        // Show account info - find the account display element
+                                        const accountDisplay = row.find(
+                                            '[class*="account-display"]');
+                                        if (accountDisplay.length) {
+                                            accountDisplay.text(
+                                                `${response.account_code} - ${response.account_name}`
+                                            ).show();
+                                        }
+                                    }
+                                }
+                            });
+
+                            // Load item name
+                            $.get('/purchase-orders/api/item/' + lineData.inventory_item_id, function(
+                                item) {
+                                const itemDisplay = row.find('[class*="item-name-display"]');
+                                if (itemDisplay.length) {
+                                    itemDisplay.text(item.code + ' - ' + item.name).show();
+                                }
+                            }).fail(function() {
+                                // Fallback: just show item ID
+                                const itemDisplay = row.find('[class*="item-name-display"]');
+                                if (itemDisplay.length) {
+                                    itemDisplay.text('Item #' + lineData.inventory_item_id).show();
+                                }
+                            });
+
+                            // Load units for the item
+                            loadItemUnits(lineData.inventory_item_id, row);
+                        }
+
+                        // Set warehouse
+                        if (lineData.warehouse_id) {
+                            row.find('.warehouse-select').val(lineData.warehouse_id).trigger('change');
+                        }
+
+                        // Set description
+                        if (lineData.description) {
+                            row.find('input[name*="[description]"]').val(lineData.description);
+                        }
+
+                        // Set quantity and price
+                        if (lineData.qty) {
+                            row.find('.qty-input').val(lineData.qty).trigger('input');
+                        }
+                        if (lineData.unit_price) {
+                            row.find('.price-input').val(lineData.unit_price).trigger('input');
+                        }
+
+                        // Set tax code (convert to VAT/WTax rates if needed)
+                        if (lineData.tax_code_id) {
+                            // You may need to fetch tax code details to set VAT/WTax rates
+                            // For now, we'll leave it as is since the form uses VAT/WTax rates
+                        }
+
+                        // Update line amount
+                        updateLineAmount(row);
+                    });
+
+                    idx = prefill.lines.length;
+                    updateTotals();
+                }
+            @endif
+
             // Remove line
             $(document).on('click', '.rm', function() {
                 $(this).closest('tr').remove();
@@ -397,13 +563,13 @@
             const container = document.getElementById('lines');
             const row = document.createElement('tr');
             row.className = 'line-item';
-            
-            const showAccounts = {{ ($showAccounts ?? false) ? 'true' : 'false' }};
+
+            const showAccounts = {{ $showAccounts ?? false ? 'true' : 'false' }};
             const accountSelect = showAccounts ? `
                 <td>
                     <select name="lines[${idx}][account_id]" class="form-control form-control-sm select2bs4 account-select">
                         <option value="">-- select account --</option>
-                        @if($showAccounts ?? false)
+                        @if ($showAccounts ?? false)
                             @foreach ($accounts as $a)
                                 <option value="{{ $a->id }}">{{ $a->code }} - {{ $a->name }}</option>
                             @endforeach
@@ -417,7 +583,7 @@
                     <small class="text-muted d-block account-display-${idx}" style="display: none;"></small>
                 </td>
             `;
-            
+
             row.innerHTML = accountSelect + `
                 <td>
                     <button type="button" class="btn btn-sm btn-secondary btn-select-item" 
@@ -522,7 +688,7 @@
             const type = $('#searchType').val();
 
             $.ajax({
-                url: '{{ route("inventory.search") }}',
+                url: '{{ route('inventory.search') }}',
                 method: 'GET',
                 data: {
                     code: code,
@@ -584,18 +750,23 @@
 
             // Previous button
             if (pagination.current_page > 1) {
-                paginationEl.append(`<li class="page-item"><a class="page-link" href="#" data-page="${pagination.current_page - 1}">Previous</a></li>`);
+                paginationEl.append(
+                    `<li class="page-item"><a class="page-link" href="#" data-page="${pagination.current_page - 1}">Previous</a></li>`
+                );
             }
 
             // Page numbers
             for (let i = 1; i <= pagination.last_page; i++) {
                 const active = i === pagination.current_page ? 'active' : '';
-                paginationEl.append(`<li class="page-item ${active}"><a class="page-link" href="#" data-page="${i}">${i}</a></li>`);
+                paginationEl.append(
+                    `<li class="page-item ${active}"><a class="page-link" href="#" data-page="${i}">${i}</a></li>`);
             }
 
             // Next button
             if (pagination.current_page < pagination.last_page) {
-                paginationEl.append(`<li class="page-item"><a class="page-link" href="#" data-page="${pagination.current_page + 1}">Next</a></li>`);
+                paginationEl.append(
+                    `<li class="page-item"><a class="page-link" href="#" data-page="${pagination.current_page + 1}">Next</a></li>`
+                );
             }
         }
 
@@ -628,7 +799,7 @@
             // Update item fields
             $(`input[name="lines[${lineIndex}][inventory_item_id]"]`).val(itemId);
             $(`.item-name-display-${lineIndex}`).text(`${itemCode} - ${itemName}`).show();
-            
+
             // Update price
             $(`input[name="lines[${lineIndex}][unit_price]"]`).val(itemPrice).trigger('input');
 
@@ -641,14 +812,14 @@
                         // Update account field (hidden or visible)
                         const accountInput = $(`input[name="lines[${lineIndex}][account_id]"]`);
                         const accountSelect = $(`select[name="lines[${lineIndex}][account_id]"]`);
-                        
+
                         if (accountInput.length) {
                             accountInput.val(response.account_id);
                         }
                         if (accountSelect.length) {
                             accountSelect.val(response.account_id).trigger('change');
                         }
-                        
+
                         // Show account info
                         $(`.account-display-${lineIndex}`)
                             .text(`${response.account_code} - ${response.account_name}`)
@@ -841,7 +1012,7 @@
             const paymentMethod = $('#payment_method').val();
             const hasPO = $('input[name="purchase_order_id"]').length > 0 && $('input[name="purchase_order_id"]').val();
             const hasGRPO = $('input[name="goods_receipt_id"]').length > 0 && $('input[name="goods_receipt_id"]').val();
-            
+
             // Show cash account field when: Cash payment AND no PO/GRPO (direct purchase)
             if (paymentMethod === 'cash' && !hasPO && !hasGRPO) {
                 $('#cash_account_field').show();

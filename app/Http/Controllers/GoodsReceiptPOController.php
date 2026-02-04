@@ -112,13 +112,14 @@ class GoodsReceiptPOController extends Controller
                 $item = InventoryItem::find($l['item_id']);
                 if ($item) {
                     try {
+                        $description = $l['description'] ?? $item->name;
                         $this->inventoryService->processPurchaseTransaction(
                             $l['item_id'],
                             (float)$l['qty'],
                             $item->purchase_price,
                             'goods_receipt_po',
                             $grpo->id,
-                            "GRPO {$grpoNo}: {$l['description'] ?? $item->name}",
+                            "GRPO {$grpoNo}: {$description}",
                             $data['warehouse_id']
                         );
                     } catch (\Exception $e) {
@@ -172,12 +173,12 @@ class GoodsReceiptPOController extends Controller
     public function show(int $id)
     {
         $grpo = GoodsReceiptPO::with(['lines.item', 'businessPartner', 'warehouse'])->findOrFail($id);
-        
+
         // Check if inventory transactions exist for this GRPO
         $hasInventoryTransactions = \App\Models\InventoryTransaction::where('reference_type', 'goods_receipt_po')
             ->where('reference_id', $grpo->id)
             ->exists();
-        
+
         return view('goods_receipt_pos.show', compact('grpo', 'hasInventoryTransactions'));
     }
 
@@ -206,13 +207,14 @@ class GoodsReceiptPOController extends Controller
 
                         if (!$existingTransaction) {
                             try {
+                                $transactionDescription = $line->description ?? $item->name;
                                 $this->inventoryService->processPurchaseTransaction(
                                     $line->item_id,
                                     (float)$line->qty,
                                     $line->unit_price ?? $item->purchase_price,
                                     'goods_receipt_po',
                                     $grpo->id,
-                                    "GRPO {$grpo->grn_no}: {$line->description ?? $item->name}",
+                                    "GRPO {$grpo->grn_no}: {$transactionDescription}",
                                     $grpo->warehouse_id
                                 );
                             } catch (\Exception $e) {
@@ -239,19 +241,34 @@ class GoodsReceiptPOController extends Controller
 
     public function createInvoice(int $id)
     {
-        $grpo = GoodsReceiptPO::with('lines')->findOrFail($id);
+        $grpo = GoodsReceiptPO::with('lines.item')->findOrFail($id);
         $accounts = DB::table('accounts')->where('is_postable', 1)->orderBy('code')->get();
         $vendors = DB::table('business_partners')->where('partner_type', 'supplier')->orderBy('name')->get();
         $taxCodes = DB::table('tax_codes')->orderBy('code')->get();
         $projects = DB::table('projects')->orderBy('name')->get();
         $departments = DB::table('departments')->orderBy('name')->get();
+        $warehouses = \App\Models\Warehouse::where('name', 'not like', '%Transit%')->orderBy('name')->get();
+        $entities = app(\App\Services\CompanyEntityService::class)->getActiveEntities();
+        $defaultEntity = app(\App\Services\CompanyEntityService::class)->getDefaultEntity();
+
+        $showAccounts = auth()->user()->can('accounts.view');
+        $cashAccounts = DB::table('accounts')
+            ->where('code', 'LIKE', '1.1.1%')
+            ->where('code', '!=', '1.1.1')
+            ->where('is_postable', 1)
+            ->orderBy('code')
+            ->get(['id', 'code', 'name']);
+
         $prefill = [
             'date' => now()->toDateString(),
             'business_partner_id' => $grpo->business_partner_id,
+            'company_entity_id' => $grpo->company_entity_id,
             'description' => 'From GRPO ' . ($grpo->grn_no ?: ('#' . $grpo->id)),
             'lines' => $grpo->lines->map(function ($l) {
                 return [
                     'account_id' => (int)$l->account_id,
+                    'inventory_item_id' => $l->item_id,
+                    'warehouse_id' => $grpo->warehouse_id,
                     'description' => $l->description,
                     'qty' => (float)$l->qty,
                     'unit_price' => (float)$l->unit_price,
@@ -259,7 +276,7 @@ class GoodsReceiptPOController extends Controller
                 ];
             })->toArray(),
         ];
-        return view('purchase_invoices.create', compact('accounts', 'vendors', 'taxCodes', 'projects', 'departments') + ['prefill' => $prefill, 'goods_receipt_po_id' => $grpo->id]);
+        return view('purchase_invoices.create', compact('accounts', 'vendors', 'taxCodes', 'projects', 'departments', 'warehouses', 'entities', 'defaultEntity', 'showAccounts', 'cashAccounts') + ['prefill' => $prefill, 'goods_receipt_id' => $grpo->id]);
     }
 
     /**
@@ -505,13 +522,14 @@ class GoodsReceiptPOController extends Controller
 
                     if (!$existingTransaction) {
                         try {
+                            $transactionDescription = $line->description ?? $item->name;
                             $this->inventoryService->processPurchaseTransaction(
                                 $line->item_id,
                                 (float)$line->qty,
                                 $line->unit_price ?? $item->purchase_price,
                                 'goods_receipt_po',
                                 $grpo->id,
-                                "GRPO {$grpo->grn_no}: {$line->description ?? $item->name}",
+                                "GRPO {$grpo->grn_no}: {$transactionDescription}",
                                 $grpo->warehouse_id
                             );
                             $count++;

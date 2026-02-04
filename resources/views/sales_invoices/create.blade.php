@@ -42,7 +42,7 @@
                                 @isset($sales_order_id)
                                     <input type="hidden" name="sales_order_id" value="{{ $sales_order_id }}" />
                                 @endisset
-                                @if(isset($salesQuotation))
+                                @if (isset($salesQuotation))
                                     <input type="hidden" name="sales_quotation_id" value="{{ $salesQuotation->id }}" />
                                 @endif
 
@@ -90,11 +90,11 @@
                                                     class="form-control form-control-sm select2bs4" required>
                                                     <option value="">-- select customer --</option>
                                                     @foreach ($customers as $c)
-                                                    <option value="{{ $c->id }}"
-                                                        {{ old('business_partner_id', $prefill['business_partner_id'] ?? null) == $c->id ? 'selected' : '' }}>
-                                                        {{ $c->name }}
-                                                    </option>
-                                                @endforeach
+                                                        <option value="{{ $c->id }}"
+                                                            {{ old('business_partner_id', $prefill['business_partner_id'] ?? null) == $c->id ? 'selected' : '' }}>
+                                                            {{ $c->name }}
+                                                        </option>
+                                                    @endforeach
                                                 </select>
                                             </div>
                                         </div>
@@ -116,7 +116,8 @@
                                         <div class="form-group row mb-2">
                                             <label class="col-sm-3 col-form-label">Description</label>
                                             <div class="col-sm-9">
-                                                <input type="text" name="description" value="{{ old('description', $prefill['description'] ?? '') }}"
+                                                <input type="text" name="description"
+                                                    value="{{ old('description', $prefill['description'] ?? '') }}"
                                                     class="form-control form-control-sm" placeholder="Invoice description">
                                             </div>
                                         </div>
@@ -133,6 +134,29 @@
                                                     <input type="date" name="due_date" value="{{ old('due_date') }}"
                                                         class="form-control">
                                                 </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-md-12">
+                                        <div class="form-group row mb-2">
+                                            <div class="col-sm-9 offset-sm-3">
+                                                <div class="form-check">
+                                                    <input type="checkbox" name="is_opening_balance" id="is_opening_balance"
+                                                        value="1" class="form-check-input"
+                                                        {{ old('is_opening_balance') ? 'checked' : '' }}>
+                                                    <label class="form-check-label" for="is_opening_balance">
+                                                        Opening Balance Invoice
+                                                    </label>
+                                                </div>
+                                                <small class="form-text text-muted">
+                                                    <i class="fas fa-info-circle"></i> Check this for invoices recorded as
+                                                    opening balance.
+                                                    These invoices will post directly to AR and Revenue accounts (no AR
+                                                    UnInvoice flow).
+                                                </small>
                                             </div>
                                         </div>
                                     </div>
@@ -158,7 +182,8 @@
                                                                 class="text-danger">*</span></th>
                                                         <th style="width: 20%">Description</th>
                                                         <th style="width: 10%">Qty <span class="text-danger">*</span></th>
-                                                        <th style="width: 12%">Unit Price <span class="text-danger">*</span>
+                                                        <th style="width: 12%">Unit Price <span
+                                                                class="text-danger">*</span>
                                                         </th>
                                                         <th style="width: 10%">Tax</th>
                                                         <th style="width: 8%">Project</th>
@@ -168,22 +193,27 @@
                                                     </tr>
                                                 </thead>
                                                 <tbody id="lines">
-                                                    @if(isset($prefill) && isset($prefill['lines']) && count($prefill['lines']) > 0)
-                                                        @foreach($prefill['lines'] as $index => $line)
+                                                    @if (isset($prefill) && isset($prefill['lines']) && count($prefill['lines']) > 0)
+                                                        @foreach ($prefill['lines'] as $index => $line)
                                                             <tr class="line-item">
                                                                 <td>
                                                                     <select name="lines[{{ $index }}][account_id]"
-                                                                        class="form-control form-control-sm select2bs4" required>
+                                                                        class="form-control form-control-sm select2bs4"
+                                                                        required>
                                                                         @foreach ($accounts as $a)
-                                                                            <option value="{{ $a->id }}" {{ $line['account_id'] == $a->id ? 'selected' : '' }}>
-                                                                                {{ $a->code }} - {{ $a->name }}</option>
+                                                                            <option value="{{ $a->id }}"
+                                                                                {{ $line['account_id'] == $a->id ? 'selected' : '' }}>
+                                                                                {{ $a->code }} - {{ $a->name }}
+                                                                            </option>
                                                                         @endforeach
                                                                     </select>
                                                                 </td>
                                                                 <td>
-                                                                    <input type="text" name="lines[{{ $index }}][description]"
+                                                                    <input type="text"
+                                                                        name="lines[{{ $index }}][description]"
                                                                         class="form-control form-control-sm"
-                                                                        placeholder="Description" value="{{ $line['description'] ?? '' }}">
+                                                                        placeholder="Description"
+                                                                        value="{{ $line['description'] ?? '' }}">
                                                                 </td>
                                                                 <td>
                                                                     <input type="number" step="0.01" min="0.01"
@@ -202,7 +232,8 @@
                                                                         class="form-control form-control-sm select2bs4">
                                                                         <option value="">-- none --</option>
                                                                         @foreach ($taxCodes as $t)
-                                                                            <option value="{{ $t->id }}" {{ isset($line['tax_code_id']) && $line['tax_code_id'] == $t->id ? 'selected' : '' }}>
+                                                                            <option value="{{ $t->id }}"
+                                                                                {{ isset($line['tax_code_id']) && $line['tax_code_id'] == $t->id ? 'selected' : '' }}>
                                                                                 {{ $t->code }}</option>
                                                                         @endforeach
                                                                     </select>
@@ -212,7 +243,8 @@
                                                                         class="form-control form-control-sm select2bs4">
                                                                         <option value="">-- none --</option>
                                                                         @foreach ($projects as $p)
-                                                                            <option value="{{ $p->id }}" {{ isset($line['project_id']) && $line['project_id'] == $p->id ? 'selected' : '' }}>
+                                                                            <option value="{{ $p->id }}"
+                                                                                {{ isset($line['project_id']) && $line['project_id'] == $p->id ? 'selected' : '' }}>
                                                                                 {{ $p->code }}</option>
                                                                         @endforeach
                                                                     </select>
@@ -228,13 +260,15 @@
                                                                         class="form-control form-control-sm select2bs4">
                                                                         <option value="">-- none --</option>
                                                                         @foreach ($departments as $d)
-                                                                            <option value="{{ $d->id }}" {{ isset($line['dept_id']) && $line['dept_id'] == $d->id ? 'selected' : '' }}>
+                                                                            <option value="{{ $d->id }}"
+                                                                                {{ isset($line['dept_id']) && $line['dept_id'] == $d->id ? 'selected' : '' }}>
                                                                                 {{ $d->code }}</option>
                                                                         @endforeach
                                                                     </select>
                                                                 </td>
                                                                 <td class="text-center">
-                                                                    <button type="button" class="btn btn-xs btn-danger rm">
+                                                                    <button type="button"
+                                                                        class="btn btn-xs btn-danger rm">
                                                                         <i class="fas fa-trash-alt"></i>
                                                                     </button>
                                                                 </td>
@@ -244,10 +278,12 @@
                                                         <tr class="line-item">
                                                             <td>
                                                                 <select name="lines[0][account_id]"
-                                                                    class="form-control form-control-sm select2bs4" required>
+                                                                    class="form-control form-control-sm select2bs4"
+                                                                    required>
                                                                     @foreach ($accounts as $a)
                                                                         <option value="{{ $a->id }}">
-                                                                            {{ $a->code }} - {{ $a->name }}</option>
+                                                                            {{ $a->code }} - {{ $a->name }}
+                                                                        </option>
                                                                     @endforeach
                                                                 </select>
                                                             </td>

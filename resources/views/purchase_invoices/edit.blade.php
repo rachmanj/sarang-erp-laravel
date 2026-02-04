@@ -33,7 +33,8 @@
                                 <i class="fas fa-file-invoice mr-1"></i>
                                 Edit Purchase Invoice #{{ $invoice->invoice_no }}
                             </h3>
-                            <a href="{{ route('purchase-invoices.show', $invoice->id) }}" class="btn btn-sm btn-secondary float-right">
+                            <a href="{{ route('purchase-invoices.show', $invoice->id) }}"
+                                class="btn btn-sm btn-secondary float-right">
                                 <i class="fas fa-arrow-left"></i> Back to Invoice
                             </a>
                         </div>
@@ -59,9 +60,9 @@
                                                         <span class="input-group-text"><i
                                                                 class="far fa-calendar-alt"></i></span>
                                                     </div>
-                                                <input type="date" name="date"
-                                                    value="{{ old('date', $invoice->date->toDateString()) }}"
-                                                    class="form-control" required>
+                                                    <input type="date" name="date"
+                                                        value="{{ old('date', $invoice->date->toDateString()) }}"
+                                                        class="form-control" required>
                                                 </div>
                                             </div>
                                         </div>
@@ -108,8 +109,12 @@
                                             <div class="col-sm-9">
                                                 <select name="payment_method" id="payment_method"
                                                     class="form-control form-control-sm" required>
-                                                    <option value="credit" {{ old('payment_method', $invoice->payment_method) == 'credit' ? 'selected' : '' }}>Credit</option>
-                                                    <option value="cash" {{ old('payment_method', $invoice->payment_method) == 'cash' ? 'selected' : '' }}>Cash</option>
+                                                    <option value="credit"
+                                                        {{ old('payment_method', $invoice->payment_method) == 'credit' ? 'selected' : '' }}>
+                                                        Credit</option>
+                                                    <option value="cash"
+                                                        {{ old('payment_method', $invoice->payment_method) == 'cash' ? 'selected' : '' }}>
+                                                        Cash</option>
                                                 </select>
                                             </div>
                                         </div>
@@ -141,7 +146,27 @@
                                                         </option>
                                                     @endforeach
                                                 </select>
-                                                <small class="form-text text-muted">Leave empty to use default cash account</small>
+                                                <small class="form-text text-muted">Leave empty to use default cash
+                                                    account</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="form-group row mb-2">
+                                            <div class="col-sm-9 offset-sm-3">
+                                                <div class="form-check">
+                                                    <input type="checkbox" name="is_opening_balance" id="is_opening_balance"
+                                                        value="1" class="form-check-input"
+                                                        {{ old('is_opening_balance', $invoice->is_opening_balance) ? 'checked' : '' }}>
+                                                    <label class="form-check-label" for="is_opening_balance">
+                                                        Opening Balance Invoice
+                                                    </label>
+                                                </div>
+                                                <small class="form-text text-muted">
+                                                    <i class="fas fa-info-circle"></i> Check this for invoices recorded as
+                                                    opening balance.
+                                                    These invoices will NOT affect inventory quantities.
+                                                </small>
                                             </div>
                                         </div>
                                     </div>
@@ -152,8 +177,10 @@
                                         <div class="form-group row mb-2">
                                             <label class="col-sm-3 col-form-label">Description</label>
                                             <div class="col-sm-9">
-                                                <input type="text" name="description" value="{{ old('description', $invoice->description) }}"
-                                                    class="form-control form-control-sm" placeholder="Invoice description">
+                                                <input type="text" name="description"
+                                                    value="{{ old('description', $invoice->description) }}"
+                                                    class="form-control form-control-sm"
+                                                    placeholder="Invoice description">
                                             </div>
                                         </div>
                                     </div>
@@ -190,15 +217,18 @@
                                             <table class="table table-sm table-striped mb-0" id="lines-table">
                                                 <thead>
                                                     <tr>
-                                                        @if($showAccounts ?? false)
-                                                            <th style="width: 12%">Account <span class="text-danger">*</span></th>
+                                                        @if ($showAccounts ?? false)
+                                                            <th style="width: 12%">Account <span
+                                                                    class="text-danger">*</span></th>
                                                         @endif
-                                                        <th style="width: {{ $showAccounts ? '12%' : '14%' }}">Item <span class="text-danger">*</span></th>
+                                                        <th style="width: {{ $showAccounts ? '12%' : '14%' }}">Item <span
+                                                                class="text-danger">*</span></th>
                                                         <th style="width: 8%">Warehouse</th>
                                                         <th style="width: 10%">Description</th>
                                                         <th style="width: 6%">Qty <span class="text-danger">*</span></th>
                                                         <th style="width: 8%">UOM</th>
-                                                        <th style="width: 8%">Unit Price <span class="text-danger">*</span></th>
+                                                        <th style="width: 8%">Unit Price <span
+                                                                class="text-danger">*</span></th>
                                                         <th style="width: 5%">VAT</th>
                                                         <th style="width: 5%">WTax</th>
                                                         <th style="width: 9%">Amount</th>
@@ -208,122 +238,163 @@
                                                     </tr>
                                                 </thead>
                                                 <tbody id="lines">
-                                                    @foreach($invoice->lines as $lineIdx => $line)
-                                                    <tr class="line-item">
-                                                        @if($showAccounts ?? false)
+                                                    @foreach ($invoice->lines as $lineIdx => $line)
+                                                        <tr class="line-item">
+                                                            @if ($showAccounts ?? false)
+                                                                <td>
+                                                                    <select name="lines[{{ $lineIdx }}][account_id]"
+                                                                        class="form-control form-control-sm select2bs4 account-select">
+                                                                        <option value="">-- select account --
+                                                                        </option>
+                                                                        @foreach ($accounts as $a)
+                                                                            <option value="{{ $a->id }}"
+                                                                                {{ old("lines.$lineIdx.account_id", $line->account_id) == $a->id ? 'selected' : '' }}>
+                                                                                {{ $a->code }} - {{ $a->name }}
+                                                                            </option>
+                                                                        @endforeach
+                                                                    </select>
+                                                                    <small
+                                                                        class="text-muted d-block account-display-{{ $lineIdx }}"
+                                                                        style="display: none;"></small>
+                                                                </td>
+                                                            @else
+                                                                <td style="display: none;">
+                                                                    <input type="hidden"
+                                                                        name="lines[{{ $lineIdx }}][account_id]"
+                                                                        class="account-input"
+                                                                        value="{{ $line->account_id }}">
+                                                                    <small
+                                                                        class="text-muted d-block account-display-{{ $lineIdx }}"
+                                                                        style="display: none;"></small>
+                                                                </td>
+                                                            @endif
                                                             <td>
-                                                                <select name="lines[{{ $lineIdx }}][account_id]"
-                                                                    class="form-control form-control-sm select2bs4 account-select">
-                                                                    <option value="">-- select account --</option>
-                                                                    @foreach ($accounts as $a)
-                                                                        <option value="{{ $a->id }}" {{ old("lines.$lineIdx.account_id", $line->account_id) == $a->id ? 'selected' : '' }}>
-                                                                            {{ $a->code }} - {{ $a->name }}</option>
+                                                                <button type="button"
+                                                                    class="btn btn-sm btn-secondary btn-select-item"
+                                                                    onclick="openItemSelectionModal({{ $lineIdx }})"
+                                                                    title="Select Item">
+                                                                    <i class="fas fa-search"></i> Select Item
+                                                                </button>
+                                                                <input type="hidden"
+                                                                    name="lines[{{ $lineIdx }}][inventory_item_id]"
+                                                                    class="item-id-input"
+                                                                    value="{{ old("lines.$lineIdx.inventory_item_id", $line->inventory_item_id) }}">
+                                                                <div class="mt-1">
+                                                                    <span
+                                                                        class="item-name-display-{{ $lineIdx }} text-muted small">
+                                                                        @if ($line->inventoryItem)
+                                                                            {{ $line->inventoryItem->code }} -
+                                                                            {{ $line->inventoryItem->name }}
+                                                                        @endif
+                                                                    </span>
+                                                                </div>
+                                                            </td>
+                                                            <td>
+                                                                <select name="lines[{{ $lineIdx }}][warehouse_id]"
+                                                                    class="form-control form-control-sm select2bs4 warehouse-select">
+                                                                    <option value="">-- select --</option>
+                                                                    @foreach ($warehouses as $w)
+                                                                        <option value="{{ $w->id }}"
+                                                                            {{ old("lines.$lineIdx.warehouse_id", $line->warehouse_id) == $w->id ? 'selected' : '' }}>
+                                                                            {{ $w->name }}</option>
                                                                     @endforeach
                                                                 </select>
-                                                                <small class="text-muted d-block account-display-{{ $lineIdx }}" style="display: none;"></small>
                                                             </td>
-                                                        @else
-                                                            <td style="display: none;">
-                                                                <input type="hidden" name="lines[{{ $lineIdx }}][account_id]" class="account-input" value="{{ $line->account_id }}">
-                                                                <small class="text-muted d-block account-display-{{ $lineIdx }}" style="display: none;"></small>
+                                                            <td>
+                                                                <input type="text"
+                                                                    name="lines[{{ $lineIdx }}][description]"
+                                                                    class="form-control form-control-sm"
+                                                                    placeholder="Description"
+                                                                    value="{{ old("lines.$lineIdx.description", $line->description) }}">
                                                             </td>
-                                                        @endif
-                                                        <td>
-                                                            <button type="button" class="btn btn-sm btn-secondary btn-select-item" 
-                                                                onclick="openItemSelectionModal({{ $lineIdx }})" title="Select Item">
-                                                                <i class="fas fa-search"></i> Select Item
-                                                            </button>
-                                                            <input type="hidden" name="lines[{{ $lineIdx }}][inventory_item_id]" class="item-id-input" value="{{ old("lines.$lineIdx.inventory_item_id", $line->inventory_item_id) }}">
-                                                            <div class="mt-1">
-                                                                <span class="item-name-display-{{ $lineIdx }} text-muted small">
-                                                                    @if($line->inventoryItem)
-                                                                        {{ $line->inventoryItem->code }} - {{ $line->inventoryItem->name }}
-                                                                    @endif
-                                                                </span>
-                                                            </div>
-                                                        </td>
-                                                        <td>
-                                                            <select name="lines[{{ $lineIdx }}][warehouse_id]"
-                                                                class="form-control form-control-sm select2bs4 warehouse-select">
-                                                                <option value="">-- select --</option>
-                                                                @foreach ($warehouses as $w)
-                                                                    <option value="{{ $w->id }}" {{ old("lines.$lineIdx.warehouse_id", $line->warehouse_id) == $w->id ? 'selected' : '' }}>{{ $w->name }}</option>
-                                                                @endforeach
-                                                            </select>
-                                                        </td>
-                                                        <td>
-                                                            <input type="text" name="lines[{{ $lineIdx }}][description]"
-                                                                class="form-control form-control-sm"
-                                                                placeholder="Description"
-                                                                value="{{ old("lines.$lineIdx.description", $line->description) }}">
-                                                        </td>
-                                                        <td>
-                                                            <input type="number" step="0.01" min="0.01"
-                                                                name="lines[{{ $lineIdx }}][qty]"
-                                                                class="form-control form-control-sm text-right qty-input"
-                                                                value="{{ old("lines.$lineIdx.qty", $line->qty) }}" required>
-                                                        </td>
-                                                        <td>
-                                                            <select name="lines[{{ $lineIdx }}][order_unit_id]" class="form-control form-control-sm unit-select select2bs4" data-line-idx="{{ $lineIdx }}" data-item-id="{{ $line->inventory_item_id }}" data-selected-unit="{{ old("lines.$lineIdx.order_unit_id", $line->order_unit_id) }}">
-                                                                <option value="">Select Unit</option>
-                                                            </select>
-                                                            <div class="conversion-preview mt-1" style="font-size: 0.75rem; color: #6c757d;"></div>
-                                                        </td>
-                                                        <td>
-                                                            <input type="number" step="0.01" min="0"
-                                                                name="lines[{{ $lineIdx }}][unit_price]"
-                                                                class="form-control form-control-sm text-right price-input"
-                                                                value="{{ old("lines.$lineIdx.unit_price", $line->unit_price) }}" required>
-                                                        </td>
-                                                        <td>
-                                                            <select name="lines[{{ $lineIdx }}][vat_rate]"
-                                                                class="form-control form-control-sm vat-select">
-                                                                <option value="0" {{ old("lines.$lineIdx.vat_rate", 0) == 0 ? 'selected' : '' }}>No</option>
-                                                                <option value="11" {{ old("lines.$lineIdx.vat_rate", 0) == 11 ? 'selected' : '' }}>11%</option>
-                                                                <option value="12" {{ old("lines.$lineIdx.vat_rate", 0) == 12 ? 'selected' : '' }}>12%</option>
-                                                            </select>
-                                                        </td>
-                                                        <td>
-                                                            <select name="lines[{{ $lineIdx }}][wtax_rate]"
-                                                                class="form-control form-control-sm wtax-select">
-                                                                <option value="0" {{ old("lines.$lineIdx.wtax_rate", 0) == 0 ? 'selected' : '' }}>No</option>
-                                                                <option value="2" {{ old("lines.$lineIdx.wtax_rate", 0) == 2 ? 'selected' : '' }}>2%</option>
-                                                            </select>
-                                                        </td>
-                                                        <td class="text-right">
-                                                            <span class="line-amount">{{ number_format($line->amount, 2) }}</span>
-                                                        </td>
-                                                        <td>
-                                                            <select name="lines[{{ $lineIdx }}][project_id]"
-                                                                class="form-control form-control-sm select2bs4">
-                                                                <option value="">-- none --</option>
-                                                                @foreach ($projects as $p)
-                                                                    <option value="{{ $p->id }}" {{ old("lines.$lineIdx.project_id", $line->project_id) == $p->id ? 'selected' : '' }}>
-                                                                        {{ $p->code }}</option>
-                                                                @endforeach
-                                                            </select>
-                                                        </td>
-                                                        <td>
-                                                            <select name="lines[{{ $lineIdx }}][dept_id]"
-                                                                class="form-control form-control-sm select2bs4">
-                                                                <option value="">-- none --</option>
-                                                                @foreach ($departments as $d)
-                                                                    <option value="{{ $d->id }}" {{ old("lines.$lineIdx.dept_id", $line->dept_id) == $d->id ? 'selected' : '' }}>
-                                                                        {{ $d->code }}</option>
-                                                                @endforeach
-                                                            </select>
-                                                        </td>
-                                                        <td class="text-center">
-                                                            <button type="button" class="btn btn-xs btn-danger rm">
-                                                                <i class="fas fa-trash-alt"></i>
-                                                            </button>
-                                                        </td>
-                                                    </tr>
+                                                            <td>
+                                                                <input type="number" step="0.01" min="0.01"
+                                                                    name="lines[{{ $lineIdx }}][qty]"
+                                                                    class="form-control form-control-sm text-right qty-input"
+                                                                    value="{{ old("lines.$lineIdx.qty", $line->qty) }}"
+                                                                    required>
+                                                            </td>
+                                                            <td>
+                                                                <select name="lines[{{ $lineIdx }}][order_unit_id]"
+                                                                    class="form-control form-control-sm unit-select select2bs4"
+                                                                    data-line-idx="{{ $lineIdx }}"
+                                                                    data-item-id="{{ $line->inventory_item_id }}"
+                                                                    data-selected-unit="{{ old("lines.$lineIdx.order_unit_id", $line->order_unit_id) }}">
+                                                                    <option value="">Select Unit</option>
+                                                                </select>
+                                                                <div class="conversion-preview mt-1"
+                                                                    style="font-size: 0.75rem; color: #6c757d;"></div>
+                                                            </td>
+                                                            <td>
+                                                                <input type="number" step="0.01" min="0"
+                                                                    name="lines[{{ $lineIdx }}][unit_price]"
+                                                                    class="form-control form-control-sm text-right price-input"
+                                                                    value="{{ old("lines.$lineIdx.unit_price", $line->unit_price) }}"
+                                                                    required>
+                                                            </td>
+                                                            <td>
+                                                                <select name="lines[{{ $lineIdx }}][vat_rate]"
+                                                                    class="form-control form-control-sm vat-select">
+                                                                    <option value="0"
+                                                                        {{ old("lines.$lineIdx.vat_rate", 0) == 0 ? 'selected' : '' }}>
+                                                                        No</option>
+                                                                    <option value="11"
+                                                                        {{ old("lines.$lineIdx.vat_rate", 0) == 11 ? 'selected' : '' }}>
+                                                                        11%</option>
+                                                                    <option value="12"
+                                                                        {{ old("lines.$lineIdx.vat_rate", 0) == 12 ? 'selected' : '' }}>
+                                                                        12%</option>
+                                                                </select>
+                                                            </td>
+                                                            <td>
+                                                                <select name="lines[{{ $lineIdx }}][wtax_rate]"
+                                                                    class="form-control form-control-sm wtax-select">
+                                                                    <option value="0"
+                                                                        {{ old("lines.$lineIdx.wtax_rate", 0) == 0 ? 'selected' : '' }}>
+                                                                        No</option>
+                                                                    <option value="2"
+                                                                        {{ old("lines.$lineIdx.wtax_rate", 0) == 2 ? 'selected' : '' }}>
+                                                                        2%</option>
+                                                                </select>
+                                                            </td>
+                                                            <td class="text-right">
+                                                                <span
+                                                                    class="line-amount">{{ number_format($line->amount, 2) }}</span>
+                                                            </td>
+                                                            <td>
+                                                                <select name="lines[{{ $lineIdx }}][project_id]"
+                                                                    class="form-control form-control-sm select2bs4">
+                                                                    <option value="">-- none --</option>
+                                                                    @foreach ($projects as $p)
+                                                                        <option value="{{ $p->id }}"
+                                                                            {{ old("lines.$lineIdx.project_id", $line->project_id) == $p->id ? 'selected' : '' }}>
+                                                                            {{ $p->code }}</option>
+                                                                    @endforeach
+                                                                </select>
+                                                            </td>
+                                                            <td>
+                                                                <select name="lines[{{ $lineIdx }}][dept_id]"
+                                                                    class="form-control form-control-sm select2bs4">
+                                                                    <option value="">-- none --</option>
+                                                                    @foreach ($departments as $d)
+                                                                        <option value="{{ $d->id }}"
+                                                                            {{ old("lines.$lineIdx.dept_id", $line->dept_id) == $d->id ? 'selected' : '' }}>
+                                                                            {{ $d->code }}</option>
+                                                                    @endforeach
+                                                                </select>
+                                                            </td>
+                                                            <td class="text-center">
+                                                                <button type="button" class="btn btn-xs btn-danger rm">
+                                                                    <i class="fas fa-trash-alt"></i>
+                                                                </button>
+                                                            </td>
+                                                        </tr>
                                                     @endforeach
                                                 </tbody>
                                                 <tfoot>
                                                     <tr>
-                                                        <th colspan="{{ ($showAccounts ?? false) ? '4' : '3' }}" class="text-right">Original Amount:</th>
+                                                        <th colspan="{{ $showAccounts ?? false ? '4' : '3' }}"
+                                                            class="text-right">Original Amount:</th>
                                                         <th class="text-right" id="original-amount">0.00</th>
                                                         <th class="text-right" id="total-vat">0.00</th>
                                                         <th class="text-right" id="total-wtax">0.00</th>
@@ -331,7 +402,8 @@
                                                         <th colspan="3"></th>
                                                     </tr>
                                                     <tr>
-                                                        <th colspan="{{ ($showAccounts ?? false) ? '4' : '3' }}" class="text-right">Amount Due:</th>
+                                                        <th colspan="{{ $showAccounts ?? false ? '4' : '3' }}"
+                                                            class="text-right">Amount Due:</th>
                                                         <th colspan="4" class="text-right" id="amount-due">0.00</th>
                                                         <th colspan="3"></th>
                                                     </tr>
@@ -369,15 +441,16 @@
     @include('components.item-selection-modal')
 @endsection
 
-    @push('scripts')
+@push('scripts')
     <script>
         let idx = {{ $invoice->lines->count() }};
-        const existingLines = @json($invoice->lines->map(function($line) {
-            return [
-                'inventory_item_id' => $line->inventory_item_id,
-                'order_unit_id' => $line->order_unit_id,
-            ];
-        }));
+        const existingLines = @json(
+            $invoice->lines->map(function ($line) {
+                return [
+                    'inventory_item_id' => $line->inventory_item_id,
+                    'order_unit_id' => $line->order_unit_id,
+                ];
+            }));
 
         $(document).ready(function() {
             // Initialize Select2BS4 for all select elements
@@ -393,7 +466,7 @@
                 const lineIdx = $select.data('line-idx');
                 const itemId = $select.data('item-id');
                 const selectedUnitId = $select.data('selected-unit') || null;
-                
+
                 if (itemId) {
                     loadItemUnits(itemId, $select.closest('tr'), selectedUnitId);
                 }
@@ -429,13 +502,13 @@
             const container = document.getElementById('lines');
             const row = document.createElement('tr');
             row.className = 'line-item';
-            
-            const showAccounts = {{ ($showAccounts ?? false) ? 'true' : 'false' }};
+
+            const showAccounts = {{ $showAccounts ?? false ? 'true' : 'false' }};
             const accountSelect = showAccounts ? `
                 <td>
                     <select name="lines[${idx}][account_id]" class="form-control form-control-sm select2bs4 account-select">
                         <option value="">-- select account --</option>
-                        @if($showAccounts ?? false)
+                        @if ($showAccounts ?? false)
                             @foreach ($accounts as $a)
                                 <option value="{{ $a->id }}">{{ $a->code }} - {{ $a->name }}</option>
                             @endforeach
@@ -449,7 +522,7 @@
                     <small class="text-muted d-block account-display-${idx}" style="display: none;"></small>
                 </td>
             `;
-            
+
             row.innerHTML = accountSelect + `
                 <td>
                     <button type="button" class="btn btn-sm btn-secondary btn-select-item" 
@@ -554,7 +627,7 @@
             const type = $('#searchType').val();
 
             $.ajax({
-                url: '{{ route("inventory.search") }}',
+                url: '{{ route('inventory.search') }}',
                 method: 'GET',
                 data: {
                     code: code,
@@ -616,18 +689,23 @@
 
             // Previous button
             if (pagination.current_page > 1) {
-                paginationEl.append(`<li class="page-item"><a class="page-link" href="#" data-page="${pagination.current_page - 1}">Previous</a></li>`);
+                paginationEl.append(
+                    `<li class="page-item"><a class="page-link" href="#" data-page="${pagination.current_page - 1}">Previous</a></li>`
+                    );
             }
 
             // Page numbers
             for (let i = 1; i <= pagination.last_page; i++) {
                 const active = i === pagination.current_page ? 'active' : '';
-                paginationEl.append(`<li class="page-item ${active}"><a class="page-link" href="#" data-page="${i}">${i}</a></li>`);
+                paginationEl.append(
+                    `<li class="page-item ${active}"><a class="page-link" href="#" data-page="${i}">${i}</a></li>`);
             }
 
             // Next button
             if (pagination.current_page < pagination.last_page) {
-                paginationEl.append(`<li class="page-item"><a class="page-link" href="#" data-page="${pagination.current_page + 1}">Next</a></li>`);
+                paginationEl.append(
+                    `<li class="page-item"><a class="page-link" href="#" data-page="${pagination.current_page + 1}">Next</a></li>`
+                    );
             }
         }
 
@@ -660,7 +738,7 @@
             // Update item fields
             $(`input[name="lines[${lineIndex}][inventory_item_id]"]`).val(itemId);
             $(`.item-name-display-${lineIndex}`).text(`${itemCode} - ${itemName}`).show();
-            
+
             // Update price
             $(`input[name="lines[${lineIndex}][unit_price]"]`).val(itemPrice).trigger('input');
 
@@ -673,14 +751,14 @@
                         // Update account field (hidden or visible)
                         const accountInput = $(`input[name="lines[${lineIndex}][account_id]"]`);
                         const accountSelect = $(`select[name="lines[${lineIndex}][account_id]"]`);
-                        
+
                         if (accountInput.length) {
                             accountInput.val(response.account_id);
                         }
                         if (accountSelect.length) {
                             accountSelect.val(response.account_id).trigger('change');
                         }
-                        
+
                         // Show account info
                         $(`.account-display-${lineIndex}`)
                             .text(`${response.account_code} - ${response.account_name}`)
@@ -879,7 +957,7 @@
             // Check if invoice was created from PO/GRPO (read-only, can't change)
             const hasPO = {{ $invoice->purchase_order_id ? 'true' : 'false' }};
             const hasGRPO = {{ $invoice->goods_receipt_id ? 'true' : 'false' }};
-            
+
             // Show cash account field when: Cash payment AND no PO/GRPO (direct purchase)
             if (paymentMethod === 'cash' && !hasPO && !hasGRPO) {
                 $('#cash_account_field').show();

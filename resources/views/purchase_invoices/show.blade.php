@@ -1,15 +1,15 @@
 @extends('layouts.main')
 
-@section('title', 'Purchase Invoice #' . $invoice->id)
+@section('title', 'Purchase Invoice ' . ($invoice->invoice_no ?? '#' . $invoice->id))
 
 @section('title_page')
-    Purchase Invoice #{{ $invoice->id }}
+    Purchase Invoice {{ $invoice->invoice_no ?? '#' . $invoice->id }}
 @endsection
 
 @section('breadcrumb_title')
     <li class="breadcrumb-item"><a href="/dashboard">Dashboard</a></li>
     <li class="breadcrumb-item"><a href="{{ route('purchase-invoices.index') }}">Purchase Invoices</a></li>
-    <li class="breadcrumb-item active">#{{ $invoice->id }}</li>
+    <li class="breadcrumb-item active">{{ $invoice->invoice_no ?? '#' . $invoice->id }}</li>
 @endsection
 
 @section('content')
@@ -28,7 +28,7 @@
                     @endif
                     <div class="card">
                         <div class="card-header d-flex justify-content-between align-items-center">
-                            <h3 class="card-title">Purchase Invoice #{{ $invoice->id }}
+                            <h3 class="card-title">Purchase Invoice {{ $invoice->invoice_no ?? '#' . $invoice->id }}
                                 ({{ strtoupper($invoice->status) }})
                             </h3>
                             <div>
@@ -38,7 +38,8 @@
                                 </button>
                                 @can('ap.invoices.create')
                                     @if ($invoice->status === 'draft')
-                                        <a href="{{ route('purchase-invoices.edit', $invoice->id) }}" class="btn btn-sm btn-primary mr-1">
+                                        <a href="{{ route('purchase-invoices.edit', $invoice->id) }}"
+                                            class="btn btn-sm btn-primary mr-1">
                                             <i class="fas fa-edit"></i> Edit
                                         </a>
                                     @endif
@@ -52,7 +53,8 @@
                                         </form>
                                     @elseif ($invoice->canBeUnposted())
                                         <form method="post" action="{{ route('purchase-invoices.unpost', $invoice->id) }}"
-                                            class="d-inline unpost-form" data-confirm="Are you sure you want to unpost this invoice? This will reverse all journal entries and inventory transactions.">
+                                            class="d-inline unpost-form"
+                                            data-confirm="Are you sure you want to unpost this invoice? This will reverse all journal entries and inventory transactions.">
                                             @csrf
                                             <button class="btn btn-sm btn-warning" type="submit">
                                                 <i class="fas fa-undo"></i> Unpost
@@ -81,10 +83,19 @@
                         </div>
 
                         <div class="card-body">
+                            <p><strong>Invoice Number:</strong> {{ $invoice->invoice_no ?? 'N/A' }}</p>
                             <p>Date: {{ $invoice->date }}</p>
                             <p>Vendor:
                                 {{ optional(DB::table('business_partners')->find($invoice->business_partner_id))->name }}
                             </p>
+                            @if ($invoice->is_opening_balance)
+                                <p>
+                                    <span class="badge badge-warning">
+                                        <i class="fas fa-info-circle"></i> Opening Balance Invoice
+                                    </span>
+                                    <small class="text-muted ml-2">This invoice does NOT affect inventory quantities</small>
+                                </p>
+                            @endif
                             <p>Description: {{ $invoice->description }}</p>
                             @if (!empty($invoice->purchase_order_id) || !empty($invoice->goods_receipt_id))
                                 <p>
@@ -104,6 +115,8 @@
                                 <thead>
                                     <tr>
                                         <th>Account</th>
+                                        <th>Item Code</th>
+                                        <th>Item Name</th>
                                         <th>Description</th>
                                         <th>Qty</th>
                                         <th>Unit Price</th>
@@ -114,6 +127,21 @@
                                     @foreach ($invoice->lines as $l)
                                         <tr>
                                             <td>{{ optional(DB::table('accounts')->find($l->account_id))->code }}</td>
+                                            <td>
+                                                @if ($l->inventoryItem)
+                                                    <span
+                                                        class="badge badge-info">{{ $l->inventoryItem->item_code }}</span>
+                                                @else
+                                                    <span class="text-muted">-</span>
+                                                @endif
+                                            </td>
+                                            <td>
+                                                @if ($l->inventoryItem)
+                                                    {{ $l->inventoryItem->name }}
+                                                @else
+                                                    <span class="text-muted">-</span>
+                                                @endif
+                                            </td>
                                             <td>{{ $l->description }}</td>
                                             <td>{{ number_format($l->qty, 2) }}</td>
                                             <td>{{ number_format($l->unit_price, 2) }}</td>
