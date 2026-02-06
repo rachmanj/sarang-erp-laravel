@@ -32,6 +32,7 @@ class PurchaseInvoice extends Model
 
     protected $casts = [
         'date' => 'date',
+        'due_date' => 'date',
         'posted_at' => 'datetime',
         'total_amount' => 'float',
         'is_direct_purchase' => 'boolean',

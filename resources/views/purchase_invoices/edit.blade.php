@@ -193,7 +193,7 @@
                                                         <span class="input-group-text"><i
                                                                 class="far fa-calendar-alt"></i></span>
                                                     </div>
-                                                    <input type="date" name="due_date" value="{{ old('due_date', $invoice->due_date ? $invoice->due_date->toDateString() : '') }}"
+                                                    <input type="date" name="due_date" value="{{ old('due_date', $invoice->due_date ? (is_string($invoice->due_date) ? $invoice->due_date : $invoice->due_date->toDateString()) : '') }}"
                                                         class="form-control">
                                                 </div>
                                             </div>
