@@ -365,78 +365,14 @@
         </div>
     </section>
 
-    <!-- Item Selection Modal -->
-    <div class="modal fade" id="itemSelectionModal" tabindex="-1" role="dialog"
-        aria-labelledby="itemSelectionModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-xxl" role="document">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="itemSelectionModalLabel">Select Item</h5>
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
-                    </button>
-                </div>
-                <div class="modal-body">
-                    <div class="row mb-3">
-                        <div class="col-md-3">
-                            <input type="text" class="form-control form-control-sm" id="searchCode"
-                                placeholder="Search by code">
-                        </div>
-                        <div class="col-md-3">
-                            <input type="text" class="form-control form-control-sm" id="searchName"
-                                placeholder="Search by name">
-                        </div>
-                        <div class="col-md-3">
-                            <select class="form-control form-control-sm" id="searchCategory">
-                                <option value="">All Categories</option>
-                            </select>
-                        </div>
-                        <div class="col-md-3">
-                            <select class="form-control form-control-sm" id="searchType">
-                                <option value="">All Types</option>
-                                <option value="item">Item</option>
-                                <option value="service">Service</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="table-responsive">
-                        <table class="table table-bordered table-hover" id="itemsTable">
-                            <thead>
-                                <tr>
-                                    <th>Code</th>
-                                    <th>Name</th>
-                                    <th>Category</th>
-                                    <th>Type</th>
-                                    <th>Unit</th>
-                                    <th>Price</th>
-                                    <th width="3%">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <!-- Items will be loaded here via AJAX -->
-                            </tbody>
-                        </table>
-                    </div>
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div id="searchResultsCount" class="text-muted"></div>
-                        <nav id="paginationContainer">
-                            <!-- Pagination will be loaded here -->
-                        </nav>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
-                </div>
-            </div>
-        </div>
-    </div>
+    <!-- Include Item Selection Modal -->
+    @include('components.item-selection-modal')
 @endsection
 
 @push('scripts')
     <script>
         $(document).ready(function() {
             let i = {{ count($order->lines) }};
-            let currentLineIndex = null;
             const $tb = $('#lines tbody');
 
             // Initialize Select2BS4
@@ -481,34 +417,63 @@
                 });
             });
 
-            // Item search button
+            // Handle item search button clicks
             $(document).on('click', '.item-search-btn', function() {
-                currentLineIndex = $(this).data('line-idx');
+                const lineIdx = $(this).data('line-idx');
+                const orderType = $(this).data('order-type');
+
+                // Store current line index for item selection
+                window.currentLineIdx = lineIdx;
+                window.currentOrderType = orderType;
+
+                // Show modal
                 $('#itemSelectionModal').modal('show');
+
+                // Load initial items
                 loadItems();
             });
 
-            // Search inputs
-            $('#searchCode, #searchName, #searchCategory, #searchType').on('input change', function() {
-                loadItems();
+            // Event handlers for modal
+            $('#searchItems').on('click', function() {
+                loadItems(1);
             });
 
-            // Select item
-            $(document).on('click', '.select-item', function() {
-                const itemData = $(this).data();
-                const row = $(`input[name="lines[${currentLineIndex}][item_id]"]`).closest('tr');
+            $('#clearSearch').on('click', function() {
+                $('#searchCode, #searchName').val('');
+                $('#searchCategory, #searchType').val('');
+                loadItems(1);
+            });
 
-                row.find('.item-id').val(itemData.itemId);
-                row.find('.item-display').val(itemData.itemCode);
-                row.find('input[name*="[description]"]').val(itemData.itemName);
-                row.find('.price-input').val(itemData.itemPrice);
+            // Select item button handler
+            $(document).on('click', '.select-item-btn', function() {
+                const itemId = $(this).data('item-id');
+                const itemCode = $(this).data('item-code');
+                const itemName = $(this).data('item-name');
+                const itemPrice = $(this).data('item-price');
 
-                loadUnitsForItem(itemData.itemId, currentLineIndex);
-                updateLineAmount(row);
+                // Update the input field and hidden field
+                const displayInput = $(`input[name="lines[${window.currentLineIdx}][item_display]"]`);
+                const hiddenInput = $(`input[name="lines[${window.currentLineIdx}][item_id]"]`);
+
+                displayInput.val(`${itemCode} - ${itemName}`);
+                hiddenInput.val(itemId);
+
+                // Update the price field
+                const priceInput = displayInput.closest('tr').find('.price-input');
+                priceInput.val(itemPrice);
+
+                // Update description field
+                displayInput.closest('tr').find('input[name*="[description]"]').val(itemName);
+
+                // Update line amount
+                updateLineAmount(displayInput.closest('tr'));
                 updateTotals();
 
+                // Load units for selected item
+                loadItemUnits(itemId, displayInput.closest('tr'));
+
+                // Close modal
                 $('#itemSelectionModal').modal('hide');
-                toastr.success('Item selected successfully');
             });
 
             // Update totals when inputs change
@@ -617,8 +582,8 @@
                     </td>
                     <td>
                         <select name="lines[${lineIdx}][vat_rate]" class="form-control form-control-sm vat-select select2bs4">
-                            <option value="0" ${(data.vat_rate || 11) == 0 ? 'selected' : ''}>No</option>
-                            <option value="11" ${(data.vat_rate || 11) == 11 ? 'selected' : ''}>11%</option>
+                            <option value="0" ${data.vat_rate == 0 ? 'selected' : ''}>No</option>
+                            <option value="11" ${(data.vat_rate == 11 || !data.vat_rate) ? 'selected' : ''}>11%</option>
                             <option value="12" ${data.vat_rate == 12 ? 'selected' : ''}>12%</option>
                         </select>
                     </td>
@@ -778,25 +743,27 @@
                 tbody.empty();
 
                 if (items.length === 0) {
-                    tbody.append('<tr><td colspan="7" class="text-center text-muted">No items found</td></tr>');
+                    tbody.append('<tr><td colspan="9" class="text-center text-muted">No items found</td></tr>');
                     return;
                 }
 
-                items.forEach(function(item) {
+                items.forEach((item, index) => {
                     const row = `
                         <tr>
-                            <td>${item.code}</td>
+                            <td>${index + 1}</td>
+                            <td><strong>${item.code}</strong></td>
                             <td>${item.name}</td>
                             <td>${item.category ? item.category.name : '-'}</td>
-                            <td>${item.item_type}</td>
-                            <td>${item.unit}</td>
-                            <td>${item.price.toLocaleString('id-ID', {minimumFractionDigits: 2})}</td>
+                            <td><span class="badge badge-${item.item_type === 'item' ? 'primary' : 'info'}">${item.item_type}</span></td>
+                            <td>${item.unit_of_measure}</td>
+                            <td class="text-right">${formatCurrency(item.purchase_price)}</td>
+                            <td class="text-right">${formatCurrency(item.selling_price)}</td>
                             <td>
-                                <button type="button" class="btn btn-primary btn-sm select-item" 
+                                <button type="button" class="btn btn-sm btn-success select-item-btn" 
                                         data-item-id="${item.id}" 
                                         data-item-code="${item.code}" 
-                                        data-item-name="${item.name}" 
-                                        data-item-price="${item.price}">
+                                        data-item-name="${item.name}"
+                                        data-item-price="${item.purchase_price}">
                                     <i class="fas fa-check"></i>
                                 </button>
                             </td>
@@ -806,90 +773,93 @@
                 });
             }
 
+            function formatCurrency(amount) {
+                return new Intl.NumberFormat('id-ID', {
+                    style: 'currency',
+                    currency: 'IDR',
+                    minimumFractionDigits: 0
+                }).format(amount);
+            }
+
             function updatePagination(pagination) {
-                const container = $('#paginationContainer');
-                container.empty();
+                const paginationContainer = $('#itemsPagination');
+                paginationContainer.empty();
 
                 if (pagination.last_page <= 1) return;
 
-                let paginationHtml = '<ul class="pagination pagination-sm mb-0">';
-
                 // Previous button
                 if (pagination.current_page > 1) {
-                    paginationHtml +=
-                        `<li class="page-item"><a class="page-link" href="#" data-page="${pagination.current_page - 1}">Previous</a></li>`;
+                    paginationContainer.append(`
+                        <li class="page-item">
+                            <a class="page-link" href="#" data-page="${pagination.current_page - 1}">Previous</a>
+                        </li>
+                    `);
                 }
 
                 // Page numbers
                 for (let i = 1; i <= pagination.last_page; i++) {
                     const activeClass = i === pagination.current_page ? 'active' : '';
-                    paginationHtml +=
-                        `<li class="page-item ${activeClass}"><a class="page-link" href="#" data-page="${i}">${i}</a></li>`;
+                    paginationContainer.append(`
+                        <li class="page-item ${activeClass}">
+                            <a class="page-link" href="#" data-page="${i}">${i}</a>
+                        </li>
+                    `);
                 }
 
                 // Next button
                 if (pagination.current_page < pagination.last_page) {
-                    paginationHtml +=
-                        `<li class="page-item"><a class="page-link" href="#" data-page="${pagination.current_page + 1}">Next</a></li>`;
+                    paginationContainer.append(`
+                        <li class="page-item">
+                            <a class="page-link" href="#" data-page="${pagination.current_page + 1}">Next</a>
+                        </li>
+                    `);
                 }
-
-                paginationHtml += '</ul>';
-                container.html(paginationHtml);
             }
 
             function updateSearchResultsCount(total) {
-                $('#searchResultsCount').text(`${total} items found`);
+                $('#searchResultsCount').text(`Found ${total} items`);
             }
 
-            // Pagination click handler
             $(document).on('click', '.page-link', function(e) {
                 e.preventDefault();
                 const page = $(this).data('page');
                 loadItems(page);
             });
 
-            function loadUnitsForItem(itemId, lineIndex) {
-                if (!itemId) return;
+            // Unit selection change handler
+            $tb.on('change', '.unit-select', function() {
+                const $row = $(this).closest('tr');
+                const unitId = $(this).val();
+                const itemId = $row.find('.item-id').val();
+                const quantity = parseFloat($row.find('.qty-input').val()) || 1;
 
-                $.ajax({
-                    url: `/api/inventory/${itemId}/units`,
-                    method: 'GET',
-                    success: function(response) {
-                        const select = $(`select[name="lines[${lineIndex}][order_unit_id]"]`);
-                        select.empty().append('<option value="">Select Unit</option>');
+                if (unitId && itemId) {
+                    showConversionPreview(itemId, unitId, quantity, $row);
+                } else {
+                    $row.find('.conversion-preview').text('');
+                }
+            });
 
-                        response.forEach(function(unit) {
-                            select.append(`<option value="${unit.id}">${unit.name}</option>`);
-                        });
+            // Quantity change handler for conversion preview
+            $tb.on('input', '.qty-input', function() {
+                const $row = $(this).closest('tr');
+                const unitId = $row.find('.unit-select').val();
+                const itemId = $row.find('.item-id').val();
+                const quantity = parseFloat($(this).val()) || 1;
 
-                        select.select2({
-                            theme: 'bootstrap4',
-                            placeholder: 'Select Unit',
-                            allowClear: true
-                        });
-                    },
-                    error: function(xhr) {
-                        console.error('Error loading units:', xhr.responseText);
-                    }
-                });
-            }
-
-            function updateConversionPreview(lineIndex) {
-                // This function can be expanded to show unit conversion previews
-                const row = $(`select[name="lines[${lineIndex}][order_unit_id]"]`).closest('tr');
-                const preview = row.find('.conversion-preview');
-                preview.text(''); // Clear preview for now
-            }
+                if (unitId && itemId) {
+                    showConversionPreview(itemId, unitId, quantity, $row);
+                }
+            });
 
             // Load units for existing lines
             @foreach ($order->lines as $index => $line)
                 @if ($line->inventory_item_id)
-                    loadUnitsForItem({{ $line->inventory_item_id }}, {{ $index }});
+                    loadItemUnits({{ $line->inventory_item_id }}, $('input[name="lines[{{ $index }}][item_id]"]').closest('tr'));
                     // Set the selected unit
                     setTimeout(function() {
                         $('select[name="lines[{{ $index }}][order_unit_id]"]').val(
-                            {{ $line->order_unit_id ?? 'null' }});
-                        updateConversionPreview({{ $index }});
+                            {{ $line->order_unit_id ?? 'null' }}).trigger('change');
                     }, 500);
                 @endif
             @endforeach
@@ -903,5 +873,56 @@
                 toastr.error('{{ session('error') }}');
             @endif
         });
+
+        // Function to load units for an item
+        function loadItemUnits(itemId, $row) {
+            if (!itemId) return;
+
+            const $unitSelect = $row.find('.unit-select');
+            $unitSelect.empty().append('<option value="">Loading units...</option>');
+
+            $.get('{{ route('purchase-orders.api.item-units') }}', {
+                    item_id: itemId
+                })
+                .done(function(units) {
+                    $unitSelect.empty().append('<option value="">Select Unit</option>');
+
+                    units.forEach(function(unit) {
+                        const selected = unit.is_base_unit ? 'selected' : '';
+                        $unitSelect.append(
+                            `<option value="${unit.id}" ${selected}>${unit.display_name}</option>`);
+                    });
+
+                    // Initialize Select2 for the new select
+                    $unitSelect.select2({
+                        placeholder: 'Select Unit',
+                        allowClear: true,
+                        width: '100%'
+                    });
+                })
+                .fail(function() {
+                    $unitSelect.empty().append('<option value="">Error loading units</option>');
+                });
+        }
+
+        // Function to show conversion preview
+        function showConversionPreview(itemId, unitId, quantity, $row) {
+            $.get('{{ route('purchase-orders.api.conversion-preview') }}', {
+                    item_id: itemId,
+                    from_unit_id: unitId,
+                    quantity: quantity
+                })
+                .done(function(response) {
+                    const $preview = $row.find('.conversion-preview');
+                    if (response.valid && response.preview) {
+                        $preview.text(response.preview).show();
+                    } else {
+                        $preview.text('').hide();
+                    }
+                })
+                .fail(function() {
+                    $row.find('.conversion-preview').text('').hide();
+                });
+        }
     </script>
 @endpush

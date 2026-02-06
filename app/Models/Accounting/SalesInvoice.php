@@ -13,9 +13,12 @@ class SalesInvoice extends Model
     protected $fillable = [
         'invoice_no',
         'date',
+        'due_date',
+        'terms_days',
         'business_partner_id',
         'company_entity_id',
         'sales_order_id',
+        'reference_no',
         'is_opening_balance',
         'description',
         'total_amount',
@@ -25,6 +28,7 @@ class SalesInvoice extends Model
 
     protected $casts = [
         'date' => 'date',
+        'due_date' => 'date',
         'posted_at' => 'datetime',
         'total_amount' => 'float',
         'is_opening_balance' => 'boolean',

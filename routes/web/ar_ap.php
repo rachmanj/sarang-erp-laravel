@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Accounting\SalesInvoiceController;
+use App\Http\Controllers\Accounting\SalesInvoiceImportController;
 use App\Http\Controllers\Accounting\PurchaseInvoiceController;
 use App\Http\Controllers\Accounting\SalesReceiptController;
 use App\Http\Controllers\Accounting\PurchasePaymentController;
@@ -12,6 +13,15 @@ Route::prefix('sales-invoices')->group(function () {
     Route::get('/data', [SalesInvoiceController::class, 'data'])->middleware('permission:ar.invoices.view')->name('sales-invoices.data');
     Route::get('/create', [SalesInvoiceController::class, 'create'])->middleware('permission:ar.invoices.create')->name('sales-invoices.create');
     Route::post('/', [SalesInvoiceController::class, 'store'])->middleware('permission:ar.invoices.create')->name('sales-invoices.store');
+    
+    // Import routes - must come before /{id} route
+    Route::prefix('import')->group(function () {
+        Route::get('/', [SalesInvoiceImportController::class, 'index'])->name('sales-invoices.import.index');
+        Route::get('/template', [SalesInvoiceImportController::class, 'template'])->name('sales-invoices.import.template');
+        Route::post('/validate', [SalesInvoiceImportController::class, 'validateImport'])->name('sales-invoices.import.validate');
+        Route::post('/', [SalesInvoiceImportController::class, 'import'])->name('sales-invoices.import.store');
+    });
+    
     Route::get('/{id}', [SalesInvoiceController::class, 'show'])->middleware('permission:ar.invoices.view')->name('sales-invoices.show');
     Route::post('/{id}/post', [SalesInvoiceController::class, 'post'])->middleware('permission:ar.invoices.post')->name('sales-invoices.post');
     Route::get('/{id}/print', function ($id) {

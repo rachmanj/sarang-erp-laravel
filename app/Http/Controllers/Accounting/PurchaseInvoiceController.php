@@ -524,12 +524,13 @@ class PurchaseInvoiceController extends Controller
                     }
                 }
 
-                // Different accounting flow based on payment method
+                // Different accounting flow based on payment method and opening balance flag
                 if ($invoice->payment_method === 'cash' && $invoice->is_direct_purchase) {
                     // Direct cash purchase: Debit Inventory, Credit Cash
                     $this->postDirectCashPurchase($invoice);
                 } else {
                     // Credit purchase: Debit AP UnInvoice, Credit Utang Dagang (existing flow)
+                    // OR for opening balance: Debit Line Accounts, Credit Utang Dagang
                     $this->postCreditPurchase($invoice);
                 }
 
@@ -663,7 +664,8 @@ class PurchaseInvoiceController extends Controller
 
     /**
      * Post direct cash purchase invoice
-     * Accounting: Debit Inventory Account, Credit Cash Account
+     * Normal flow: Debit Inventory Account, Credit Cash Account
+     * Opening balance flow: Debit Line Accounts, Credit Cash Account
      */
     private function postDirectCashPurchase(PurchaseInvoice $invoice): void
     {
@@ -678,10 +680,26 @@ class PurchaseInvoiceController extends Controller
         $ppnTotal = 0.0;
         $withholdingTotal = 0.0;
         $journalLines = [];
+        
+        // Group by account for opening balance invoices
+        $expenseByAccount = [];
 
         foreach ($invoice->lines as $line) {
             $lineAmount = (float) $line->amount;
             $totalAmount += $lineAmount;
+
+            // Group by account for opening balance invoices
+            if ($invoice->is_opening_balance) {
+                $accountId = (int) $line->account_id;
+                if (!isset($expenseByAccount[$accountId])) {
+                    $expenseByAccount[$accountId] = [
+                        'amount' => 0,
+                        'project_id' => $line->project_id,
+                        'dept_id' => $line->dept_id,
+                    ];
+                }
+                $expenseByAccount[$accountId]['amount'] += $lineAmount;
+            }
 
             // Calculate taxes
             if (!empty($line->tax_code_id)) {
@@ -697,15 +715,32 @@ class PurchaseInvoiceController extends Controller
                 }
             }
 
-            // Debit Inventory Account (from line's account_id - auto-selected from item category)
-            $journalLines[] = [
-                'account_id' => $line->account_id,
-                'debit' => $lineAmount,
-                'credit' => 0,
-                'project_id' => $line->project_id,
-                'dept_id' => $line->dept_id,
-                'memo' => $line->description ?? 'Direct cash purchase',
-            ];
+            // For normal invoices: Debit Inventory Account (from line's account_id)
+            // For opening balance: Will be handled separately below
+            if (!$invoice->is_opening_balance) {
+                $journalLines[] = [
+                    'account_id' => $line->account_id,
+                    'debit' => $lineAmount,
+                    'credit' => 0,
+                    'project_id' => $line->project_id,
+                    'dept_id' => $line->dept_id,
+                    'memo' => $line->description ?? 'Direct cash purchase',
+                ];
+            }
+        }
+
+        // For opening balance invoices: Debit accounts from lines
+        if ($invoice->is_opening_balance) {
+            foreach ($expenseByAccount as $accountId => $data) {
+                $journalLines[] = [
+                    'account_id' => $accountId,
+                    'debit' => $data['amount'],
+                    'credit' => 0,
+                    'project_id' => $data['project_id'],
+                    'dept_id' => $data['dept_id'],
+                    'memo' => 'Opening Balance - Direct Cash Purchase',
+                ];
+            }
         }
 
         // PPN Input (if any)
@@ -743,12 +778,16 @@ class PurchaseInvoiceController extends Controller
             'credit' => $totalCashCredit,
             'project_id' => null,
             'dept_id' => null,
-            'memo' => 'Cash payment for purchase invoice #' . $invoice->invoice_no,
+            'memo' => $invoice->is_opening_balance 
+                ? 'Cash payment for opening balance invoice #' . $invoice->invoice_no
+                : 'Cash payment for purchase invoice #' . $invoice->invoice_no,
         ];
 
         $this->posting->postJournal([
             'date' => $invoice->date->toDateString(),
-            'description' => 'Direct Cash Purchase Invoice #' . $invoice->invoice_no,
+            'description' => $invoice->is_opening_balance
+                ? 'Direct Cash Purchase Invoice (Opening Balance) #' . $invoice->invoice_no
+                : 'Direct Cash Purchase Invoice #' . $invoice->invoice_no,
             'source_type' => 'purchase_invoice',
             'source_id' => $invoice->id,
             'lines' => $journalLines,
@@ -756,8 +795,9 @@ class PurchaseInvoiceController extends Controller
     }
 
     /**
-     * Post credit purchase invoice (existing flow)
-     * Accounting: Debit AP UnInvoice, Credit Utang Dagang
+     * Post credit purchase invoice
+     * Normal flow: Debit AP UnInvoice, Credit Utang Dagang
+     * Opening balance flow: Debit Line Accounts, Credit Utang Dagang
      */
     private function postCreditPurchase(PurchaseInvoice $invoice): void
     {
@@ -770,17 +810,30 @@ class PurchaseInvoiceController extends Controller
         $withholdingTotal = 0.0;
         $lines = [];
 
+        // Calculate totals and group by account for opening balance
+        $expenseByAccount = [];
         foreach ($invoice->lines as $l) {
-            $expenseTotal += (float) $l->amount;
+            $lineAmount = (float) $l->amount;
+            $expenseTotal += $lineAmount;
+            
+            // Group by account for opening balance invoices
+            if ($invoice->is_opening_balance) {
+                $accountId = (int) $l->account_id;
+                if (!isset($expenseByAccount[$accountId])) {
+                    $expenseByAccount[$accountId] = 0;
+                }
+                $expenseByAccount[$accountId] += $lineAmount;
+            }
+            
             if (!empty($l->tax_code_id)) {
                 $tax = DB::table('tax_codes')->where('id', $l->tax_code_id)->first();
                 if ($tax) {
                     $rate = (float) $tax->rate;
                     if (str_contains(strtolower((string)$tax->name), 'ppn') || strtolower((string)$tax->type) === 'ppn_input') {
-                        $ppnTotal += round($l->amount * $rate, 2);
+                        $ppnTotal += round($lineAmount * $rate, 2);
                     }
                     if (strtolower((string)$tax->type) === 'withholding') {
-                        $withholdingTotal += round($l->amount * $rate, 2);
+                        $withholdingTotal += round($lineAmount * $rate, 2);
                     }
                 }
             }
@@ -811,15 +864,30 @@ class PurchaseInvoiceController extends Controller
             }
         }
 
-        // Debit AP UnInvoice (reducing un-invoiced liability)
-        $lines[] = [
-            'account_id' => $apUnInvoiceAccountId,
-            'debit' => ($expenseTotal + $ppnTotal) - $withholdingTotal,
-            'credit' => 0,
-            'project_id' => null,
-            'dept_id' => null,
-            'memo' => 'Reduce AP UnInvoice',
-        ];
+        // Check if this is an opening balance invoice
+        if ($invoice->is_opening_balance) {
+            // Opening balance: Debit accounts from invoice lines, Credit Utang Dagang
+            foreach ($expenseByAccount as $accountId => $amount) {
+                $lines[] = [
+                    'account_id' => $accountId,
+                    'debit' => $amount,
+                    'credit' => 0,
+                    'project_id' => null,
+                    'dept_id' => null,
+                    'memo' => 'Opening Balance - Expense/Inventory',
+                ];
+            }
+        } else {
+            // Normal flow: Debit AP UnInvoice (reducing un-invoiced liability)
+            $lines[] = [
+                'account_id' => $apUnInvoiceAccountId,
+                'debit' => ($expenseTotal + $ppnTotal) - $withholdingTotal,
+                'credit' => 0,
+                'project_id' => null,
+                'dept_id' => null,
+                'memo' => 'Reduce AP UnInvoice',
+            ];
+        }
 
         // Credit Utang Dagang (creating proper liability)
         $lines[] = [
@@ -828,12 +896,14 @@ class PurchaseInvoiceController extends Controller
             'credit' => ($expenseTotal + $ppnTotal) - $withholdingTotal,
             'project_id' => null,
             'dept_id' => null,
-            'memo' => 'Accounts Payable',
+            'memo' => $invoice->is_opening_balance ? 'Accounts Payable - Opening Balance' : 'Accounts Payable',
         ];
 
         $this->posting->postJournal([
             'date' => $invoice->date->toDateString(),
-            'description' => 'Post AP Invoice #' . $invoice->invoice_no,
+            'description' => $invoice->is_opening_balance 
+                ? 'Post AP Invoice (Opening Balance) #' . $invoice->invoice_no
+                : 'Post AP Invoice #' . $invoice->invoice_no,
             'source_type' => 'purchase_invoice',
             'source_id' => $invoice->id,
             'lines' => $lines,

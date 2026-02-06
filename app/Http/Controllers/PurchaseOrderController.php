@@ -270,6 +270,7 @@ class PurchaseOrderController extends Controller
     {
         $order = PurchaseOrder::with(['lines.inventoryItem', 'businessPartner', 'approvals.user', 'approvedBy', 'createdBy'])
             ->findOrFail($id);
+        
         return view('purchase_orders.show', compact('order'));
     }
 
@@ -526,6 +527,47 @@ class PurchaseOrderController extends Controller
             return back()->with('success', 'Purchase Order closed successfully');
         } catch (\Exception $e) {
             return back()->with('error', 'Error closing purchase order: ' . $e->getMessage());
+        }
+    }
+
+    public function destroy(int $id)
+    {
+        try {
+            $order = PurchaseOrder::with(['lines', 'approvals'])->findOrFail($id);
+
+            // Only allow deletion of draft purchase orders
+            if ($order->status !== 'draft') {
+                return back()->with('error', 'Only draft purchase orders can be deleted.');
+            }
+
+            // Check if PO has been used in other documents
+            $hasGRPO = DB::table('goods_receipt_po')
+                ->where('purchase_order_id', $id)
+                ->exists();
+
+            $hasInvoice = DB::table('purchase_invoices')
+                ->where('purchase_order_id', $id)
+                ->exists();
+
+            if ($hasGRPO || $hasInvoice) {
+                return back()->with('error', 'Cannot delete purchase order that has been used in Goods Receipt or Purchase Invoice.');
+            }
+
+            DB::transaction(function () use ($order) {
+                // Delete approval records
+                $order->approvals()->delete();
+                
+                // Delete lines
+                $order->lines()->delete();
+                
+                // Delete the purchase order
+                $order->delete();
+            });
+
+            return redirect()->route('purchase-orders.index')
+                ->with('success', 'Purchase Order deleted successfully');
+        } catch (\Exception $e) {
+            return back()->with('error', 'Error deleting purchase order: ' . $e->getMessage());
         }
     }
 

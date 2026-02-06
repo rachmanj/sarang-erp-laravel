@@ -397,6 +397,78 @@
                 allowClear: true
             });
 
+            // Populate due_date from business partner TOP when business partner is selected
+            $('select[name="business_partner_id"]').on('change', function() {
+                const businessPartnerId = $(this).val();
+                const invoiceDate = $('input[name="date"]').val();
+                
+                if (businessPartnerId && invoiceDate) {
+                    $.ajax({
+                        url: '{{ route("business_partners.payment_terms", ["businessPartner" => "ID_PLACEHOLDER"]) }}'.replace('ID_PLACEHOLDER', businessPartnerId),
+                        method: 'GET',
+                        success: function(response) {
+                            if (response.success && response.payment_terms_days !== undefined) {
+                                const termsDays = response.payment_terms_days;
+                                
+                                // Calculate due date: invoice date + payment terms days
+                                const dateObj = new Date(invoiceDate);
+                                dateObj.setDate(dateObj.getDate() + termsDays);
+                                
+                                // Format as YYYY-MM-DD
+                                const dueDate = dateObj.toISOString().split('T')[0];
+                                
+                                // Only set if due_date is empty (to allow manual override)
+                                if (!$('input[name="due_date"]').val()) {
+                                    $('input[name="due_date"]').val(dueDate);
+                                }
+                                
+                                // Also update terms_days field
+                                $('input[name="terms_days"]').val(termsDays);
+                            }
+                        },
+                        error: function() {
+                            // Silently fail - user can manually enter due date
+                        }
+                    });
+                }
+            });
+
+            // Update due_date when invoice date changes (if business partner is selected)
+            $('input[name="date"]').on('change', function() {
+                const businessPartnerId = $('select[name="business_partner_id"]').val();
+                const invoiceDate = $(this).val();
+                
+                if (businessPartnerId && invoiceDate) {
+                    $.ajax({
+                        url: '{{ route("business_partners.payment_terms", ["businessPartner" => "ID_PLACEHOLDER"]) }}'.replace('ID_PLACEHOLDER', businessPartnerId),
+                        method: 'GET',
+                        success: function(response) {
+                            if (response.success && response.payment_terms_days !== undefined) {
+                                const termsDays = response.payment_terms_days;
+                                
+                                // Calculate due date: invoice date + payment terms days
+                                const dateObj = new Date(invoiceDate);
+                                dateObj.setDate(dateObj.getDate() + termsDays);
+                                
+                                // Format as YYYY-MM-DD
+                                const dueDate = dateObj.toISOString().split('T')[0];
+                                
+                                // Only set if due_date is empty (to allow manual override)
+                                if (!$('input[name="due_date"]').val()) {
+                                    $('input[name="due_date"]').val(dueDate);
+                                }
+                                
+                                // Also update terms_days field
+                                $('input[name="terms_days"]').val(termsDays);
+                            }
+                        },
+                        error: function() {
+                            // Silently fail - user can manually enter due date
+                        }
+                    });
+                }
+            });
+
             // Remove line
             $(document).on('click', '.rm', function() {
                 $(this).closest('tr').remove();

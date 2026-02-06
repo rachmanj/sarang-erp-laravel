@@ -233,19 +233,15 @@ class SalesInvoiceController extends Controller
         }
 
         // Check if this is an opening balance invoice
-        // Opening balance invoices post directly to AR and Revenue accounts
+        // Opening balance invoices post directly to AR and Retained Earnings Opening Balance
         $isOpeningBalance = $invoice->is_opening_balance;
 
         if ($isOpeningBalance) {
-            // Opening balance invoice: Post directly to AR and Revenue
-            // Group revenue by account_id for proper revenue recognition
-            $revenueByAccount = [];
-            foreach ($invoice->lines as $l) {
-                $accountId = (int) $l->account_id;
-                if (!isset($revenueByAccount[$accountId])) {
-                    $revenueByAccount[$accountId] = 0;
-                }
-                $revenueByAccount[$accountId] += (float) $l->amount;
+            // Opening balance invoice: Post directly to AR and Retained Earnings Opening Balance (3.3.1)
+            $retainedEarningsAccountId = (int) DB::table('accounts')->where('code', '3.3.1')->value('id'); // Saldo Awal Laba Ditahan
+            
+            if (!$retainedEarningsAccountId) {
+                throw new \Exception('Retained Earnings Opening Balance account (3.3.1) not found. Please ensure this account exists in the chart of accounts.');
             }
 
             // Debit AR Account (creating accounts receivable)
@@ -258,17 +254,15 @@ class SalesInvoiceController extends Controller
                 'memo' => 'Accounts Receivable - Opening Balance',
             ];
 
-            // Credit Revenue Accounts (from invoice lines)
-            foreach ($revenueByAccount as $accountId => $amount) {
-                $lines[] = [
-                    'account_id' => $accountId,
-                    'debit' => 0,
-                    'credit' => $amount,
-                    'project_id' => null,
-                    'dept_id' => null,
-                    'memo' => 'Revenue Recognition - Opening Balance',
-                ];
-            }
+            // Credit Retained Earnings Opening Balance (3.3.1)
+            $lines[] = [
+                'account_id' => $retainedEarningsAccountId,
+                'debit' => 0,
+                'credit' => $revenueTotal,
+                'project_id' => null,
+                'dept_id' => null,
+                'memo' => 'Saldo Awal Laba Ditahan - Opening Balance',
+            ];
 
             // Credit VAT Output Account (recognizing VAT liability)
             if ($ppnTotal > 0) {
@@ -322,7 +316,9 @@ class SalesInvoiceController extends Controller
         DB::transaction(function () use ($invoice, $lines) {
             $jid = $this->posting->postJournal([
                 'date' => $invoice->date->toDateString(),
-                'description' => 'Post AR Invoice #' . $invoice->id,
+                'description' => $invoice->is_opening_balance 
+                    ? 'Post AR Invoice (Opening Balance) #' . $invoice->invoice_no
+                    : 'Post AR Invoice #' . $invoice->invoice_no,
                 'source_type' => 'sales_invoice',
                 'source_id' => $invoice->id,
                 'lines' => $lines,

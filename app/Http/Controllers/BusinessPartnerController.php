@@ -301,4 +301,14 @@ class BusinessPartnerController extends Controller
 
         return view('business_partners.journal_history', compact('businessPartner', 'journalData'));
     }
+
+    public function getPaymentTerms(BusinessPartner $businessPartner)
+    {
+        $paymentTermsDays = $businessPartner->getPaymentTermsDays();
+        
+        return response()->json([
+            'success' => true,
+            'payment_terms_days' => $paymentTermsDays,
+        ]);
+    }
 }

@@ -40,6 +40,9 @@
                                 <button id="apply_filters" class="btn btn-sm btn-info">Apply</button>
                                 @can('ar.invoices.create')
                                     <a href="{{ route('sales-invoices.create') }}" class="btn btn-sm btn-primary">Create</a>
+                                    <a href="{{ route('sales-invoices.import.index') }}" class="btn btn-sm btn-success">
+                                        <i class="fas fa-upload"></i> Import Opening Balance
+                                    </a>
                                 @endcan
                             </div>
                         </div>

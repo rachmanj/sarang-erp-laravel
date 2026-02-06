@@ -322,6 +322,11 @@ Route::prefix('purchase-orders')->group(function () {
     Route::get('/asset-categories', [PurchaseOrderController::class, 'getAssetCategories'])->name('purchase-orders.asset-categories');
     Route::post('/{id}/approve', [PurchaseOrderController::class, 'approve'])->name('purchase-orders.approve');
     Route::post('/{id}/close', [PurchaseOrderController::class, 'close'])->name('purchase-orders.close');
+    Route::delete('/{id}', [PurchaseOrderController::class, 'destroy'])->name('purchase-orders.destroy');
+    Route::get('/{id}/copy-to-grpo', [PurchaseOrderController::class, 'showCopyToGRPO'])->name('purchase-orders.show-copy-to-grpo');
+    Route::post('/{id}/copy-to-grpo', [PurchaseOrderController::class, 'copyToGRPO'])->name('purchase-orders.copy-to-grpo');
+    Route::get('/{id}/copy-to-purchase-invoice', [PurchaseOrderController::class, 'showCopyToPurchaseInvoice'])->name('purchase-orders.show-copy-to-purchase-invoice');
+    Route::get('/{id}/copy-to-purchase-invoice/execute', [PurchaseOrderController::class, 'copyToPurchaseInvoice'])->name('purchase-orders.copy-to-purchase-invoice');
 
     // Unit Conversion API Routes
     Route::get('/api/item-units', [PurchaseOrderController::class, 'getItemUnits'])->name('purchase-orders.api.item-units');

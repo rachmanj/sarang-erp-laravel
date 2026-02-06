@@ -351,28 +351,77 @@ class PurchaseService
             $oldStatus = $po->status;
             $oldApprovalStatus = $po->approval_status;
 
+            // Check if PO is in draft status
+            if ($po->status !== 'draft') {
+                throw new \Exception('Only draft purchase orders can be approved');
+            }
+
             // Find the approval record
             $approval = $po->approvals()
                 ->where('user_id', $userId)
                 ->where('status', 'pending')
                 ->first();
 
+            // If no approval record exists, try to create workflow or allow superadmin to approve
             if (!$approval) {
-                throw new \Exception('No pending approval found for this user');
+                // Check if user is superadmin (has superadmin role via Spatie)
+                $user = \App\Models\User::find($userId);
+                if ($user && $user->hasRole('superadmin')) {
+                    // Superadmin can approve without approval records - create one for audit trail
+                    $approval = PurchaseOrderApproval::create([
+                        'purchase_order_id' => $po->id,
+                        'user_id' => $userId,
+                        'approval_level' => 'superadmin',
+                        'status' => 'approved',
+                        'comments' => $comments,
+                        'approved_at' => now(),
+                    ]);
+                    
+                    // Directly approve the PO since superadmin bypasses workflow
+                    $po->update([
+                        'approval_status' => 'approved',
+                        'status' => 'ordered',
+                        'approved_by' => $userId,
+                        'approved_at' => now(),
+                    ]);
+                } else {
+                    // Try to create approval workflow if it doesn't exist
+                    $approvalCount = $po->approvals()->count();
+                    if ($approvalCount === 0) {
+                        try {
+                            $this->createApprovalWorkflow($po);
+                            $po->refresh();
+                            // Try to find approval again
+                            $approval = $po->approvals()
+                                ->where('user_id', $userId)
+                                ->where('status', 'pending')
+                                ->first();
+                        } catch (\Exception $e) {
+                            Log::error("Failed to create approval workflow: " . $e->getMessage());
+                        }
+                    }
+                    
+                    if (!$approval) {
+                        throw new \Exception('No pending approval found for this user. You may not have the required role to approve this purchase order.');
+                    }
+                }
             }
 
-            $approval->approve($comments);
+            // If approval was just created by superadmin, skip the approve call
+            if ($approval->status === 'pending') {
+                $approval->approve($comments);
 
-            // Check if all approvals are complete
-            $pendingApprovals = $po->approvals()->where('status', 'pending')->count();
+                // Check if all approvals are complete
+                $pendingApprovals = $po->approvals()->where('status', 'pending')->count();
 
-            if ($pendingApprovals === 0) {
-                $po->update([
-                    'approval_status' => 'approved',
-                    'status' => 'ordered',
-                    'approved_by' => $userId,
-                    'approved_at' => now(),
-                ]);
+                if ($pendingApprovals === 0) {
+                    $po->update([
+                        'approval_status' => 'approved',
+                        'status' => 'ordered',
+                        'approved_by' => $userId,
+                        'approved_at' => now(),
+                    ]);
+                }
             }
 
             $po->refresh();

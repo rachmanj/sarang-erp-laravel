@@ -100,6 +100,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/search', [BusinessPartnerController::class, 'search'])->name('business_partners.search');
         Route::get('/by-type', [BusinessPartnerController::class, 'getByType'])->name('business_partners.by-type');
         Route::get('/{businessPartner}/journal-history', [BusinessPartnerController::class, 'journalHistory'])->name('business_partners.journal_history');
+        Route::get('/{businessPartner}/payment-terms', [BusinessPartnerController::class, 'getPaymentTerms'])->name('business_partners.payment_terms');
     });
 
     // Accounts

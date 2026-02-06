@@ -214,4 +214,25 @@ class BusinessPartner extends Model
     {
         return $this->account ?? $this->getDefaultAccount();
     }
+
+    public function getPaymentTermsDays()
+    {
+        $paymentTerms = $this->getDetailBySection('terms', 'payment_terms');
+        
+        if (!$paymentTerms) {
+            return 30;
+        }
+
+        $termsMapping = [
+            'immediate' => 0,
+            'net_15' => 15,
+            'net_30' => 30,
+            'net_45' => 45,
+            'net_60' => 60,
+        ];
+
+        $termValue = $paymentTerms->field_value;
+        
+        return $termsMapping[$termValue] ?? 30;
+    }
 }
