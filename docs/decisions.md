@@ -1,5 +1,5 @@
 **Purpose**: Record technical decisions and rationale for future reference
-**Last Updated**: 2026-02-04 (Added Menu Search Bar Implementation decision)
+**Last Updated**: 2026-02-09 (Added Sales Order Approval Fix decision)
 
 # Technical Decision Records
 
@@ -29,6 +29,41 @@ Decision: [Title] - [YYYY-MM-DD]
 ---
 
 ## Recent Decisions
+
+### Decision: Sales Order Approval Workflow Fix & Auto-Recovery Mechanism - 2026-02-09
+
+**Context**: Sales Orders with `approval_status = 'pending'` could not be approved because approval workflow records were missing from `sales_order_approvals` table. This occurred when Sales Orders were created before the approval workflow system was implemented, or when approval workflow creation failed silently. Additionally, users needed better inventory item information display on Sales Order show pages.
+
+**Options Considered**:
+
+1. **Option A**: Manual database fixes only - Require administrators to manually create approval records via SQL or database tools.
+    - ✅ Pros: No code changes required, simple approach
+    - ❌ Cons: Requires technical knowledge, error-prone, doesn't prevent future issues, poor user experience, no UI improvements
+
+2. **Option B**: Auto-recovery mechanism in service layer + commands + UI enhancements - Automatically create missing approval records during approval attempt, provide commands for bulk fixes, enhance UI with inventory item information.
+    - ✅ Pros: Prevents approval failures, self-healing system, user-friendly commands, better UI, production-ready solution
+    - ❌ Cons: Requires code changes, additional complexity
+
+**Decision**: Adopt Option B—implement auto-recovery mechanism in `SalesService::approveSalesOrder()`, create artisan commands for bulk fixes and role management, add fix route for ad-hoc fixes, and enhance Sales Order show page with Item Code and Item Name columns.
+
+**Rationale**:
+- Auto-recovery mechanism prevents data inconsistencies from blocking business processes
+- Commands provide administrators with tools to fix existing data issues
+- Dual role system (Spatie Permission + user_roles) requires synchronization commands
+- UI enhancements improve user experience by displaying inventory item information directly from relationships
+- Eager loading relationships improves performance and ensures data availability
+- Fix route provides flexibility for ad-hoc fixes without command-line access
+
+**Implementation**:
+- **Service Layer**: Modified `SalesService::approveSalesOrder()` to check for missing approval records and automatically create them using `createApprovalWorkflow()` method
+- **Commands**: Created `FixSalesOrderApproval` command (`php artisan sales-order:fix-approval {orderNo|--all}`) and `EnsureOfficerRole` command (`php artisan role:ensure-officer [--create-spatie] [--user=] [--list]`)
+- **Controller**: Updated `SalesOrderController::show()` to eager load `inventoryItem` relationship
+- **View**: Enhanced `resources/views/sales_orders/show.blade.php` to display Item Code (from `inventory_items.code`) and Item Name (from `inventory_items.name`) columns
+- **Routes**: Added fix route `/sales-orders/fix-approval/{orderNo}` in `routes/web/orders.php`
+- **Kernel**: Updated `App\Console\Kernel` to explicitly register commands in `$commands` array for Laravel 11+ compatibility
+- **Documentation**: Created `PRODUCTION_DEPLOYMENT.md` with comprehensive deployment guide
+
+**Review Date**: 2027-02-09 (after full year of production use to assess auto-recovery effectiveness and UI improvements).
 
 ### Decision: Menu Search Bar Implementation - 2026-02-04
 

@@ -62,6 +62,8 @@
                             <thead>
                                 <tr>
                                     <th>Account</th>
+                                    <th>Item Code</th>
+                                    <th>Item Name</th>
                                     <th>Description</th>
                                     <th class="text-right">Qty</th>
                                     <th class="text-right">Unit Price</th>
@@ -72,7 +74,25 @@
                                 @foreach ($order->lines as $l)
                                     <tr>
                                         <td>#{{ $l->account_id }}</td>
-                                        <td>{{ $l->description }}</td>
+                                        <td>
+                                            @if($l->inventoryItem && $l->inventoryItem->code)
+                                                <span class="badge badge-secondary">{{ $l->inventoryItem->code }}</span>
+                                            @elseif($l->item_code)
+                                                <span class="badge badge-secondary">{{ $l->item_code }}</span>
+                                            @else
+                                                <span class="text-muted">-</span>
+                                            @endif
+                                        </td>
+                                        <td>
+                                            @if($l->item_name)
+                                                <strong>{{ $l->item_name }}</strong>
+                                            @elseif($l->inventoryItem)
+                                                <strong>{{ $l->inventoryItem->name }}</strong>
+                                            @else
+                                                <span class="text-muted">-</span>
+                                            @endif
+                                        </td>
+                                        <td>{{ $l->description ?? '-' }}</td>
                                         <td class="text-right">{{ number_format($l->qty, 2) }}</td>
                                         <td class="text-right">{{ number_format($l->unit_price, 2) }}</td>
                                         <td class="text-right">{{ number_format($l->amount, 2) }}</td>

@@ -1,5 +1,5 @@
 Purpose: Technical reference for understanding system design and development patterns
-Last Updated: 2026-02-04 (Updated with Menu Search Bar Implementation)
+Last Updated: 2026-02-09 (Updated with Sales Order Approval Fix & UI Enhancement)
 
 ## Architecture Documentation Guidelines
 
@@ -280,9 +280,27 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 
 ### 6. Sales Management
 
--   **Sales Orders**: Customer order management (SO-YYYYMM-######)
+-   **Sales Orders**: Customer order management (SO-YYYYMM-######) with approval workflow, inventory item display, and auto-recovery for missing approval records
 -   **Delivery Orders**: Delivery management with inventory reservation and revenue recognition (DO-YYYYMM-######)
 -   **Customer Management**: Customer master data with credit management
+
+#### 6.0 Sales Order Approval Workflow System
+
+-   **Approval Workflow**: Multi-level approval process (Officer, Supervisor, Manager) based on order amount thresholds
+-   **Auto-Recovery Mechanism**: `SalesService::approveSalesOrder()` automatically creates missing approval records if they don't exist, preventing approval failures
+-   **Approval Records**: `sales_order_approvals` table stores individual approval records with user_id, approval_level, status (pending/approved/rejected), and comments
+-   **Status Progression**: Draft → Pending Approval → Ordered (when all approvals complete)
+-   **Fix Commands**: `php artisan sales-order:fix-approval {orderNo}` or `--all` to bulk-fix Sales Orders with missing approval records
+-   **Role Management**: `php artisan role:ensure-officer` command ensures "officer" role exists in both Spatie Permission system and approval workflow system
+-   **Fix Route**: `/sales-orders/fix-approval/{orderNo}` for ad-hoc approval workflow fixes
+-   **Dual Role System**: Approval workflows use `user_roles` table (officer/supervisor/manager) while UI displays Spatie Permission roles from `roles` table
+
+#### 6.1 Sales Order Display Enhancement
+
+-   **Item Code Column**: Displays inventory item code from `inventory_items.code` via relationship, falls back to `sales_order_lines.item_code` if relationship unavailable
+-   **Item Name Column**: Displays inventory item name from `inventory_items.name` via relationship, falls back to `sales_order_lines.item_name` if relationship unavailable
+-   **Eager Loading**: `SalesOrderController::show()` eager loads `lines.inventoryItem` relationship for optimal performance
+-   **Data Consistency**: Prefers relationship data over denormalized fields for accurate inventory information display
 
 ### 6.1. Warehouse Selection System
 

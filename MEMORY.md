@@ -1,5 +1,5 @@
 **Purpose**: AI's persistent knowledge base for project context and learnings
-**Last Updated**: 2026-02-04 (Menu Search Bar Implementation)
+**Last Updated**: 2026-02-09 (Sales Order Approval Fix & UI Enhancement)
 
 ## Memory Maintenance Guidelines
 
@@ -580,3 +580,11 @@
 **Solution**: Implemented global menu search bar in navbar with permission-aware filtering. Created `MenuSearchService` to build menu structure programmatically respecting Spatie Permission checks, `MenuSearchController` API endpoint with user/permission-based caching (1-hour TTL), jQuery-based autocomplete component with debounced search (300ms), keyboard navigation (Arrow keys, Enter, Escape), click-to-select functionality, and AdminLTE-styled dropdown results. Search bar positioned in navbar center-left with white background for visibility, includes "Search Menu here" label, and supports Ctrl+K keyboard shortcut to focus.
 
 **Key Learning**: Global menu search significantly improves navigation efficiency in complex ERP systems. Permission-aware filtering ensures users only see accessible menu items, maintaining security while improving discoverability. Client-side caching with server-side permission filtering balances performance and security. Keyboard navigation and shortcuts provide power-user capabilities. White background on dark navbar creates visual contrast for better discoverability. The implementation follows AdminLTE design patterns for consistent user experience.
+
+### [024] Sales Order Approval Workflow Fix & UI Enhancement (2026-02-09) ✅ COMPLETE
+
+**Challenge**: Sales Orders with `approval_status = 'pending'` could not be approved because approval workflow records were missing from `sales_order_approvals` table. Additionally, the Sales Order show page lacked inventory item information (item code and item name), making it difficult to identify products in order lines.
+
+**Solution**: Implemented comprehensive fix with auto-recovery mechanism in `SalesService::approveSalesOrder()` to automatically create missing approval records if they don't exist. Created `FixSalesOrderApproval` artisan command to bulk-fix existing Sales Orders with missing approvals. Created `EnsureOfficerRole` command to ensure "officer" role exists in both Spatie Permission system (`roles` table) and approval workflow system (`user_roles` table). Enhanced Sales Order show page (`resources/views/sales_orders/show.blade.php`) to display Item Code and Item Name columns, pulling from `inventory_items.code` and `inventory_items.name` via relationship. Updated `SalesOrderController::show()` to eager load `inventoryItem` relationship. Added fix route `/sales-orders/fix-approval/{orderNo}` for ad-hoc fixes. Updated custom `App\Console\Kernel` to properly register commands.
+
+**Key Learning**: Approval workflows require both Spatie Permission roles (for UI display) and user_roles entries (for workflow logic). Auto-recovery mechanisms in service layers prevent data inconsistencies from blocking business processes. Eager loading relationships improves performance and ensures data availability. Commands must be explicitly registered in Laravel 11+ custom Kernel when overriding `getArtisan()`. Inventory item information should be displayed directly from relationships rather than denormalized fields for data consistency.

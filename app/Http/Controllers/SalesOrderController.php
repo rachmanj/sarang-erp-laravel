@@ -250,7 +250,7 @@ class SalesOrderController extends Controller
 
     public function show(int $id)
     {
-        $order = SalesOrder::with(['lines', 'customer', 'approvals.user', 'approvedBy', 'createdBy', 'commissions'])
+        $order = SalesOrder::with(['lines.inventoryItem', 'customer', 'approvals.user', 'approvedBy', 'createdBy', 'commissions'])
             ->findOrFail($id);
         return view('sales_orders.show', compact('order'));
     }
