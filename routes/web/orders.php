@@ -80,6 +80,46 @@ Route::prefix('sales-orders')->group(function () {
     Route::post('/', [SalesOrderController::class, 'store'])->name('sales-orders.store');
     Route::get('/{id}', [SalesOrderController::class, 'show'])->name('sales-orders.show');
     Route::get('/{id}/create-invoice', [SalesOrderController::class, 'createInvoice'])->name('sales-orders.create-invoice');
+    Route::get('/fix-approval/{orderNo}', function ($orderNo) {
+        $salesOrder = \App\Models\SalesOrder::where('order_no', $orderNo)->firstOrFail();
+        
+        // Ensure superadmin has officer role
+        $officerRole = \App\Models\UserRole::where('user_id', 1)
+            ->where('role_name', 'officer')
+            ->first();
+            
+        if (!$officerRole) {
+            \App\Models\UserRole::create([
+                'user_id' => 1,
+                'role_name' => 'officer',
+                'is_active' => true,
+            ]);
+        }
+        
+        // Create approval workflow if missing
+        $existingApprovals = \App\Models\SalesOrderApproval::where('sales_order_id', $salesOrder->id)->count();
+        if ($existingApprovals === 0) {
+            $approvalWorkflowService = app(\App\Services\ApprovalWorkflowService::class);
+            $approvalRecords = $approvalWorkflowService->createWorkflowForDocument(
+                'sales_order',
+                $salesOrder->id,
+                $salesOrder->total_amount
+            );
+            
+            foreach ($approvalRecords as $record) {
+                \App\Models\SalesOrderApproval::create([
+                    'sales_order_id' => $record['document_id'],
+                    'user_id' => $record['user_id'],
+                    'approval_level' => $record['role_name'],
+                    'status' => $record['status'],
+                ]);
+            }
+        }
+        
+        return redirect()->route('sales-orders.show', $salesOrder->id)
+            ->with('success', 'Approval workflow fixed. You can now approve the Sales Order.');
+    })->name('sales-orders.fix-approval');
+    
     Route::post('/{id}/approve', [SalesOrderController::class, 'approve'])->name('sales-orders.approve');
     Route::post('/{id}/close', [SalesOrderController::class, 'close'])->name('sales-orders.close');
 

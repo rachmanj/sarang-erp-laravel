@@ -174,6 +174,14 @@ class SalesService
             $oldStatus = $so->status;
             $oldApprovalStatus = $so->approval_status;
 
+            // If no approval records exist, create them
+            $existingApprovals = $so->approvals()->count();
+            if ($existingApprovals === 0 && $so->approval_status === 'pending') {
+                \Log::warning("No approval records found for SO {$so->order_no}, creating them now");
+                $this->createApprovalWorkflow($so);
+                $so->refresh();
+            }
+
             $approval = $so->approvals()
                 ->where('user_id', $userId)
                 ->where('status', 'pending')
