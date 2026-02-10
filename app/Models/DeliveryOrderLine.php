@@ -21,6 +21,7 @@ class DeliveryOrderLine extends Model
         'delivered_qty',
         'unit_price',
         'amount',
+        'tax_code_id',
         'warehouse_location',
         'serial_numbers',
         'batch_codes',
@@ -59,6 +60,11 @@ class DeliveryOrderLine extends Model
     public function account(): BelongsTo
     {
         return $this->belongsTo(\App\Models\Accounting\Account::class);
+    }
+
+    public function taxCode(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Master\TaxCode::class, 'tax_code_id');
     }
 
     // Accessors

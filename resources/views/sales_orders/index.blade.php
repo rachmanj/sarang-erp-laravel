@@ -22,10 +22,14 @@
                         <input type="date" name="to" class="form-control form-control-sm mr-1" placeholder="To">
                         <input type="text" name="q" class="form-control form-control-sm mr-1" placeholder="Search">
                         <select name="status" class="form-control form-control-sm mr-1">
-                            <option value="">Status</option>
+                            <option value="">All Statuses</option>
                             <option value="draft">Draft</option>
-                            <option value="approved">Approved</option>
+                            <option value="ordered">Ordered</option>
+                            <option value="confirmed">Confirmed</option>
+                            <option value="partial">Partial</option>
+                            <option value="delivered">Delivered</option>
                             <option value="closed">Closed</option>
+                            <option value="processing">Processing</option>
                         </select>
                         <button class="btn btn-sm btn-secondary" type="submit">Apply</button>
                         <a class="btn btn-sm btn-outline-secondary ml-1" id="csv" href="#">CSV</a>

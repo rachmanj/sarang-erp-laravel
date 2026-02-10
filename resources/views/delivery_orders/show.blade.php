@@ -265,13 +265,14 @@
                             @endif
 
                             <!-- Create Invoice Action -->
-                            @if ($deliveryOrder->status === 'delivered' && $deliveryOrder->approval_status === 'approved')
+                            @if (in_array($deliveryOrder->status, ['delivered', 'completed']) && $deliveryOrder->approval_status === 'approved' && ($deliveryOrder->closure_status ?? 'open') !== 'closed')
                                 <div class="row mt-3">
                                     <div class="col-md-12">
                                         <a href="{{ route('delivery-orders.create-invoice', $deliveryOrder) }}"
                                             class="btn btn-success">
                                             <i class="fas fa-file-invoice-dollar"></i> Create Invoice from Delivery Order
                                         </a>
+                                        <small class="text-muted ml-2">Creates Sales Invoice from delivered quantities</small>
                                     </div>
                                 </div>
                             @endif

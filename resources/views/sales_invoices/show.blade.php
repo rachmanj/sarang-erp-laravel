@@ -138,6 +138,16 @@
                                         </td>
                                     </tr>
                                 @endif
+                                @if ($invoice->delivery_order_id && $invoice->deliveryOrder)
+                                    <tr>
+                                        <th class="text-nowrap text-muted">Delivery Order</th>
+                                        <td>
+                                            <a href="{{ route('delivery-orders.show', $invoice->delivery_order_id) }}" class="badge badge-info">
+                                                {{ $invoice->deliveryOrder->do_number ?? '#' . $invoice->delivery_order_id }}
+                                            </a>
+                                        </td>
+                                    </tr>
+                                @endif
                             </table>
                         </div>
                     </div>
@@ -160,8 +170,24 @@
                                 @foreach ($invoice->lines as $idx => $line)
                                     <tr>
                                         <td>{{ $idx + 1 }}</td>
-                                        <td>{{ $line->item_code ?? '—' }}</td>
-                                        <td>{{ $line->item_name ?? $line->description ?? '—' }}</td>
+                                        <td>
+                                            @if($line->inventoryItem && $line->inventoryItem->code)
+                                                <span class="badge badge-secondary">{{ $line->inventoryItem->code }}</span>
+                                            @elseif($line->item_code)
+                                                <span class="badge badge-secondary">{{ $line->item_code }}</span>
+                                            @else
+                                                <span class="text-muted">—</span>
+                                            @endif
+                                        </td>
+                                        <td>
+                                            @if($line->inventoryItem && $line->inventoryItem->name)
+                                                <strong>{{ $line->inventoryItem->name }}</strong>
+                                            @elseif($line->item_name)
+                                                <strong>{{ $line->item_name }}</strong>
+                                            @else
+                                                <span class="text-muted">—</span>
+                                            @endif
+                                        </td>
                                         <td class="text-right">{{ number_format($line->qty, 2) }}</td>
                                         <td class="text-right">{{ number_format($line->unit_price, 2) }}</td>
                                         <td>{{ $line->taxCode->code ?? '—' }}</td>
@@ -186,10 +212,30 @@
                     @endphp
                     <div class="row mt-3">
                         <div class="col-md-6">
-                            @if ($invoice->is_opening_balance)
-                                <p class="text-muted small mb-0">
-                                    <i class="fas fa-info-circle"></i> This invoice posts directly to AR and Revenue accounts (no AR UnInvoice flow).
-                                </p>
+                            @if ($invoice->status !== 'posted')
+                                <div class="small">
+                                    <a href="#" class="text-muted" data-toggle="collapse" data-target="#journal-info">
+                                        <i class="fas fa-book"></i> What journal will be created when posted?
+                                    </a>
+                                    <div id="journal-info" class="collapse mt-1">
+                                        @if ($invoice->is_opening_balance)
+                                            <div class="alert alert-light py-2 small mb-0">
+                                                <strong>Opening Balance Invoice:</strong><br>
+                                                D: Piutang Dagang (1.1.2.01) — total invoice + VAT<br>
+                                                C: Saldo Awal Laba Ditahan (3.3.1) — revenue amount<br>
+                                                C: PPN Keluaran (2.1.2) — VAT amount (if applicable)
+                                            </div>
+                                        @else
+                                            <div class="alert alert-light py-2 small mb-0">
+                                                <strong>Regular Invoice (from DO):</strong><br>
+                                                D: AR UnInvoice (1.1.2.04) — reduce un-invoiced receivable<br>
+                                                C: Piutang Dagang (1.1.2.01) — create accounts receivable<br>
+                                                C: PPN Keluaran (2.1.2) — VAT liability (if applicable)<br>
+                                                <em class="text-muted">Revenue recognition is handled by Delivery Order (Complete Delivery)</em>
+                                            </div>
+                                        @endif
+                                    </div>
+                                </div>
                             @endif
                         </div>
                         <div class="col-md-6 text-md-right">

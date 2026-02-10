@@ -1,14 +1,21 @@
 @extends('layouts.main')
 
-@section('title', 'Create Sales Invoice')
+@section('title', isset($deliveryOrder) ? 'Create Sales Invoice from DO ' . ($deliveryOrder->do_number ?? '') : 'Create Sales Invoice')
 
 @section('title_page')
-    Create Sales Invoice
+    @if (isset($deliveryOrder))
+        Create Sales Invoice from Delivery Order {{ $deliveryOrder->do_number }}
+    @else
+        Create Sales Invoice
+    @endif
 @endsection
 
 @section('breadcrumb_title')
     <li class="breadcrumb-item"><a href="/dashboard">Dashboard</a></li>
     <li class="breadcrumb-item"><a href="{{ route('sales-invoices.index') }}">Sales Invoices</a></li>
+    @if (isset($deliveryOrder))
+        <li class="breadcrumb-item"><a href="{{ route('delivery-orders.show', $deliveryOrder) }}">DO {{ $deliveryOrder->do_number }}</a></li>
+    @endif
     <li class="breadcrumb-item active">Create</li>
 @endsection
 
@@ -30,11 +37,22 @@
                         <div class="card-header">
                             <h3 class="card-title">
                                 <i class="fas fa-file-invoice-dollar mr-1"></i>
-                                New Sales Invoice
+                                @if (isset($deliveryOrder))
+                                    New Sales Invoice (from DO {{ $deliveryOrder->do_number }})
+                                @else
+                                    New Sales Invoice
+                                @endif
                             </h3>
-                            <a href="{{ route('sales-invoices.index') }}" class="btn btn-sm btn-secondary float-right">
-                                <i class="fas fa-arrow-left"></i> Back to Sales Invoices
-                            </a>
+                            <div class="float-right">
+                                @if (isset($deliveryOrder))
+                                    <a href="{{ route('delivery-orders.show', $deliveryOrder) }}" class="btn btn-sm btn-outline-secondary mr-1">
+                                        <i class="fas fa-truck"></i> Back to Delivery Order
+                                    </a>
+                                @endif
+                                <a href="{{ route('sales-invoices.index') }}" class="btn btn-sm btn-secondary">
+                                    <i class="fas fa-arrow-left"></i> Back to Sales Invoices
+                                </a>
+                            </div>
                         </div>
                         <form method="post" action="{{ route('sales-invoices.store') }}">
                             @csrf
@@ -198,18 +216,18 @@
                                             <table class="table table-sm table-striped mb-0" id="lines-table">
                                                 <thead>
                                                     <tr>
-                                                        <th style="width: 20%">Revenue Account <span
+                                                        <th style="width: 18%">Revenue Account <span
                                                                 class="text-danger">*</span></th>
-                                                        <th style="width: 20%">Description</th>
-                                                        <th style="width: 10%">Qty <span class="text-danger">*</span></th>
-                                                        <th style="width: 12%">Unit Price <span
+                                                        <th style="width: 10%">Item Code</th>
+                                                        <th style="width: 15%">Item Name</th>
+                                                        <th style="width: 15%">Description</th>
+                                                        <th style="width: 8%">Qty <span class="text-danger">*</span></th>
+                                                        <th style="width: 10%">Unit Price <span
                                                                 class="text-danger">*</span>
                                                         </th>
                                                         <th style="width: 10%">Tax</th>
                                                         <th style="width: 8%">Project</th>
-                                                        <th style="width: 8%">Fund</th>
-                                                        <th style="width: 8%">Dept</th>
-                                                        <th style="width: 4%">Actions</th>
+                                                        <th style="width: 6%">Actions</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody id="lines">
@@ -217,20 +235,44 @@
                                                         @foreach ($prefill['lines'] as $index => $line)
                                                             <tr class="line-item">
                                                                 <td>
+                                                                    @if (!empty($line['inventory_item_id']))
+                                                                        <input type="hidden" name="lines[{{ $index }}][inventory_item_id]" value="{{ $line['inventory_item_id'] }}">
+                                                                    @endif
                                                                     @if (!empty($line['item_code']) || !empty($line['item_name']))
                                                                         <input type="hidden" name="lines[{{ $index }}][item_code]" value="{{ $line['item_code'] ?? '' }}">
                                                                         <input type="hidden" name="lines[{{ $index }}][item_name]" value="{{ $line['item_name'] ?? '' }}">
                                                                     @endif
-                                                                    <select name="lines[{{ $index }}][account_id]"
-                                                                        class="form-control form-control-sm select2bs4"
-                                                                        required>
-                                                                        @foreach ($accounts as $a)
-                                                                            <option value="{{ $a->id }}"
-                                                                                {{ $line['account_id'] == $a->id ? 'selected' : '' }}>
-                                                                                {{ $a->code }} - {{ $a->name }}
-                                                                            </option>
-                                                                        @endforeach
-                                                                    </select>
+                                                                    @if (!empty($line['has_inventory_item']) && !empty($line['account_id']))
+                                                                        <input type="hidden" name="lines[{{ $index }}][account_id]" value="{{ $line['account_id'] }}">
+                                                                        <input type="text" class="form-control form-control-sm" value="{{ $line['account_display'] ?? '' }}" readonly style="background-color: #e9ecef;" title="Auto-filled from inventory category">
+                                                                    @else
+                                                                        <select name="lines[{{ $index }}][account_id]"
+                                                                            class="form-control form-control-sm select2bs4"
+                                                                            required>
+                                                                            @foreach ($accounts as $a)
+                                                                                <option value="{{ $a->id }}"
+                                                                                    {{ ($line['account_id'] ?? null) == $a->id ? 'selected' : '' }}>
+                                                                                    {{ $a->code }} - {{ $a->name }}
+                                                                                </option>
+                                                                            @endforeach
+                                                                        </select>
+                                                                    @endif
+                                                                </td>
+                                                                <td>
+                                                                    <input type="text"
+                                                                        name="lines[{{ $index }}][item_code_display]"
+                                                                        class="form-control form-control-sm"
+                                                                        value="{{ $line['item_code'] ?? '' }}"
+                                                                        readonly
+                                                                        style="background-color: #e9ecef;">
+                                                                </td>
+                                                                <td>
+                                                                    <input type="text"
+                                                                        name="lines[{{ $index }}][item_name_display]"
+                                                                        class="form-control form-control-sm"
+                                                                        value="{{ $line['item_name'] ?? '' }}"
+                                                                        readonly
+                                                                        style="background-color: #e9ecef;">
                                                                 </td>
                                                                 <td>
                                                                     <input type="text"
@@ -273,23 +315,6 @@
                                                                         @endforeach
                                                                     </select>
                                                                 </td>
-                                                                <td>
-                                                                    <select name="lines[{{ $index }}][fund_id]"
-                                                                        class="form-control form-control-sm select2bs4">
-                                                                        <option value="">-- none --</option>
-                                                                    </select>
-                                                                </td>
-                                                                <td>
-                                                                    <select name="lines[{{ $index }}][dept_id]"
-                                                                        class="form-control form-control-sm select2bs4">
-                                                                        <option value="">-- none --</option>
-                                                                        @foreach ($departments as $d)
-                                                                            <option value="{{ $d->id }}"
-                                                                                {{ isset($line['dept_id']) && $line['dept_id'] == $d->id ? 'selected' : '' }}>
-                                                                                {{ $d->code }}</option>
-                                                                        @endforeach
-                                                                    </select>
-                                                                </td>
                                                                 <td class="text-center">
                                                                     <button type="button"
                                                                         class="btn btn-xs btn-danger rm">
@@ -310,6 +335,20 @@
                                                                         </option>
                                                                     @endforeach
                                                                 </select>
+                                                            </td>
+                                                            <td>
+                                                                <input type="text" name="lines[0][item_code_display]"
+                                                                    class="form-control form-control-sm"
+                                                                    placeholder="Item Code"
+                                                                    readonly
+                                                                    style="background-color: #e9ecef;">
+                                                            </td>
+                                                            <td>
+                                                                <input type="text" name="lines[0][item_name_display]"
+                                                                    class="form-control form-control-sm"
+                                                                    placeholder="Item Name"
+                                                                    readonly
+                                                                    style="background-color: #e9ecef;">
                                                             </td>
                                                             <td>
                                                                 <input type="text" name="lines[0][description]"
@@ -348,22 +387,6 @@
                                                                     @endforeach
                                                                 </select>
                                                             </td>
-                                                            <td>
-                                                                <select name="lines[0][fund_id]"
-                                                                    class="form-control form-control-sm select2bs4">
-                                                                    <option value="">-- none --</option>
-                                                                </select>
-                                                            </td>
-                                                            <td>
-                                                                <select name="lines[0][dept_id]"
-                                                                    class="form-control form-control-sm select2bs4">
-                                                                    <option value="">-- none --</option>
-                                                                    @foreach ($departments as $d)
-                                                                        <option value="{{ $d->id }}">
-                                                                            {{ $d->code }}</option>
-                                                                    @endforeach
-                                                                </select>
-                                                            </td>
                                                             <td class="text-center">
                                                                 <button type="button" class="btn btn-xs btn-danger rm">
                                                                     <i class="fas fa-trash-alt"></i>
@@ -374,9 +397,9 @@
                                                 </tbody>
                                                 <tfoot>
                                                     <tr>
-                                                        <th colspan="3" class="text-right">Total:</th>
+                                                        <th colspan="6" class="text-right">Total:</th>
                                                         <th class="text-right" id="total-amount">0.00</th>
-                                                        <th colspan="5"></th>
+                                                        <th colspan="2"></th>
                                                     </tr>
                                                 </tfoot>
                                             </table>
@@ -520,6 +543,12 @@
                     </select>
                 </td>
                 <td>
+                    <input type="text" name="lines[${idx}][item_code_display]" class="form-control form-control-sm" placeholder="Item Code" readonly style="background-color: #e9ecef;">
+                </td>
+                <td>
+                    <input type="text" name="lines[${idx}][item_name_display]" class="form-control form-control-sm" placeholder="Item Name" readonly style="background-color: #e9ecef;">
+                </td>
+                <td>
                     <input type="text" name="lines[${idx}][description]" class="form-control form-control-sm" placeholder="Description">
                 </td>
                 <td>
@@ -543,19 +572,6 @@
                         <option value="">-- none --</option>
                         @foreach ($projects as $p)
                             <option value="{{ $p->id }}">{{ $p->code }}</option>
-                        @endforeach
-                    </select>
-                </td>
-                <td>
-                    <select name="lines[${idx}][fund_id]" class="form-control form-control-sm select2bs4">
-                        <option value="">-- none --</option>
-                    </select>
-                </td>
-                <td>
-                    <select name="lines[${idx}][dept_id]" class="form-control form-control-sm select2bs4">
-                        <option value="">-- none --</option>
-                        @foreach ($departments as $d)
-                            <option value="{{ $d->id }}">{{ $d->code }}</option>
                         @endforeach
                     </select>
                 </td>

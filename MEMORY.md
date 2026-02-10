@@ -1,5 +1,5 @@
 **Purpose**: AI's persistent knowledge base for project context and learnings
-**Last Updated**: 2026-02-10 (Delivery Order → Sales Invoice integration test)
+**Last Updated**: 2026-02-04 (CPA Sales Flow Journal Fixes)
 
 ## Memory Maintenance Guidelines
 
@@ -604,3 +604,11 @@
 **Solution**: Updated `DeliveryOrderController::createInvoice()` to pass `entities` and `defaultEntity` from `CompanyEntityService`, and added `company_entity_id` to prefill from the delivery order. In `sales_invoices/create.blade.php` added hidden input `delivery_order_id` when `$deliveryOrder` is set, and used `$prefill['company_entity_id'] ?? $defaultEntity->id` for company select. Tested end-to-end with Chrome DevTools MCP: logged in as superadmin, set DO #1 to delivered (for test data), opened Create Invoice from DO, submitted form; Sales Invoice #2 was created with description "From DO 71260700001" and correct lines/total; document closure runs on store when `delivery_order_id` is present.
 
 **Key Learning**: When reusing a shared view (e.g. sales_invoices.create) from multiple entry points (standalone, from Sales Order, from Delivery Order, from Quotation), every entry point must pass the same set of variables the view expects. Passing `delivery_order_id` in the form is required for `SalesInvoiceController::store()` to close the Delivery Order after invoice creation.
+
+### [082] CPA Sales Flow Journal Fixes (2026-02-04) ✅ COMPLETE
+
+**Challenge**: CPA review identified three accounting errors in the sales flow journals: (1) AR UnInvoice was debited at SI posting instead of credited, causing negative balance; (2) Inventory Reservation used sales value instead of cost; (3) Revenue Recognition used 60% COGS assumption and lacked credit to Inventory.
+
+**Solution**: Updated `SalesInvoiceController::post()` to Credit AR UnInvoice (revenue only) and Debit AR (revenue+VAT), Credit PPN. Updated `DeliveryJournalService`: injected `InventoryService`; `createInventoryReservation()` now uses `ordered_qty * calculateUnitCost()` instead of `line->amount`; `createRevenueRecognition()` uses actual cost from `calculateUnitCost()`, and adds Credit to Inventory Reserved for each line's COGS amount; removed 60% assumption.
+
+**Key Learning**: AR UnInvoice is an asset; to reduce it when converting to regular AR we must Credit it. Inventory journals must use cost (FIFO/LIFO/weighted average via InventoryService) not sales value. Revenue recognition requires matching Credit to Inventory when debiting COGS to properly relieve the reserved inventory.

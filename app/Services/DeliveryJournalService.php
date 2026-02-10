@@ -3,9 +3,9 @@
 namespace App\Services;
 
 use App\Models\DeliveryOrder;
-use App\Models\DeliveryOrderLine;
 use App\Services\Accounting\PostingService;
 use App\Services\DocumentNumberingService;
+use App\Services\InventoryService;
 use Illuminate\Support\Facades\DB;
 use Exception;
 
@@ -13,7 +13,8 @@ class DeliveryJournalService
 {
     public function __construct(
         private PostingService $postingService,
-        private DocumentNumberingService $documentNumberingService
+        private DocumentNumberingService $documentNumberingService,
+        private InventoryService $inventoryService
     ) {}
 
     /**
@@ -29,10 +30,12 @@ class DeliveryJournalService
 
         foreach ($deliveryOrder->lines as $line) {
             if ($line->inventoryItem && $line->inventoryItem->item_type === 'item') {
-                // Reserve inventory (move from available to reserved)
+                $unitCost = $this->inventoryService->calculateUnitCost($line->inventoryItem);
+                $reserveCost = $line->ordered_qty * $unitCost;
+
                 $lines[] = [
                     'account_id' => $this->getInventoryReservedAccount(),
-                    'debit' => $line->amount,
+                    'debit' => $reserveCost,
                     'credit' => 0,
                     'project_id' => $line->project_id ?? null,
                     'dept_id' => $line->dept_id ?? null,
@@ -42,7 +45,7 @@ class DeliveryJournalService
                 $lines[] = [
                     'account_id' => $this->getInventoryAvailableAccount(),
                     'debit' => 0,
-                    'credit' => $line->amount,
+                    'credit' => $reserveCost,
                     'project_id' => $line->project_id ?? null,
                     'dept_id' => $line->dept_id ?? null,
                     'memo' => "Release from available stock - {$line->item_name}",
@@ -80,8 +83,9 @@ class DeliveryJournalService
         foreach ($deliveryOrder->lines as $line) {
             if ($line->inventoryItem && $line->delivered_qty > 0) {
                 $deliveredAmount = ($line->delivered_qty / $line->ordered_qty) * $line->amount;
+                $unitCost = $this->inventoryService->calculateUnitCost($line->inventoryItem);
+                $cogsAmount = $line->delivered_qty * $unitCost;
 
-                // Revenue recognition
                 $lines[] = [
                     'account_id' => $this->getSalesRevenueAccount(),
                     'debit' => 0,
@@ -91,8 +95,6 @@ class DeliveryJournalService
                     'memo' => "Revenue from DO {$deliveryOrder->do_number} - {$line->item_name}",
                 ];
 
-                // COGS recognition
-                $cogsAmount = $this->calculateCOGS($line, $deliveredAmount);
                 $lines[] = [
                     'account_id' => $this->getCOGSAccount(),
                     'debit' => $cogsAmount,
@@ -100,6 +102,15 @@ class DeliveryJournalService
                     'project_id' => $line->project_id ?? null,
                     'dept_id' => $line->dept_id ?? null,
                     'memo' => "COGS for DO {$deliveryOrder->do_number} - {$line->item_name}",
+                ];
+
+                $lines[] = [
+                    'account_id' => $this->getInventoryReservedAccount(),
+                    'debit' => 0,
+                    'credit' => $cogsAmount,
+                    'project_id' => $line->project_id ?? null,
+                    'dept_id' => $line->dept_id ?? null,
+                    'memo' => "Release reserved inventory - DO {$deliveryOrder->do_number} - {$line->item_name}",
                 ];
 
                 $totalRevenue += $deliveredAmount;
@@ -251,20 +262,4 @@ class DeliveryJournalService
         return $account->id;
     }
 
-    /**
-     * Calculate COGS amount for a delivery line
-     */
-    private function calculateCOGS(DeliveryOrderLine $line, float $deliveredAmount): float
-    {
-        // For now, use a simple calculation based on delivered amount
-        // In a real system, this would use FIFO/LIFO/Average costing methods
-        $deliveredQty = $line->delivered_qty;
-        $orderedQty = $line->ordered_qty;
-
-        // Calculate COGS as percentage of delivered amount
-        // This is a simplified approach - in production, you'd use actual inventory costing
-        $cogsPercentage = 0.6; // Assume 60% of revenue is COGS
-
-        return $deliveredAmount * $cogsPercentage;
-    }
 }

@@ -168,10 +168,15 @@ class DeliveryOrderController extends Controller
      */
     public function createInvoice(DeliveryOrder $deliveryOrder)
     {
-        // Check if delivery order is completed
-        if ($deliveryOrder->status !== 'delivered') {
-            return redirect()->back()->with('error', 'Only delivered delivery orders can be converted to Sales Invoice');
+        if (!in_array($deliveryOrder->status, ['delivered', 'completed'])) {
+            return redirect()->back()->with('error', 'Only delivered or completed delivery orders can be converted to Sales Invoice');
         }
+        if ($deliveryOrder->closure_status === 'closed') {
+            return redirect()->back()->with('error', 'This delivery order has already been invoiced.');
+        }
+
+        // Load delivery order with lines and inventory items
+        $deliveryOrder->load('lines.inventoryItem.category', 'lines.account');
 
         $accounts = DB::table('accounts')->where('is_postable', 1)->orderBy('code')->get();
         $customers = DB::table('business_partners')->where('partner_type', 'customer')->orderBy('name')->get();
@@ -187,14 +192,33 @@ class DeliveryOrderController extends Controller
             'company_entity_id' => $deliveryOrder->company_entity_id ?? $defaultEntity->id,
             'description' => 'From DO ' . ($deliveryOrder->do_number ?: ('#' . $deliveryOrder->id)),
             'lines' => $deliveryOrder->lines->map(function ($l) {
+                $accountId = (int)$l->account_id;
+                $accountDisplay = null;
+                if ($l->inventory_item_id && $l->inventoryItem) {
+                    $salesAccount = $l->inventoryItem->getAccountByType('sales');
+                    if ($salesAccount) {
+                        $accountId = $salesAccount->id;
+                        $accountDisplay = $salesAccount->code . ' - ' . $salesAccount->name;
+                    } else {
+                        $acc = $l->account;
+                        $accountDisplay = $acc ? ($acc->code . ' - ' . $acc->name) : null;
+                    }
+                }
+                if (!$accountDisplay && $l->account_id) {
+                    $acc = \App\Models\Accounting\Account::find($l->account_id);
+                    $accountDisplay = $acc ? ($acc->code . ' - ' . $acc->name) : null;
+                }
                 return [
-                    'item_code' => $l->item_code,
-                    'item_name' => $l->item_name ?? $l->description,
-                    'account_id' => (int)$l->account_id,
-                    'description' => $l->description ?? $l->item_name,
+                    'inventory_item_id' => $l->inventory_item_id,
+                    'item_code' => optional($l->inventoryItem)->code ?? $l->item_code,
+                    'item_name' => optional($l->inventoryItem)->name ?? $l->item_name ?? $l->description,
+                    'account_id' => $accountId,
+                    'account_display' => $accountDisplay,
+                    'has_inventory_item' => !empty($l->inventory_item_id),
+                    'description' => $l->description ?? optional($l->inventoryItem)->description ?? $l->item_name,
                     'qty' => (float)$l->delivered_qty,
                     'unit_price' => (float)$l->unit_price,
-                    'tax_code_id' => null,
+                    'tax_code_id' => $l->tax_code_id ? (int)$l->tax_code_id : null,
                     'total_amount' => $l->delivered_qty * $l->unit_price,
                 ];
             }),

@@ -18,6 +18,7 @@ class SalesInvoice extends Model
         'business_partner_id',
         'company_entity_id',
         'sales_order_id',
+        'delivery_order_id',
         'reference_no',
         'is_opening_balance',
         'description',
@@ -55,6 +56,11 @@ class SalesInvoice extends Model
     public function salesOrder(): BelongsTo
     {
         return $this->belongsTo(\App\Models\SalesOrder::class, 'sales_order_id');
+    }
+
+    public function deliveryOrder(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\DeliveryOrder::class, 'delivery_order_id');
     }
 
     public function customer(): BelongsTo

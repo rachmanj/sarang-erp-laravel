@@ -211,6 +211,7 @@ class DeliveryService
                 'delivered_qty' => 0,
                 'unit_price' => $salesOrderLine->unit_price,
                 'amount' => $pendingQty * $salesOrderLine->unit_price, // Recalculate based on pending qty
+                'tax_code_id' => $salesOrderLine->tax_code_id,
                 'warehouse_location' => $data['warehouse_location'] ?? null,
                 'status' => 'pending',
                 'notes' => $data['notes'] ?? null,

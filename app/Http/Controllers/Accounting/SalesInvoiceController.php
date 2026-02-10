@@ -15,6 +15,7 @@ use App\Services\SalesWorkflowAuditService;
 use App\Services\CompanyEntityService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Yajra\DataTables\Facades\DataTables;
 
 class SalesInvoiceController extends Controller
@@ -50,7 +51,7 @@ class SalesInvoiceController extends Controller
         $salesQuotation = null;
 
         if ($request->has('quotation_id')) {
-            $salesQuotation = SalesQuotation::with(['lines', 'businessPartner', 'companyEntity'])->findOrFail($request->quotation_id);
+            $salesQuotation = SalesQuotation::with(['lines.inventoryItem.category', 'lines.account', 'businessPartner', 'companyEntity'])->findOrFail($request->quotation_id);
 
             $prefill = [
                 'date' => now()->toDateString(),
@@ -58,8 +59,30 @@ class SalesInvoiceController extends Controller
                 'company_entity_id' => $salesQuotation->company_entity_id ?? $defaultEntity->id,
                 'description' => 'From Quotation ' . ($salesQuotation->quotation_no ?: ('#' . $salesQuotation->id)),
                 'lines' => $salesQuotation->lines->map(function ($line) {
+                    $accountId = (int)$line->account_id;
+                    $accountDisplay = null;
+                    $hasInventoryItem = !empty($line->inventory_item_id);
+                    if ($hasInventoryItem && $line->inventoryItem) {
+                        $salesAccount = $line->inventoryItem->getAccountByType('sales');
+                        if ($salesAccount) {
+                            $accountId = $salesAccount->id;
+                            $accountDisplay = $salesAccount->code . ' - ' . $salesAccount->name;
+                        } else {
+                            $acc = $line->account;
+                            $accountDisplay = $acc ? ($acc->code . ' - ' . $acc->name) : null;
+                        }
+                    }
+                    if (!$accountDisplay && $line->account_id) {
+                        $acc = \App\Models\Accounting\Account::find($line->account_id);
+                        $accountDisplay = $acc ? ($acc->code . ' - ' . $acc->name) : null;
+                    }
                     return [
-                        'account_id' => (int)$line->account_id,
+                        'inventory_item_id' => $line->inventory_item_id,
+                        'item_code' => optional($line->inventoryItem)->code ?? $line->item_code,
+                        'item_name' => optional($line->inventoryItem)->name ?? $line->item_name ?? $line->description,
+                        'account_id' => $accountId,
+                        'account_display' => $accountDisplay,
+                        'has_inventory_item' => $hasInventoryItem,
                         'description' => $line->description ?? $line->item_name,
                         'qty' => (float)$line->qty,
                         'unit_price' => (float)$line->unit_price,
@@ -113,6 +136,7 @@ class SalesInvoiceController extends Controller
                 'date' => $data['date'],
                 'business_partner_id' => $data['business_partner_id'],
                 'sales_order_id' => $request->input('sales_order_id'),
+                'delivery_order_id' => $request->input('delivery_order_id'),
                 'is_opening_balance' => $request->boolean('is_opening_balance', false),
                 'description' => $data['description'] ?? null,
                 'reference_no' => $data['reference_no'] ?? null,
@@ -145,6 +169,7 @@ class SalesInvoiceController extends Controller
                 $total += $amount;
                 SalesInvoiceLine::create([
                     'invoice_id' => $invoice->id,
+                    'inventory_item_id' => $l['inventory_item_id'] ?? null,
                     'item_code' => $l['item_code'] ?? null,
                     'item_name' => $l['item_name'] ?? null,
                     'account_id' => $l['account_id'],
@@ -168,12 +193,12 @@ class SalesInvoiceController extends Controller
             }
 
             // Attempt to close related documents if this SI was created from Delivery Order
-            if ($deliveryOrder) {
+            if ($deliveryOrder && $request->input('delivery_order_id')) {
                 try {
-                    $this->documentClosureService->closeDeliveryOrder($deliveryOrder->id, $invoice->id, auth()->id());
+                    $this->documentClosureService->closeDeliveryOrder($request->input('delivery_order_id'), $invoice->id, auth()->id());
                 } catch (\Exception $closureException) {
                     // Log closure failure but don't fail the SI creation
-                    \Log::warning('Failed to close Delivery Order after SI creation', [
+                    Log::warning('Failed to close Delivery Order after SI creation', [
                         'do_id' => $request->input('delivery_order_id'),
                         'si_id' => $invoice->id,
                         'error' => $closureException->getMessage()
@@ -191,8 +216,10 @@ class SalesInvoiceController extends Controller
             'businessPartner.primaryAddress',
             'companyEntity',
             'salesOrder',
+            'deliveryOrder',
             'lines.account',
             'lines.taxCode',
+            'lines.inventoryItem',
         ])->findOrFail($id);
         return view('sales_invoices.show', compact('invoice'));
     }
@@ -287,20 +314,28 @@ class SalesInvoiceController extends Controller
             }
         } else {
             // Regular invoice: Post using AR UnInvoice flow
-            // Debit AR UnInvoice (reducing un-invoiced receivable)
+            // At DO completion we debited AR UnInvoice for revenue only. When we invoice we:
+            // 1. Credit AR UnInvoice (reduce - clear the revenue we had as un-invoiced)
+            // 2. Debit AR (create full receivable = revenue + VAT)
+            // 3. Credit PPN (VAT liability)
             $lines[] = [
                 'account_id' => $arUnInvoiceAccountId,
+                'debit' => 0,
+                'credit' => $revenueTotal,
+                'project_id' => null,
+                'dept_id' => null,
+                'memo' => 'Reduce AR UnInvoice - convert to invoiced AR',
+            ];
+
+            $lines[] = [
+                'account_id' => $arAccountId,
                 'debit' => $revenueTotal + $ppnTotal,
                 'credit' => 0,
                 'project_id' => null,
                 'dept_id' => null,
-                'memo' => 'Reduce AR UnInvoice',
+                'memo' => 'Accounts Receivable',
             ];
 
-            // Note: Revenue recognition is handled by Delivery Order, not Sales Invoice
-            // Sales Invoice only handles receivable transition and VAT
-
-            // Credit VAT Output Account (recognizing VAT liability)
             if ($ppnTotal > 0) {
                 $lines[] = [
                     'account_id' => $ppnOutputId,
@@ -311,16 +346,6 @@ class SalesInvoiceController extends Controller
                     'memo' => 'PPN Keluaran',
                 ];
             }
-
-            // Credit AR Account (creating accounts receivable for revenue only)
-            $lines[] = [
-                'account_id' => $arAccountId,
-                'debit' => 0,
-                'credit' => $revenueTotal,
-                'project_id' => null,
-                'dept_id' => null,
-                'memo' => 'Accounts Receivable',
-            ];
         }
 
         DB::transaction(function () use ($invoice, $lines) {
