@@ -88,7 +88,10 @@ class DeliveryOrderController extends Controller
             ->orderBy('created_at', 'desc')
             ->get();
 
-        $customers = \App\Models\BusinessPartner::where('partner_type', 'customer')->orderBy('name')->get();
+        $customers = \App\Models\BusinessPartner::with(['addresses', 'contacts'])
+            ->where('partner_type', 'customer')
+            ->orderBy('name')
+            ->get();
         $warehouses = DB::table('warehouses')->where('is_active', 1)->where('name', 'not like', '%Transit%')->orderBy('name')->get();
         $entities = $this->companyEntityService->getActiveEntities();
         $defaultEntity = $salesOrder ? $this->companyEntityService->getEntity($salesOrder->company_entity_id) : $this->companyEntityService->getDefaultEntity();

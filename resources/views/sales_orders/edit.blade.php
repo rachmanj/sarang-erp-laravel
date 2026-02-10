@@ -129,7 +129,10 @@
                                                     <option value="">-- select customer --</option>
                                                     @foreach ($customers as $c)
                                                         <option value="{{ $c->id }}"
-                                                            {{ old('business_partner_id', $order->business_partner_id) == $c->id ? 'selected' : '' }}>
+                                                            {{ old('business_partner_id', $order->business_partner_id) == $c->id ? 'selected' : '' }}
+                                                            data-address="{{ e($c->default_shipping_address ?? '') }}"
+                                                            data-contact="{{ e($c->primary_contact_name ?? '') }}"
+                                                            data-phone="{{ e($c->primary_contact_phone ?? '') }}">
                                                             {{ $c->name }}
                                                         </option>
                                                     @endforeach
@@ -207,6 +210,42 @@
                                                     <input type="date" name="expected_delivery_date"
                                                         value="{{ old('expected_delivery_date', $order->expected_delivery_date ? $order->expected_delivery_date->format('Y-m-d') : '') }}"
                                                         class="form-control">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="card card-info card-outline mt-3 mb-2">
+                                    <div class="card-header py-2">
+                                        <h3 class="card-title">
+                                            <i class="fas fa-truck mr-1"></i>
+                                            Delivery Address
+                                        </h3>
+                                        <small class="text-muted">Default from customer. Can be overridden. Used for Delivery Orders.</small>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="row">
+                                            <div class="col-md-8">
+                                                <div class="form-group row mb-2">
+                                                    <label class="col-sm-3 col-form-label">Address</label>
+                                                    <div class="col-sm-9">
+                                                        <textarea name="delivery_address" id="delivery_address" class="form-control form-control-sm" rows="3">{{ old('delivery_address', $order->delivery_address) }}</textarea>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <div class="form-group row mb-2">
+                                                    <label class="col-sm-4 col-form-label">Contact Person</label>
+                                                    <div class="col-sm-8">
+                                                        <input type="text" name="delivery_contact_person" id="delivery_contact_person" value="{{ old('delivery_contact_person', $order->delivery_contact_person) }}" class="form-control form-control-sm">
+                                                    </div>
+                                                </div>
+                                                <div class="form-group row mb-2">
+                                                    <label class="col-sm-4 col-form-label">Phone</label>
+                                                    <div class="col-sm-8">
+                                                        <input type="text" name="delivery_phone" id="delivery_phone" value="{{ old('delivery_phone', $order->delivery_phone) }}" class="form-control form-control-sm">
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -352,6 +391,16 @@
             // Handle order type change
             $('#order_type').on('change', function() {
                 updateAllLineDropdowns();
+            });
+
+            // Customer change - populate delivery address from customer
+            $('select[name="business_partner_id"]').on('change', function() {
+                const opt = $(this).find('option:selected');
+                if (opt.val()) {
+                    $('#delivery_address').val(opt.data('address') || '');
+                    $('#delivery_contact_person').val(opt.data('contact') || '');
+                    $('#delivery_phone').val(opt.data('phone') || '');
+                }
             });
 
             // Currency handling

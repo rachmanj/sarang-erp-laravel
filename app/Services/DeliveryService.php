@@ -64,11 +64,10 @@ class DeliveryService
 
             $entityId = $salesOrder->company_entity_id ?? $this->companyEntityService->getDefaultEntity()->id;
 
-            // Get customer details from business partner
             $customer = $salesOrder->businessPartner;
-            $customerAddress = $customer ? ($customer->shipping_address ?: $customer->address) : null;
-            $customerContact = $customer ? $customer->contact_person : null;
-            $customerPhone = $customer ? $customer->phone : null;
+            $customerAddress = $salesOrder->delivery_address ?? ($customer?->default_shipping_address);
+            $customerContact = $salesOrder->delivery_contact_person ?? ($customer?->primary_contact_name);
+            $customerPhone = $salesOrder->delivery_phone ?? ($customer?->primary_contact_phone);
 
             $doNumber = $this->documentNumberingService->generateNumber('delivery_order', now()->toDateString(), [
                 'company_entity_id' => $entityId,

@@ -19,7 +19,7 @@ Route::prefix('sales-orders')->group(function () {
     Route::get('/data', function () {
         $q = \Illuminate\Support\Facades\DB::table('sales_orders as so')
             ->leftJoin('business_partners as c', 'c.id', '=', 'so.business_partner_id')
-            ->select('so.id', 'so.date', 'so.order_no', 'so.business_partner_id', 'c.name as customer_name', 'so.total_amount', 'so.status');
+            ->select('so.id', 'so.date', 'so.order_no', 'so.reference_no', 'so.business_partner_id', 'c.name as customer_name', 'so.total_amount', 'so.status');
         if (request()->filled('status')) {
             $q->where('so.status', request('status'));
         }
@@ -32,20 +32,35 @@ Route::prefix('sales-orders')->group(function () {
         if (request()->filled('business_partner_id')) {
             $q->where('so.business_partner_id', (int)request('business_partner_id'));
         }
+        if (request()->filled('order_no')) {
+            $q->where('so.order_no', 'like', '%' . request('order_no') . '%');
+        }
+        if (request()->filled('reference_no')) {
+            $q->where('so.reference_no', 'like', '%' . request('reference_no') . '%');
+        }
         if (request()->filled('q')) {
             $kw = request('q');
             $q->where(function ($w) use ($kw) {
-                $w->where('so.order_no', 'like', '%' . $kw . '%')->orWhere('so.description', 'like', '%' . $kw . '%')->orWhere('c.name', 'like', '%' . $kw . '%');
+                $w->where('so.order_no', 'like', '%' . $kw . '%')
+                    ->orWhere('so.reference_no', 'like', '%' . $kw . '%')
+                    ->orWhere('so.description', 'like', '%' . $kw . '%')
+                    ->orWhere('c.name', 'like', '%' . $kw . '%');
             });
         }
         return Yajra\DataTables\Facades\DataTables::of($q)
+            ->editColumn('id', function ($r) {
+                static $idx = -1;
+                $idx++;
+                return (int) request()->input('start', 0) + $idx + 1;
+            })
             ->editColumn('date', function ($r) {
                 if ($r->date) {
                     return \Carbon\Carbon::parse($r->date)->format('d-M-Y');
                 }
                 return '-';
             })
-            ->editColumn('total_amount', fn($r) => number_format((float)$r->total_amount, 2))
+            ->editColumn('total_amount', fn($r) => 'Rp ' . number_format((float)$r->total_amount, 0, ',', '.'))
+            ->editColumn('reference_no', fn($r) => $r->reference_no ?: '-')
             ->addColumn('customer', fn($r) => $r->customer_name ?: ('#' . $r->business_partner_id))
             ->addColumn('actions', function ($r) {
                 $actions = '<a class="btn btn-xs btn-info" href="' . route('sales-orders.show', $r->id) . '">View</a>';
@@ -62,7 +77,7 @@ Route::prefix('sales-orders')->group(function () {
     Route::get('/csv', function () {
         $q = \Illuminate\Support\Facades\DB::table('sales_orders as so')
             ->leftJoin('business_partners as c', 'c.id', '=', 'so.business_partner_id')
-            ->select('so.date', 'so.order_no', 'c.name as customer', 'so.total_amount', 'so.status');
+            ->select('so.date', 'so.order_no', 'so.reference_no', 'c.name as customer', 'so.total_amount', 'so.status');
         if (request()->filled('status')) {
             $q->where('so.status', request('status'));
         }
@@ -75,16 +90,25 @@ Route::prefix('sales-orders')->group(function () {
         if (request()->filled('business_partner_id')) {
             $q->where('so.business_partner_id', (int)request('business_partner_id'));
         }
+        if (request()->filled('order_no')) {
+            $q->where('so.order_no', 'like', '%' . request('order_no') . '%');
+        }
+        if (request()->filled('reference_no')) {
+            $q->where('so.reference_no', 'like', '%' . request('reference_no') . '%');
+        }
         if (request()->filled('q')) {
             $kw = request('q');
             $q->where(function ($w) use ($kw) {
-                $w->where('so.order_no', 'like', '%' . $kw . '%')->orWhere('so.description', 'like', '%' . $kw . '%')->orWhere('c.name', 'like', '%' . $kw . '%');
+                $w->where('so.order_no', 'like', '%' . $kw . '%')
+                    ->orWhere('so.reference_no', 'like', '%' . $kw . '%')
+                    ->orWhere('so.description', 'like', '%' . $kw . '%')
+                    ->orWhere('c.name', 'like', '%' . $kw . '%');
             });
         }
         $rows = $q->orderBy('so.date', 'desc')->get();
-        $csv = "date,order_no,customer,total,status\n";
+        $csv = "date,order_no,reference_no,customer,total,status\n";
         foreach ($rows as $r) {
-            $csv .= sprintf("%s,%s,%s,%.2f,%s\n", $r->date, $r->order_no, str_replace(',', ' ', (string)$r->customer), (float)$r->total_amount, $r->status);
+            $csv .= sprintf("%s,%s,%s,%s,%.2f,%s\n", $r->date, $r->order_no, str_replace(',', ' ', (string)($r->reference_no ?? '')), str_replace(',', ' ', (string)$r->customer), (float)$r->total_amount, $r->status);
         }
         return response($csv, 200, ['Content-Type' => 'text/csv', 'Content-Disposition' => 'attachment; filename="sales-orders.csv"']);
     })->name('sales-orders.csv');

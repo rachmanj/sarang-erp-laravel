@@ -155,6 +155,24 @@ class BusinessPartner extends Model
         return "{$this->code} - {$this->name}";
     }
 
+    public function getDefaultShippingAddressAttribute()
+    {
+        $addr = $this->getAddressByType('shipping') ?? $this->getAddressByType('billing') ?? $this->primaryAddress;
+        return $addr ? $addr->full_address : null;
+    }
+
+    public function getPrimaryContactNameAttribute()
+    {
+        $contact = $this->primaryContact ?? $this->contacts()->first();
+        return $contact?->name;
+    }
+
+    public function getPrimaryContactPhoneAttribute()
+    {
+        $contact = $this->primaryContact ?? $this->contacts()->first();
+        return $contact ? ($contact->mobile ?: $contact->phone) : null;
+    }
+
     // Helper methods
     public function getContactByType($type)
     {

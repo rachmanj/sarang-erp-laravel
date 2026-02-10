@@ -101,12 +101,10 @@
                                             <td width="40%"><strong>Order Number:</strong></td>
                                             <td>{{ $order->order_no ?? '#' . $order->id }}</td>
                                         </tr>
-                                        @if($order->reference_no)
                                         <tr>
                                             <td><strong>Reference No:</strong></td>
-                                            <td>{{ $order->reference_no }}</td>
+                                            <td>{{ $order->reference_no ?? '-' }}</td>
                                         </tr>
-                                        @endif
                                         <tr>
                                             <td><strong>Date:</strong></td>
                                             <td>{{ $order->date->format('d M Y') }}</td>
@@ -167,6 +165,19 @@
                                         <tr>
                                             <td><strong>Delivery Method:</strong></td>
                                             <td>{{ ucfirst(str_replace('_', ' ', $order->delivery_method)) }}</td>
+                                        </tr>
+                                        @endif
+                                        @if($order->delivery_address || $order->delivery_contact_person)
+                                        <tr>
+                                            <td><strong>Delivery Address:</strong></td>
+                                            <td>
+                                                @if($order->delivery_address)
+                                                    <div class="text-pre-wrap">{{ nl2br(e($order->delivery_address)) }}</div>
+                                                @endif
+                                                @if($order->delivery_contact_person)
+                                                    <div class="mt-1"><small class="text-muted">Contact: {{ $order->delivery_contact_person }}{{ $order->delivery_phone ? ' | ' . $order->delivery_phone : '' }}</small></div>
+                                                @endif
+                                            </td>
                                         </tr>
                                         @endif
                                         @if($order->payment_terms)

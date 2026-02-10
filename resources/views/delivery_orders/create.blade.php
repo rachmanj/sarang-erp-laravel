@@ -61,14 +61,17 @@
                                                         @foreach ($salesOrders as $so)
                                                             @php
                                                                 $customer = $so->customer ?? $so->businessPartner ?? null;
+                                                                $deliveryAddr = $so->delivery_address ?? ($customer?->default_shipping_address ?? '');
+                                                                $deliveryContact = $so->delivery_contact_person ?? ($customer?->primary_contact_name ?? '');
+                                                                $deliveryPhone = $so->delivery_phone ?? ($customer?->primary_contact_phone ?? '');
                                                             @endphp
                                                             <option value="{{ $so->id }}"
                                                                 {{ $salesOrder && $salesOrder->id == $so->id ? 'selected' : '' }}
                                                                 data-customer-id="{{ $so->business_partner_id }}"
                                                                 data-customer-name="{{ $customer ? $customer->name : 'N/A' }}"
-                                                                data-customer-address="{{ $customer ? ($customer->address ?? '') : '' }}"
-                                                                data-customer-contact="{{ $customer ? ($customer->contact_person ?? '') : '' }}"
-                                                                data-customer-phone="{{ $customer ? ($customer->phone ?? '') : '' }}"
+                                                                data-customer-address="{{ $deliveryAddr }}"
+                                                                data-customer-contact="{{ $deliveryContact }}"
+                                                                data-customer-phone="{{ $deliveryPhone }}"
                                                                 data-expected-delivery="{{ $so->expected_delivery_date ?? '' }}">
                                                                 {{ $so->order_no }} - {{ $customer ? $customer->name : 'N/A' }}
                                                                 ({{ $so->date }})
@@ -97,9 +100,9 @@
                                                     @foreach ($customers as $c)
                                                         <option value="{{ $c->id }}"
                                                             {{ old('business_partner_id', $salesOrder ? $salesOrder->business_partner_id : '') == $c->id ? 'selected' : '' }}
-                                                            data-address="{{ $c->address }}"
-                                                            data-contact="{{ $c->contact_person }}"
-                                                            data-phone="{{ $c->phone }}">
+                                                            data-address="{{ e($c->default_shipping_address ?? '') }}"
+                                                            data-contact="{{ e($c->primary_contact_name ?? '') }}"
+                                                            data-phone="{{ e($c->primary_contact_phone ?? '') }}">
                                                             {{ $c->name }}
                                                         </option>
                                                     @endforeach
@@ -152,7 +155,7 @@
                                             <label class="col-sm-3 col-form-label">Delivery Address <span
                                                     class="text-danger">*</span></label>
                                             <div class="col-sm-9">
-                                                <textarea name="delivery_address" class="form-control form-control-sm" rows="3" required>{{ old('delivery_address', $salesOrder ? $salesOrder->customer->address : '') }}</textarea>
+                                                <textarea name="delivery_address" class="form-control form-control-sm" rows="3" required>{{ old('delivery_address', $salesOrder ? ($salesOrder->delivery_address ?? $salesOrder->customer?->default_shipping_address) : '') }}</textarea>
                                             </div>
                                         </div>
                                     </div>
@@ -161,7 +164,7 @@
                                             <label class="col-sm-3 col-form-label">Contact Person</label>
                                             <div class="col-sm-9">
                                                 <input type="text" name="delivery_contact_person"
-                                                    value="{{ old('delivery_contact_person', $salesOrder ? $salesOrder->customer->contact_person : '') }}"
+                                                    value="{{ old('delivery_contact_person', $salesOrder ? ($salesOrder->delivery_contact_person ?? $salesOrder->customer?->primary_contact_name) : '') }}"
                                                     class="form-control form-control-sm">
                                             </div>
                                         </div>
@@ -174,7 +177,7 @@
                                             <label class="col-sm-3 col-form-label">Phone</label>
                                             <div class="col-sm-9">
                                                 <input type="text" name="delivery_phone"
-                                                    value="{{ old('delivery_phone', $salesOrder ? $salesOrder->customer->phone : '') }}"
+                                                    value="{{ old('delivery_phone', $salesOrder ? ($salesOrder->delivery_phone ?? $salesOrder->customer?->primary_contact_phone) : '') }}"
                                                     class="form-control form-control-sm">
                                             </div>
                                         </div>

@@ -51,7 +51,8 @@ class SalesOrderController extends Controller
 
     public function index()
     {
-        return view('sales_orders.index');
+        $customers = \App\Models\BusinessPartner::where('partner_type', 'customer')->orderBy('name')->get(['id', 'name']);
+        return view('sales_orders.index', compact('customers'));
     }
 
     public function data(Request $request)
@@ -105,7 +106,10 @@ class SalesOrderController extends Controller
 
     public function create()
     {
-        $customers = DB::table('business_partners')->where('partner_type', 'customer')->orderBy('name')->get();
+        $customers = \App\Models\BusinessPartner::with(['addresses', 'contacts'])
+            ->where('partner_type', 'customer')
+            ->orderBy('name')
+            ->get();
         $accounts = DB::table('accounts')->where('is_postable', 1)->orderBy('code')->get();
         $taxCodes = DB::table('tax_codes')->orderBy('code')->get();
         $inventoryItems = InventoryItem::active()->orderBy('name')->get();
@@ -195,6 +199,9 @@ class SalesOrderController extends Controller
             'terms_conditions' => ['nullable', 'string'],
             'payment_terms' => ['nullable', 'string', 'max:100'],
             'delivery_method' => ['nullable', 'string', 'max:100'],
+            'delivery_address' => ['nullable', 'string', 'max:2000'],
+            'delivery_contact_person' => ['nullable', 'string', 'max:255'],
+            'delivery_phone' => ['nullable', 'string', 'max:50'],
             'freight_cost' => ['nullable', 'numeric', 'min:0'],
             'handling_cost' => ['nullable', 'numeric', 'min:0'],
             'insurance_cost' => ['nullable', 'numeric', 'min:0'],
@@ -257,7 +264,10 @@ class SalesOrderController extends Controller
                 ->with('error', 'Sales Order can only be edited when in draft status');
         }
 
-        $customers = DB::table('business_partners')->where('partner_type', 'customer')->orderBy('name')->get();
+        $customers = \App\Models\BusinessPartner::with(['addresses', 'contacts'])
+            ->where('partner_type', 'customer')
+            ->orderBy('name')
+            ->get();
         $accounts = DB::table('accounts')->where('is_postable', 1)->orderBy('code')->get();
         $taxCodes = DB::table('tax_codes')->orderBy('code')->get();
         $inventoryItems = InventoryItem::active()->orderBy('name')->get();
@@ -305,6 +315,9 @@ class SalesOrderController extends Controller
             'terms_conditions' => ['nullable', 'string'],
             'payment_terms' => ['nullable', 'string', 'max:100'],
             'delivery_method' => ['nullable', 'string', 'max:100'],
+            'delivery_address' => ['nullable', 'string', 'max:2000'],
+            'delivery_contact_person' => ['nullable', 'string', 'max:255'],
+            'delivery_phone' => ['nullable', 'string', 'max:50'],
             'freight_cost' => ['nullable', 'numeric', 'min:0'],
             'handling_cost' => ['nullable', 'numeric', 'min:0'],
             'insurance_cost' => ['nullable', 'numeric', 'min:0'],
