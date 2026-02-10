@@ -84,7 +84,6 @@ Route::middleware('auth')->group(function () {
         Route::post('/open', [PeriodController::class, 'open'])->middleware('permission:periods.close')->name('periods.open');
     });
 
-    require __DIR__ . '/web/orders.php';
     require __DIR__ . '/web/ar_ap.php';
 
     // Business Partners (Unified Customers & Suppliers)

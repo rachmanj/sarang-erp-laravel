@@ -39,6 +39,12 @@ Route::prefix('sales-orders')->group(function () {
             });
         }
         return Yajra\DataTables\Facades\DataTables::of($q)
+            ->editColumn('date', function ($r) {
+                if ($r->date) {
+                    return \Carbon\Carbon::parse($r->date)->format('d-M-Y');
+                }
+                return '-';
+            })
             ->editColumn('total_amount', fn($r) => number_format((float)$r->total_amount, 2))
             ->addColumn('customer', fn($r) => $r->customer_name ?: ('#' . $r->business_partner_id))
             ->addColumn('actions', function ($r) {

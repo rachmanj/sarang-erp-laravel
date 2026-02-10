@@ -76,7 +76,8 @@ class DeliveryOrderController extends Controller
             $salesOrder = SalesOrder::with(['customer', 'lines.inventoryItem'])->findOrFail($salesOrderId);
 
             if (!$this->deliveryService->canCreateDeliveryOrder($salesOrder)) {
-                return redirect()->back()->with('error', 'Sales Order cannot be converted to Delivery Order');
+                return redirect()->route('delivery-orders.index')
+                    ->with('error', 'Sales Order cannot be converted to Delivery Order');
             }
         }
 
@@ -129,13 +130,19 @@ class DeliveryOrderController extends Controller
 
             Log::info('Delivery Order created successfully', ['delivery_order_id' => $deliveryOrder->id]);
 
-            // Log DO creation in Sales Order audit trail
-            $so = SalesOrder::find($data['sales_order_id']);
-            if ($so) {
-                app(SalesWorkflowAuditService::class)->logDeliveryOrderCreation($so, $deliveryOrder->id);
+            try {
+                $so = SalesOrder::find($data['sales_order_id']);
+                if ($so) {
+                    app(SalesWorkflowAuditService::class)->logDeliveryOrderCreation($so, $deliveryOrder->id);
+                }
+            } catch (\Exception $auditException) {
+                Log::warning('Failed to log Delivery Order creation in Sales Order audit', [
+                    'so_id' => $data['sales_order_id'],
+                    'do_id' => $deliveryOrder->id,
+                    'error' => $auditException->getMessage()
+                ]);
             }
 
-            // Attempt to close the Sales Order if Delivery Order quantity is sufficient
             try {
                 $this->documentClosureService->closeSalesOrder($data['sales_order_id'], $deliveryOrder->id, Auth::id());
             } catch (\Exception $closureException) {
@@ -146,8 +153,9 @@ class DeliveryOrderController extends Controller
                 ]);
             }
 
-            return redirect()->route('delivery-orders.show', $deliveryOrder->id)
-                ->with('success', 'Delivery Order created successfully');
+            return redirect()->route('delivery-orders.show', ['deliveryOrder' => $deliveryOrder->id])
+                ->with('success', 'Delivery Order created successfully')
+                ->setStatusCode(303);
         } catch (\Exception $e) {
             return redirect()->back()
                 ->withInput()
