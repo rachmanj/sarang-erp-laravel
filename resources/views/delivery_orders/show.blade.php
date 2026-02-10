@@ -115,6 +115,23 @@
                             </div>
 
                             <!-- Items -->
+                            @php
+                                $pickingStatuses = ['picking', 'packed', 'ready', 'in_transit'];
+                                $deliveryStatuses = ['ready', 'in_transit', 'delivered'];
+                                $canEditPicking = $deliveryOrder->approval_status === 'approved'
+                                    && in_array($deliveryOrder->status, $pickingStatuses);
+                                $canEditDelivery = $deliveryOrder->approval_status === 'approved'
+                                    && in_array($deliveryOrder->status, $deliveryStatuses);
+                            @endphp
+                            @if ($errors->any())
+                                <div class="alert alert-danger">
+                                    <ul class="mb-0">
+                                        @foreach ($errors->all() as $error)
+                                            <li>{{ $error }}</li>
+                                        @endforeach
+                                    </ul>
+                                </div>
+                            @endif
                             <div class="card card-secondary mt-3">
                                 <div class="card-header">
                                     <h3 class="card-title">Delivery Items</h3>
@@ -139,8 +156,49 @@
                                                     <td>{{ $line->item_code ?? 'N/A' }}</td>
                                                     <td>{{ $line->item_name ?? 'N/A' }}</td>
                                                     <td class="text-right">{{ number_format($line->ordered_qty, 2) }}</td>
-                                                    <td class="text-right">{{ number_format($line->picked_qty, 2) }}</td>
-                                                    <td class="text-right">{{ number_format($line->delivered_qty, 2) }}
+                                                    <td class="text-right">
+                                                        @if ($canEditPicking)
+                                                            <form method="post"
+                                                                action="{{ route('delivery-orders.update-picking', $deliveryOrder) }}"
+                                                                class="d-inline">
+                                                                @csrf
+                                                                <input type="hidden" name="line_id" value="{{ $line->id }}">
+                                                                <input type="number" name="picked_qty"
+                                                                    value="{{ old('line_id') == $line->id ? (old('picked_qty') ?? $line->picked_qty) : $line->picked_qty }}"
+                                                                    min="0" max="{{ $line->ordered_qty }}" step="0.01"
+                                                                    placeholder="0"
+                                                                    class="form-control form-control-sm text-right d-inline-block mr-1"
+                                                                    style="width: 80px;" required>
+                                                                <button type="submit" class="btn btn-xs btn-outline-primary d-inline-block" title="Save">
+                                                                    <i class="fas fa-save"></i>
+                                                                </button>
+                                                            </form>
+                                                            <small class="text-muted d-block">Max: {{ number_format($line->ordered_qty, 2) }}</small>
+                                                        @else
+                                                            {{ number_format($line->picked_qty, 2) }}
+                                                        @endif
+                                                    </td>
+                                                    <td class="text-right">
+                                                        @if ($canEditDelivery && $line->picked_qty > 0)
+                                                            <form method="post"
+                                                                action="{{ route('delivery-orders.update-delivery', $deliveryOrder) }}"
+                                                                class="d-inline">
+                                                                @csrf
+                                                                <input type="hidden" name="line_id" value="{{ $line->id }}">
+                                                                <input type="number" name="delivered_qty"
+                                                                    value="{{ old('line_id') == $line->id ? (old('delivered_qty') ?? $line->delivered_qty) : $line->delivered_qty }}"
+                                                                    min="0" max="{{ $line->picked_qty }}" step="0.01"
+                                                                    placeholder="0"
+                                                                    class="form-control form-control-sm text-right d-inline-block mr-1"
+                                                                    style="width: 80px;" required>
+                                                                <button type="submit" class="btn btn-xs btn-outline-primary d-inline-block" title="Save">
+                                                                    <i class="fas fa-save"></i>
+                                                                </button>
+                                                            </form>
+                                                            <small class="text-muted d-block">Max: {{ number_format($line->picked_qty, 2) }}</small>
+                                                        @else
+                                                            {{ number_format($line->delivered_qty, 2) }}
+                                                        @endif
                                                     </td>
                                                     <td class="text-right">{{ number_format($line->unit_price, 2) }}</td>
                                                     <td class="text-right">{{ number_format($line->amount, 2) }}</td>

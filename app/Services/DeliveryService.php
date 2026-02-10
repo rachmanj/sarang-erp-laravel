@@ -12,6 +12,7 @@ use App\Models\BusinessPartner;
 use App\Services\DocumentNumberingService;
 use App\Services\DeliveryJournalService;
 use App\Services\CompanyEntityService;
+use App\Services\DocumentRelationshipService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -141,6 +142,12 @@ class DeliveryService
             Log::info('DeliveryService: Updating sales order status to processing', ['sales_order_id' => $salesOrder->id]);
             $salesOrder->update(['status' => 'processing']);
             Log::info('DeliveryService: Sales order status updated', ['sales_order_id' => $salesOrder->id]);
+
+            app(DocumentRelationshipService::class)->createBaseRelationship(
+                $salesOrder,
+                $do,
+                'Delivery Order created from Sales Order'
+            );
 
             Log::info('DeliveryService: Delivery Order creation completed successfully', ['delivery_order_id' => $do->id]);
             return $do;

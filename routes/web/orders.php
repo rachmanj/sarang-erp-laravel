@@ -234,6 +234,9 @@ Route::prefix('delivery-orders')->group(function () {
             });
         }
         return Yajra\DataTables\Facades\DataTables::of($q)
+            ->editColumn('planned_delivery_date', function ($r) {
+                return $r->planned_delivery_date ? \Carbon\Carbon::parse($r->planned_delivery_date)->format('d-M-Y') : '';
+            })
             ->addColumn('customer', fn($r) => $r->customer_name ?: ('#' . $r->business_partner_id))
             ->addColumn('created_by', fn($r) => $r->creator_name ?: ('#' . $r->created_by))
             ->addColumn('actions', function ($r) {

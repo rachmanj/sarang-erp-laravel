@@ -393,6 +393,7 @@ class DeliveryOrderController extends Controller
                 ->with('success', 'Picking status updated successfully');
         } catch (\Exception $e) {
             return redirect()->back()
+                ->withInput()
                 ->with('error', $e->getMessage());
         }
     }
@@ -417,6 +418,7 @@ class DeliveryOrderController extends Controller
                 ->with('success', 'Delivery status updated successfully');
         } catch (\Exception $e) {
             return redirect()->back()
+                ->withInput()
                 ->with('error', $e->getMessage());
         }
     }
