@@ -52,7 +52,7 @@
                                                                 class="far fa-calendar-alt"></i></span>
                                                     </div>
                                                     <input type="date" name="date"
-                                                        value="{{ old('date', $order->date->format('Y-m-d')) }}"
+                                                        value="{{ old('date', $order->date ? $order->date->format('Y-m-d') : now()->toDateString()) }}"
                                                         class="form-control" required>
                                                 </div>
                                             </div>
@@ -292,12 +292,12 @@
 @endsection
 
 @push('scripts')
-    <script>
-        window.prefill = @json([
-            'date' => $order->date->format('Y-m-d'),
+    @php
+        $prefillData = [
+            'date' => $order->date ? $order->date->format('Y-m-d') : now()->toDateString(),
             'business_partner_id' => $order->business_partner_id,
-            'order_type' => $order->order_type,
-            'lines' => $order->lines->map(function($line) {
+            'order_type' => $order->order_type ?? 'item',
+            'lines' => $order->lines->map(function($line) use ($order) {
                 return [
                     'item_id' => $order->order_type === 'item' ? ($line->inventory_item_id ?? $line->account_id) : $line->account_id,
                     'description' => $line->description,
@@ -307,8 +307,11 @@
                     'wtax_rate' => $line->wtax_rate ?? 0,
                     'notes' => $line->notes,
                 ];
-            })
-        ]);
+            })->toArray()
+        ];
+    @endphp
+    <script>
+        window.prefill = @json($prefillData);
         window.inventoryItems = @json($inventoryItems);
         window.accounts = @json($accounts);
 

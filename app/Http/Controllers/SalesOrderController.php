@@ -264,7 +264,9 @@ class SalesOrderController extends Controller
         $warehouses = DB::table('warehouses')->where('is_active', 1)->where('name', 'not like', '%Transit%')->orderBy('name')->get();
         $currencies = $this->currencyService->getActiveCurrencies();
         $entities = $this->companyEntityService->getActiveEntities();
-        $defaultEntity = $this->companyEntityService->getEntity($order->company_entity_id);
+        $defaultEntity = $order->company_entity_id 
+            ? $this->companyEntityService->getEntity($order->company_entity_id)
+            : $this->companyEntityService->getDefaultEntity();
 
         return view('sales_orders.edit', compact(
             'order',
@@ -321,6 +323,17 @@ class SalesOrderController extends Controller
         ]);
 
         try {
+            // Calculate total amount from lines for credit limit check
+            $totalAmount = 0;
+            foreach ($data['lines'] as $line) {
+                $originalAmount = $line['qty'] * $line['unit_price'];
+                $vatAmount = $originalAmount * ($line['vat_rate'] / 100);
+                $wtaxAmount = $originalAmount * ($line['wtax_rate'] / 100);
+                $lineAmount = $originalAmount + $vatAmount - $wtaxAmount;
+                $totalAmount += $lineAmount;
+            }
+            $data['total_amount'] = $totalAmount;
+            
             $this->salesService->updateSalesOrder($id, $data);
             return redirect()->route('sales-orders.show', $id)
                 ->with('success', 'Sales Order updated successfully');
