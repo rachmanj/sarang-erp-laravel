@@ -164,7 +164,8 @@ class BusinessPartner extends Model
     public function getPrimaryContactNameAttribute()
     {
         $contact = $this->primaryContact ?? $this->contacts()->first();
-        return $contact?->name;
+        $name = $contact?->name;
+        return $name ? trim($name, " \t\n\r\0\x0B\"") : null;
     }
 
     public function getPrimaryContactPhoneAttribute()
