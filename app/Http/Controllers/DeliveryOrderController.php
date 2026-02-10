@@ -416,9 +416,24 @@ class DeliveryOrderController extends Controller
                 $data['picked_qty']
             );
 
+            if ($request->ajax() || $request->wantsJson()) {
+                $line = \App\Models\DeliveryOrderLine::find($data['line_id']);
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Picking status updated successfully',
+                    'line' => [
+                        'picked_qty' => (float) $line->picked_qty,
+                        'status' => $line->status,
+                    ],
+                ]);
+            }
+
             return redirect()->route('delivery-orders.show', $deliveryOrder->id)
                 ->with('success', 'Picking status updated successfully');
         } catch (\Exception $e) {
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+            }
             return redirect()->back()
                 ->withInput()
                 ->with('error', $e->getMessage());
@@ -441,9 +456,24 @@ class DeliveryOrderController extends Controller
                 $data['delivered_qty']
             );
 
+            if ($request->ajax() || $request->wantsJson()) {
+                $line = \App\Models\DeliveryOrderLine::find($data['line_id']);
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Delivery status updated successfully',
+                    'line' => [
+                        'delivered_qty' => (float) $line->delivered_qty,
+                        'status' => $line->status,
+                    ],
+                ]);
+            }
+
             return redirect()->route('delivery-orders.show', $deliveryOrder->id)
                 ->with('success', 'Delivery status updated successfully');
         } catch (\Exception $e) {
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+            }
             return redirect()->back()
                 ->withInput()
                 ->with('error', $e->getMessage());

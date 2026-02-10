@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\DeliveryOrder;
 use App\Models\DeliveryOrderLine;
 use App\Models\DeliveryTracking;
+use App\Models\InventoryTransaction;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderLine;
 use App\Models\InventoryItem;
@@ -13,6 +14,7 @@ use App\Services\DocumentNumberingService;
 use App\Services\DeliveryJournalService;
 use App\Services\CompanyEntityService;
 use App\Services\DocumentRelationshipService;
+use App\Services\InventoryService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -22,15 +24,18 @@ class DeliveryService
     protected $documentNumberingService;
     protected $deliveryJournalService;
     protected $companyEntityService;
+    protected $inventoryService;
 
     public function __construct(
         DocumentNumberingService $documentNumberingService,
         DeliveryJournalService $deliveryJournalService,
-        CompanyEntityService $companyEntityService
+        CompanyEntityService $companyEntityService,
+        InventoryService $inventoryService
     ) {
         $this->documentNumberingService = $documentNumberingService;
         $this->deliveryJournalService = $deliveryJournalService;
         $this->companyEntityService = $companyEntityService;
+        $this->inventoryService = $inventoryService;
     }
 
     public function createDeliveryOrderFromSalesOrder($salesOrderId, $data = [])
@@ -306,34 +311,73 @@ class DeliveryService
 
     public function updatePickingStatus($deliveryOrderLineId, $pickedQty)
     {
-        $deliveryOrderLine = DeliveryOrderLine::findOrFail($deliveryOrderLineId);
+        return DB::transaction(function () use ($deliveryOrderLineId, $pickedQty) {
+            $deliveryOrderLine = DeliveryOrderLine::with('inventoryItem')->findOrFail($deliveryOrderLineId);
 
-        if (!$deliveryOrderLine->canPickQuantity($pickedQty)) {
-            throw new \Exception('Invalid picking quantity');
-        }
+            if (!$deliveryOrderLine->canPickQuantity($pickedQty)) {
+                throw new \Exception('Invalid picking quantity');
+            }
 
-        $deliveryOrderLine->updatePickedQuantity($pickedQty);
+            $deliveryOrderLine->updatePickedQuantity($pickedQty);
 
-        // Update delivery order status based on line statuses
-        $this->updateDeliveryOrderStatus($deliveryOrderLine->deliveryOrder);
+            $this->ensureInventoryReduction($deliveryOrderLine);
 
-        return $deliveryOrderLine;
+            $this->updateDeliveryOrderStatus($deliveryOrderLine->deliveryOrder);
+
+            return $deliveryOrderLine->fresh();
+        });
     }
 
     public function updateDeliveryStatus($deliveryOrderLineId, $deliveredQty)
     {
-        $deliveryOrderLine = DeliveryOrderLine::findOrFail($deliveryOrderLineId);
+        return DB::transaction(function () use ($deliveryOrderLineId, $deliveredQty) {
+            $deliveryOrderLine = DeliveryOrderLine::with('inventoryItem')->findOrFail($deliveryOrderLineId);
 
-        if (!$deliveryOrderLine->canDeliverQuantity($deliveredQty)) {
-            throw new \Exception('Invalid delivery quantity');
+            if (!$deliveryOrderLine->canDeliverQuantity($deliveredQty)) {
+                throw new \Exception('Invalid delivery quantity');
+            }
+
+            $deliveryOrderLine->updateDeliveredQuantity($deliveredQty);
+
+            $this->ensureInventoryReduction($deliveryOrderLine);
+
+            $this->updateDeliveryOrderStatus($deliveryOrderLine->deliveryOrder);
+
+            return $deliveryOrderLine->fresh();
+        });
+    }
+
+    private function ensureInventoryReduction(DeliveryOrderLine $line): void
+    {
+        if (!$line->inventory_item_id || !$line->inventoryItem) {
+            return;
         }
 
-        $deliveryOrderLine->updateDeliveredQuantity($deliveredQty);
+        $alreadyReduced = (int) abs(
+            InventoryTransaction::where('reference_type', 'delivery_order_line')
+                ->where('reference_id', $line->id)
+                ->where('transaction_type', 'sale')
+                ->sum('quantity')
+        );
 
-        // Update delivery order status based on line statuses
-        $this->updateDeliveryOrderStatus($deliveryOrderLine->deliveryOrder);
+        $shouldReduce = (int) round(max($line->picked_qty, $line->delivered_qty));
+        $delta = $shouldReduce - $alreadyReduced;
 
-        return $deliveryOrderLine;
+        if ($delta <= 0) {
+            return;
+        }
+
+        $unitCost = $this->inventoryService->calculateUnitCost($line->inventoryItem);
+        $do = $line->deliveryOrder;
+
+        $this->inventoryService->processSaleTransaction(
+            $line->inventory_item_id,
+            $delta,
+            (float) $unitCost,
+            'delivery_order_line',
+            $line->id,
+            "Picked/Delivered from DO {$do->do_number} - {$line->item_name}"
+        );
     }
 
     /**
@@ -424,25 +468,38 @@ class DeliveryService
 
     public function cancelDeliveryOrder($deliveryOrderId, $reason = null)
     {
-        $deliveryOrder = DeliveryOrder::findOrFail($deliveryOrderId);
+        return DB::transaction(function () use ($deliveryOrderId, $reason) {
+            $deliveryOrder = DeliveryOrder::with('lines.inventoryItem')->findOrFail($deliveryOrderId);
 
-        if (!$deliveryOrder->canBeCancelled()) {
-            throw new \Exception('Delivery Order cannot be cancelled in current status');
-        }
-
-        // Release reserved inventory
-        foreach ($deliveryOrder->lines as $line) {
-            if ($line->reserved_qty > 0) {
-                $this->releaseInventory($line);
+            if (!$deliveryOrder->canBeCancelled()) {
+                throw new \Exception('Delivery Order cannot be cancelled in current status');
             }
-        }
 
-        $deliveryOrder->update([
-            'status' => 'cancelled',
-            'notes' => $reason ? $deliveryOrder->notes . "\nCancellation: " . $reason : $deliveryOrder->notes
-        ]);
+            foreach ($deliveryOrder->lines as $line) {
+                if ($line->reserved_qty > 0) {
+                    $this->releaseInventory($line);
+                }
+                if ($line->picked_qty > 0 && $line->inventory_item_id && $line->inventoryItem) {
+                    $qtyToRestore = (int) round($line->picked_qty);
+                    if ($qtyToRestore > 0) {
+                        $unitCost = $this->inventoryService->calculateUnitCost($line->inventoryItem);
+                        $this->inventoryService->processAdjustmentTransaction(
+                            $line->inventory_item_id,
+                            $qtyToRestore,
+                            (float) $unitCost,
+                            "DO {$deliveryOrder->do_number} cancelled - stock returned for {$line->item_name}"
+                        );
+                    }
+                }
+            }
 
-        return $deliveryOrder;
+            $deliveryOrder->update([
+                'status' => 'cancelled',
+                'notes' => $reason ? $deliveryOrder->notes . "\nCancellation: " . $reason : $deliveryOrder->notes
+            ]);
+
+            return $deliveryOrder;
+        });
     }
 
     public function releaseInventory($deliveryOrderLine)

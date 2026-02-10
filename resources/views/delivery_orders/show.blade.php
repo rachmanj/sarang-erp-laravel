@@ -152,15 +152,15 @@
                                         </thead>
                                         <tbody>
                                             @foreach ($deliveryOrder->lines as $line)
-                                                <tr>
+                                                <tr data-line-id="{{ $line->id }}">
                                                     <td>{{ $line->item_code ?? 'N/A' }}</td>
                                                     <td>{{ $line->item_name ?? 'N/A' }}</td>
                                                     <td class="text-right">{{ number_format($line->ordered_qty, 2) }}</td>
-                                                    <td class="text-right">
+                                                    <td class="text-right" data-line-id="{{ $line->id }}" data-field="picked">
                                                         @if ($canEditPicking)
                                                             <form method="post"
                                                                 action="{{ route('delivery-orders.update-picking', $deliveryOrder) }}"
-                                                                class="d-inline">
+                                                                class="d-inline do-qty-form" data-field="picked" data-ordered="{{ $line->ordered_qty }}">
                                                                 @csrf
                                                                 <input type="hidden" name="line_id" value="{{ $line->id }}">
                                                                 <input type="number" name="picked_qty"
@@ -178,11 +178,11 @@
                                                             {{ number_format($line->picked_qty, 2) }}
                                                         @endif
                                                     </td>
-                                                    <td class="text-right">
+                                                    <td class="text-right" data-line-id="{{ $line->id }}" data-field="delivered" data-picked="{{ $line->picked_qty }}">
                                                         @if ($canEditDelivery && $line->picked_qty > 0)
                                                             <form method="post"
                                                                 action="{{ route('delivery-orders.update-delivery', $deliveryOrder) }}"
-                                                                class="d-inline">
+                                                                class="d-inline do-qty-form" data-field="delivered" data-picked="{{ $line->picked_qty }}">
                                                                 @csrf
                                                                 <input type="hidden" name="line_id" value="{{ $line->id }}">
                                                                 <input type="number" name="delivered_qty"
@@ -202,7 +202,7 @@
                                                     </td>
                                                     <td class="text-right">{{ number_format($line->unit_price, 2) }}</td>
                                                     <td class="text-right">{{ number_format($line->amount, 2) }}</td>
-                                                    <td>
+                                                    <td class="line-status-cell">
                                                         <span
                                                             class="badge badge-{{ $line->status === 'delivered' ? 'success' : 'warning' }}">
                                                             {{ ucfirst(str_replace('_', ' ', $line->status)) }}
@@ -318,5 +318,78 @@
         function showRejectModal() {
             $('#rejectModal').modal('show');
         }
+
+        document.querySelectorAll('.do-qty-form').forEach(function(form) {
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                var btn = form.querySelector('button[type="submit"]');
+                var originalHtml = btn.innerHTML;
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+                fetch(form.action, {
+                    method: 'POST',
+                    body: new FormData(form),
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json',
+                    },
+                })
+                .then(function(res) { return res.json().then(function(data) { return { ok: res.ok, data: data }; }); })
+                .then(function(result) {
+                    if (result.ok && result.data.success) {
+                        if (typeof toastr !== 'undefined') {
+                            toastr.success(result.data.message);
+                        } else {
+                            alert(result.data.message);
+                        }
+                        var row = form.closest('tr');
+                        var lineId = row.dataset.lineId;
+                        if (form.dataset.field === 'picked') {
+                            var input = form.querySelector('input[name="picked_qty"]');
+                            input.value = result.data.line.picked_qty;
+                            var deliveredCell = row.querySelector('td[data-field="delivered"]');
+                            if (deliveredCell && deliveredCell.querySelector('form')) {
+                                var deliveredForm = deliveredCell.querySelector('form');
+                                var deliveredInput = deliveredForm.querySelector('input[name="delivered_qty"]');
+                                deliveredForm.dataset.picked = result.data.line.picked_qty;
+                                deliveredInput.max = result.data.line.picked_qty;
+                                deliveredCell.dataset.picked = result.data.line.picked_qty;
+                                var maxHint = deliveredCell.querySelector('small.text-muted');
+                                if (maxHint) maxHint.textContent = 'Max: ' + parseFloat(result.data.line.picked_qty).toLocaleString('en', { minimumFractionDigits: 2 });
+                            } else if (result.data.line.picked_qty > 0) {
+                                location.reload();
+                            }
+                        } else {
+                            var input = form.querySelector('input[name="delivered_qty"]');
+                            input.value = result.data.line.delivered_qty;
+                        }
+                        var statusCell = row.querySelector('.line-status-cell span.badge');
+                        if (statusCell && result.data.line.status) {
+                            statusCell.className = 'badge badge-' + (result.data.line.status === 'delivered' ? 'success' : 'warning');
+                            statusCell.textContent = result.data.line.status.replace(/_/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+                        }
+                    } else {
+                        var msg = result.data && result.data.message ? result.data.message : 'An error occurred';
+                        if (typeof toastr !== 'undefined') {
+                            toastr.error(msg);
+                        } else {
+                            alert(msg);
+                        }
+                    }
+                })
+                .catch(function(err) {
+                    if (typeof toastr !== 'undefined') {
+                        toastr.error('Request failed');
+                    } else {
+                        alert('Request failed');
+                    }
+                })
+                .finally(function() {
+                    btn.disabled = false;
+                    btn.innerHTML = originalHtml;
+                });
+            });
+        });
     </script>
 @endpush
