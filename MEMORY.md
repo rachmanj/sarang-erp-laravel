@@ -1,5 +1,5 @@
 **Purpose**: AI's persistent knowledge base for project context and learnings
-**Last Updated**: 2026-02-09 (Sales Order Approval Fix & UI Enhancement)
+**Last Updated**: 2026-02-10 (Delivery Order → Sales Invoice integration test)
 
 ## Memory Maintenance Guidelines
 
@@ -588,3 +588,19 @@
 **Solution**: Implemented comprehensive fix with auto-recovery mechanism in `SalesService::approveSalesOrder()` to automatically create missing approval records if they don't exist. Created `FixSalesOrderApproval` artisan command to bulk-fix existing Sales Orders with missing approvals. Created `EnsureOfficerRole` command to ensure "officer" role exists in both Spatie Permission system (`roles` table) and approval workflow system (`user_roles` table). Enhanced Sales Order show page (`resources/views/sales_orders/show.blade.php`) to display Item Code and Item Name columns, pulling from `inventory_items.code` and `inventory_items.name` via relationship. Updated `SalesOrderController::show()` to eager load `inventoryItem` relationship. Added fix route `/sales-orders/fix-approval/{orderNo}` for ad-hoc fixes. Updated custom `App\Console\Kernel` to properly register commands.
 
 **Key Learning**: Approval workflows require both Spatie Permission roles (for UI display) and user_roles entries (for workflow logic). Auto-recovery mechanisms in service layers prevent data inconsistencies from blocking business processes. Eager loading relationships improves performance and ensures data availability. Commands must be explicitly registered in Laravel 11+ custom Kernel when overriding `getArtisan()`. Inventory item information should be displayed directly from relationships rather than denormalized fields for data consistency.
+
+### [025] Delivery Order Data Integrity & UI Improvements (2026-02-09) ✅ COMPLETE
+
+**Challenge**: Delivery Order creation failed with foreign key constraint violation when Sales Order lines referenced inventory items that no longer existed in `inventory_items` table. Additionally, Sales Order items table in delivery order create form displayed "N/A" for item code and description columns because `sales_order_lines` had NULL values for `item_code` and `description` fields, even though related `inventoryItem` relationship contained the data.
+
+**Solution**: Enhanced `DeliveryService::createDeliveryOrderLine()` to validate inventory item existence before insertion, setting `inventory_item_id` to NULL (allowed by foreign key constraint with `ON DELETE SET NULL`) when inventory item doesn't exist, with warning logging for data integrity tracking. Updated `DeliveryOrderController::create()` to eager load `inventoryItem` relationship for Sales Order lines. Modified delivery order create view (`resources/views/delivery_orders/create.blade.php`) to display item code and description from `inventoryItem` relationship when `item_code`/`description` fields are NULL, using fallback chain: `item_code ?? inventoryItem->code ?? 'N/A'` and `description ?? inventoryItem->name ?? item_name ?? 'N/A'`. Implemented customer-based filtering for Sales Order dropdown using Select2 `templateResult` function to dynamically filter options based on selected customer.
+
+**Key Learning**: Foreign key constraints with `ON DELETE SET NULL` allow graceful handling of deleted inventory items by setting foreign keys to NULL instead of failing. Service layer validation prevents constraint violations and maintains data integrity. Eager loading relationships ensures data availability in views. Fallback chains in Blade templates provide robust display logic when denormalized fields are NULL but relationship data exists. Select2 `templateResult` function enables dynamic client-side filtering without server round-trips, improving user experience for large datasets.
+
+### [081] Delivery Order → Sales Invoice Integration Fix & Test (2026-02-10) ✅ COMPLETE
+
+**Challenge**: Creating a Sales Invoice from a Delivery Order (route `delivery-orders/{id}/create-invoice`) could fail because the create view expected `entities`, `defaultEntity`, and a hidden `delivery_order_id` for store/closure, which were not passed when opening from DO.
+
+**Solution**: Updated `DeliveryOrderController::createInvoice()` to pass `entities` and `defaultEntity` from `CompanyEntityService`, and added `company_entity_id` to prefill from the delivery order. In `sales_invoices/create.blade.php` added hidden input `delivery_order_id` when `$deliveryOrder` is set, and used `$prefill['company_entity_id'] ?? $defaultEntity->id` for company select. Tested end-to-end with Chrome DevTools MCP: logged in as superadmin, set DO #1 to delivered (for test data), opened Create Invoice from DO, submitted form; Sales Invoice #2 was created with description "From DO 71260700001" and correct lines/total; document closure runs on store when `delivery_order_id` is present.
+
+**Key Learning**: When reusing a shared view (e.g. sales_invoices.create) from multiple entry points (standalone, from Sales Order, from Delivery Order, from Quotation), every entry point must pass the same set of variables the view expects. Passing `delivery_order_id` in the form is required for `SalesInvoiceController::store()` to close the Delivery Order after invoice creation.

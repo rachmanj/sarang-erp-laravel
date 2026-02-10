@@ -157,13 +157,25 @@ class DeliveryService
 
         // Get inventory item details
         $inventoryItem = null;
+        $inventoryItemId = null;
         if ($salesOrderLine->inventory_item_id) {
             $inventoryItem = InventoryItem::find($salesOrderLine->inventory_item_id);
-            Log::info('DeliveryService: Inventory item found', [
-                'inventory_item_id' => $inventoryItem ? $inventoryItem->id : 'null',
-                'item_code' => $inventoryItem ? $inventoryItem->code : 'null',
-                'item_name' => $inventoryItem ? $inventoryItem->name : 'null'
-            ]);
+            if ($inventoryItem) {
+                $inventoryItemId = $inventoryItem->id;
+                Log::info('DeliveryService: Inventory item found', [
+                    'inventory_item_id' => $inventoryItem->id,
+                    'item_code' => $inventoryItem->code,
+                    'item_name' => $inventoryItem->name
+                ]);
+            } else {
+                Log::warning('DeliveryService: Inventory item not found, setting inventory_item_id to NULL', [
+                    'sales_order_line_id' => $salesOrderLine->id,
+                    'inventory_item_id' => $salesOrderLine->inventory_item_id,
+                    'item_code' => $salesOrderLine->item_code,
+                    'item_name' => $salesOrderLine->item_name
+                ]);
+                $inventoryItemId = null;
+            }
         }
 
         // Get pending quantity (full quantity if first delivery, or remaining if partial)
@@ -172,7 +184,8 @@ class DeliveryService
         Log::info('DeliveryService: Creating delivery order line', [
             'pending_qty' => $pendingQty,
             'unit_price' => $salesOrderLine->unit_price,
-            'account_id' => $salesOrderLine->account_id
+            'account_id' => $salesOrderLine->account_id,
+            'inventory_item_id' => $inventoryItemId
         ]);
 
         // Create delivery order line
@@ -180,7 +193,7 @@ class DeliveryService
             $deliveryOrderLine = DeliveryOrderLine::create([
                 'delivery_order_id' => $deliveryOrder->id,
                 'sales_order_line_id' => $salesOrderLine->id,
-                'inventory_item_id' => $salesOrderLine->inventory_item_id,
+                'inventory_item_id' => $inventoryItemId,
                 'account_id' => $salesOrderLine->account_id,
                 'item_code' => $inventoryItem ? $inventoryItem->code : $salesOrderLine->item_code,
                 'item_name' => $inventoryItem ? $inventoryItem->name : $salesOrderLine->item_name,
@@ -207,7 +220,7 @@ class DeliveryService
         }
 
         // Reserve inventory if it's an inventory item
-        if ($salesOrderLine->inventory_item_id) {
+        if ($inventoryItemId) {
             $this->reserveInventory($deliveryOrderLine);
         }
 

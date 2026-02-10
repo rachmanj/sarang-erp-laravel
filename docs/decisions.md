@@ -1411,6 +1411,9 @@ Decision: [Title] - [YYYY-MM-DD]
 -   Implemented complete status tracking from draft to completed with proper approval workflows
 -   Added inventory reservation system with automatic stock allocation and release
 -   Created revenue recognition system with COGS calculation and accounts receivable management
+-   Enhanced data integrity: Foreign key constraint handling with graceful NULL assignment when inventory items are deleted (2026-02-09)
+-   Improved UI: Customer-based filtering for Sales Order selection using Select2 `templateResult` function (2026-02-09)
+-   Enhanced display: Fallback chain for item information display (item_code → inventoryItem->code, description → inventoryItem->name) (2026-02-09)
 
 **Review Date**: 2025-04-18 (after user feedback and delivery performance analysis)
 

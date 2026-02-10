@@ -250,8 +250,20 @@ class SalesOrderController extends Controller
 
     public function show(int $id)
     {
-        $order = SalesOrder::with(['lines.inventoryItem', 'customer', 'approvals.user', 'approvedBy', 'createdBy', 'commissions'])
-            ->findOrFail($id);
+        $order = SalesOrder::with([
+            'lines.inventoryItem',
+            'lines.account',
+            'lines.taxCode',
+            'customer',
+            'companyEntity',
+            'warehouse',
+            'currency',
+            'approvals.user',
+            'approvedBy',
+            'createdBy',
+            'commissions',
+            'deliveryOrders'
+        ])->findOrFail($id);
         return view('sales_orders.show', compact('order'));
     }
 
@@ -339,10 +351,13 @@ class SalesOrderController extends Controller
             'date' => now()->toDateString(),
             'business_partner_id' => $order->business_partner_id,
             'description' => 'From SO ' . ($order->order_no ?: ('#' . $order->id)),
+            'reference_no' => $order->reference_no ?? null,
             'lines' => $order->lines->map(function ($l) {
                 return [
+                    'item_code' => $l->item_code,
+                    'item_name' => $l->item_name ?? $l->description,
                     'account_id' => (int)$l->account_id,
-                    'description' => $l->description,
+                    'description' => $l->description ?? $l->item_name,
                     'qty' => (float)$l->qty,
                     'unit_price' => (float)$l->unit_price,
                     'tax_code_id' => $l->tax_code_id,

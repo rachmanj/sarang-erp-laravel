@@ -341,6 +341,9 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 -   **Journal Entries Integration**: Automatic journal entries for inventory reservation and revenue recognition
 -   **Delivery Tracking**: Logistics cost tracking, performance metrics, and customer satisfaction monitoring
 -   **Print Functionality**: Professional delivery order documents with company branding
+-   **Data Integrity**: Foreign key constraint handling with graceful NULL assignment when inventory items are deleted, preventing creation failures
+-   **Sales Order Integration**: Customer-based filtering for Sales Order selection using Select2 `templateResult` function for dynamic client-side filtering
+-   **Item Display**: Fallback chain for displaying item information (item_code → inventoryItem->code, description → inventoryItem->name → item_name) ensuring data availability when denormalized fields are NULL
 
 ### 7. Control Account Management System
 

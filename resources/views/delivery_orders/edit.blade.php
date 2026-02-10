@@ -46,6 +46,27 @@
                                     </div>
                                     <div class="col-md-6">
                                         <div class="form-group row mb-2">
+                                            <label class="col-sm-3 col-form-label">Customer</label>
+                                            <div class="col-sm-9">
+                                                <input type="text" class="form-control form-control-sm"
+                                                    value="{{ $deliveryOrder->customer->name }}" readonly>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="form-group row mb-2">
+                                            <label class="col-sm-3 col-form-label">Warehouse</label>
+                                            <div class="col-sm-9">
+                                                <input type="text" class="form-control form-control-sm"
+                                                    value="{{ $deliveryOrder->warehouse->name ?? 'N/A' }}" readonly>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-group row mb-2">
                                             <label class="col-sm-3 col-form-label">Planned Delivery <span
                                                     class="text-danger">*</span></label>
                                             <div class="col-sm-9">
@@ -146,6 +167,93 @@
                                         </div>
                                     </div>
                                 </div>
+
+                                <!-- Delivery Items Table -->
+                                @if ($deliveryOrder->lines && $deliveryOrder->lines->count() > 0)
+                                    <div class="card card-secondary card-outline mt-3 mb-2">
+                                        <div class="card-header py-2">
+                                            <h3 class="card-title">
+                                                <i class="fas fa-list-ul mr-1"></i>
+                                                Delivery Items
+                                            </h3>
+                                        </div>
+                                        <div class="card-body p-0">
+                                            <div class="table-responsive">
+                                                <table class="table table-sm table-striped mb-0" id="delivery-items-table">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Item Code</th>
+                                                            <th>Item Name</th>
+                                                            <th class="text-right">Ordered Qty</th>
+                                                            <th class="text-right">Unit Price</th>
+                                                            <th class="text-right">Amount</th>
+                                                            <th>Description</th>
+                                                            <th>Notes</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        @foreach ($deliveryOrder->lines as $index => $line)
+                                                            <tr>
+                                                                <td>
+                                                                    {{ $line->item_code ?? ($line->inventoryItem->code ?? 'N/A') }}
+                                                                    <input type="hidden" name="lines[{{ $index }}][id]" value="{{ $line->id }}">
+                                                                    <input type="hidden" name="lines[{{ $index }}][sales_order_line_id]" value="{{ $line->sales_order_line_id }}">
+                                                                    <input type="hidden" name="lines[{{ $index }}][inventory_item_id]" value="{{ $line->inventory_item_id }}">
+                                                                </td>
+                                                                <td>{{ $line->item_name ?? ($line->inventoryItem->name ?? ($line->description ?? 'N/A')) }}</td>
+                                                                <td class="text-right">
+                                                                    <input type="number" 
+                                                                           name="lines[{{ $index }}][ordered_qty]" 
+                                                                           class="form-control form-control-sm text-right qty-input" 
+                                                                           value="{{ old('lines.'.$index.'.ordered_qty', $line->ordered_qty) }}" 
+                                                                           step="0.01" 
+                                                                           min="0" 
+                                                                           required
+                                                                           data-line-index="{{ $index }}">
+                                                                </td>
+                                                                <td class="text-right">
+                                                                    <input type="number" 
+                                                                           name="lines[{{ $index }}][unit_price]" 
+                                                                           class="form-control form-control-sm text-right price-input" 
+                                                                           value="{{ old('lines.'.$index.'.unit_price', $line->unit_price) }}" 
+                                                                           step="0.01" 
+                                                                           min="0" 
+                                                                           required
+                                                                           data-line-index="{{ $index }}">
+                                                                </td>
+                                                                <td class="text-right">
+                                                                    <span class="amount-display" data-line-index="{{ $index }}">
+                                                                        {{ number_format($line->amount, 2) }}
+                                                                    </span>
+                                                                    <input type="hidden" name="lines[{{ $index }}][amount]" class="amount-input" value="{{ $line->amount }}" data-line-index="{{ $index }}">
+                                                                </td>
+                                                                <td>
+                                                                    <input type="text" 
+                                                                           name="lines[{{ $index }}][description]" 
+                                                                           class="form-control form-control-sm" 
+                                                                           value="{{ old('lines.'.$index.'.description', $line->description) }}">
+                                                                </td>
+                                                                <td>
+                                                                    <input type="text" 
+                                                                           name="lines[{{ $index }}][notes]" 
+                                                                           class="form-control form-control-sm" 
+                                                                           value="{{ old('lines.'.$index.'.notes', $line->notes) }}">
+                                                                </td>
+                                                            </tr>
+                                                        @endforeach
+                                                    </tbody>
+                                                    <tfoot>
+                                                        <tr>
+                                                            <th colspan="4" class="text-right">Total:</th>
+                                                            <th class="text-right" id="total-amount">{{ number_format($deliveryOrder->total_amount, 2) }}</th>
+                                                            <th colspan="2"></th>
+                                                        </tr>
+                                                    </tfoot>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                @endif
                             </div>
                             <div class="card-footer">
                                 <button class="btn btn-primary" type="submit">
@@ -162,3 +270,42 @@
         </div>
     </section>
 @endsection
+
+@push('scripts')
+    <script>
+        $(document).ready(function() {
+            // Calculate amount and total when qty or price changes
+            function calculateAmount(lineIndex) {
+                const row = $(`tr:has(input[data-line-index="${lineIndex}"])`);
+                const qty = parseFloat(row.find('.qty-input').val()) || 0;
+                const price = parseFloat(row.find('.price-input').val()) || 0;
+                const amount = qty * price;
+                
+                row.find(`.amount-display[data-line-index="${lineIndex}"]`).text(amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ","));
+                row.find(`.amount-input[data-line-index="${lineIndex}"]`).val(amount.toFixed(2));
+                
+                calculateTotal();
+            }
+            
+            function calculateTotal() {
+                let total = 0;
+                $('.amount-input').each(function() {
+                    total += parseFloat($(this).val()) || 0;
+                });
+                $('#total-amount').text(total.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ","));
+            }
+            
+            // Bind change events
+            $(document).on('input', '.qty-input, .price-input', function() {
+                const lineIndex = $(this).data('line-index');
+                calculateAmount(lineIndex);
+            });
+            
+            // Initial calculation
+            $('.qty-input').each(function() {
+                const lineIndex = $(this).data('line-index');
+                calculateAmount(lineIndex);
+            });
+        });
+    </script>
+@endpush

@@ -42,6 +42,9 @@
                                 @isset($sales_order_id)
                                     <input type="hidden" name="sales_order_id" value="{{ $sales_order_id }}" />
                                 @endisset
+                                @isset($deliveryOrder)
+                                    <input type="hidden" name="delivery_order_id" value="{{ $deliveryOrder->id }}" />
+                                @endisset
                                 @if (isset($salesQuotation))
                                     <input type="hidden" name="sales_quotation_id" value="{{ $salesQuotation->id }}" />
                                 @endif
@@ -73,7 +76,7 @@
                                                     class="form-control form-control-sm select2bs4" required>
                                                     @foreach ($entities as $entity)
                                                         <option value="{{ $entity->id }}"
-                                                            {{ old('company_entity_id', $defaultEntity->id) == $entity->id ? 'selected' : '' }}>
+                                                            {{ old('company_entity_id', $prefill['company_entity_id'] ?? $defaultEntity->id) == $entity->id ? 'selected' : '' }}>
                                                             {{ $entity->name }} ({{ $entity->code }})
                                                         </option>
                                                     @endforeach
@@ -122,6 +125,23 @@
                                             </div>
                                         </div>
                                     </div>
+                                    <div class="col-md-6">
+                                        <div class="form-group row mb-2">
+                                            <label class="col-sm-3 col-form-label">Reference No</label>
+                                            <div class="col-sm-9">
+                                                <div class="input-group input-group-sm">
+                                                    <div class="input-group-prepend">
+                                                        <span class="input-group-text"><i class="fas fa-file-alt"></i></span>
+                                                    </div>
+                                                    <input type="text" name="reference_no"
+                                                        value="{{ old('reference_no', $prefill['reference_no'] ?? '') }}"
+                                                        class="form-control form-control-sm" placeholder="Customer reference number">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row">
                                     <div class="col-md-6">
                                         <div class="form-group row mb-2">
                                             <label class="col-sm-3 col-form-label">Due Date</label>
@@ -197,6 +217,10 @@
                                                         @foreach ($prefill['lines'] as $index => $line)
                                                             <tr class="line-item">
                                                                 <td>
+                                                                    @if (!empty($line['item_code']) || !empty($line['item_name']))
+                                                                        <input type="hidden" name="lines[{{ $index }}][item_code]" value="{{ $line['item_code'] ?? '' }}">
+                                                                        <input type="hidden" name="lines[{{ $index }}][item_name]" value="{{ $line['item_name'] ?? '' }}">
+                                                                    @endif
                                                                     <select name="lines[{{ $index }}][account_id]"
                                                                         class="form-control form-control-sm select2bs4"
                                                                         required>
@@ -213,7 +237,7 @@
                                                                         name="lines[{{ $index }}][description]"
                                                                         class="form-control form-control-sm"
                                                                         placeholder="Description"
-                                                                        value="{{ $line['description'] ?? '' }}">
+                                                                        value="{{ $line['description'] ?? $line['item_name'] ?? '' }}">
                                                                 </td>
                                                                 <td>
                                                                     <input type="number" step="0.01" min="0.01"

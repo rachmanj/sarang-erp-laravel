@@ -48,8 +48,17 @@ class InventoryController extends Controller
     public function search(Request $request)
     {
         try {
+            $warehouseId = $request->filled('warehouse_id') ? $request->warehouse_id : null;
+            
             $query = InventoryItem::with(['category'])
                 ->active();
+            
+            // Include warehouse stock if warehouse_id is provided
+            if ($warehouseId) {
+                $query->with(['warehouseStock' => function($q) use ($warehouseId) {
+                    $q->where('warehouse_id', $warehouseId);
+                }]);
+            }
 
             // Handle search - prioritize 'q' parameter, but also check 'code' and 'name'
             // Combine all search terms with OR logic
@@ -101,7 +110,22 @@ class InventoryController extends Controller
             $items = $query->paginate($perPage);
 
             // Transform items to include category name safely
-            $transformedItems = $items->map(function ($item) {
+            $transformedItems = $items->map(function ($item) use ($warehouseId) {
+                $warehouseStock = null;
+                
+                // Get warehouse stock if warehouse_id is provided
+                if ($warehouseId && $item->warehouseStock) {
+                    $stock = $item->warehouseStock->firstWhere('warehouse_id', $warehouseId);
+                    if ($stock) {
+                        $warehouseStock = [
+                            'available_quantity' => $stock->available_quantity,
+                            'quantity_on_hand' => $stock->quantity_on_hand,
+                            'reserved_quantity' => $stock->reserved_quantity,
+                            'reorder_point' => $stock->reorder_point ?? $item->reorder_point,
+                        ];
+                    }
+                }
+                
                 return [
                     'id' => $item->id,
                     'code' => $item->code,
@@ -119,6 +143,7 @@ class InventoryController extends Controller
                     'max_stock_level' => $item->max_stock_level,
                     'reorder_point' => $item->reorder_point,
                     'valuation_method' => $item->valuation_method,
+                    'warehouse_stock' => $warehouseStock,
                 ];
             });
 

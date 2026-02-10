@@ -68,6 +68,18 @@
                                                 </div>
                                             </div>
                                         </div>
+                                        <div class="form-group row mb-2">
+                                            <label class="col-sm-3 col-form-label">Reference No</label>
+                                            <div class="col-sm-9">
+                                                <div class="input-group input-group-sm">
+                                                    <div class="input-group-prepend">
+                                                        <span class="input-group-text"><i class="fas fa-file-alt"></i></span>
+                                                    </div>
+                                                    <input type="text" name="reference_no" value="{{ old('reference_no') }}"
+                                                        class="form-control" placeholder="Customer reference number">
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                     <div class="col-md-4">
                                         <div class="form-group row mb-2">
@@ -604,6 +616,7 @@
 
             // Modal functionality
             function loadItems(page = 1) {
+                const warehouseId = $('select[name="warehouse_id"]').val();
                 const searchData = {
                     code: $('#searchCode').val(),
                     name: $('#searchName').val(),
@@ -612,6 +625,11 @@
                     per_page: 20,
                     page: page
                 };
+                
+                // Add warehouse_id if selected
+                if (warehouseId) {
+                    searchData.warehouse_id = warehouseId;
+                }
 
                 $.ajax({
                     url: '{{ route('inventory.search') }}',
@@ -634,13 +652,37 @@
                 tbody.empty();
 
                 if (items.length === 0) {
-                    tbody.append('<tr><td colspan="9" class="text-center text-muted">No items found</td></tr>');
+                    tbody.append('<tr><td colspan="10" class="text-center text-muted">No items found</td></tr>');
                     return;
                 }
 
-                items.forEach((item, index) => {
+                // Apply stock filter if enabled
+                const showOnlyInStock = $('#filterInStock').is(':checked');
+                const showOnlyLowStock = $('#filterLowStock').is(':checked');
+                
+                let filteredItems = items;
+                if (showOnlyInStock) {
+                    filteredItems = filteredItems.filter(item => 
+                        item.warehouse_stock && item.warehouse_stock.available_quantity > 0
+                    );
+                }
+                if (showOnlyLowStock) {
+                    filteredItems = filteredItems.filter(item => 
+                        item.warehouse_stock && 
+                        item.warehouse_stock.available_quantity > 0 && 
+                        item.warehouse_stock.available_quantity <= (item.warehouse_stock.reorder_point || 0)
+                    );
+                }
+
+                if (filteredItems.length === 0) {
+                    tbody.append('<tr><td colspan="10" class="text-center text-muted">No items match the selected filters</td></tr>');
+                    return;
+                }
+
+                filteredItems.forEach((item, index) => {
+                    const stockInfo = getStockDisplay(item);
                     const row = `
-                        <tr>
+                        <tr ${stockInfo.isOutOfStock ? 'class="table-danger"' : (stockInfo.isLowStock ? 'class="table-warning"' : '')}>
                             <td>${index + 1}</td>
                             <td><strong>${item.code}</strong></td>
                             <td>${item.name}</td>
@@ -649,12 +691,15 @@
                             <td>${item.unit_of_measure}</td>
                             <td class="text-right">${formatCurrency(item.purchase_price)}</td>
                             <td class="text-right">${formatCurrency(item.selling_price)}</td>
+                            <td class="text-right">${stockInfo.html}</td>
                             <td>
                                 <button type="button" class="btn btn-sm btn-success select-item-btn" 
                                         data-item-id="${item.id}" 
                                         data-item-code="${item.code}" 
                                         data-item-name="${item.name}"
-                                        data-item-price="${item.selling_price}">
+                                        data-item-price="${item.selling_price}"
+                                        data-available-qty="${stockInfo.availableQty}"
+                                        ${stockInfo.isOutOfStock && item.item_type === 'item' ? 'title="Out of stock"' : ''}>
                                     <i class="fas fa-check"></i> Select
                                 </button>
                             </td>
@@ -662,6 +707,59 @@
                     `;
                     tbody.append(row);
                 });
+            }
+
+            function getStockDisplay(item) {
+                const warehouseId = $('select[name="warehouse_id"]').val();
+                
+                // For service items, don't show stock
+                if (item.item_type === 'service') {
+                    return {
+                        html: '<span class="text-muted">-</span>',
+                        availableQty: null,
+                        isOutOfStock: false,
+                        isLowStock: false
+                    };
+                }
+                
+                // If no warehouse selected or no warehouse stock data
+                if (!warehouseId || !item.warehouse_stock) {
+                    return {
+                        html: '<span class="text-muted" title="Select warehouse to see availability">-</span>',
+                        availableQty: null,
+                        isOutOfStock: false,
+                        isLowStock: false
+                    };
+                }
+                
+                const stock = item.warehouse_stock;
+                const availableQty = stock.available_quantity || 0;
+                const reorderPoint = stock.reorder_point || 0;
+                const isOutOfStock = availableQty === 0;
+                const isLowStock = availableQty > 0 && availableQty <= reorderPoint;
+                
+                let badgeClass = 'badge-success';
+                let badgeText = 'In Stock';
+                let icon = '<i class="fas fa-check-circle"></i>';
+                
+                if (isOutOfStock) {
+                    badgeClass = 'badge-danger';
+                    badgeText = 'Out of Stock';
+                    icon = '<i class="fas fa-times-circle"></i>';
+                } else if (isLowStock) {
+                    badgeClass = 'badge-warning';
+                    badgeText = 'Low Stock';
+                    icon = '<i class="fas fa-exclamation-triangle"></i>';
+                }
+                
+                const tooltip = `On Hand: ${(stock.quantity_on_hand || 0).toLocaleString('id-ID')} ${item.unit_of_measure || ''}\nReserved: ${(stock.reserved_quantity || 0).toLocaleString('id-ID')} ${item.unit_of_measure || ''}\nAvailable: ${availableQty.toLocaleString('id-ID')} ${item.unit_of_measure || ''}`;
+                
+                return {
+                    html: `<span class="badge ${badgeClass}" title="${tooltip}">${icon} ${availableQty.toLocaleString('id-ID')} ${item.unit_of_measure || ''}</span>`,
+                    availableQty: availableQty,
+                    isOutOfStock: isOutOfStock,
+                    isLowStock: isLowStock
+                };
             }
 
             function updatePagination(pagination) {
@@ -719,7 +817,39 @@
             $('#clearSearch').on('click', function() {
                 $('#searchCode, #searchName').val('');
                 $('#searchCategory, #searchType').val('');
+                $('#filterInStock, #filterLowStock').prop('checked', false);
                 loadItems(1);
+            });
+            
+            // Stock filter handlers
+            $('#filterInStock, #filterLowStock').on('change', function() {
+                const warehouseId = $('select[name="warehouse_id"]').val();
+                if (warehouseId) {
+                    loadItems(1);
+                }
+            });
+            
+            // Show/hide stock filters based on item type
+            $('#searchType').on('change', function() {
+                const itemType = $(this).val();
+                if (itemType === 'item') {
+                    $('#stockFilters').show();
+                } else {
+                    $('#stockFilters').hide();
+                    $('#filterInStock, #filterLowStock').prop('checked', false);
+                }
+            });
+            
+            // Check initial item type
+            if ($('#searchType').val() === 'item') {
+                $('#stockFilters').show();
+            }
+            
+            // Warehouse change handler - refresh items if modal is open
+            $('select[name="warehouse_id"]').on('change', function() {
+                if ($('#itemSelectionModal').hasClass('show')) {
+                    loadItems(1);
+                }
             });
 
             $(document).on('click', '.page-link', function(e) {
@@ -733,7 +863,32 @@
                 const itemCode = $(this).data('item-code');
                 const itemName = $(this).data('item-name');
                 const itemPrice = $(this).data('item-price');
+                const availableQty = $(this).data('available-qty');
+                const orderType = window.currentOrderType || $('#order_type').val();
 
+                // Check stock availability for item type orders
+                if (orderType === 'item' && availableQty !== null && availableQty !== undefined) {
+                    if (availableQty === 0) {
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'Out of Stock',
+                            text: `Item "${itemCode} - ${itemName}" is currently out of stock in the selected warehouse.`,
+                            confirmButtonText: 'Continue Anyway',
+                            showCancelButton: true,
+                            cancelButtonText: 'Cancel'
+                        }).then((result) => {
+                            if (result.isConfirmed) {
+                                selectItem(itemId, itemCode, itemName, itemPrice, availableQty);
+                            }
+                        });
+                        return;
+                    }
+                }
+
+                selectItem(itemId, itemCode, itemName, itemPrice, availableQty);
+            });
+            
+            function selectItem(itemId, itemCode, itemName, itemPrice, availableQty) {
                 // Update the select dropdown
                 const selectElement = $(`select[name="lines[${window.currentLineIdx}][item_id]"]`);
                 selectElement.empty();
@@ -743,13 +898,68 @@
                 // Update the price field
                 const priceInput = selectElement.closest('tr').find('.price-input');
                 priceInput.val(itemPrice);
+                
+                // Store available quantity as data attribute for validation
+                const row = selectElement.closest('tr');
+                row.data('available-qty', availableQty);
+                
+                // Add stock info badge if available
+                if (availableQty !== null && availableQty !== undefined) {
+                    const qtyInput = row.find('.qty-input');
+                    const existingBadge = row.find('.stock-info-badge');
+                    if (existingBadge.length) {
+                        existingBadge.remove();
+                    }
+                    
+                    let badgeClass = 'badge-success';
+                    if (availableQty === 0) {
+                        badgeClass = 'badge-danger';
+                    } else if (availableQty <= 10) {
+                        badgeClass = 'badge-warning';
+                    }
+                    
+                    const badge = `<span class="badge ${badgeClass} stock-info-badge ml-2" title="Available: ${availableQty.toLocaleString('id-ID')}">
+                        <i class="fas fa-box"></i> Available: ${availableQty.toLocaleString('id-ID')}
+                    </span>`;
+                    qtyInput.after(badge);
+                }
 
                 // Update line amount
-                updateLineAmount(selectElement.closest('tr'));
+                updateLineAmount(row);
                 updateTotals();
 
                 // Close modal
                 $('#itemSelectionModal').modal('hide');
+            }
+            
+            // Validate quantity against available stock when quantity changes
+            $(document).on('input', '.qty-input', function() {
+                const row = $(this).closest('tr');
+                const availableQty = row.data('available-qty');
+                const enteredQty = parseFloat($(this).val()) || 0;
+                const orderType = $('#order_type').val();
+                
+                if (orderType === 'item' && availableQty !== null && availableQty !== undefined) {
+                    const stockBadge = row.find('.stock-info-badge');
+                    
+                    if (enteredQty > availableQty) {
+                        // Show warning
+                        if (!row.find('.stock-warning').length) {
+                            const warning = `<small class="text-danger stock-warning d-block mt-1">
+                                <i class="fas fa-exclamation-triangle"></i> 
+                                Available stock: ${availableQty.toLocaleString('id-ID')}
+                            </small>`;
+                            $(this).after(warning);
+                        }
+                        stockBadge.removeClass('badge-success badge-warning').addClass('badge-danger');
+                    } else {
+                        // Remove warning
+                        row.find('.stock-warning').remove();
+                        if (availableQty > 0) {
+                            stockBadge.removeClass('badge-danger').addClass(availableQty <= 10 ? 'badge-warning' : 'badge-success');
+                        }
+                    }
+                }
             });
         });
     </script>

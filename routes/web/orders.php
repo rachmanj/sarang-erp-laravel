@@ -121,6 +121,7 @@ Route::prefix('sales-orders')->group(function () {
     })->name('sales-orders.fix-approval');
     
     Route::post('/{id}/approve', [SalesOrderController::class, 'approve'])->name('sales-orders.approve');
+    Route::post('/{id}/confirm', [SalesOrderController::class, 'confirm'])->name('sales-orders.confirm');
     Route::post('/{id}/close', [SalesOrderController::class, 'close'])->name('sales-orders.close');
 
     // Currency API Routes
@@ -200,18 +201,22 @@ Route::prefix('delivery-orders')->group(function () {
         $q = \Illuminate\Support\Facades\DB::table('delivery_orders as do')
             ->leftJoin('business_partners as c', 'c.id', '=', 'do.business_partner_id')
             ->leftJoin('sales_orders as so', 'so.id', '=', 'do.sales_order_id')
-            ->select('do.id', 'do.created_at', 'do.do_number', 'do.business_partner_id', 'c.name as customer_name', 'so.order_no as sales_order_no', 'do.planned_delivery_date', 'do.status', 'do.approval_status');
+            ->leftJoin('users as u', 'u.id', '=', 'do.created_by')
+            ->select('do.id', 'do.created_at', 'do.do_number', 'do.business_partner_id', 'c.name as customer_name', 'so.order_no as sales_order_no', 'do.planned_delivery_date', 'do.status', 'do.approval_status', 'do.created_by', 'u.name as creator_name');
         if (request()->filled('status')) {
             $q->where('do.status', request('status'));
         }
-        if (request()->filled('from')) {
-            $q->whereDate('do.planned_delivery_date', '>=', request('from'));
+        if (request()->filled('date_from') || request()->filled('from')) {
+            $dateFrom = request('date_from') ?: request('from');
+            $q->whereDate('do.planned_delivery_date', '>=', $dateFrom);
         }
-        if (request()->filled('to')) {
-            $q->whereDate('do.planned_delivery_date', '<=', request('to'));
+        if (request()->filled('date_to') || request()->filled('to')) {
+            $dateTo = request('date_to') ?: request('to');
+            $q->whereDate('do.planned_delivery_date', '<=', $dateTo);
         }
-        if (request()->filled('business_partner_id')) {
-            $q->where('do.business_partner_id', (int)request('business_partner_id'));
+        if (request()->filled('customer_id') || request()->filled('business_partner_id')) {
+            $customerId = request('customer_id') ?: request('business_partner_id');
+            $q->where('do.business_partner_id', (int)$customerId);
         }
         if (request()->filled('company_entity_id')) {
             $q->where('do.company_entity_id', (int)request('company_entity_id'));
@@ -224,6 +229,7 @@ Route::prefix('delivery-orders')->group(function () {
         }
         return Yajra\DataTables\Facades\DataTables::of($q)
             ->addColumn('customer', fn($r) => $r->customer_name ?: ('#' . $r->business_partner_id))
+            ->addColumn('created_by', fn($r) => $r->creator_name ?: ('#' . $r->created_by))
             ->addColumn('actions', function ($r) {
                 $url = route('delivery-orders.show', $r->id);
                 return '<a class="btn btn-xs btn-info" href="' . $url . '">View</a>';

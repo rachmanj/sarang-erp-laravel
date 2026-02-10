@@ -221,7 +221,7 @@ class SalesOrder extends Model
 
     public function canBeConfirmed()
     {
-        return $this->approval_status === 'approved' && $this->status === 'draft';
+        return $this->approval_status === 'approved' && ($this->status === 'draft' || $this->status === 'ordered');
     }
 
     public function canBeDelivered()

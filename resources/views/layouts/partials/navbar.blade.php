@@ -10,7 +10,7 @@
     <!-- Menu Search -->
     <div id="menu-search-container" class="d-none d-md-flex">
         <div id="menu-search-input-wrapper">
-            <label for="menu-search-input" class="menu-search-label">Search Menu here</label>
+            {{-- <label for="menu-search-input" class="menu-search-label">Search Menu here</label> --}}
             <input type="text" id="menu-search-input" class="form-control" placeholder="Search Menu here"
                 autocomplete="off" aria-label="Search menu">
             <i id="menu-search-icon" class="fas fa-search"></i>

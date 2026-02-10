@@ -81,6 +81,12 @@
                                             <td><strong>Sales Order:</strong></td>
                                             <td>{{ $deliveryOrder->salesOrder->order_no }}</td>
                                         </tr>
+                                        @if($deliveryOrder->salesOrder->reference_no)
+                                        <tr>
+                                            <td><strong>Reference No:</strong></td>
+                                            <td>{{ $deliveryOrder->salesOrder->reference_no }}</td>
+                                        </tr>
+                                        @endif
                                         <tr>
                                             <td><strong>Customer:</strong></td>
                                             <td>{{ $deliveryOrder->customer->name }}</td>

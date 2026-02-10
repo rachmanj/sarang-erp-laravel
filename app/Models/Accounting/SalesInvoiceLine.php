@@ -11,6 +11,8 @@ class SalesInvoiceLine extends Model
 
     protected $fillable = [
         'invoice_id',
+        'item_code',
+        'item_name',
         'account_id',
         'description',
         'qty',
@@ -31,5 +33,15 @@ class SalesInvoiceLine extends Model
     public function invoice(): BelongsTo
     {
         return $this->belongsTo(SalesInvoice::class, 'invoice_id');
+    }
+
+    public function account(): BelongsTo
+    {
+        return $this->belongsTo(Account::class, 'account_id');
+    }
+
+    public function taxCode(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Master\TaxCode::class, 'tax_code_id');
     }
 }

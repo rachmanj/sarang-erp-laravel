@@ -45,21 +45,32 @@
                                             <label class="col-sm-3 col-form-label">Sales Order <span
                                                     class="text-danger">*</span></label>
                                             <div class="col-sm-9">
+                                                @if(count($salesOrders) == 0)
+                                                    <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                                                        <strong>No Sales Orders Available:</strong> There are no approved and confirmed item-type Sales Orders available. You can still create a Delivery Order manually by selecting a customer below.
+                                                        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                                                            <span aria-hidden="true">&times;</span>
+                                                        </button>
+                                                    </div>
+                                                @endif
                                                 <div class="input-group input-group-sm">
                                                     <select name="sales_order_id"
                                                         class="form-control form-control-sm select2bs4" id="sales_order_id"
-                                                        required>
+                                                        {{ count($salesOrders) > 0 ? 'required' : '' }}>
                                                         <option value="">-- select sales order --</option>
                                                         @foreach ($salesOrders as $so)
+                                                            @php
+                                                                $customer = $so->customer ?? $so->businessPartner ?? null;
+                                                            @endphp
                                                             <option value="{{ $so->id }}"
                                                                 {{ $salesOrder && $salesOrder->id == $so->id ? 'selected' : '' }}
                                                                 data-customer-id="{{ $so->business_partner_id }}"
-                                                                data-customer-name="{{ $so->customer->name }}"
-                                                                data-customer-address="{{ $so->customer->address }}"
-                                                                data-customer-contact="{{ $so->customer->contact_person }}"
-                                                                data-customer-phone="{{ $so->customer->phone }}"
-                                                                data-expected-delivery="{{ $so->expected_delivery_date }}">
-                                                                {{ $so->order_no }} - {{ $so->customer->name }}
+                                                                data-customer-name="{{ $customer ? $customer->name : 'N/A' }}"
+                                                                data-customer-address="{{ $customer ? ($customer->address ?? '') : '' }}"
+                                                                data-customer-contact="{{ $customer ? ($customer->contact_person ?? '') : '' }}"
+                                                                data-customer-phone="{{ $customer ? ($customer->phone ?? '') : '' }}"
+                                                                data-expected-delivery="{{ $so->expected_delivery_date ?? '' }}">
+                                                                {{ $so->order_no }} - {{ $customer ? $customer->name : 'N/A' }}
                                                                 ({{ $so->date }})
                                                             </option>
                                                         @endforeach
@@ -256,8 +267,8 @@
                                                     <tbody>
                                                         @foreach ($salesOrder->lines as $line)
                                                             <tr>
-                                                                <td>{{ $line->item_code ?? 'N/A' }}</td>
-                                                                <td>{{ $line->description ?? 'N/A' }}</td>
+                                                                <td>{{ $line->item_code ?? ($line->inventoryItem->code ?? 'N/A') }}</td>
+                                                                <td>{{ $line->description ?? ($line->inventoryItem->name ?? ($line->item_name ?? 'N/A')) }}</td>
                                                                 <td class="text-right">{{ number_format($line->qty, 2) }}
                                                                 </td>
                                                                 <td class="text-right">
@@ -308,12 +319,60 @@
 @push('scripts')
     <script>
         $(document).ready(function() {
-            // Initialize Select2BS4
-            $('.select2bs4').select2({
+            // Ensure sales order field is enabled
+            $('#sales_order_id').prop('disabled', false);
+            
+            // Store selected customer ID for filtering
+            var selectedCustomerIdForFilter = null;
+            
+            // Initialize Select2BS4 for customer dropdown
+            $('#customer-select').select2({
                 theme: 'bootstrap4',
                 placeholder: 'Select an option',
                 allowClear: true
             });
+            
+            // Initialize Select2BS4 for sales order with custom templateResult for filtering
+            $('#sales_order_id').select2({
+                theme: 'bootstrap4',
+                placeholder: 'Select an option',
+                allowClear: true,
+                templateResult: function(data) {
+                    // Handle placeholder option
+                    if (!data.id) {
+                        return data.text;
+                    }
+                    
+                    // If a customer is selected, filter sales orders
+                    if (selectedCustomerIdForFilter && data.element) {
+                        var $option = $(data.element);
+                        var optionCustomerId = $option.data('customer-id');
+                        // Hide options that don't match the selected customer
+                        if (optionCustomerId && optionCustomerId != selectedCustomerIdForFilter) {
+                            return null; // This hides the option in Select2 dropdown
+                        }
+                    }
+                    
+                    return data.text;
+                }
+            });
+            
+            // Initialize other Select2 fields
+            $('.select2bs4').not('#sales_order_id').not('#customer-select').select2({
+                theme: 'bootstrap4',
+                placeholder: 'Select an option',
+                allowClear: true
+            });
+            
+            // Ensure Select2 doesn't disable the field
+            $('#sales_order_id').on('select2:open', function() {
+                $(this).prop('disabled', false);
+            });
+            
+            // Initialize filter on page load if customer is already selected
+            if ($('#customer-select').val()) {
+                selectedCustomerIdForFilter = $('#customer-select').val();
+            }
 
             // Auto-fill customer details when sales order is selected
             $('#sales_order_id').on('change', function() {
@@ -339,15 +398,44 @@
                 }
             });
 
-            // Auto-fill delivery details when customer is selected
+            // Filter Sales Orders and auto-fill delivery details when customer is selected
             $('#customer-select').on('change', function() {
+                var selectedCustomerId = $(this).val();
                 var selectedOption = $(this).find('option:selected');
-                if (selectedOption.val()) {
-                    // Only update if no sales order is selected or fields are empty
+                var $salesOrderSelect = $('#sales_order_id');
+                var currentSelectedValue = $salesOrderSelect.val();
+                
+                // Update the filter variable for Select2 templateResult
+                selectedCustomerIdForFilter = selectedCustomerId;
+                
+                // Filter Sales Order dropdown based on selected customer
+                if (selectedCustomerId) {
+                    // If currently selected SO doesn't belong to this customer, clear selection
+                    if (currentSelectedValue) {
+                        var selectedSOOption = $salesOrderSelect.find('option[value="' + currentSelectedValue + '"]');
+                        if (selectedSOOption.length && selectedSOOption.data('customer-id') != selectedCustomerId) {
+                            $salesOrderSelect.val('').trigger('change');
+                            $('#copy-lines-btn').prop('disabled', true);
+                        }
+                    }
+                    
+                    // Force Select2 to refresh by closing and reopening (if open)
+                    // The templateResult will filter options when dropdown opens
+                    if ($salesOrderSelect.data('select2')) {
+                        $salesOrderSelect.select2('close');
+                    }
+                    
+                    // Only update delivery details if no sales order is selected or fields are empty
                     if (!$('#sales_order_id').val() || !$('textarea[name="delivery_address"]').val()) {
                         $('textarea[name="delivery_address"]').val(selectedOption.data('address'));
                         $('input[name="delivery_contact_person"]').val(selectedOption.data('contact'));
                         $('input[name="delivery_phone"]').val(selectedOption.data('phone'));
+                    }
+                } else {
+                    // If no customer selected, show all sales orders
+                    selectedCustomerIdForFilter = null;
+                    if ($salesOrderSelect.data('select2')) {
+                        $salesOrderSelect.select2('close');
                     }
                 }
             });

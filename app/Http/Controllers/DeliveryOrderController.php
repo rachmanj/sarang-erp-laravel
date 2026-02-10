@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\DeliveryOrder;
+use App\Models\DeliveryOrderLine;
 use App\Models\SalesOrder;
 use App\Models\Master\Customer;
 use App\Services\DeliveryService;
@@ -72,14 +73,14 @@ class DeliveryOrderController extends Controller
         $salesOrder = null;
 
         if ($salesOrderId) {
-            $salesOrder = SalesOrder::with(['customer', 'lines'])->findOrFail($salesOrderId);
+            $salesOrder = SalesOrder::with(['customer', 'lines.inventoryItem'])->findOrFail($salesOrderId);
 
             if (!$this->deliveryService->canCreateDeliveryOrder($salesOrder)) {
                 return redirect()->back()->with('error', 'Sales Order cannot be converted to Delivery Order');
             }
         }
 
-        $salesOrders = SalesOrder::with('customer')
+        $salesOrders = SalesOrder::with(['customer', 'businessPartner'])
             ->where('approval_status', 'approved')
             ->where('status', 'confirmed')
             ->where('order_type', 'item')
@@ -169,15 +170,20 @@ class DeliveryOrderController extends Controller
         $taxCodes = DB::table('tax_codes')->orderBy('code')->get();
         $projects = DB::table('projects')->orderBy('name')->get();
         $departments = DB::table('departments')->orderBy('name')->get();
+        $entities = $this->companyEntityService->getActiveEntities();
+        $defaultEntity = $this->companyEntityService->getDefaultEntity();
 
         $prefill = [
             'date' => now()->toDateString(),
             'business_partner_id' => $deliveryOrder->business_partner_id,
+            'company_entity_id' => $deliveryOrder->company_entity_id ?? $defaultEntity->id,
             'description' => 'From DO ' . ($deliveryOrder->do_number ?: ('#' . $deliveryOrder->id)),
             'lines' => $deliveryOrder->lines->map(function ($l) {
                 return [
+                    'item_code' => $l->item_code,
+                    'item_name' => $l->item_name ?? $l->description,
                     'account_id' => (int)$l->account_id,
-                    'description' => $l->description,
+                    'description' => $l->description ?? $l->item_name,
                     'qty' => (float)$l->delivered_qty,
                     'unit_price' => (float)$l->unit_price,
                     'tax_code_id' => null,
@@ -186,7 +192,7 @@ class DeliveryOrderController extends Controller
             }),
         ];
 
-        return view('sales_invoices.create', compact('deliveryOrder', 'accounts', 'customers', 'taxCodes', 'projects', 'departments', 'prefill'));
+        return view('sales_invoices.create', compact('deliveryOrder', 'accounts', 'customers', 'taxCodes', 'projects', 'departments', 'entities', 'defaultEntity', 'prefill'));
     }
 
     public function show(DeliveryOrder $deliveryOrder)
@@ -214,7 +220,7 @@ class DeliveryOrderController extends Controller
                 ->with('error', 'Only draft delivery orders can be edited');
         }
 
-        $deliveryOrder->load(['customer', 'salesOrder', 'lines']);
+        $deliveryOrder->load(['customer', 'salesOrder', 'warehouse', 'lines.inventoryItem', 'lines.account']);
 
         return view('delivery_orders.edit', compact('deliveryOrder'));
     }
@@ -238,9 +244,53 @@ class DeliveryOrderController extends Controller
             'delivery_instructions' => ['nullable', 'string', 'max:1000'],
             'logistics_cost' => ['nullable', 'numeric', 'min:0'],
             'notes' => ['nullable', 'string', 'max:1000'],
+            'lines' => ['required', 'array', 'min:1'],
+            'lines.*.id' => ['required', 'integer', 'exists:delivery_order_lines,id'],
+            'lines.*.ordered_qty' => ['required', 'numeric', 'min:0'],
+            'lines.*.unit_price' => ['required', 'numeric', 'min:0'],
+            'lines.*.amount' => ['required', 'numeric', 'min:0'],
+            'lines.*.description' => ['nullable', 'string', 'max:500'],
+            'lines.*.notes' => ['nullable', 'string', 'max:500'],
         ]);
 
-        $deliveryOrder->update($data);
+        DB::transaction(function () use ($deliveryOrder, $data) {
+            // Update delivery order header
+            $deliveryOrder->update([
+                'delivery_address' => $data['delivery_address'],
+                'delivery_contact_person' => $data['delivery_contact_person'] ?? null,
+                'delivery_phone' => $data['delivery_phone'] ?? null,
+                'planned_delivery_date' => $data['planned_delivery_date'],
+                'delivery_method' => $data['delivery_method'],
+                'delivery_instructions' => $data['delivery_instructions'] ?? null,
+                'logistics_cost' => $data['logistics_cost'] ?? 0,
+                'notes' => $data['notes'] ?? null,
+            ]);
+
+            // Update delivery order lines
+            $totalAmount = 0;
+            foreach ($data['lines'] as $lineData) {
+                $line = DeliveryOrderLine::findOrFail($lineData['id']);
+                
+                // Verify line belongs to this delivery order
+                if ($line->delivery_order_id !== $deliveryOrder->id) {
+                    throw new \Exception('Invalid line ID');
+                }
+
+                // Update line
+                $line->update([
+                    'ordered_qty' => $lineData['ordered_qty'],
+                    'unit_price' => $lineData['unit_price'],
+                    'amount' => $lineData['amount'],
+                    'description' => $lineData['description'] ?? $line->description,
+                    'notes' => $lineData['notes'] ?? null,
+                ]);
+
+                $totalAmount += $lineData['amount'];
+            }
+
+            // Update delivery order total amount
+            $deliveryOrder->update(['total_amount' => $totalAmount]);
+        });
 
         return redirect()->route('delivery-orders.show', $deliveryOrder->id)
             ->with('success', 'Delivery Order updated successfully');

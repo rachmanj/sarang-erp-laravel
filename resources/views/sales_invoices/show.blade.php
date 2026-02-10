@@ -1,120 +1,202 @@
 @extends('layouts.main')
 
-@section('title', 'Sales Invoice #' . $invoice->id)
+@section('title', 'Sales Invoice ' . ($invoice->invoice_no ?? '#' . $invoice->id))
 
 @section('title_page')
-    Sales Invoice #{{ $invoice->id }}
+    Sales Invoice {{ $invoice->invoice_no ?? '#' . $invoice->id }}
 @endsection
 
 @section('breadcrumb_title')
     <li class="breadcrumb-item"><a href="/dashboard">Dashboard</a></li>
     <li class="breadcrumb-item"><a href="{{ route('sales-invoices.index') }}">Sales Invoices</a></li>
-    <li class="breadcrumb-item active">#{{ $invoice->id }}</li>
+    <li class="breadcrumb-item active">{{ $invoice->invoice_no ?? '#' . $invoice->id }}</li>
 @endsection
 
 @section('content')
     <section class="content">
         <div class="container-fluid">
-            <div class="row">
-                <div class="col-12">
-                    @if (session('success'))
-                        <script>
-                            toastr.success(@json(session('success')));
-                        </script>
-                    @endif
-                    @if (session('pdf_url'))
-                        <div class="alert alert-info">PDF ready: <a href="{{ session('pdf_url') }}"
-                                target="_blank">Download</a></div>
-                    @endif
-                    <div class="card">
-                        <div class="card-header d-flex justify-content-between align-items-center">
-                            <h3 class="card-title">Invoice #{{ $invoice->id }} ({{ strtoupper($invoice->status) }})</h3>
-                            <div>
-                                <button type="button" class="btn btn-sm btn-info mr-1"
-                                    onclick="showRelationshipMap('sales-invoices', {{ $invoice->id }})">
-                                    <i class="fas fa-sitemap"></i> Relationship Map
-                                </button>
-                                @can('ar.invoices.post')
-                                    @if ($invoice->status !== 'posted')
-                                        <form method="post" action="{{ route('sales-invoices.post', $invoice->id) }}"
-                                            class="d-inline">
-                                            @csrf
-                                            <button class="btn btn-sm btn-success" type="submit">Post</button>
-                                        </form>
-                                    @endif
-                                @endcan
-                                <a class="btn btn-sm btn-outline-secondary"
-                                    href="{{ route('sales-invoices.print', $invoice->id) }}" target="_blank">Print</a>
-                                <a class="btn btn-sm btn-outline-primary"
-                                    href="{{ route('sales-invoices.pdf', $invoice->id) }}" target="_blank">PDF</a>
-                                <form method="post" action="{{ route('sales-invoices.queuePdf', $invoice->id) }}"
-                                    class="d-inline">
+            @if (session('success'))
+                <script>
+                    toastr.success(@json(session('success')));
+                </script>
+            @endif
+            @if (session('pdf_url'))
+                <div class="alert alert-info">PDF ready: <a href="{{ session('pdf_url') }}"
+                        target="_blank">Download</a></div>
+            @endif
+
+            <div class="card card-primary card-outline">
+                <div class="card-header d-flex flex-wrap justify-content-between align-items-center">
+                    <h3 class="card-title mb-0">
+                        <i class="fas fa-file-invoice-dollar mr-1"></i>
+                        Invoice {{ $invoice->invoice_no ?? '#' . $invoice->id }}
+                        <span class="badge badge-{{ $invoice->status === 'posted' ? 'success' : 'secondary' }} ml-2">
+                            {{ strtoupper($invoice->status) }}
+                        </span>
+                        @if ($invoice->is_opening_balance)
+                            <span class="badge badge-warning ml-1">Opening Balance</span>
+                        @endif
+                    </h3>
+                    <div class="d-flex flex-wrap gap-1">
+                        <button type="button" class="btn btn-sm btn-info"
+                            onclick="showRelationshipMap('sales-invoices', {{ $invoice->id }})">
+                            <i class="fas fa-sitemap"></i> Relationship Map
+                        </button>
+                        @can('ar.invoices.post')
+                            @if ($invoice->status !== 'posted')
+                                <form method="post" action="{{ route('sales-invoices.post', $invoice->id) }}" class="d-inline">
                                     @csrf
-                                    <button class="btn btn-sm btn-outline-info" type="submit">Queue PDF</button>
+                                    <button class="btn btn-sm btn-success" type="submit">Post</button>
                                 </form>
+                            @endif
+                        @endcan
+                        <a class="btn btn-sm btn-outline-secondary" href="{{ route('sales-invoices.print', $invoice->id) }}" target="_blank">
+                            <i class="fas fa-print"></i> Print
+                        </a>
+                        <a class="btn btn-sm btn-outline-primary" href="{{ route('sales-invoices.pdf', $invoice->id) }}" target="_blank">PDF</a>
+                        <form method="post" action="{{ route('sales-invoices.queuePdf', $invoice->id) }}" class="d-inline">
+                            @csrf
+                            <button class="btn btn-sm btn-outline-info" type="submit">Queue PDF</button>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="card-body border-bottom">
+                    @include('components.document-navigation', [
+                        'documentType' => 'sales-invoice',
+                        'documentId' => $invoice->id,
+                    ])
+                </div>
+
+                <div class="card-body">
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="card bg-light">
+                                <div class="card-header py-2">
+                                    <h5 class="card-title mb-0"><i class="fas fa-building mr-1"></i> Bill To</h5>
+                                </div>
+                                <div class="card-body py-2">
+                                    <strong>{{ $invoice->businessPartner->name ?? '—' }}</strong>
+                                    @if ($invoice->businessPartner && $invoice->businessPartner->code)
+                                        <br><span class="text-muted small">Code: {{ $invoice->businessPartner->code }}</span>
+                                    @endif
+                                    @if ($invoice->businessPartner && $invoice->businessPartner->tax_id)
+                                        <br><span class="text-muted small">Tax ID: {{ $invoice->businessPartner->tax_id }}</span>
+                                    @endif
+                                    @if ($invoice->businessPartner && $invoice->businessPartner->primaryAddress && $invoice->businessPartner->primaryAddress->full_address)
+                                        <br><span class="text-muted small">{{ $invoice->businessPartner->primaryAddress->full_address }}</span>
+                                    @endif
+                                </div>
                             </div>
                         </div>
-
-                        {{-- Document Navigation Components --}}
-                        <div class="card-body border-bottom">
-                            @include('components.document-navigation', [
-                                'documentType' => 'sales-invoice',
-                                'documentId' => $invoice->id,
-                            ])
+                        <div class="col-md-6">
+                            <table class="table table-sm table-borderless mb-0">
+                                <tr>
+                                    <th class="text-nowrap text-muted" style="width: 120px;">Invoice Date</th>
+                                    <td>{{ $invoice->date ? $invoice->date->format('d M Y') : '—' }}</td>
+                                </tr>
+                                @if ($invoice->due_date)
+                                    <tr>
+                                        <th class="text-nowrap text-muted">Due Date</th>
+                                        <td>{{ $invoice->due_date->format('d M Y') }}</td>
+                                    </tr>
+                                @endif
+                                @if ($invoice->terms_days !== null)
+                                    <tr>
+                                        <th class="text-nowrap text-muted">Terms</th>
+                                        <td>{{ $invoice->terms_days }} days</td>
+                                    </tr>
+                                @endif
+                                @if ($invoice->companyEntity)
+                                    <tr>
+                                        <th class="text-nowrap text-muted">Company</th>
+                                        <td>{{ $invoice->companyEntity->name }} ({{ $invoice->companyEntity->code }})</td>
+                                    </tr>
+                                @endif
+                                @if ($invoice->reference_no)
+                                    <tr>
+                                        <th class="text-nowrap text-muted">Reference</th>
+                                        <td>{{ $invoice->reference_no }}</td>
+                                    </tr>
+                                @endif
+                                @if ($invoice->description)
+                                    <tr>
+                                        <th class="text-nowrap text-muted align-top">Description</th>
+                                        <td>{{ $invoice->description }}</td>
+                                    </tr>
+                                @endif
+                                @if ($invoice->sales_order_id && $invoice->salesOrder)
+                                    <tr>
+                                        <th class="text-nowrap text-muted">Sales Order</th>
+                                        <td>
+                                            <a href="{{ route('sales-orders.show', $invoice->sales_order_id) }}" class="badge badge-info">
+                                                {{ $invoice->salesOrder->order_no ?? '#' . $invoice->sales_order_id }}
+                                            </a>
+                                            @if($invoice->salesOrder->reference_no)
+                                                <br><small class="text-muted">Ref: {{ $invoice->salesOrder->reference_no }}</small>
+                                            @endif
+                                        </td>
+                                    </tr>
+                                @endif
+                            </table>
                         </div>
+                    </div>
 
-                        <div class="card-body">
-                            <p>Date: {{ $invoice->date }}</p>
-                            <p>Customer:
-                                {{ optional(DB::table('business_partners')->find($invoice->business_partner_id))->name }}
-                            </p>
+                    <h5 class="mb-2"><i class="fas fa-list mr-1"></i> Invoice Lines</h5>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered table-hover mb-0">
+                            <thead class="thead-light">
+                                <tr>
+                                    <th style="width: 40px;">#</th>
+                                    <th>Item Code</th>
+                                    <th>Item Name</th>
+                                    <th class="text-right">Qty</th>
+                                    <th class="text-right">Unit Price</th>
+                                    <th>Tax</th>
+                                    <th class="text-right">Amount</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach ($invoice->lines as $idx => $line)
+                                    <tr>
+                                        <td>{{ $idx + 1 }}</td>
+                                        <td>{{ $line->item_code ?? '—' }}</td>
+                                        <td>{{ $line->item_name ?? $line->description ?? '—' }}</td>
+                                        <td class="text-right">{{ number_format($line->qty, 2) }}</td>
+                                        <td class="text-right">{{ number_format($line->unit_price, 2) }}</td>
+                                        <td>{{ $line->taxCode->code ?? '—' }}</td>
+                                        <td class="text-right">{{ number_format($line->amount, 2) }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                            <tfoot class="thead-light">
+                                <tr>
+                                    <th colspan="6" class="text-right">Total</th>
+                                    <th class="text-right">{{ number_format($invoice->total_amount, 2) }}</th>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+
+                    @php
+                        $alloc = \Illuminate\Support\Facades\DB::table('sales_receipt_allocations')
+                            ->where('invoice_id', $invoice->id)
+                            ->sum('amount');
+                        $remaining = max(0, (float) $invoice->total_amount - (float) $alloc);
+                    @endphp
+                    <div class="row mt-3">
+                        <div class="col-md-6">
                             @if ($invoice->is_opening_balance)
-                                <p>
-                                    <span class="badge badge-warning">
-                                        <i class="fas fa-info-circle"></i> Opening Balance Invoice
-                                    </span>
-                                    <small class="text-muted ml-2">This invoice posts directly to AR and Revenue
-                                        accounts</small>
+                                <p class="text-muted small mb-0">
+                                    <i class="fas fa-info-circle"></i> This invoice posts directly to AR and Revenue accounts (no AR UnInvoice flow).
                                 </p>
                             @endif
-                            <p>Description: {{ $invoice->description }}</p>
-                            @if (!empty($invoice->sales_order_id))
-                                <p><strong>Related:</strong> <a
-                                        href="{{ route('sales-orders.show', $invoice->sales_order_id) }}"
-                                        class="badge badge-info">SO #{{ $invoice->sales_order_id }}</a></p>
-                            @endif
-                            <hr>
-                            <table class="table table-striped">
-                                <thead>
-                                    <tr>
-                                        <th>Account</th>
-                                        <th>Description</th>
-                                        <th>Qty</th>
-                                        <th>Unit Price</th>
-                                        <th>Amount</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach ($invoice->lines as $l)
-                                        <tr>
-                                            <td>{{ optional(DB::table('accounts')->find($l->account_id))->code }}</td>
-                                            <td>{{ $l->description }}</td>
-                                            <td>{{ number_format($l->qty, 2) }}</td>
-                                            <td>{{ number_format($l->unit_price, 2) }}</td>
-                                            <td>{{ number_format($l->amount, 2) }}</td>
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                            <p class="text-right"><strong>Total: {{ number_format($invoice->total_amount, 2) }}</strong>
-                            </p>
-                            @php
-                                $alloc = DB::table('sales_receipt_allocations')
-                                    ->where('invoice_id', $invoice->id)
-                                    ->sum('amount');
-                                $remaining = max(0, (float) $invoice->total_amount - (float) $alloc);
-                            @endphp
-                            <p>Allocated: {{ number_format($alloc, 2) }} | Remaining: {{ number_format($remaining, 2) }}
+                        </div>
+                        <div class="col-md-6 text-md-right">
+                            <p class="mb-0">
+                                <strong>Allocated:</strong> {{ number_format($alloc, 2) }}
+                                &nbsp;|&nbsp;
+                                <strong>Remaining:</strong> {{ number_format($remaining, 2) }}
                             </p>
                         </div>
                     </div>
@@ -123,6 +205,5 @@
         </div>
     </section>
 
-    {{-- Include Relationship Map Modal --}}
     @include('components.relationship-map-modal')
 @endsection

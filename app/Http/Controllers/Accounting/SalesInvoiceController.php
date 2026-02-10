@@ -82,6 +82,7 @@ class SalesInvoiceController extends Controller
             'company_entity_id' => ['required', 'integer', 'exists:company_entities,id'],
             'is_opening_balance' => ['nullable', 'boolean'],
             'description' => ['nullable', 'string', 'max:255'],
+            'reference_no' => ['nullable', 'string', 'max:100'],
             'lines' => ['required', 'array', 'min:1'],
             'lines.*.account_id' => ['required', 'integer', 'exists:accounts,id'],
             'lines.*.description' => ['nullable', 'string', 'max:255'],
@@ -114,6 +115,7 @@ class SalesInvoiceController extends Controller
                 'sales_order_id' => $request->input('sales_order_id'),
                 'is_opening_balance' => $request->boolean('is_opening_balance', false),
                 'description' => $data['description'] ?? null,
+                'reference_no' => $data['reference_no'] ?? null,
                 'status' => 'draft',
                 'total_amount' => 0,
                 'company_entity_id' => $entity->id,
@@ -143,6 +145,8 @@ class SalesInvoiceController extends Controller
                 $total += $amount;
                 SalesInvoiceLine::create([
                     'invoice_id' => $invoice->id,
+                    'item_code' => $l['item_code'] ?? null,
+                    'item_name' => $l['item_name'] ?? null,
                     'account_id' => $l['account_id'],
                     'description' => $l['description'] ?? null,
                     'qty' => (float) $l['qty'],
@@ -183,7 +187,13 @@ class SalesInvoiceController extends Controller
 
     public function show(int $id)
     {
-        $invoice = SalesInvoice::with('lines')->findOrFail($id);
+        $invoice = SalesInvoice::with([
+            'businessPartner.primaryAddress',
+            'companyEntity',
+            'salesOrder',
+            'lines.account',
+            'lines.taxCode',
+        ])->findOrFail($id);
         return view('sales_invoices.show', compact('invoice'));
     }
 

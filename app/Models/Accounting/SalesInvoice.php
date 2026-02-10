@@ -52,6 +52,11 @@ class SalesInvoice extends Model
         return $this->belongsTo(\App\Models\CompanyEntity::class, 'company_entity_id');
     }
 
+    public function salesOrder(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\SalesOrder::class, 'sales_order_id');
+    }
+
     public function customer(): BelongsTo
     {
         return $this->businessPartner();

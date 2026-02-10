@@ -63,21 +63,40 @@
                         <span class="ml-3 text-muted" id="searchResultsCount"></span>
                     </div>
                 </div>
+                
+                <!-- Stock Filters (only show for item type) -->
+                <div class="row mb-2" id="stockFilters" style="display: none;">
+                    <div class="col-12">
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="checkbox" id="filterInStock" value="1">
+                            <label class="form-check-label" for="filterInStock">
+                                <i class="fas fa-check-circle text-success"></i> Show Only In Stock
+                            </label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="checkbox" id="filterLowStock" value="1">
+                            <label class="form-check-label" for="filterLowStock">
+                                <i class="fas fa-exclamation-triangle text-warning"></i> Show Only Low Stock
+                            </label>
+                        </div>
+                    </div>
+                </div>
 
                 <!-- Items Table -->
                 <div class="table-responsive">
                     <table class="table table-striped table-hover" id="itemsTable">
                         <thead class="thead-light">
                             <tr>
-                                <th width="5%">#</th>
-                                <th width="15%">Code</th>
-                                <th width="25%">Name</th>
-                                <th width="15%">Category</th>
-                                <th width="10%">Type</th>
-                                <th width="10%">UOM</th>
+                                <th width="4%">#</th>
+                                <th width="12%">Code</th>
+                                <th width="20%">Name</th>
+                                <th width="12%">Category</th>
+                                <th width="8%">Type</th>
+                                <th width="8%">UOM</th>
                                 <th width="10%">Purchase Price</th>
                                 <th width="10%">Selling Price</th>
-                                <th width="3%">Action</th>
+                                <th width="12%">Available Qty</th>
+                                <th width="4%">Action</th>
                             </tr>
                         </thead>
                         <tbody>
