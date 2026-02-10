@@ -248,6 +248,87 @@ class SalesOrderController extends Controller
         }
     }
 
+    public function edit(int $id)
+    {
+        $order = SalesOrder::with(['lines.inventoryItem', 'lines.account', 'lines.taxCode', 'customer', 'companyEntity', 'warehouse', 'currency'])->findOrFail($id);
+
+        if ($order->status !== 'draft') {
+            return redirect()->route('sales-orders.show', $id)
+                ->with('error', 'Sales Order can only be edited when in draft status');
+        }
+
+        $customers = DB::table('business_partners')->where('partner_type', 'customer')->orderBy('name')->get();
+        $accounts = DB::table('accounts')->where('is_postable', 1)->orderBy('code')->get();
+        $taxCodes = DB::table('tax_codes')->orderBy('code')->get();
+        $inventoryItems = InventoryItem::active()->orderBy('name')->get();
+        $warehouses = DB::table('warehouses')->where('is_active', 1)->where('name', 'not like', '%Transit%')->orderBy('name')->get();
+        $currencies = $this->currencyService->getActiveCurrencies();
+        $entities = $this->companyEntityService->getActiveEntities();
+        $defaultEntity = $this->companyEntityService->getEntity($order->company_entity_id);
+
+        return view('sales_orders.edit', compact(
+            'order',
+            'customers',
+            'accounts',
+            'taxCodes',
+            'inventoryItems',
+            'warehouses',
+            'currencies',
+            'entities',
+            'defaultEntity'
+        ));
+    }
+
+    public function update(Request $request, int $id)
+    {
+        $order = SalesOrder::findOrFail($id);
+
+        if ($order->status !== 'draft') {
+            return redirect()->route('sales-orders.show', $id)
+                ->with('error', 'Sales Order can only be updated when in draft status');
+        }
+
+        $data = $request->validate([
+            'order_no' => ['required', 'string', 'max:50'],
+            'date' => ['required', 'date'],
+            'reference_no' => ['nullable', 'string', 'max:100'],
+            'expected_delivery_date' => ['nullable', 'date'],
+            'business_partner_id' => ['required', 'integer', 'exists:business_partners,id'],
+            'warehouse_id' => ['required', 'integer', 'exists:warehouses,id'],
+            'currency_id' => ['required', 'integer', 'exists:currencies,id'],
+            'exchange_rate' => ['required', 'numeric', 'min:0.000001'],
+            'company_entity_id' => ['required', 'integer', 'exists:company_entities,id'],
+            'description' => ['nullable', 'string', 'max:255'],
+            'notes' => ['nullable', 'string'],
+            'terms_conditions' => ['nullable', 'string'],
+            'payment_terms' => ['nullable', 'string', 'max:100'],
+            'delivery_method' => ['nullable', 'string', 'max:100'],
+            'freight_cost' => ['nullable', 'numeric', 'min:0'],
+            'handling_cost' => ['nullable', 'numeric', 'min:0'],
+            'insurance_cost' => ['nullable', 'numeric', 'min:0'],
+            'discount_amount' => ['nullable', 'numeric', 'min:0'],
+            'discount_percentage' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'order_type' => ['required', 'in:item,service'],
+            'lines' => ['required', 'array', 'min:1'],
+            'lines.*.item_id' => ['required', 'integer'],
+            'lines.*.description' => ['nullable', 'string', 'max:255'],
+            'lines.*.qty' => ['required', 'numeric', 'min:0.01'],
+            'lines.*.unit_price' => ['required', 'numeric', 'min:0'],
+            'lines.*.unit_price_foreign' => ['nullable', 'numeric', 'min:0'],
+            'lines.*.vat_rate' => ['required', 'numeric', 'min:0', 'max:100'],
+            'lines.*.wtax_rate' => ['required', 'numeric', 'min:0', 'max:100'],
+            'lines.*.notes' => ['nullable', 'string'],
+        ]);
+
+        try {
+            $this->salesService->updateSalesOrder($id, $data);
+            return redirect()->route('sales-orders.show', $id)
+                ->with('success', 'Sales Order updated successfully');
+        } catch (\Exception $e) {
+            return back()->withInput()->with('error', 'Error updating sales order: ' . $e->getMessage());
+        }
+    }
+
     public function show(int $id)
     {
         $order = SalesOrder::with([

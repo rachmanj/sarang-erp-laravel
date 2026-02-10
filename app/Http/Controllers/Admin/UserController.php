@@ -146,6 +146,7 @@ class UserController extends Controller
             'username' => ['required', 'string', 'max:150', 'unique:users,username'],
             'email' => ['required', 'email', 'max:150', 'unique:users,email'],
             'password' => ['required', 'string', 'min:6'],
+            'is_active' => ['nullable', 'boolean'],
             'roles' => ['array']
         ]);
 
@@ -154,6 +155,7 @@ class UserController extends Controller
             'username' => $data['username'],
             'email' => $data['email'],
             'password' => Hash::make($data['password']),
+            'is_active' => $data['is_active'] ?? true,
         ]);
 
         if (!empty($data['roles'])) {
@@ -170,7 +172,19 @@ class UserController extends Controller
         $roles = Role::orderBy('name')->get(['id', 'name']);
         $projects = Project::query()->orderBy('code')->get(['code', 'name']);
         $departments = Department::query()->orderBy('name')->get(['id', 'name']);
-        return view('admin.users.edit', compact('user', 'roles', 'projects', 'departments'));
+        
+        // Get approval roles for this user
+        try {
+            $approvalRoles = \App\Models\UserRole::where('user_id', $user->id)
+                ->where('is_active', true)
+                ->pluck('role_name')
+                ->toArray();
+        } catch (\Exception $e) {
+            \Log::error('Error loading approval roles: ' . $e->getMessage());
+            $approvalRoles = [];
+        }
+        
+        return view('admin.users.edit', compact('user', 'roles', 'projects', 'departments', 'approvalRoles'));
     }
 
     public function update(Request $request, User $user)
@@ -181,11 +195,15 @@ class UserController extends Controller
             'username' => ['required', 'string', 'max:150', 'unique:users,username,' . $user->id],
             'email' => ['required', 'email', 'max:150', 'unique:users,email,' . $user->id],
             'password' => ['nullable', 'string', 'min:6'],
-            'roles' => ['array']
+            'is_active' => ['nullable', 'boolean'],
+            'roles' => ['array'],
+            'approval_roles' => ['array'],
+            'approval_roles.*' => ['in:officer,supervisor,manager']
         ]);
         $user->name = $data['name'];
         $user->username = $data['username'];
         $user->email = $data['email'];
+        $user->is_active = $data['is_active'] ?? true;
         if (!empty($data['password'])) {
             $user->password = Hash::make($data['password']);
         }
@@ -196,6 +214,30 @@ class UserController extends Controller
         } else {
             $user->syncRoles([]);
         }
+        
+        // Sync approval roles (officer, supervisor, manager)
+        if (isset($data['approval_roles'])) {
+            $approvalRoleNames = $data['approval_roles'];
+            // Deactivate all existing approval roles
+            \App\Models\UserRole::where('user_id', $user->id)->update(['is_active' => false]);
+            
+            // Create/activate selected approval roles
+            foreach ($approvalRoleNames as $roleName) {
+                \App\Models\UserRole::updateOrCreate(
+                    [
+                        'user_id' => $user->id,
+                        'role_name' => $roleName,
+                    ],
+                    [
+                        'is_active' => true,
+                    ]
+                );
+            }
+        } else {
+            // If no approval roles selected, deactivate all
+            \App\Models\UserRole::where('user_id', $user->id)->update(['is_active' => false]);
+        }
+        
         return redirect()->route('admin.users.index')->with('success', 'User updated');
     }
 

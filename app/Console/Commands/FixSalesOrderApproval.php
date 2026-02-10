@@ -38,6 +38,25 @@ class FixSalesOrderApproval extends Command
         
         $this->info("Found Sales Order: {$salesOrder->order_no} (ID: {$salesOrder->id}, Amount: {$salesOrder->total_amount})");
         
+        // Ensure supervisor role exists for at least one user
+        $supervisorExists = UserRole::where('role_name', 'supervisor')
+            ->where('is_active', true)
+            ->exists();
+            
+        if (!$supervisorExists) {
+            $this->warn("No active supervisor found. Assigning supervisor role to user ID 2 (Nurita)...");
+            UserRole::updateOrCreate(
+                [
+                    'user_id' => 2,
+                    'role_name' => 'supervisor',
+                ],
+                [
+                    'is_active' => true,
+                ]
+            );
+            $this->info("✓ Supervisor role assigned to user ID 2");
+        }
+        
         // Check if superadmin has officer role
         $officerRole = UserRole::where('user_id', 1)
             ->where('role_name', 'officer')
@@ -60,31 +79,33 @@ class FixSalesOrderApproval extends Command
         
         if ($existingApprovals > 0) {
             $this->info("Found {$existingApprovals} existing approval record(s)");
-        } else {
-            $this->info("No approval records found. Creating approval workflow...");
+            $this->warn("Deleting existing approval records to recreate workflow...");
+            SalesOrderApproval::where('sales_order_id', $salesOrder->id)->delete();
+        }
+        
+        $this->info("Creating approval workflow...");
+        
+        try {
+            $approvalWorkflowService = app(ApprovalWorkflowService::class);
+            $approvalRecords = $approvalWorkflowService->createWorkflowForDocument(
+                'sales_order',
+                $salesOrder->id,
+                $salesOrder->total_amount
+            );
             
-            try {
-                $approvalWorkflowService = app(ApprovalWorkflowService::class);
-                $approvalRecords = $approvalWorkflowService->createWorkflowForDocument(
-                    'sales_order',
-                    $salesOrder->id,
-                    $salesOrder->total_amount
-                );
-                
-                foreach ($approvalRecords as $record) {
-                    SalesOrderApproval::create([
-                        'sales_order_id' => $record['document_id'],
-                        'user_id' => $record['user_id'],
-                        'approval_level' => $record['role_name'],
-                        'status' => $record['status'],
-                    ]);
-                }
-                
-                $this->info("✓ Created " . count($approvalRecords) . " approval record(s)");
-            } catch (\Exception $e) {
-                $this->error("Error creating approval workflow: " . $e->getMessage());
-                return 1;
+            foreach ($approvalRecords as $record) {
+                SalesOrderApproval::create([
+                    'sales_order_id' => $record['document_id'],
+                    'user_id' => $record['user_id'],
+                    'approval_level' => $record['role_name'],
+                    'status' => $record['status'],
+                ]);
             }
+            
+            $this->info("✓ Created " . count($approvalRecords) . " approval record(s)");
+        } catch (\Exception $e) {
+            $this->error("Error creating approval workflow: " . $e->getMessage());
+            return 1;
         }
         
         // Show current approval status

@@ -167,6 +167,142 @@ class SalesService
         });
     }
 
+    public function updateSalesOrder($salesOrderId, $data)
+    {
+        return DB::transaction(function () use ($salesOrderId, $data) {
+            $so = SalesOrder::findOrFail($salesOrderId);
+
+            if ($so->status !== 'draft') {
+                throw new \Exception('Sales Order can only be updated when in draft status');
+            }
+
+            // Check credit limit
+            $this->checkCreditLimit($data['business_partner_id'], $data['total_amount']);
+
+            $entityId = $data['company_entity_id'] ?? $so->company_entity_id;
+
+            // Update sales order header
+            $so->update([
+                'reference_no' => $data['reference_no'] ?? null,
+                'date' => $data['date'],
+                'expected_delivery_date' => $data['expected_delivery_date'] ?? null,
+                'business_partner_id' => $data['business_partner_id'],
+                'currency_id' => $data['currency_id'] ?? 1,
+                'exchange_rate' => $data['exchange_rate'] ?? 1.000000,
+                'warehouse_id' => $data['warehouse_id'],
+                'company_entity_id' => $entityId,
+                'description' => $data['description'] ?? null,
+                'notes' => $data['notes'] ?? null,
+                'terms_conditions' => $data['terms_conditions'] ?? null,
+                'payment_terms' => $data['payment_terms'] ?? null,
+                'delivery_method' => $data['delivery_method'] ?? null,
+                'freight_cost' => $data['freight_cost'] ?? 0,
+                'handling_cost' => $data['handling_cost'] ?? 0,
+                'insurance_cost' => $data['insurance_cost'] ?? 0,
+                'discount_amount' => $data['discount_amount'] ?? 0,
+                'discount_percentage' => $data['discount_percentage'] ?? 0,
+                'order_type' => $data['order_type'] ?? 'item',
+                'updated_by' => Auth::id(),
+            ]);
+
+            // Delete existing lines
+            $so->lines()->delete();
+
+            $totalAmount = 0;
+            $totalAmountForeign = 0;
+            $totalFreightCost = 0;
+            $totalHandlingCost = 0;
+            $totalDiscountAmount = 0;
+
+            // Create new lines
+            foreach ($data['lines'] as $lineData) {
+                $originalAmount = $lineData['qty'] * $lineData['unit_price'];
+                $vatAmount = $originalAmount * ($lineData['vat_rate'] / 100);
+                $wtaxAmount = $originalAmount * ($lineData['wtax_rate'] / 100);
+                $amount = $originalAmount + $vatAmount - $wtaxAmount;
+
+                $totalAmount += $amount;
+
+                // Calculate foreign amounts
+                $unitPriceForeign = $lineData['unit_price_foreign'] ?? $lineData['unit_price'];
+                $amountForeign = $lineData['qty'] * $unitPriceForeign;
+                $totalAmountForeign += $amountForeign;
+
+                // Determine if this is an inventory item or account based on order type
+                $inventoryItemId = null;
+                $accountId = null;
+
+                if ($data['order_type'] === 'item') {
+                    $inventoryItemId = $lineData['item_id'];
+                    $accountId = $this->getDefaultSalesAccount();
+                } else {
+                    $accountId = $lineData['item_id'];
+                }
+
+                $line = SalesOrderLine::create([
+                    'order_id' => $so->id,
+                    'account_id' => $accountId,
+                    'inventory_item_id' => $inventoryItemId,
+                    'item_code' => null,
+                    'item_name' => null,
+                    'unit_of_measure' => null,
+                    'description' => $lineData['description'] ?? null,
+                    'qty' => $lineData['qty'],
+                    'delivered_qty' => 0,
+                    'pending_qty' => $lineData['qty'],
+                    'unit_price' => $lineData['unit_price'],
+                    'unit_price_foreign' => $unitPriceForeign,
+                    'amount' => $amount,
+                    'amount_foreign' => $amountForeign,
+                    'freight_cost' => 0,
+                    'handling_cost' => 0,
+                    'discount_amount' => 0,
+                    'discount_percentage' => 0,
+                    'net_amount' => $amount,
+                    'tax_code_id' => null,
+                    'vat_rate' => $lineData['vat_rate'],
+                    'wtax_rate' => $lineData['wtax_rate'],
+                    'notes' => $lineData['notes'] ?? null,
+                    'status' => 'pending',
+                ]);
+
+                // Log line item addition
+                $line->load('inventoryItem');
+                $this->workflowAuditService->logLineItemChange($so, $line, 'added');
+
+                // Check inventory availability
+                if ($inventoryItemId) {
+                    $this->checkInventoryAvailability($inventoryItemId, $lineData['qty']);
+                }
+            }
+
+            // Update totals
+            $so->update([
+                'total_amount' => $totalAmount,
+                'total_amount_foreign' => $totalAmountForeign,
+                'freight_cost' => $totalFreightCost,
+                'handling_cost' => $totalHandlingCost,
+                'discount_amount' => $totalDiscountAmount,
+                'net_amount' => $totalAmount - $totalDiscountAmount,
+            ]);
+
+            // Apply customer pricing tier discounts
+            $this->applyCustomerPricingTier($so);
+
+            // Recreate approval workflow if needed
+            $existingApprovals = $so->approvals()->count();
+            if ($existingApprovals === 0) {
+                $this->createApprovalWorkflow($so);
+            }
+
+            // Recreate sales commissions
+            $so->commissions()->delete();
+            $this->createSalesCommissions($so);
+
+            return $so;
+        });
+    }
+
     public function approveSalesOrder($salesOrderId, $userId, $comments = null)
     {
         return DB::transaction(function () use ($salesOrderId, $userId, $comments) {

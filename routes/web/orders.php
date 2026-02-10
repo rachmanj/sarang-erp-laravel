@@ -48,8 +48,14 @@ Route::prefix('sales-orders')->group(function () {
             ->editColumn('total_amount', fn($r) => number_format((float)$r->total_amount, 2))
             ->addColumn('customer', fn($r) => $r->customer_name ?: ('#' . $r->business_partner_id))
             ->addColumn('actions', function ($r) {
-                $url = route('sales-orders.show', $r->id);
-                return '<a class="btn btn-xs btn-info" href="' . $url . '">View</a>';
+                $actions = '<a class="btn btn-xs btn-info" href="' . route('sales-orders.show', $r->id) . '">View</a>';
+                
+                // Add edit button only for draft status
+                if ($r->status === 'draft') {
+                    $actions .= ' <a class="btn btn-xs btn-warning" href="' . route('sales-orders.edit', $r->id) . '">Edit</a>';
+                }
+                
+                return $actions;
             })
             ->rawColumns(['actions'])->toJson();
     })->name('sales-orders.data');
@@ -85,6 +91,8 @@ Route::prefix('sales-orders')->group(function () {
     Route::get('/create', [SalesOrderController::class, 'create'])->name('sales-orders.create');
     Route::post('/', [SalesOrderController::class, 'store'])->name('sales-orders.store');
     Route::get('/{id}', [SalesOrderController::class, 'show'])->name('sales-orders.show');
+    Route::get('/{id}/edit', [SalesOrderController::class, 'edit'])->name('sales-orders.edit');
+    Route::patch('/{id}', [SalesOrderController::class, 'update'])->name('sales-orders.update');
     Route::get('/{id}/create-invoice', [SalesOrderController::class, 'createInvoice'])->name('sales-orders.create-invoice');
     Route::get('/fix-approval/{orderNo}', function ($orderNo) {
         $salesOrder = \App\Models\SalesOrder::where('order_no', $orderNo)->firstOrFail();

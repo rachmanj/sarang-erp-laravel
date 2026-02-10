@@ -157,7 +157,55 @@
                                 </div>
 
                                 <div class="form-group">
-                                    <label>Roles</label>
+                                    <label>Approval Roles <small class="text-muted">(For document approval workflow)</small></label>
+                                    <div class="alert alert-info">
+                                        <i class="fas fa-info-circle"></i> These roles determine who can approve documents (Sales Orders, Purchase Orders, etc.) based on amount thresholds.
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <div class="custom-control custom-checkbox">
+                                                <input type="checkbox" class="custom-control-input"
+                                                    id="approval_role_officer" name="approval_roles[]"
+                                                    value="officer"
+                                                    @if(!empty(old('approval_roles')) && in_array('officer', old('approval_roles'))) checked @elseif(!empty($approvalRoles) && in_array('officer', $approvalRoles)) checked @endif>
+                                                <label class="custom-control-label" for="approval_role_officer">
+                                                    <strong>Officer</strong>
+                                                    <br><small class="text-muted">Can approve orders up to 5M</small>
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="custom-control custom-checkbox">
+                                                <input type="checkbox" class="custom-control-input"
+                                                    id="approval_role_supervisor" name="approval_roles[]"
+                                                    value="supervisor"
+                                                    @if(!empty(old('approval_roles')) && in_array('supervisor', old('approval_roles'))) checked @elseif(!empty($approvalRoles) && in_array('supervisor', $approvalRoles)) checked @endif>
+                                                <label class="custom-control-label" for="approval_role_supervisor">
+                                                    <strong>Supervisor</strong>
+                                                    <br><small class="text-muted">Can approve orders 5M-15M</small>
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="custom-control custom-checkbox">
+                                                <input type="checkbox" class="custom-control-input"
+                                                    id="approval_role_manager" name="approval_roles[]"
+                                                    value="manager"
+                                                    @if(!empty(old('approval_roles')) && in_array('manager', old('approval_roles'))) checked @elseif(!empty($approvalRoles) && in_array('manager', $approvalRoles)) checked @endif>
+                                                <label class="custom-control-label" for="approval_role_manager">
+                                                    <strong>Manager</strong>
+                                                    <br><small class="text-muted">Can approve orders above 15M</small>
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    @error('approval_roles')
+                                        <div class="text-danger mt-1">{{ $message }}</div>
+                                    @enderror
+                                </div>
+
+                                <div class="form-group">
+                                    <label>Permission Roles <small class="text-muted">(For system permissions)</small></label>
                                     <div class="row">
                                         @foreach ($roles as $role)
                                             <div class="col-md-4">
