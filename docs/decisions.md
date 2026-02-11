@@ -1,5 +1,5 @@
 **Purpose**: Record technical decisions and rationale for future reference
-**Last Updated**: 2026-02-09 (Added Sales Order Approval Fix decision)
+**Last Updated**: 2026-02-09 (Added Delivery Order Inventory Reduction decision)
 
 # Technical Decision Records
 
@@ -29,6 +29,41 @@ Decision: [Title] - [YYYY-MM-DD]
 ---
 
 ## Recent Decisions
+
+### Decision: Delivery Order Inventory Reduction at Pick vs Delivery - 2026-02-09
+
+**Context**: Delivery Order lines had Picked Qty and Delivered Qty but inventory stock (current_stock) was not reduced. Goods physically left the warehouse but remained "available" in the system, risking overselling. The system needed to decide when to reduce inventory: at picking time or at delivery completion.
+
+**Options Considered**:
+
+1. **Option A**: Reduce at Delivery completion only - Create inventory sale transactions when Delivered Qty is set and DO is completed.
+    - ✅ Pros: Single point of reduction, aligns with revenue recognition timing
+    - ❌ Cons: Between pick and delivery, goods are in transit but still show as available—can be allocated to another order (overselling)
+
+2. **Option B**: Reduce at Pick time - Create inventory sale transactions when Picked Qty is updated.
+    - ✅ Pros: Stock reflects warehouse reality immediately; picked goods are no longer on shelf; prevents double-selling during in-transit period
+    - ❌ Cons: If user skips picking and goes straight to Delivered Qty, need fallback logic
+
+3. **Option C**: Unified reduction at both pick and delivery - Use `should_reduce = max(picked_qty, delivered_qty)` and delta-based idempotent logic.
+    - ✅ Pros: Handles pick-first flow (reduce at pick), skip-pick flow (reduce at delivery), partial updates; delta-based so no double-counting
+    - ❌ Cons: Slightly more complex logic
+
+**Decision**: Adopt Option C—reduce at Picked Qty update (primary) and Delivered Qty update (fallback for skip-pick), using unified logic `should_reduce = max(picked_qty, delivered_qty)`, `already_reduced` from transactions, `delta = should_reduce - already_reduced`. Apply in both `updatePickingStatus` and `updateDeliveryStatus`. Reverse via `processAdjustmentTransaction` when DO is cancelled.
+
+**Rationale**:
+- Stock must reflect warehouse reality: picked goods have physically left the shelf
+- In-transit stock must not appear "available" or it can be sold again
+- Skip-pick workflows (user sets Delivered Qty without Picked Qty) need fallback
+- Delta-based approach is idempotent for partial updates and retries
+
+**Implementation**:
+- **DeliveryService**: Injected InventoryService; added private `ensureInventoryReduction(DeliveryOrderLine $line)`; called from `updatePickingStatus` and `updateDeliveryStatus` after line update; reversal in `cancelDeliveryOrder` for lines with picked_qty > 0
+- **Backfill Command**: `php artisan delivery-orders:backfill-inventory-transactions` with `--dry-run`; registered in `app/Console/Kernel.php`
+- **Reference**: `reference_type = 'delivery_order_line'`, `reference_id = line.id`
+
+**Review Date**: 2027-02-09 (after full year of production use to assess reduction timing and backfill effectiveness).
+
+---
 
 ### Decision: Sales Order Approval Workflow Fix & Auto-Recovery Mechanism - 2026-02-09
 

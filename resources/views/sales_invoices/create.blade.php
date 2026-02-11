@@ -67,6 +67,46 @@
                                     <input type="hidden" name="sales_quotation_id" value="{{ $salesQuotation->id }}" />
                                 @endif
 
+                                @if (!isset($deliveryOrder) && isset($invoicableDeliveryOrders))
+                                    <div class="card card-info card-outline mb-3 {{ ($fromDo ?? false) ? '' : 'collapsed-card' }}" id="prefill-do-card">
+                                        <div class="card-header py-2">
+                                            <h3 class="card-title">
+                                                <i class="fas fa-truck mr-1"></i>
+                                                Prefill from Delivery Order
+                                            </h3>
+                                            <div class="card-tools">
+                                                <button type="button" class="btn btn-tool" data-card-widget="collapse">
+                                                    <i class="fas fa-plus"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div class="card-body">
+                                            @if ($invoicableDeliveryOrders->isEmpty())
+                                                <p class="text-muted mb-0">No delivered delivery orders available for invoicing.</p>
+                                            @else
+                                                <div class="row align-items-end">
+                                                    <div class="col-md-8">
+                                                        <label class="form-label">Select a Delivery Order</label>
+                                                        <select id="delivery_order_select" class="form-control form-control-sm select2bs4" style="width: 100%;">
+                                                            <option value="">-- select delivery order --</option>
+                                                            @foreach ($invoicableDeliveryOrders as $do)
+                                                                <option value="{{ $do->id }}">
+                                                                    {{ $do->do_number }} - {{ optional($do->customer)->name ?? 'N/A' }} ({{ $do->planned_delivery_date ? $do->planned_delivery_date->format('d M Y') : '' }})
+                                                                </option>
+                                                            @endforeach
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-md-4">
+                                                        <button type="button" id="btn-load-do" class="btn btn-sm btn-primary">
+                                                            <i class="fas fa-download mr-1"></i> Load
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            @endif
+                                        </div>
+                                    </div>
+                                @endif
+
                                 <div class="row">
                                     <div class="col-md-4">
                                         <div class="form-group row mb-2">
@@ -225,7 +265,8 @@
                                                         <th style="width: 10%">Unit Price <span
                                                                 class="text-danger">*</span>
                                                         </th>
-                                                        <th style="width: 10%">Tax</th>
+                                                        <th style="width: 8%">VAT</th>
+                                                        <th style="width: 8%">WTax %</th>
                                                         <th style="width: 8%">Project</th>
                                                         <th style="width: 6%">Actions</th>
                                                     </tr>
@@ -305,6 +346,15 @@
                                                                     </select>
                                                                 </td>
                                                                 <td>
+                                                                    <select name="lines[{{ $index }}][wtax_rate]"
+                                                                        class="form-control form-control-sm wtax-select">
+                                                                        <option value="0" {{ ($line['wtax_rate'] ?? 0) == 0 ? 'selected' : '' }}>No</option>
+                                                                        <option value="2" {{ ($line['wtax_rate'] ?? 0) == 2 ? 'selected' : '' }}>2%</option>
+                                                                        <option value="5" {{ ($line['wtax_rate'] ?? 0) == 5 ? 'selected' : '' }}>5%</option>
+                                                                        <option value="15" {{ ($line['wtax_rate'] ?? 0) == 15 ? 'selected' : '' }}>15%</option>
+                                                                    </select>
+                                                                </td>
+                                                                <td>
                                                                     <select name="lines[{{ $index }}][project_id]"
                                                                         class="form-control form-control-sm select2bs4">
                                                                         <option value="">-- none --</option>
@@ -378,6 +428,15 @@
                                                                 </select>
                                                             </td>
                                                             <td>
+                                                                <select name="lines[0][wtax_rate]"
+                                                                    class="form-control form-control-sm wtax-select">
+                                                                    <option value="0">No</option>
+                                                                    <option value="2">2%</option>
+                                                                    <option value="5">5%</option>
+                                                                    <option value="15">15%</option>
+                                                                </select>
+                                                            </td>
+                                                            <td>
                                                                 <select name="lines[0][project_id]"
                                                                     class="form-control form-control-sm select2bs4">
                                                                     <option value="">-- none --</option>
@@ -399,7 +458,7 @@
                                                     <tr>
                                                         <th colspan="6" class="text-right">Total:</th>
                                                         <th class="text-right" id="total-amount">0.00</th>
-                                                        <th colspan="2"></th>
+                                                        <th colspan="3"></th>
                                                     </tr>
                                                 </tfoot>
                                             </table>
@@ -442,6 +501,15 @@
                 theme: 'bootstrap4',
                 placeholder: 'Select an option',
                 allowClear: true
+            });
+
+            $('#btn-load-do').on('click', function() {
+                const doId = $('#delivery_order_select').val();
+                if (doId) {
+                    window.location.href = '{{ route("sales-invoices.create") }}?delivery_order_id=' + doId;
+                } else {
+                    toastr.warning('Please select a delivery order.');
+                }
             });
 
             // Populate due_date from business partner TOP when business partner is selected
@@ -559,16 +627,24 @@
                     <input type="number" step="0.01" min="0" name="lines[${idx}][unit_price]" 
                         class="form-control form-control-sm text-right price-input" value="0" required>
                 </td>
-                <td>
-                    <select name="lines[${idx}][tax_code_id]" class="form-control form-control-sm select2bs4">
-                        <option value="">-- none --</option>
-                        @foreach ($taxCodes as $t)
-                            <option value="{{ $t->id }}">{{ $t->code }}</option>
-                        @endforeach
-                    </select>
-                </td>
-                <td>
-                    <select name="lines[${idx}][project_id]" class="form-control form-control-sm select2bs4">
+                                                                <td>
+                                                                    <select name="lines[${idx}][tax_code_id]" class="form-control form-control-sm select2bs4">
+                                                                        <option value="">-- none --</option>
+                                                                        @foreach ($taxCodes as $t)
+                                                                            <option value="{{ $t->id }}">{{ $t->code }}</option>
+                                                                        @endforeach
+                                                                    </select>
+                                                                </td>
+                                                                <td>
+                                                                    <select name="lines[${idx}][wtax_rate]" class="form-control form-control-sm wtax-select">
+                                                                        <option value="0">No</option>
+                                                                        <option value="2">2%</option>
+                                                                        <option value="5">5%</option>
+                                                                        <option value="15">15%</option>
+                                                                    </select>
+                                                                </td>
+                                                                <td>
+                                                                    <select name="lines[${idx}][project_id]" class="form-control form-control-sm select2bs4">
                         <option value="">-- none --</option>
                         @foreach ($projects as $p)
                             <option value="{{ $p->id }}">{{ $p->code }}</option>

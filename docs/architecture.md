@@ -1,5 +1,5 @@
 Purpose: Technical reference for understanding system design and development patterns
-Last Updated: 2026-02-09 (Updated with Sales Order Approval Fix & UI Enhancement)
+Last Updated: 2026-02-09 (Updated with Delivery Order Inventory Reduction & Sales Order Approval Fix)
 
 ## Architecture Documentation Guidelines
 
@@ -335,6 +335,7 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 
 -   **Delivery Lifecycle Management**: Complete delivery process from sales order to completion
 -   **Inventory Reservation**: Automatic stock allocation and reservation upon delivery order approval
+-   **Inventory Stock Reduction**: Stock reduces when **Picked Qty** is updated (primary) or when **Delivered Qty** is updated (fallback for skip-pick workflows). `DeliveryService::ensureInventoryReduction()` uses `should_reduce = max(picked_qty, delivered_qty)`, computes `already_reduced` from `inventory_transactions` where `reference_type = 'delivery_order_line'`, and creates sale transactions via `InventoryService::processSaleTransaction()` for delta > 0. Reversal via `processAdjustmentTransaction` when DO is cancelled with picked_qty > 0
 -   **Revenue Recognition**: Automated revenue recognition with COGS calculation upon delivery completion
 -   **Status Tracking**: Comprehensive status management (draft, picking, packed, ready, in_transit, delivered, completed)
 -   **Approval Workflows**: Multi-level approval process with proper authorization controls
@@ -344,6 +345,7 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 -   **Data Integrity**: Foreign key constraint handling with graceful NULL assignment when inventory items are deleted, preventing creation failures
 -   **Sales Order Integration**: Customer-based filtering for Sales Order selection using Select2 `templateResult` function for dynamic client-side filtering
 -   **Item Display**: Fallback chain for displaying item information (item_code → inventoryItem->code, description → inventoryItem->name → item_name) ensuring data availability when denormalized fields are NULL
+-   **Backfill Command**: `php artisan delivery-orders:backfill-inventory-transactions` with `--dry-run` for existing DO lines with picked/delivered qty but no inventory transactions
 
 ### 7. Control Account Management System
 
@@ -580,7 +582,7 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 
 -   `product_categories`: Hierarchical product categorization with account mapping (inventory_account_id, cogs_account_id, sales_account_id)
 -   `inventory_items`: Product master data with pricing, stock levels, item_type (item/service), default_warehouse_id, and price levels (selling_price_level_2, selling_price_level_3, percentage fields)
--   `inventory_transactions`: Stock movement tracking with cost allocation and warehouse_id. All inventory-affecting documents (GRPO, GR/GI, Purchase Invoice, Sales Invoice) create inventory transactions with proper reference_type and reference_id for complete audit trail and transaction history. Transaction quantities are stored with sign: positive for purchases/adjustments, negative for sales. Stock calculation sums all transaction quantities (purchases + adjustments + sales) since sales are already negative.
+-   `inventory_transactions`: Stock movement tracking with cost allocation and warehouse_id. All inventory-affecting documents (GRPO, GR/GI, Purchase Invoice, Sales Invoice, Delivery Order lines) create inventory transactions with proper reference_type and reference_id for complete audit trail and transaction history. Delivery Order lines use reference_type='delivery_order_line' when Picked Qty or Delivered Qty is updated. Transaction quantities are stored with sign: positive for purchases/adjustments, negative for sales. Stock calculation sums all transaction quantities (purchases + adjustments + sales) since sales are already negative.
 -   `inventory_valuations`: Real-time inventory valuation with multiple methods. Valuations are automatically updated when transactions occur. Use `php artisan inventory:fix-valuation` command to correct any historical valuation records with incorrect quantities.
 -   `warehouses`: Warehouse master data with contact information and status
 -   `inventory_warehouse_stock`: Per-warehouse stock tracking with quantity_on_hand, reserved_quantity, available_quantity, and warehouse-specific reorder points

@@ -307,11 +307,9 @@ class DocumentClosureService
         $do = DeliveryOrder::with('lines')->findOrFail($doId);
         $si = SalesInvoice::with('lines')->findOrFail($siId);
 
-        // Get total quantities
-        $doTotalQty = $do->lines->sum('quantity');
-        $siTotalQty = $si->lines->sum('quantity');
+        $doTotalQty = $do->lines->sum('delivered_qty');
+        $siTotalQty = $si->lines->sum('qty');
 
-        // Check if SI quantity >= DO quantity
         return $siTotalQty >= $doTotalQty;
     }
 

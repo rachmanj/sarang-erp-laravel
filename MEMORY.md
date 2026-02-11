@@ -1,5 +1,5 @@
 **Purpose**: AI's persistent knowledge base for project context and learnings
-**Last Updated**: 2026-02-04 (CPA Sales Flow Journal Fixes)
+**Last Updated**: 2026-02-09 (Delivery Order Inventory Reduction Fix)
 
 ## Memory Maintenance Guidelines
 
@@ -612,3 +612,19 @@
 **Solution**: Updated `SalesInvoiceController::post()` to Credit AR UnInvoice (revenue only) and Debit AR (revenue+VAT), Credit PPN. Updated `DeliveryJournalService`: injected `InventoryService`; `createInventoryReservation()` now uses `ordered_qty * calculateUnitCost()` instead of `line->amount`; `createRevenueRecognition()` uses actual cost from `calculateUnitCost()`, and adds Credit to Inventory Reserved for each line's COGS amount; removed 60% assumption.
 
 **Key Learning**: AR UnInvoice is an asset; to reduce it when converting to regular AR we must Credit it. Inventory journals must use cost (FIFO/LIFO/weighted average via InventoryService) not sales value. Revenue recognition requires matching Credit to Inventory when debiting COGS to properly relieve the reserved inventory.
+
+### [083] Delivery Order Inventory Stock Reduction Fix (2026-02-09) ✅ COMPLETE
+
+**Challenge**: Delivery Order lines with Picked Qty or Delivered Qty did not reduce inventory stock. Goods picked from the warehouse remained available for other orders, risking overselling. Stock reduction was missing entirely for DO lines.
+
+**Solution**: Implemented inventory reduction when Picked Qty is updated (primary) or when Delivered Qty is updated (skip-pick workflow). `DeliveryService::ensureInventoryReduction()` uses `should_reduce = max(picked_qty, delivered_qty)`, computes `already_reduced` from inventory_transactions with reference_type='delivery_order_line', and calls `InventoryService::processSaleTransaction()` for delta > 0. Reversal via `processAdjustmentTransaction` when DO is cancelled. Created `php artisan delivery-orders:backfill-inventory-transactions` for existing DOs. Command registered in `app/Console/Kernel.php` ($commands array).
+
+**Key Learning**: Reduce stock at pick, not delivery, because picked goods are physically out of the warehouse and in transit—reducing only at delivery would allow in-transit stock to appear "available" and be double-sold. Use `max(picked_qty, delivered_qty)` to handle both pick-first and skip-pick flows. Laravel 11+ projects may register commands explicitly in Kernel instead of auto-discovery.
+
+### [084] Prevent Multiple Sales Invoices from Same Delivery Order (2026-02-11) ✅ COMPLETE
+
+**Challenge**: Multiple Sales Invoices (e.g. 71260800002, 71260800003, 71260800004) were created from the same Delivery Order (DO #1), all with the same total amount and customer. Document closure was not working: `canCloseDeliveryOrder` used wrong column names (`quantity` instead of `delivered_qty`/`qty`), and DeliveryOrder model lacked closure fields in `fillable`.
+
+**Solution**: (1) Block SI creation when any SI already exists for the DO: check in `SalesInvoiceController::create()` and `store()`, redirect with error or to existing SI. (2) `DeliveryOrderController::createInvoice()`: when DO already has SI, redirect to that SI with info message instead of create form. (3) Exclude DOs with existing SIs from `invoicableDeliveryOrders` via `whereNotExists` subquery on `sales_invoices.delivery_order_id`. (4) Fix `DocumentClosureService::canCloseDeliveryOrder()`: use `lines->sum('delivered_qty')` for DO and `lines->sum('qty')` for SI. (5) Add `closure_status`, `closed_by_*` to `DeliveryOrder::$fillable` so closure update persists.
+
+**Key Learning**: Prevent duplicates at multiple layers: create view check, store validation, and dropdown exclusion. Fix closure bugs so first SI properly closes the DO for future flows.

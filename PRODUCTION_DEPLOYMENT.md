@@ -1,14 +1,20 @@
-# Production Deployment Guide - Sales Order Approval Fix
+# Production Deployment Guide - Sales Order Approval Fix & Delivery Order Inventory
 
 ## Overview
-This guide covers deploying the Sales Order approval fix to production. The fix addresses cases where Sales Orders have `approval_status = 'pending'` but missing approval workflow records, and ensures the "officer" role exists in both systems.
+This guide covers deploying the Sales Order approval fix and Delivery Order inventory reduction to production.
+
+**Sales Order Fix**: Addresses cases where Sales Orders have `approval_status = 'pending'` but missing approval workflow records, and ensures the "officer" role exists in both systems.
+
+**Delivery Order Inventory**: Ensures inventory stock is reduced when Picked Qty or Delivered Qty is updated. A backfill command creates missing inventory transactions for existing DOs.
 
 ## Files Changed
 1. `app/Services/SalesService.php` - Auto-creates approval records if missing during approval attempt
-2. `routes/web/orders.php` - Added fix route for individual Sales Orders
-3. `app/Console/Commands/FixSalesOrderApproval.php` - Command to fix single or all Sales Orders
-4. `app/Console/Commands/EnsureOfficerRole.php` - Command to ensure officer role exists
-5. `app/Console/Kernel.php` - Registered new commands
+2. `app/Services/DeliveryService.php` - Inventory reduction when Picked Qty or Delivered Qty updated; reversal on DO cancel
+3. `routes/web/orders.php` - Added fix route for individual Sales Orders
+4. `app/Console/Commands/FixSalesOrderApproval.php` - Command to fix single or all Sales Orders
+5. `app/Console/Commands/EnsureOfficerRole.php` - Command to ensure officer role exists
+6. `app/Console/Commands/BackfillDeliveryOrderInventoryTransactions.php` - Backfill inventory transactions for existing DOs
+7. `app/Console/Kernel.php` - Registered new commands
 
 ## Deployment Steps
 
@@ -86,7 +92,21 @@ php artisan sales-order:fix-approval 71260600002
 GET /sales-orders/fix-approval/{orderNo}
 ```
 
-### 4. Verify the Fix
+### 4. Backfill Delivery Order Inventory Transactions (If deploying DO inventory fix)
+
+For existing Delivery Orders with Picked Qty or Delivered Qty but no inventory sale transactions:
+
+```bash
+# Dry run first (no changes)
+php artisan delivery-orders:backfill-inventory-transactions --dry-run
+
+# Execute backfill
+php artisan delivery-orders:backfill-inventory-transactions
+```
+
+This creates inventory transactions for DO lines that should have reduced stock but don't.
+
+### 5. Verify the Fix
 
 **Check Sales Orders with Missing Approvals:**
 ```sql
@@ -119,7 +139,7 @@ WHERE document_type = 'sales_order'
 ORDER BY min_amount;
 ```
 
-### 5. Post-Deployment Testing
+### 6. Post-Deployment Testing
 
 1. **Test Sales Order Approval:**
    - Navigate to a Sales Order with status "DRAFT"
@@ -135,7 +155,7 @@ ORDER BY min_amount;
    tail -f storage/logs/laravel.log | grep -i "approval"
    ```
 
-### 6. Post-Deployment Monitoring
+### 7. Post-Deployment Monitoring
 
 After deployment, monitor:
 - Sales Order approval success rate
@@ -162,6 +182,10 @@ php artisan role:ensure-officer --list
 
 # 4. Assign officer role to a user
 php artisan role:ensure-officer --user={username}
+
+# 5. Backfill DO inventory (dry-run first)
+php artisan delivery-orders:backfill-inventory-transactions --dry-run
+php artisan delivery-orders:backfill-inventory-transactions
 ```
 
 ## Rollback Plan
@@ -202,7 +226,7 @@ UPDATE user_roles SET is_active = 0 WHERE role_name = 'officer';
 ### Issue: Command not found
 **Solution:** Commands are registered in `app/Console/Kernel.php`. If command doesn't work, check:
 ```bash
-php artisan list | grep -i "sales-order\|role:ensure"
+php artisan list | grep -i "sales-order\|role:ensure\|delivery-orders"
 ```
 
 ### Issue: No users with officer role

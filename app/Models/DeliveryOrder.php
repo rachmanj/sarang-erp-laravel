@@ -29,6 +29,11 @@ class DeliveryOrder extends Model
         'approved_at',
         'created_by',
         'notes',
+        'closure_status',
+        'closed_by_document_type',
+        'closed_by_document_id',
+        'closed_at',
+        'closed_by_user_id',
     ];
 
     protected $casts = [

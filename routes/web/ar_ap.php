@@ -23,6 +23,7 @@ Route::prefix('sales-invoices')->group(function () {
     });
     
     Route::get('/{id}', [SalesInvoiceController::class, 'show'])->middleware('permission:ar.invoices.view')->name('sales-invoices.show');
+    Route::delete('/{id}', [SalesInvoiceController::class, 'destroy'])->middleware('permission:ar.invoices.create')->name('sales-invoices.destroy');
     Route::post('/{id}/post', [SalesInvoiceController::class, 'post'])->middleware('permission:ar.invoices.post')->name('sales-invoices.post');
     Route::get('/{id}/print', function ($id) {
         $invoice = \App\Models\Accounting\SalesInvoice::with('lines')->findOrFail($id);

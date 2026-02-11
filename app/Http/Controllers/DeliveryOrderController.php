@@ -174,60 +174,16 @@ class DeliveryOrderController extends Controller
         if (!in_array($deliveryOrder->status, ['delivered', 'completed'])) {
             return redirect()->back()->with('error', 'Only delivered or completed delivery orders can be converted to Sales Invoice');
         }
-        if ($deliveryOrder->closure_status === 'closed') {
+        if (($deliveryOrder->closure_status ?? 'open') === 'closed') {
             return redirect()->back()->with('error', 'This delivery order has already been invoiced.');
         }
+        $existingSi = \App\Models\Accounting\SalesInvoice::where('delivery_order_id', $deliveryOrder->id)->first();
+        if ($existingSi) {
+            return redirect()->route('sales-invoices.show', $existingSi->id)
+                ->with('info', 'A Sales Invoice already exists for this Delivery Order.');
+        }
 
-        // Load delivery order with lines and inventory items
-        $deliveryOrder->load('lines.inventoryItem.category', 'lines.account');
-
-        $accounts = DB::table('accounts')->where('is_postable', 1)->orderBy('code')->get();
-        $customers = DB::table('business_partners')->where('partner_type', 'customer')->orderBy('name')->get();
-        $taxCodes = DB::table('tax_codes')->orderBy('code')->get();
-        $projects = DB::table('projects')->orderBy('name')->get();
-        $departments = DB::table('departments')->orderBy('name')->get();
-        $entities = $this->companyEntityService->getActiveEntities();
-        $defaultEntity = $this->companyEntityService->getDefaultEntity();
-
-        $prefill = [
-            'date' => now()->toDateString(),
-            'business_partner_id' => $deliveryOrder->business_partner_id,
-            'company_entity_id' => $deliveryOrder->company_entity_id ?? $defaultEntity->id,
-            'description' => 'From DO ' . ($deliveryOrder->do_number ?: ('#' . $deliveryOrder->id)),
-            'lines' => $deliveryOrder->lines->map(function ($l) {
-                $accountId = (int)$l->account_id;
-                $accountDisplay = null;
-                if ($l->inventory_item_id && $l->inventoryItem) {
-                    $salesAccount = $l->inventoryItem->getAccountByType('sales');
-                    if ($salesAccount) {
-                        $accountId = $salesAccount->id;
-                        $accountDisplay = $salesAccount->code . ' - ' . $salesAccount->name;
-                    } else {
-                        $acc = $l->account;
-                        $accountDisplay = $acc ? ($acc->code . ' - ' . $acc->name) : null;
-                    }
-                }
-                if (!$accountDisplay && $l->account_id) {
-                    $acc = \App\Models\Accounting\Account::find($l->account_id);
-                    $accountDisplay = $acc ? ($acc->code . ' - ' . $acc->name) : null;
-                }
-                return [
-                    'inventory_item_id' => $l->inventory_item_id,
-                    'item_code' => optional($l->inventoryItem)->code ?? $l->item_code,
-                    'item_name' => optional($l->inventoryItem)->name ?? $l->item_name ?? $l->description,
-                    'account_id' => $accountId,
-                    'account_display' => $accountDisplay,
-                    'has_inventory_item' => !empty($l->inventory_item_id),
-                    'description' => $l->description ?? optional($l->inventoryItem)->description ?? $l->item_name,
-                    'qty' => (float)$l->delivered_qty,
-                    'unit_price' => (float)$l->unit_price,
-                    'tax_code_id' => $l->tax_code_id ? (int)$l->tax_code_id : null,
-                    'total_amount' => $l->delivered_qty * $l->unit_price,
-                ];
-            }),
-        ];
-
-        return view('sales_invoices.create', compact('deliveryOrder', 'accounts', 'customers', 'taxCodes', 'projects', 'departments', 'entities', 'defaultEntity', 'prefill'));
+        return redirect()->route('sales-invoices.create', ['delivery_order_id' => $deliveryOrder->id]);
     }
 
     public function show(DeliveryOrder $deliveryOrder)
@@ -237,6 +193,8 @@ class DeliveryOrderController extends Controller
             'salesOrder',
             'lines.inventoryItem',
             'lines.account',
+            'lines.taxCode',
+            'lines.salesOrderLine',
             'tracking',
             'createdBy',
             'approvedBy'
@@ -255,7 +213,7 @@ class DeliveryOrderController extends Controller
                 ->with('error', 'Only draft delivery orders can be edited');
         }
 
-        $deliveryOrder->load(['customer', 'salesOrder', 'warehouse', 'lines.inventoryItem', 'lines.account']);
+        $deliveryOrder->load(['customer', 'salesOrder', 'warehouse', 'lines.inventoryItem', 'lines.account', 'lines.taxCode', 'lines.salesOrderLine']);
 
         return view('delivery_orders.edit', compact('deliveryOrder'));
     }
@@ -311,7 +269,7 @@ class DeliveryOrderController extends Controller
                     throw new \Exception('Invalid line ID');
                 }
 
-                // Update line
+                // Update line - VAT (tax_code_id) and WTax are intentionally excluded; they are set from SO and must not be changed on DO
                 $line->update([
                     'ordered_qty' => $lineData['ordered_qty'],
                     'unit_price' => $lineData['unit_price'],

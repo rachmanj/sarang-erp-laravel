@@ -30,6 +30,7 @@ class SalesInvoiceController extends Controller
         $this->middleware('permission:ar.invoices.view')->only(['index', 'show']);
         $this->middleware('permission:ar.invoices.create')->only(['create', 'store']);
         $this->middleware('permission:ar.invoices.post')->only(['post']);
+        $this->middleware('permission:ar.invoices.create')->only(['destroy']);
     }
 
     public function index()
@@ -49,8 +50,40 @@ class SalesInvoiceController extends Controller
 
         $prefill = null;
         $salesQuotation = null;
+        $deliveryOrder = null;
+        $invoicableDeliveryOrders = DeliveryOrder::whereIn('status', ['delivered', 'completed'])
+            ->where(function ($q) {
+                $q->whereNull('closure_status')->orWhere('closure_status', '!=', 'closed');
+            })
+            ->whereNotExists(function ($q) {
+                $q->select(DB::raw(1))
+                    ->from('sales_invoices')
+                    ->whereColumn('sales_invoices.delivery_order_id', 'delivery_orders.id');
+            })
+            ->orderBy('created_at', 'desc')
+            ->limit(50)
+            ->with('customer')
+            ->get();
+        $fromDo = (bool) $request->query('from_do');
 
-        if ($request->has('quotation_id')) {
+        if ($request->filled('delivery_order_id')) {
+            $deliveryOrder = DeliveryOrder::with(['lines.inventoryItem.category', 'lines.account', 'lines.salesOrderLine'])
+                ->findOrFail($request->delivery_order_id);
+            if (!in_array($deliveryOrder->status, ['delivered', 'completed'])) {
+                return redirect()->route('sales-invoices.create')
+                    ->with('error', 'Only delivered or completed delivery orders can be converted to Sales Invoice');
+            }
+            if (($deliveryOrder->closure_status ?? 'open') === 'closed') {
+                return redirect()->route('sales-invoices.create')
+                    ->with('error', 'This delivery order has already been invoiced.');
+            }
+            if (SalesInvoice::where('delivery_order_id', $deliveryOrder->id)->exists()) {
+                $existing = SalesInvoice::where('delivery_order_id', $deliveryOrder->id)->first();
+                return redirect()->route('sales-invoices.create')
+                    ->with('error', 'A Sales Invoice (#' . $existing->invoice_no . ') already exists for this Delivery Order. Use that invoice or delete it before creating another.');
+            }
+            $prefill = $this->buildPrefillFromDeliveryOrder($deliveryOrder, $defaultEntity->id);
+        } elseif ($request->has('quotation_id')) {
             $salesQuotation = SalesQuotation::with(['lines.inventoryItem.category', 'lines.account', 'businessPartner', 'companyEntity'])->findOrFail($request->quotation_id);
 
             $prefill = [
@@ -87,6 +120,7 @@ class SalesInvoiceController extends Controller
                         'qty' => (float)$line->qty,
                         'unit_price' => (float)$line->unit_price,
                         'tax_code_id' => $line->tax_code_id ? (int)$line->tax_code_id : null,
+                        'wtax_rate' => (float)($line->wtax_rate ?? 0),
                         'project_id' => null,
                         'dept_id' => null,
                     ];
@@ -94,7 +128,52 @@ class SalesInvoiceController extends Controller
             ];
         }
 
-        return view('sales_invoices.create', compact('accounts', 'customers', 'taxCodes', 'projects', 'departments', 'entities', 'defaultEntity', 'prefill', 'salesQuotation'));
+        return view('sales_invoices.create', compact('accounts', 'customers', 'taxCodes', 'projects', 'departments', 'entities', 'defaultEntity', 'prefill', 'salesQuotation', 'deliveryOrder', 'invoicableDeliveryOrders', 'fromDo'));
+    }
+
+    private function buildPrefillFromDeliveryOrder(DeliveryOrder $deliveryOrder, int $defaultEntityId): array
+    {
+        return [
+            'date' => now()->toDateString(),
+            'business_partner_id' => $deliveryOrder->business_partner_id,
+            'company_entity_id' => $deliveryOrder->company_entity_id ?? $defaultEntityId,
+            'description' => 'From DO ' . ($deliveryOrder->do_number ?: ('#' . $deliveryOrder->id)),
+            'lines' => $deliveryOrder->lines->map(function ($l) {
+                $accountId = (int)$l->account_id;
+                $accountDisplay = null;
+                if ($l->inventory_item_id && $l->inventoryItem) {
+                    $salesAccount = $l->inventoryItem->getAccountByType('sales');
+                    if ($salesAccount) {
+                        $accountId = $salesAccount->id;
+                        $accountDisplay = $salesAccount->code . ' - ' . $salesAccount->name;
+                    } else {
+                        $acc = $l->account;
+                        $accountDisplay = $acc ? ($acc->code . ' - ' . $acc->name) : null;
+                    }
+                }
+                if (!$accountDisplay && $l->account_id) {
+                    $acc = \App\Models\Accounting\Account::find($l->account_id);
+                    $accountDisplay = $acc ? ($acc->code . ' - ' . $acc->name) : null;
+                }
+                $soLine = $l->salesOrderLine;
+                $taxCodeId = $l->tax_code_id ?? ($soLine?->tax_code_id);
+                $wtaxRate = $soLine ? (float)($soLine->wtax_rate ?? 0) : 0;
+                return [
+                    'inventory_item_id' => $l->inventory_item_id,
+                    'item_code' => optional($l->inventoryItem)->code ?? $l->item_code,
+                    'item_name' => optional($l->inventoryItem)->name ?? $l->item_name ?? $l->description,
+                    'account_id' => $accountId,
+                    'account_display' => $accountDisplay,
+                    'has_inventory_item' => !empty($l->inventory_item_id),
+                    'description' => $l->description ?? optional($l->inventoryItem)->description ?? $l->item_name,
+                    'qty' => (float)$l->delivered_qty,
+                    'unit_price' => (float)$l->unit_price,
+                    'tax_code_id' => $taxCodeId ? (int)$taxCodeId : null,
+                    'wtax_rate' => $wtaxRate,
+                    'total_amount' => $l->delivered_qty * $l->unit_price,
+                ];
+            }),
+        ];
     }
 
     public function store(Request $request)
@@ -103,6 +182,7 @@ class SalesInvoiceController extends Controller
             'date' => ['required', 'date'],
             'business_partner_id' => ['required', 'integer', 'exists:business_partners,id'],
             'company_entity_id' => ['required', 'integer', 'exists:company_entities,id'],
+            'delivery_order_id' => ['nullable', 'integer', 'exists:delivery_orders,id'],
             'is_opening_balance' => ['nullable', 'boolean'],
             'description' => ['nullable', 'string', 'max:255'],
             'reference_no' => ['nullable', 'string', 'max:100'],
@@ -112,6 +192,7 @@ class SalesInvoiceController extends Controller
             'lines.*.qty' => ['required', 'numeric', 'min:0.01'],
             'lines.*.unit_price' => ['required', 'numeric', 'min:0'],
             'lines.*.tax_code_id' => ['nullable', 'integer', 'exists:tax_codes,id'],
+            'lines.*.wtax_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'lines.*.project_id' => ['nullable', 'integer'],
             'lines.*.dept_id' => ['nullable', 'integer'],
         ]);
@@ -122,6 +203,15 @@ class SalesInvoiceController extends Controller
         $deliveryOrder = $request->input('delivery_order_id')
             ? DeliveryOrder::select('id', 'company_entity_id')->find($request->input('delivery_order_id'))
             : null;
+
+        if ($deliveryOrder) {
+            $existingSi = SalesInvoice::where('delivery_order_id', $deliveryOrder->id)->first();
+            if ($existingSi) {
+                return redirect()->route('sales-invoices.create')
+                    ->withInput()
+                    ->with('error', 'A Sales Invoice (#' . $existingSi->invoice_no . ') already exists for this Delivery Order.');
+            }
+        }
         $salesQuotation = $request->input('sales_quotation_id')
             ? SalesQuotation::select('id', 'company_entity_id')->find($request->input('sales_quotation_id'))
             : null;
@@ -178,6 +268,7 @@ class SalesInvoiceController extends Controller
                     'unit_price' => (float) $l['unit_price'],
                     'amount' => $amount,
                     'tax_code_id' => $l['tax_code_id'] ?? null,
+                    'wtax_rate' => $l['wtax_rate'] ?? 0,
                     'project_id' => $l['project_id'] ?? null,
                     'dept_id' => $l['dept_id'] ?? null,
                 ]);
@@ -208,6 +299,36 @@ class SalesInvoiceController extends Controller
 
             return redirect()->route('sales-invoices.show', $invoice->id)->with('success', 'Invoice created');
         });
+    }
+
+    public function destroy(int $id)
+    {
+        $invoice = SalesInvoice::findOrFail($id);
+        if ($invoice->status !== 'draft') {
+            return redirect()->route('sales-invoices.show', $invoice->id)
+                ->with('error', 'Only draft Sales Invoices can be deleted.');
+        }
+        $allocated = DB::table('sales_receipt_allocations')->where('invoice_id', $invoice->id)->exists();
+        if ($allocated) {
+            return redirect()->route('sales-invoices.show', $invoice->id)
+                ->with('error', 'Cannot delete: this invoice has payment allocations.');
+        }
+        $deliveryOrderId = $invoice->delivery_order_id;
+        $invoice->lines()->delete();
+        $invoice->delete();
+        if ($deliveryOrderId) {
+            $do = DeliveryOrder::find($deliveryOrderId);
+            if ($do && ($do->closure_status ?? 'open') === 'closed' && ($do->closed_by_document_id ?? null) == $id) {
+                $do->update([
+                    'closure_status' => 'open',
+                    'closed_by_document_type' => null,
+                    'closed_by_document_id' => null,
+                    'closed_at' => null,
+                    'closed_by_user_id' => null,
+                ]);
+            }
+        }
+        return redirect()->route('sales-invoices.index')->with('success', 'Sales Invoice deleted.');
     }
 
     public function show(int $id)

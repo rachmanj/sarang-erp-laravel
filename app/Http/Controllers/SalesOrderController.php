@@ -468,6 +468,7 @@ class SalesOrderController extends Controller
                     'qty' => (float)$l->qty,
                     'unit_price' => (float)$l->unit_price,
                     'tax_code_id' => $l->tax_code_id,
+                    'wtax_rate' => (float)($l->wtax_rate ?? 0),
                 ];
             })->toArray(),
         ];

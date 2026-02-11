@@ -187,6 +187,8 @@
                                                             <th class="text-right">Ordered Qty</th>
                                                             <th class="text-right">Unit Price</th>
                                                             <th class="text-right">Amount</th>
+                                                            <th>VAT</th>
+                                                            <th>WTax %</th>
                                                             <th>Description</th>
                                                             <th>Notes</th>
                                                         </tr>
@@ -227,6 +229,12 @@
                                                                     </span>
                                                                     <input type="hidden" name="lines[{{ $index }}][amount]" class="amount-input" value="{{ $line->amount }}" data-line-index="{{ $index }}">
                                                                 </td>
+                                                                <td class="text-muted">
+                                                                    {{ $line->taxCode?->code ?? '—' }}
+                                                                </td>
+                                                                <td class="text-muted text-right">
+                                                                    {{ optional($line->salesOrderLine)->wtax_rate ? number_format($line->salesOrderLine->wtax_rate, 2) . '%' : '—' }}
+                                                                </td>
                                                                 <td>
                                                                     <input type="text" 
                                                                            name="lines[{{ $index }}][description]" 
@@ -246,7 +254,7 @@
                                                         <tr>
                                                             <th colspan="4" class="text-right">Total:</th>
                                                             <th class="text-right" id="total-amount">{{ number_format($deliveryOrder->total_amount, 2) }}</th>
-                                                            <th colspan="2"></th>
+                                                            <th colspan="4"></th>
                                                         </tr>
                                                     </tfoot>
                                                 </table>

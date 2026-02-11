@@ -147,6 +147,8 @@
                                                 <th class="text-right">Delivered Qty</th>
                                                 <th class="text-right">Unit Price</th>
                                                 <th class="text-right">Amount</th>
+                                                <th>VAT</th>
+                                                <th>WTax %</th>
                                                 <th>Status</th>
                                             </tr>
                                         </thead>
@@ -202,6 +204,8 @@
                                                     </td>
                                                     <td class="text-right">{{ number_format($line->unit_price, 2) }}</td>
                                                     <td class="text-right">{{ number_format($line->amount, 2) }}</td>
+                                                    <td class="text-muted">{{ $line->taxCode?->code ?? '—' }}</td>
+                                                    <td class="text-muted text-right">{{ optional($line->salesOrderLine)->wtax_rate ? number_format($line->salesOrderLine->wtax_rate, 2) . '%' : '—' }}</td>
                                                     <td class="line-status-cell">
                                                         <span
                                                             class="badge badge-{{ $line->status === 'delivered' ? 'success' : 'warning' }}">
@@ -213,10 +217,10 @@
                                         </tbody>
                                         <tfoot>
                                             <tr>
-                                                <th colspan="6" class="text-right">Total:</th>
+                                                <th colspan="7" class="text-right">Total:</th>
                                                 <th class="text-right">{{ number_format($deliveryOrder->total_amount, 2) }}
                                                 </th>
-                                                <th></th>
+                                                <th colspan="3"></th>
                                             </tr>
                                         </tfoot>
                                     </table>

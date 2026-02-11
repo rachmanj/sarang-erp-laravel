@@ -50,6 +50,15 @@
                                 </form>
                             @endif
                         @endcan
+                        @can('ar.invoices.create')
+                            @if ($invoice->status === 'draft')
+                                <form method="post" action="{{ route('sales-invoices.destroy', $invoice->id) }}" class="d-inline" onsubmit="return confirm('Delete this draft invoice?');">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button class="btn btn-sm btn-danger" type="submit"><i class="fas fa-trash mr-1"></i>Delete</button>
+                                </form>
+                            @endif
+                        @endcan
                         <a class="btn btn-sm btn-outline-secondary" href="{{ route('sales-invoices.print', $invoice->id) }}" target="_blank">
                             <i class="fas fa-print"></i> Print
                         </a>

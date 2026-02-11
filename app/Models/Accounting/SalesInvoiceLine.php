@@ -20,6 +20,7 @@ class SalesInvoiceLine extends Model
         'unit_price',
         'amount',
         'tax_code_id',
+        'wtax_rate',
         'project_id',
         'fund_id',
         'dept_id',
@@ -29,6 +30,7 @@ class SalesInvoiceLine extends Model
         'qty' => 'float',
         'unit_price' => 'float',
         'amount' => 'float',
+        'wtax_rate' => 'decimal:2',
     ];
 
     public function invoice(): BelongsTo
