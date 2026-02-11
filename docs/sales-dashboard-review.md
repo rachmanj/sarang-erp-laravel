@@ -209,12 +209,21 @@ resources/views/sales/dashboard.blade.php
    - `/sales/dashboard`: Sales dashboard route
    - Sidebar link updated to point to dashboard
 
+### Redesign Completed (2026-02-11)
+
+1. ✅ Executive Summary: 5 KPI cards (Sales MTD, Sales YTD, Open Pipeline, Outstanding AR, Collections MTD)
+2. ✅ Document-stage cards: SQ, SO, DO, SI, SR with status summaries and values
+3. ✅ Filters: Customer, date range, aging bucket (parity with Purchase Dashboard)
+4. ✅ AR aging: Overdue badge, High/Medium risk badges, Chart.js bar + pie
+5. ✅ Sales Funnel mini-widget: SQ → SO → DO → SI → SR counts
+6. ✅ Recent Invoices: Days Overdue column, overdue row highlighting
+
 ### Next Steps
 
 1. ✅ Implement Sales Dashboard following Purchase Dashboard pattern
 2. ✅ Add AR aging calculations
 3. ✅ Create comprehensive dashboard view
-4. Test with real data
+4. ✅ Test with real data
 5. Update documentation
 6. Consider adding date range filters
 7. Consider adding export functionality

@@ -7,6 +7,7 @@ use App\Models\Accounting\SalesReceipt;
 use App\Models\DeliveryOrder;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderApproval;
+use App\Models\SalesQuotation;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -17,39 +18,91 @@ class SalesDashboardDataService
     private const CACHE_KEY = 'dashboard:data:sales';
     private const CACHE_TTL = 300;
 
-    public function getSalesDashboardData(bool $refresh = false): array
+    public function getSalesDashboardData(array $filters = [], bool $refresh = false): array
     {
+        $hasFilters = !empty(array_filter($filters, fn ($v) => $v !== null && $v !== ''));
+
+        if ($hasFilters) {
+            return $this->buildDashboardPayload($filters);
+        }
+
         if ($refresh) {
             Cache::forget(self::CACHE_KEY);
         }
 
         return Cache::remember(self::CACHE_KEY, self::CACHE_TTL, function () {
-            return [
-                'meta' => [
-                    'generated_at' => now()->toIso8601String(),
-                    'cache_ttl_seconds' => self::CACHE_TTL,
-                ],
-                'kpis' => $this->buildSalesKpis(),
-                'ar_aging' => $this->buildArAging(),
-                'sales_orders' => $this->buildSalesOrderStats(),
-                'sales_invoices' => $this->buildSalesInvoiceStats(),
-                'delivery_orders' => $this->buildDeliveryOrderStats(),
-                'customers' => $this->buildCustomerStats(),
-                'recent_invoices' => $this->getRecentInvoices(),
-            ];
+            return $this->buildDashboardPayload([]);
         });
     }
 
-    private function buildSalesKpis(): array
+    private function buildDashboardPayload(array $filters): array
+    {
+        return [
+            'meta' => [
+                'generated_at' => now()->toIso8601String(),
+                'cache_ttl_seconds' => self::CACHE_TTL,
+                'filters' => $filters,
+            ],
+            'overview' => $this->buildSalesOverview($filters),
+            'kpis' => $this->buildSalesKpis($filters),
+            'ar_aging' => $this->buildArAging($filters),
+            'sales_quotations' => $this->buildSalesQuotationStats($filters),
+            'sales_orders' => $this->buildSalesOrderStats(),
+            'sales_invoices' => $this->buildSalesInvoiceStats($filters),
+            'delivery_orders' => $this->buildDeliveryOrderStats(),
+            'sales_receipts' => $this->buildSalesReceiptStats($filters),
+            'funnel' => $this->getSalesFunnelCounts(),
+            'customers' => $this->buildCustomerStats($filters),
+            'recent_invoices' => $this->getRecentInvoices($filters),
+        ];
+    }
+
+    private function buildSalesOverview(array $filters = []): array
+    {
+        $today = Carbon::today();
+        $monthStart = $today->copy()->startOfMonth();
+        $yearStart = $today->copy()->startOfYear();
+
+        $siQuery = SalesInvoice::where('status', 'posted');
+        if (!empty($filters['customer_id'])) {
+            $siQuery->where('business_partner_id', (int) $filters['customer_id']);
+        }
+
+        $salesMtd = (clone $siQuery)->whereBetween('date', [$monthStart, $today])->sum('total_amount');
+        $salesYtd = (clone $siQuery)->whereBetween('date', [$yearStart, $today])->sum('total_amount');
+        $openPipelineValue = SalesOrder::where('closure_status', 'open')
+            ->whereNotIn('status', ['draft', 'cancelled', 'closed'])
+            ->sum('total_amount');
+        $outstandingAr = $this->calculateOutstandingAr($filters);
+
+        $srQuery = SalesReceipt::whereNotNull('posted_at');
+        if (!empty($filters['customer_id'])) {
+            $srQuery->where('business_partner_id', (int) $filters['customer_id']);
+        }
+        $collectionsMtd = (clone $srQuery)->whereBetween('date', [$monthStart, $today])->sum('total_amount');
+
+        return [
+            'sales_mtd' => (float) $salesMtd,
+            'sales_ytd' => (float) $salesYtd,
+            'open_pipeline_value' => (float) $openPipelineValue,
+            'outstanding_ar' => (float) $outstandingAr,
+            'collections_mtd' => (float) $collectionsMtd,
+        ];
+    }
+
+    private function buildSalesKpis(array $filters = []): array
     {
         $today = Carbon::today();
         $monthStart = $today->copy()->startOfMonth();
 
-        $salesMtd = SalesInvoice::whereBetween('date', [$monthStart, $today])
-            ->where('status', 'posted')
-            ->sum('total_amount');
+        $siQuery = SalesInvoice::whereBetween('date', [$monthStart, $today])
+            ->where('status', 'posted');
+        if (!empty($filters['customer_id'])) {
+            $siQuery->where('business_partner_id', (int) $filters['customer_id']);
+        }
+        $salesMtd = $siQuery->sum('total_amount');
 
-        $outstandingAr = $this->calculateOutstandingAr();
+        $outstandingAr = $this->calculateOutstandingAr($filters);
 
         $pendingSalesApprovals = SalesOrderApproval::where('status', 'pending')->count();
 
@@ -65,9 +118,76 @@ class SalesDashboardDataService
         ];
     }
 
-    private function buildArAging(): array
+    private function buildSalesQuotationStats(array $filters = []): array
     {
-        $invoices = DB::table('sales_invoices as si')
+        $query = SalesQuotation::query();
+        if (!empty($filters['customer_id'])) {
+            $query->where('business_partner_id', (int) $filters['customer_id']);
+        }
+        if (!empty($filters['date_from'])) {
+            $query->whereDate('date', '>=', $filters['date_from']);
+        }
+        if (!empty($filters['date_to'])) {
+            $query->whereDate('date', '<=', $filters['date_to']);
+        }
+
+        $total = (clone $query)->count();
+        $pending = (clone $query)->whereIn('status', ['draft', 'sent'])->count();
+        $accepted = (clone $query)->where('status', 'accepted')->count();
+        $converted = (clone $query)->where('status', 'converted')->count();
+        $openValue = (clone $query)->whereNotIn('status', ['converted', 'rejected', 'expired'])
+            ->sum('total_amount');
+
+        return [
+            'total' => $total,
+            'pending' => $pending,
+            'accepted' => $accepted,
+            'converted' => $converted,
+            'open_value' => (float) $openValue,
+        ];
+    }
+
+    private function buildSalesReceiptStats(array $filters = []): array
+    {
+        $query = SalesReceipt::whereNotNull('posted_at');
+        if (!empty($filters['customer_id'])) {
+            $query->where('business_partner_id', (int) $filters['customer_id']);
+        }
+        if (!empty($filters['date_from'])) {
+            $query->whereDate('date', '>=', $filters['date_from']);
+        }
+        if (!empty($filters['date_to'])) {
+            $query->whereDate('date', '<=', $filters['date_to']);
+        }
+
+        $today = Carbon::today();
+        $monthStart = $today->copy()->startOfMonth();
+
+        $total = (clone $query)->count();
+        $totalPosted = (clone $query)->sum('total_amount');
+        $mtdCollected = (clone $query)->whereBetween('date', [$monthStart, $today])->sum('total_amount');
+
+        return [
+            'total' => $total,
+            'total_posted' => (float) $totalPosted,
+            'mtd_collected' => (float) $mtdCollected,
+        ];
+    }
+
+    private function getSalesFunnelCounts(): array
+    {
+        return [
+            'sq_count' => SalesQuotation::count(),
+            'so_count' => SalesOrder::count(),
+            'do_count' => DeliveryOrder::count(),
+            'si_count' => SalesInvoice::count(),
+            'sr_count' => SalesReceipt::whereNotNull('posted_at')->count(),
+        ];
+    }
+
+    private function buildArAging(array $filters = []): array
+    {
+        $invoicesQuery = DB::table('sales_invoices as si')
             ->leftJoin('sales_receipt_allocations as sra', 'sra.invoice_id', '=', 'si.id')
             ->select(
                 'si.id',
@@ -80,7 +200,19 @@ class SalesDashboardDataService
                 DB::raw('(si.total_amount - COALESCE(SUM(sra.amount), 0)) as outstanding_amount')
             )
             ->where('si.closure_status', 'open')
-            ->where('si.status', 'posted')
+            ->where('si.status', 'posted');
+
+        if (!empty($filters['customer_id'])) {
+            $invoicesQuery->where('si.business_partner_id', (int) $filters['customer_id']);
+        }
+        if (!empty($filters['date_from'])) {
+            $invoicesQuery->whereDate('si.date', '>=', $filters['date_from']);
+        }
+        if (!empty($filters['date_to'])) {
+            $invoicesQuery->whereDate('si.date', '<=', $filters['date_to']);
+        }
+
+        $invoices = $invoicesQuery
             ->groupBy('si.id', 'si.invoice_no', 'si.date', 'si.due_date', 'si.total_amount', 'si.business_partner_id')
             ->get();
 
@@ -138,15 +270,20 @@ class SalesDashboardDataService
             ];
         }
 
+        $detailed = collect($detailedAging)->sortByDesc('days_past_due');
+        if (!empty($filters['aging_bucket'])) {
+            $detailed = $detailed->where('bucket', $filters['aging_bucket']);
+        }
+
         return [
             'buckets' => $buckets,
-            'detailed' => collect($detailedAging)->sortByDesc('days_past_due')->values()->take(20),
+            'detailed' => $detailed->values()->take(50),
         ];
     }
 
-    private function calculateOutstandingAr(): float
+    private function calculateOutstandingAr(array $filters = []): float
     {
-        $result = DB::table('sales_invoices as si')
+        $resultQuery = DB::table('sales_invoices as si')
             ->leftJoin('sales_receipt_allocations as sra', 'sra.invoice_id', '=', 'si.id')
             ->select(
                 'si.id',
@@ -154,9 +291,19 @@ class SalesDashboardDataService
                 DB::raw('COALESCE(SUM(sra.amount), 0) as paid_amount')
             )
             ->where('si.closure_status', 'open')
-            ->where('si.status', 'posted')
-            ->groupBy('si.id', 'si.total_amount')
-            ->get();
+            ->where('si.status', 'posted');
+
+        if (!empty($filters['customer_id'])) {
+            $resultQuery->where('si.business_partner_id', (int) $filters['customer_id']);
+        }
+        if (!empty($filters['date_from'])) {
+            $resultQuery->whereDate('si.date', '>=', $filters['date_from']);
+        }
+        if (!empty($filters['date_to'])) {
+            $resultQuery->whereDate('si.date', '<=', $filters['date_to']);
+        }
+
+        $result = $resultQuery->groupBy('si.id', 'si.total_amount')->get();
 
         return (float) $result->sum(function ($invoice) {
             return max(0, (float) $invoice->total_amount - (float) $invoice->paid_amount);
@@ -186,17 +333,26 @@ class SalesDashboardDataService
         ];
     }
 
-    private function buildSalesInvoiceStats(): array
+    private function buildSalesInvoiceStats(array $filters = []): array
     {
-        $total = SalesInvoice::count();
-        $draft = SalesInvoice::where('status', 'draft')->count();
-        $posted = SalesInvoice::where('status', 'posted')->count();
-        $open = SalesInvoice::where('closure_status', 'open')
-            ->where('status', 'posted')
-            ->count();
+        $query = SalesInvoice::query();
+        if (!empty($filters['customer_id'])) {
+            $query->where('business_partner_id', (int) $filters['customer_id']);
+        }
+        if (!empty($filters['date_from'])) {
+            $query->whereDate('date', '>=', $filters['date_from']);
+        }
+        if (!empty($filters['date_to'])) {
+            $query->whereDate('date', '<=', $filters['date_to']);
+        }
 
-        $totalAmount = SalesInvoice::where('status', 'posted')->sum('total_amount');
-        $outstandingAmount = $this->calculateOutstandingAr();
+        $total = (clone $query)->count();
+        $draft = (clone $query)->where('status', 'draft')->count();
+        $posted = (clone $query)->where('status', 'posted')->count();
+        $open = (clone $query)->where('closure_status', 'open')->where('status', 'posted')->count();
+
+        $totalAmount = (clone $query)->where('status', 'posted')->sum('total_amount');
+        $outstandingAmount = $this->calculateOutstandingAr($filters);
 
         return [
             'total' => $total,
@@ -223,9 +379,9 @@ class SalesDashboardDataService
         ];
     }
 
-    private function buildCustomerStats(): array
+    private function buildCustomerStats(array $filters = []): array
     {
-        $topCustomers = DB::table('sales_invoices as si')
+        $topCustomersQuery = DB::table('sales_invoices as si')
             ->join('business_partners as bp', 'bp.id', '=', 'si.business_partner_id')
             ->leftJoin('sales_receipt_allocations as sra', 'sra.invoice_id', '=', 'si.id')
             ->select(
@@ -237,7 +393,19 @@ class SalesDashboardDataService
                 DB::raw('SUM(si.total_amount - COALESCE(sra.amount, 0)) as outstanding_amount')
             )
             ->where('si.status', 'posted')
-            ->where('si.closure_status', 'open')
+            ->where('si.closure_status', 'open');
+
+        if (!empty($filters['customer_id'])) {
+            $topCustomersQuery->where('si.business_partner_id', (int) $filters['customer_id']);
+        }
+        if (!empty($filters['date_from'])) {
+            $topCustomersQuery->whereDate('si.date', '>=', $filters['date_from']);
+        }
+        if (!empty($filters['date_to'])) {
+            $topCustomersQuery->whereDate('si.date', '<=', $filters['date_to']);
+        }
+
+        $topCustomers = $topCustomersQuery
             ->groupBy('bp.id', 'bp.name')
             ->orderByDesc('outstanding_amount')
             ->limit(10)
@@ -258,9 +426,11 @@ class SalesDashboardDataService
         ];
     }
 
-    private function getRecentInvoices(): Collection
+    private function getRecentInvoices(array $filters = []): Collection
     {
-        return DB::table('sales_invoices as si')
+        $today = Carbon::today();
+
+        $query = DB::table('sales_invoices as si')
             ->leftJoin('sales_receipt_allocations as sra', 'sra.invoice_id', '=', 'si.id')
             ->leftJoin('business_partners as bp', 'bp.id', '=', 'si.business_partner_id')
             ->select(
@@ -275,12 +445,43 @@ class SalesDashboardDataService
                 DB::raw('COALESCE(SUM(sra.amount), 0) as paid_amount'),
                 DB::raw('(si.total_amount - COALESCE(SUM(sra.amount), 0)) as outstanding_amount')
             )
-            ->where('si.status', 'posted')
+            ->where('si.status', 'posted');
+
+        if (!empty($filters['customer_id'])) {
+            $query->where('si.business_partner_id', (int) $filters['customer_id']);
+        }
+        if (!empty($filters['date_from'])) {
+            $query->whereDate('si.date', '>=', $filters['date_from']);
+        }
+        if (!empty($filters['date_to'])) {
+            $query->whereDate('si.date', '<=', $filters['date_to']);
+        }
+
+        return $query
             ->groupBy('si.id', 'si.invoice_no', 'si.date', 'si.due_date', 'si.total_amount', 'si.status', 'si.closure_status', 'bp.name')
             ->orderByDesc('si.date')
-            ->limit(10)
+            ->limit(20)
             ->get()
-            ->map(function ($invoice) {
+            ->map(function ($invoice) use ($today) {
+                $dueDate = $invoice->due_date
+                    ? Carbon::parse($invoice->due_date)
+                    : Carbon::parse($invoice->date)->addDays(30);
+                $daysPastDue = $dueDate->diffInDays($today, false);
+                $daysOverdue = $daysPastDue > 0 ? $daysPastDue : 0;
+
+                $bucket = 'current';
+                if ($daysOverdue > 0) {
+                    if ($daysOverdue <= 30) {
+                        $bucket = '1_30';
+                    } elseif ($daysOverdue <= 60) {
+                        $bucket = '31_60';
+                    } elseif ($daysOverdue <= 90) {
+                        $bucket = '61_90';
+                    } else {
+                        $bucket = '90_plus';
+                    }
+                }
+
                 return [
                     'id' => $invoice->id,
                     'invoice_no' => $invoice->invoice_no,
@@ -292,6 +493,8 @@ class SalesDashboardDataService
                     'status' => $invoice->status,
                     'closure_status' => $invoice->closure_status,
                     'customer_name' => $invoice->customer_name,
+                    'days_overdue' => $daysOverdue,
+                    'aging_bucket' => $bucket,
                 ];
             });
     }

@@ -11,67 +11,269 @@
 
 @section('content')
     @php
+        $overview = $dashboardData['overview'] ?? [];
         $kpis = $dashboardData['kpis'] ?? [];
         $arAging = $dashboardData['ar_aging'] ?? [];
+        $salesQuotations = $dashboardData['sales_quotations'] ?? [];
         $salesOrders = $dashboardData['sales_orders'] ?? [];
         $salesInvoices = $dashboardData['sales_invoices'] ?? [];
         $deliveryOrders = $dashboardData['delivery_orders'] ?? [];
+        $salesReceipts = $dashboardData['sales_receipts'] ?? [];
+        $funnel = $dashboardData['funnel'] ?? [];
         $customers = $dashboardData['customers'] ?? [];
         $recentInvoices = $dashboardData['recent_invoices'] ?? collect();
+        $filters = $filters ?? [];
+        $customersList = $customersList ?? collect();
     @endphp
 
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h4 class="mb-0">
-            Sales Dashboard - {{ __('As of :date', ['date' => now()->format('d M Y')]) }}
-        </h4>
-        <a href="{{ route('sales.dashboard', ['refresh' => 1]) }}" class="btn btn-sm btn-outline-secondary">
-            <i class="fas fa-sync-alt"></i> Refresh Data
-        </a>
+        <div>
+            <h4 class="mb-1">
+                Sales Dashboard - {{ __('As of :date', ['date' => now()->format('d M Y')]) }}
+            </h4>
+            @if (!empty($filters['customer_id']) || !empty($filters['date_from']) || !empty($filters['date_to']) || !empty($filters['aging_bucket']))
+                <span class="badge badge-info">Filters active</span>
+            @endif
+        </div>
+        <form method="GET" action="{{ route('sales.dashboard') }}" class="form-inline">
+            <div class="form-group mr-2">
+                <label for="customer_id" class="mr-2 mb-0">Customer</label>
+                <select name="customer_id" id="customer_id" class="form-control form-control-sm">
+                    <option value="">All</option>
+                    @foreach ($customersList as $customer)
+                        <option value="{{ $customer->id }}" @selected(($filters['customer_id'] ?? null) == $customer->id)>
+                            {{ $customer->name }}
+                        </option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="form-group mr-2">
+                <label for="date_from" class="mr-2 mb-0">From</label>
+                <input type="date" name="date_from" id="date_from" class="form-control form-control-sm"
+                    value="{{ $filters['date_from'] ?? '' }}">
+            </div>
+            <div class="form-group mr-2">
+                <label for="date_to" class="mr-2 mb-0">To</label>
+                <input type="date" name="date_to" id="date_to" class="form-control form-control-sm"
+                    value="{{ $filters['date_to'] ?? '' }}">
+            </div>
+            <div class="form-group mr-2">
+                <label for="aging_bucket" class="mr-2 mb-0">Aging</label>
+                <select name="aging_bucket" id="aging_bucket" class="form-control form-control-sm">
+                    <option value="">All</option>
+                    <option value="current" @selected(($filters['aging_bucket'] ?? null) === 'current')>Current</option>
+                    <option value="1_30" @selected(($filters['aging_bucket'] ?? null) === '1_30')>1-30</option>
+                    <option value="31_60" @selected(($filters['aging_bucket'] ?? null) === '31_60')>31-60</option>
+                    <option value="61_90" @selected(($filters['aging_bucket'] ?? null) === '61_90')>61-90</option>
+                    <option value="90_plus" @selected(($filters['aging_bucket'] ?? null) === '90_plus')>90+</option>
+                </select>
+            </div>
+            <button type="submit" class="btn btn-sm btn-primary mr-2">
+                <i class="fas fa-filter"></i> Apply
+            </button>
+            <a href="{{ route('sales.dashboard', ['refresh' => 1]) }}" class="btn btn-sm btn-outline-secondary">
+                <i class="fas fa-sync-alt"></i> Reset
+            </a>
+        </form>
     </div>
 
     <div class="row">
-        <div class="col-lg-3 col-6">
+        <div class="col-lg col-6">
             <div class="small-box bg-info">
                 <div class="inner">
-                    <h3>Rp {{ number_format(data_get($kpis, 'sales_mtd', 0), 0, ',', '.') }}</h3>
+                    <h3>Rp {{ number_format(data_get($overview, 'sales_mtd', 0), 0, ',', '.') }}</h3>
                     <p>Sales (MTD)</p>
                 </div>
                 <div class="icon"><i class="fas fa-cash-register"></i></div>
-                <a href="{{ route('sales-invoices.index') }}" class="small-box-footer">Sales Invoices <i
-                        class="fas fa-arrow-circle-right"></i></a>
+                <a href="{{ route('sales-invoices.index') }}" class="small-box-footer">Sales Invoices <i class="fas fa-arrow-circle-right"></i></a>
             </div>
         </div>
-        <div class="col-lg-3 col-6">
+        <div class="col-lg col-6">
+            <div class="small-box bg-primary">
+                <div class="inner">
+                    <h3>Rp {{ number_format(data_get($overview, 'sales_ytd', 0), 0, ',', '.') }}</h3>
+                    <p>Sales (YTD)</p>
+                </div>
+                <div class="icon"><i class="fas fa-chart-line"></i></div>
+                <a href="{{ route('sales-invoices.index') }}" class="small-box-footer">Sales Invoices <i class="fas fa-arrow-circle-right"></i></a>
+            </div>
+        </div>
+        <div class="col-lg col-6">
+            <div class="small-box bg-success">
+                <div class="inner">
+                    <h3>Rp {{ number_format(data_get($overview, 'open_pipeline_value', 0), 0, ',', '.') }}</h3>
+                    <p>Open Pipeline</p>
+                </div>
+                <div class="icon"><i class="fas fa-shopping-bag"></i></div>
+                <a href="{{ route('sales-orders.index') }}" class="small-box-footer">Sales Orders <i class="fas fa-arrow-circle-right"></i></a>
+            </div>
+        </div>
+        <div class="col-lg col-6">
             <div class="small-box bg-warning">
                 <div class="inner">
-                    <h3>Rp {{ number_format(data_get($kpis, 'outstanding_ar', 0), 0, ',', '.') }}</h3>
+                    <h3>Rp {{ number_format(data_get($overview, 'outstanding_ar', 0), 0, ',', '.') }}</h3>
                     <p>Outstanding AR</p>
                 </div>
                 <div class="icon"><i class="fas fa-file-invoice-dollar"></i></div>
-                <a href="{{ route('sales-invoices.index') }}" class="small-box-footer">View Invoices <i
-                        class="fas fa-arrow-circle-right"></i></a>
+                <a href="{{ route('sales-invoices.index') }}" class="small-box-footer">View Invoices <i class="fas fa-arrow-circle-right"></i></a>
             </div>
         </div>
-        <div class="col-lg-3 col-6">
-            <div class="small-box bg-danger">
+        <div class="col-lg col-6">
+            <div class="small-box bg-secondary">
                 <div class="inner">
-                    <h3>{{ number_format(data_get($kpis, 'pending_approvals', 0)) }}</h3>
-                    <p>Pending Approvals</p>
+                    <h3>Rp {{ number_format(data_get($overview, 'collections_mtd', 0), 0, ',', '.') }}</h3>
+                    <p>Collections (MTD)</p>
                 </div>
-                <div class="icon"><i class="fas fa-clipboard-check"></i></div>
-                <a href="{{ route('approvals.dashboard') }}" class="small-box-footer">Approval Queue <i
-                        class="fas fa-arrow-circle-right"></i></a>
+                <div class="icon"><i class="fas fa-money-bill-wave"></i></div>
+                <a href="{{ route('sales-receipts.index') }}" class="small-box-footer">Sales Receipts <i class="fas fa-arrow-circle-right"></i></a>
             </div>
         </div>
-        <div class="col-lg-3 col-6">
-            <div class="small-box bg-success">
-                <div class="inner">
-                    <h3>{{ number_format(data_get($kpis, 'open_sales_orders', 0)) }}</h3>
-                    <p>Open Sales Orders</p>
+    </div>
+
+    <div class="row">
+        <div class="col-xl-4">
+            <div class="card card-outline card-info">
+                <div class="card-header">
+                    <h3 class="card-title"><i class="fas fa-file-alt mr-2"></i>Sales Quotations</h3>
                 </div>
-                <div class="icon"><i class="fas fa-shopping-bag"></i></div>
-                <a href="{{ route('sales-orders.index') }}" class="small-box-footer">Sales Orders <i
-                        class="fas fa-arrow-circle-right"></i></a>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-sm-6 border-right">
+                            <h6 class="text-muted text-uppercase font-weight-bold">Status Summary</h6>
+                            <p class="mb-1">Total: <strong>{{ number_format(data_get($salesQuotations, 'total', 0)) }}</strong></p>
+                            <p class="mb-1">Pending: <strong>{{ number_format(data_get($salesQuotations, 'pending', 0)) }}</strong></p>
+                            <p class="mb-1">Accepted: <strong>{{ number_format(data_get($salesQuotations, 'accepted', 0)) }}</strong></p>
+                            <p class="mb-0">Converted: <strong>{{ number_format(data_get($salesQuotations, 'converted', 0)) }}</strong></p>
+                        </div>
+                        <div class="col-sm-6">
+                            <h6 class="text-muted text-uppercase font-weight-bold">Value</h6>
+                            <p class="mb-0">
+                                <span class="text-muted d-block">Open Value</span>
+                                <strong>Rp {{ number_format(data_get($salesQuotations, 'open_value', 0), 0, ',', '.') }}</strong>
+                            </p>
+                        </div>
+                    </div>
+                    <a href="{{ route('sales-quotations.index') }}" class="btn btn-sm btn-outline-info">
+                        View Sales Quotations
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-4">
+            <div class="card card-outline card-success">
+                <div class="card-header">
+                    <h3 class="card-title"><i class="fas fa-shopping-bag mr-2"></i>Sales Orders</h3>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-sm-6 border-right">
+                            <h6 class="text-muted text-uppercase font-weight-bold">Status Summary</h6>
+                            <p class="mb-1">Total: <strong>{{ number_format(data_get($salesOrders, 'total', 0)) }}</strong></p>
+                            <p class="mb-1">Draft: <strong>{{ number_format(data_get($salesOrders, 'draft', 0)) }}</strong></p>
+                            <p class="mb-1">Approved: <strong>{{ number_format(data_get($salesOrders, 'approved', 0)) }}</strong></p>
+                            <p class="mb-1">Closed: <strong>{{ number_format(data_get($salesOrders, 'closed', 0)) }}</strong></p>
+                            <p class="mb-0">Open: <strong>{{ number_format(data_get($salesOrders, 'open', 0)) }}</strong></p>
+                        </div>
+                        <div class="col-sm-6">
+                            <h6 class="text-muted text-uppercase font-weight-bold">Value</h6>
+                            <p class="mb-0">
+                                <span class="text-muted d-block">Open SO Value</span>
+                                <strong>Rp {{ number_format(data_get($salesOrders, 'total_value', 0), 0, ',', '.') }}</strong>
+                            </p>
+                        </div>
+                    </div>
+                    <a href="{{ route('sales-orders.index') }}" class="btn btn-sm btn-outline-success">
+                        View Sales Orders
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-4">
+            <div class="card card-outline card-warning">
+                <div class="card-header">
+                    <h3 class="card-title"><i class="fas fa-truck mr-2"></i>Delivery Orders</h3>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-sm-6 border-right">
+                            <h6 class="text-muted text-uppercase font-weight-bold">Status Summary</h6>
+                            <p class="mb-1">Total: <strong>{{ number_format(data_get($deliveryOrders, 'total', 0)) }}</strong></p>
+                            <p class="mb-1">Pending: <strong>{{ number_format(data_get($deliveryOrders, 'pending', 0)) }}</strong></p>
+                            <p class="mb-1">Delivered: <strong>{{ number_format(data_get($deliveryOrders, 'delivered', 0)) }}</strong></p>
+                            <p class="mb-0">Completed: <strong>{{ number_format(data_get($deliveryOrders, 'completed', 0)) }}</strong></p>
+                        </div>
+                        <div class="col-sm-6">
+                            <h6 class="text-muted text-uppercase font-weight-bold">Actions</h6>
+                            <a href="{{ route('delivery-orders.index') }}" class="btn btn-sm btn-outline-warning">
+                                View Delivery Orders
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-xl-6">
+            <div class="card card-outline card-info">
+                <div class="card-header">
+                    <h3 class="card-title"><i class="fas fa-file-invoice-dollar mr-2"></i>Sales Invoices</h3>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-sm-6 border-right">
+                            <h6 class="text-muted text-uppercase font-weight-bold">Status Summary</h6>
+                            <p class="mb-1">Total: <strong>{{ number_format(data_get($salesInvoices, 'total', 0)) }}</strong></p>
+                            <p class="mb-1">Draft: <strong>{{ number_format(data_get($salesInvoices, 'draft', 0)) }}</strong></p>
+                            <p class="mb-1">Posted: <strong>{{ number_format(data_get($salesInvoices, 'posted', 0)) }}</strong></p>
+                            <p class="mb-0">Open: <strong>{{ number_format(data_get($salesInvoices, 'open', 0)) }}</strong></p>
+                        </div>
+                        <div class="col-sm-6">
+                            <h6 class="text-muted text-uppercase font-weight-bold">Amounts</h6>
+                            <p class="mb-1">
+                                <span class="text-muted d-block">Total Amount</span>
+                                <strong>Rp {{ number_format(data_get($salesInvoices, 'total_amount', 0), 0, ',', '.') }}</strong>
+                            </p>
+                            <p class="mb-0">
+                                <span class="text-muted d-block">Outstanding</span>
+                                <strong class="text-warning">Rp {{ number_format(data_get($salesInvoices, 'outstanding_amount', 0), 0, ',', '.') }}</strong>
+                            </p>
+                        </div>
+                    </div>
+                    <a href="{{ route('sales-invoices.index') }}" class="btn btn-sm btn-outline-info">
+                        View Sales Invoices
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-6">
+            <div class="card card-outline card-secondary">
+                <div class="card-header">
+                    <h3 class="card-title"><i class="fas fa-money-bill-wave mr-2"></i>Sales Receipts</h3>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-sm-6 border-right">
+                            <h6 class="text-muted text-uppercase font-weight-bold">Summary</h6>
+                            <p class="mb-1">Posted: <strong>{{ number_format(data_get($salesReceipts, 'total', 0)) }}</strong></p>
+                            <p class="mb-0">
+                                <span class="text-muted d-block">Total Collected</span>
+                                <strong>Rp {{ number_format(data_get($salesReceipts, 'total_posted', 0), 0, ',', '.') }}</strong>
+                            </p>
+                        </div>
+                        <div class="col-sm-6">
+                            <h6 class="text-muted text-uppercase font-weight-bold">MTD</h6>
+                            <p class="mb-0">
+                                <span class="text-muted d-block">Collections MTD</span>
+                                <strong>Rp {{ number_format(data_get($salesReceipts, 'mtd_collected', 0), 0, ',', '.') }}</strong>
+                            </p>
+                        </div>
+                    </div>
+                    <a href="{{ route('sales-receipts.index') }}" class="btn btn-sm btn-outline-secondary">
+                        View Sales Receipts
+                    </a>
+                </div>
             </div>
         </div>
     </div>
@@ -149,96 +351,60 @@
                             </div>
                         </div>
                     @endif
+                    <div class="mb-2">
+                        <span class="badge badge-danger mr-2">
+                            Overdue (31+ days): Rp
+                            {{ number_format(data_get($buckets, '31_60', 0) + data_get($buckets, '61_90', 0) + data_get($buckets, '90_plus', 0), 0, ',', '.') }}
+                        </span>
+                        @if (data_get($buckets, '90_plus', 0) > 0)
+                            <span class="badge badge-danger">High risk: invoices > 90 days overdue</span>
+                        @elseif (data_get($buckets, '61_90', 0) > 0)
+                            <span class="badge badge-warning">Medium risk: invoices 61-90 days overdue</span>
+                        @endif
+                    </div>
                     <a href="{{ route('sales-invoices.index') }}" class="btn btn-sm btn-outline-primary">
                         View All Invoices
                     </a>
+                    @if (!empty($filters['aging_bucket']))
+                        <span class="badge badge-info ml-2">
+                            Showing details for aging bucket:
+                            {{ str_replace(['current', '1_30', '31_60', '61_90', '90_plus'], ['Current', '1-30', '31-60', '61-90', '90+'], $filters['aging_bucket']) }}
+                        </span>
+                    @endif
+                    <div class="mt-3">
+                        <canvas id="arAgingBarChart" height="140"></canvas>
+                    </div>
+                    <div class="mt-3">
+                        <canvas id="arAgingPieChart" height="140"></canvas>
+                    </div>
                 </div>
             </div>
         </div>
         <div class="col-xl-6">
             <div class="card card-outline card-success">
                 <div class="card-header">
-                    <h3 class="card-title"><i class="fas fa-shopping-bag mr-2"></i>Sales Orders Overview</h3>
+                    <h3 class="card-title"><i class="fas fa-filter mr-2"></i>Sales Funnel</h3>
                 </div>
                 <div class="card-body">
-                    <div class="row mb-3">
-                        <div class="col-sm-6 border-right">
-                            <h6 class="text-muted text-uppercase font-weight-bold">Status Summary</h6>
-                            <p class="mb-1">Total: <strong>{{ number_format(data_get($salesOrders, 'total', 0)) }}</strong></p>
-                            <p class="mb-1">Draft: <strong>{{ number_format(data_get($salesOrders, 'draft', 0)) }}</strong></p>
-                            <p class="mb-1">Approved: <strong>{{ number_format(data_get($salesOrders, 'approved', 0)) }}</strong></p>
-                            <p class="mb-1">Closed: <strong>{{ number_format(data_get($salesOrders, 'closed', 0)) }}</strong></p>
-                            <p class="mb-0">Open: <strong>{{ number_format(data_get($salesOrders, 'open', 0)) }}</strong></p>
-                        </div>
-                        <div class="col-sm-6">
-                            <h6 class="text-muted text-uppercase font-weight-bold">Value</h6>
-                            <p class="mb-0">
-                                <span class="text-muted d-block">Open SO Value</span>
-                                <strong>Rp {{ number_format(data_get($salesOrders, 'total_value', 0), 0, ',', '.') }}</strong>
-                            </p>
-                        </div>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span><i class="fas fa-file-alt text-info mr-2"></i>Sales Quotations</span>
+                        <strong>{{ number_format(data_get($funnel, 'sq_count', 0)) }}</strong>
                     </div>
-                    <a href="{{ route('sales-orders.index') }}" class="btn btn-sm btn-outline-success">
-                        View Sales Orders
-                    </a>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="row">
-        <div class="col-xl-6">
-            <div class="card card-outline card-info">
-                <div class="card-header">
-                    <h3 class="card-title"><i class="fas fa-file-invoice-dollar mr-2"></i>Sales Invoices Overview</h3>
-                </div>
-                <div class="card-body">
-                    <div class="row mb-3">
-                        <div class="col-sm-6 border-right">
-                            <h6 class="text-muted text-uppercase font-weight-bold">Status Summary</h6>
-                            <p class="mb-1">Total: <strong>{{ number_format(data_get($salesInvoices, 'total', 0)) }}</strong></p>
-                            <p class="mb-1">Draft: <strong>{{ number_format(data_get($salesInvoices, 'draft', 0)) }}</strong></p>
-                            <p class="mb-1">Posted: <strong>{{ number_format(data_get($salesInvoices, 'posted', 0)) }}</strong></p>
-                            <p class="mb-0">Open: <strong>{{ number_format(data_get($salesInvoices, 'open', 0)) }}</strong></p>
-                        </div>
-                        <div class="col-sm-6">
-                            <h6 class="text-muted text-uppercase font-weight-bold">Amounts</h6>
-                            <p class="mb-1">
-                                <span class="text-muted d-block">Total Amount</span>
-                                <strong>Rp {{ number_format(data_get($salesInvoices, 'total_amount', 0), 0, ',', '.') }}</strong>
-                            </p>
-                            <p class="mb-0">
-                                <span class="text-muted d-block">Outstanding</span>
-                                <strong class="text-warning">Rp {{ number_format(data_get($salesInvoices, 'outstanding_amount', 0), 0, ',', '.') }}</strong>
-                            </p>
-                        </div>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span><i class="fas fa-shopping-bag text-success mr-2"></i>Sales Orders</span>
+                        <strong>{{ number_format(data_get($funnel, 'so_count', 0)) }}</strong>
                     </div>
-                    <a href="{{ route('sales-invoices.index') }}" class="btn btn-sm btn-outline-info">
-                        View Sales Invoices
-                    </a>
-                </div>
-            </div>
-        </div>
-        <div class="col-xl-6">
-            <div class="card card-outline card-warning">
-                <div class="card-header">
-                    <h3 class="card-title"><i class="fas fa-truck mr-2"></i>Delivery Orders Overview</h3>
-                </div>
-                <div class="card-body">
-                    <div class="row mb-3">
-                        <div class="col-sm-6 border-right">
-                            <h6 class="text-muted text-uppercase font-weight-bold">Status Summary</h6>
-                            <p class="mb-1">Total: <strong>{{ number_format(data_get($deliveryOrders, 'total', 0)) }}</strong></p>
-                            <p class="mb-1">Pending: <strong>{{ number_format(data_get($deliveryOrders, 'pending', 0)) }}</strong></p>
-                            <p class="mb-1">Delivered: <strong>{{ number_format(data_get($deliveryOrders, 'delivered', 0)) }}</strong></p>
-                            <p class="mb-0">Completed: <strong>{{ number_format(data_get($deliveryOrders, 'completed', 0)) }}</strong></p>
-                        </div>
-                        <div class="col-sm-6">
-                            <h6 class="text-muted text-uppercase font-weight-bold">Actions</h6>
-                            <a href="{{ route('delivery-orders.index') }}" class="btn btn-sm btn-outline-warning mb-2">
-                                View Delivery Orders
-                            </a>
-                        </div>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span><i class="fas fa-truck text-warning mr-2"></i>Delivery Orders</span>
+                        <strong>{{ number_format(data_get($funnel, 'do_count', 0)) }}</strong>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span><i class="fas fa-file-invoice-dollar text-primary mr-2"></i>Sales Invoices</span>
+                        <strong>{{ number_format(data_get($funnel, 'si_count', 0)) }}</strong>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span><i class="fas fa-money-bill-wave text-secondary mr-2"></i>Sales Receipts</span>
+                        <strong>{{ number_format(data_get($funnel, 'sr_count', 0)) }}</strong>
                     </div>
                 </div>
             </div>
@@ -298,12 +464,16 @@
                                     <th>Customer</th>
                                     <th class="text-right">Amount</th>
                                     <th class="text-right">Outstanding</th>
+                                    <th class="text-right">Days Overdue</th>
                                     <th>Status</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @forelse ($recentInvoices as $invoice)
-                                    <tr>
+                                    @php
+                                        $isOverdue = ($invoice['days_overdue'] ?? 0) > 0 && $invoice['outstanding_amount'] > 0;
+                                    @endphp
+                                    <tr class="{{ $isOverdue ? 'table-warning' : '' }}">
                                         <td>
                                             <a href="{{ route('sales-invoices.show', $invoice['id']) }}">
                                                 {{ $invoice['invoice_no'] }}
@@ -317,6 +487,7 @@
                                                 Rp {{ number_format($invoice['outstanding_amount'], 0, ',', '.') }}
                                             </strong>
                                         </td>
+                                        <td class="text-right">{{ $invoice['days_overdue'] ?? 0 }}</td>
                                         <td>
                                             @if ($invoice['closure_status'] === 'open')
                                                 <span class="badge badge-warning">Open</span>
@@ -327,7 +498,7 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="6" class="text-center text-muted">{{ __('No recent invoices') }}</td>
+                                        <td colspan="7" class="text-center text-muted">{{ __('No recent invoices') }}</td>
                                     </tr>
                                 @endforelse
                             </tbody>
@@ -354,6 +525,88 @@
 @endpush
 
 @push('scripts')
+    <script src="{{ asset('adminlte/plugins/chart.js/Chart.min.js') }}"></script>
+    <script>
+        (function() {
+            const buckets = @json(data_get($arAging, 'buckets', []));
+            const total = buckets.total || 0;
+
+            const labels = ['Current', '1-30', '31-60', '61-90', '90+'];
+            const values = [
+                buckets.current || 0,
+                buckets['1_30'] || 0,
+                buckets['31_60'] || 0,
+                buckets['61_90'] || 0,
+                buckets['90_plus'] || 0
+            ];
+
+            const colors = ['#28a745', '#17a2b8', '#ffc107', '#ff9800', '#dc3545'];
+
+            const barCtx = document.getElementById('arAgingBarChart');
+            if (barCtx && total > 0) {
+                new Chart(barCtx.getContext('2d'), {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Outstanding (Rp)',
+                            data: values,
+                            backgroundColor: colors
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            yAxes: [{
+                                ticks: {
+                                    beginAtZero: true,
+                                    callback: function(value) {
+                                        return value.toLocaleString('id-ID');
+                                    }
+                                }
+                            }]
+                        },
+                        tooltips: {
+                            callbacks: {
+                                label: function(tooltipItem) {
+                                    return 'Rp ' + Number(tooltipItem.yLabel).toLocaleString('id-ID');
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            const pieCtx = document.getElementById('arAgingPieChart');
+            if (pieCtx && total > 0) {
+                new Chart(pieCtx.getContext('2d'), {
+                    type: 'pie',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            data: values,
+                            backgroundColor: colors
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        tooltips: {
+                            callbacks: {
+                                label: function(tooltipItem, data) {
+                                    const value = data.datasets[0].data[tooltipItem.index] || 0;
+                                    const percent = total > 0 ? (value / total * 100) : 0;
+                                    return data.labels[tooltipItem.index] + ': Rp ' +
+                                        Number(value).toLocaleString('id-ID') + ' (' + percent.toFixed(1) + '%)';
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        })();
+    </script>
     @if (session('status'))
         <script>
             toastr.success(@json(session('status')));

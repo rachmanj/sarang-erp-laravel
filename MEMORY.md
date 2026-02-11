@@ -1,5 +1,5 @@
 **Purpose**: AI's persistent knowledge base for project context and learnings
-**Last Updated**: 2026-02-09 (Delivery Order Inventory Reduction Fix)
+**Last Updated**: 2026-02-11 (Sales Dashboard Redesign)
 
 ## Memory Maintenance Guidelines
 
@@ -622,6 +622,14 @@
 **Key Learning**: Reduce stock at pick, not delivery, because picked goods are physically out of the warehouse and in transit—reducing only at delivery would allow in-transit stock to appear "available" and be double-sold. Use `max(picked_qty, delivered_qty)` to handle both pick-first and skip-pick flows. Laravel 11+ projects may register commands explicitly in Kernel instead of auto-discovery.
 
 ### [084] Prevent Multiple Sales Invoices from Same Delivery Order (2026-02-11) ✅ COMPLETE
+
+### [085] Sales Dashboard Redesign – Comprehensive Sales Overview (2026-02-11) ✅ COMPLETE
+
+**Challenge**: Sales dashboard lacked summary information for SQ, DO, SI, SR and parity with Purchase Dashboard features (filters, AR aging visualizations, executive metrics).
+
+**Solution**: Redesigned SalesDashboardDataService with buildSalesOverview (5 KPIs: Sales MTD, YTD, Open Pipeline, Outstanding AR, Collections MTD), buildSalesQuotationStats, buildSalesReceiptStats, getSalesFunnelCounts. Added filters (customer, date range, aging bucket) with cache bypass when filters active. Enhanced AR aging with Overdue badge, High/Medium risk badges, Chart.js bar/pie. Added Sales Funnel widget and Days Overdue column in Recent Invoices. All users see all dashboard sections; no permission-based hiding.
+
+**Key Learning**: Sales dashboard now provides full sales-cycle visibility (SQ → SO → DO → SI → SR) with executive summary, filter parity with Purchase Dashboard, and AR aging visualization. Follow buildDashboardPayload pattern for filter-aware cached dashboards.
 
 **Challenge**: Multiple Sales Invoices (e.g. 71260800002, 71260800003, 71260800004) were created from the same Delivery Order (DO #1), all with the same total amount and customer. Document closure was not working: `canCloseDeliveryOrder` used wrong column names (`quantity` instead of `delivered_qty`/`qty`), and DeliveryOrder model lacked closure fields in `fillable`.
 

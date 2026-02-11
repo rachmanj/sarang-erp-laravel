@@ -256,18 +256,16 @@
                                             <table class="table table-sm table-striped mb-0" id="lines-table">
                                                 <thead>
                                                     <tr>
-                                                        <th style="width: 18%">Revenue Account <span
+                                                        <th style="width: 22%">Revenue Account <span
                                                                 class="text-danger">*</span></th>
-                                                        <th style="width: 10%">Item Code</th>
-                                                        <th style="width: 15%">Item Name</th>
-                                                        <th style="width: 15%">Description</th>
-                                                        <th style="width: 8%">Qty <span class="text-danger">*</span></th>
-                                                        <th style="width: 10%">Unit Price <span
+                                                        <th style="width: 12%">Item Code</th>
+                                                        <th style="width: 20%">Item Name</th>
+                                                        <th style="width: 10%">Qty <span class="text-danger">*</span></th>
+                                                        <th style="width: 12%">Unit Price <span
                                                                 class="text-danger">*</span>
                                                         </th>
-                                                        <th style="width: 8%">VAT</th>
-                                                        <th style="width: 8%">WTax %</th>
-                                                        <th style="width: 8%">Project</th>
+                                                        <th style="width: 10%">VAT</th>
+                                                        <th style="width: 10%">WTax</th>
                                                         <th style="width: 6%">Actions</th>
                                                     </tr>
                                                 </thead>
@@ -279,10 +277,9 @@
                                                                     @if (!empty($line['inventory_item_id']))
                                                                         <input type="hidden" name="lines[{{ $index }}][inventory_item_id]" value="{{ $line['inventory_item_id'] }}">
                                                                     @endif
-                                                                    @if (!empty($line['item_code']) || !empty($line['item_name']))
-                                                                        <input type="hidden" name="lines[{{ $index }}][item_code]" value="{{ $line['item_code'] ?? '' }}">
-                                                                        <input type="hidden" name="lines[{{ $index }}][item_name]" value="{{ $line['item_name'] ?? '' }}">
-                                                                    @endif
+                                                                    <input type="hidden" name="lines[{{ $index }}][description]" value="{{ $line['description'] ?? $line['item_name'] ?? '' }}">
+                                                                    <input type="hidden" name="lines[{{ $index }}][item_code]" value="{{ $line['item_code'] ?? '' }}">
+                                                                    <input type="hidden" name="lines[{{ $index }}][item_name]" value="{{ $line['item_name'] ?? '' }}">
                                                                     @if (!empty($line['has_inventory_item']) && !empty($line['account_id']))
                                                                         <input type="hidden" name="lines[{{ $index }}][account_id]" value="{{ $line['account_id'] }}">
                                                                         <input type="text" class="form-control form-control-sm" value="{{ $line['account_display'] ?? '' }}" readonly style="background-color: #e9ecef;" title="Auto-filled from inventory category">
@@ -316,13 +313,6 @@
                                                                         style="background-color: #e9ecef;">
                                                                 </td>
                                                                 <td>
-                                                                    <input type="text"
-                                                                        name="lines[{{ $index }}][description]"
-                                                                        class="form-control form-control-sm"
-                                                                        placeholder="Description"
-                                                                        value="{{ $line['description'] ?? $line['item_name'] ?? '' }}">
-                                                                </td>
-                                                                <td>
                                                                     <input type="number" step="0.01" min="0.01"
                                                                         name="lines[{{ $index }}][qty]"
                                                                         class="form-control form-control-sm text-right qty-input"
@@ -336,12 +326,12 @@
                                                                 </td>
                                                                 <td>
                                                                     <select name="lines[{{ $index }}][tax_code_id]"
-                                                                        class="form-control form-control-sm select2bs4">
-                                                                        <option value="">-- none --</option>
-                                                                        @foreach ($taxCodes as $t)
-                                                                            <option value="{{ $t->id }}"
+                                                                        class="form-control form-control-sm vat-select">
+                                                                        <option value="">No</option>
+                                                                        @foreach ($vatTaxCodes ?? [] as $t)
+                                                                            <option value="{{ $t->id }}" data-rate="{{ $t->rate }}"
                                                                                 {{ isset($line['tax_code_id']) && $line['tax_code_id'] == $t->id ? 'selected' : '' }}>
-                                                                                {{ $t->code }}</option>
+                                                                                {{ (int)$t->rate }}%</option>
                                                                         @endforeach
                                                                     </select>
                                                                 </td>
@@ -350,19 +340,6 @@
                                                                         class="form-control form-control-sm wtax-select">
                                                                         <option value="0" {{ ($line['wtax_rate'] ?? 0) == 0 ? 'selected' : '' }}>No</option>
                                                                         <option value="2" {{ ($line['wtax_rate'] ?? 0) == 2 ? 'selected' : '' }}>2%</option>
-                                                                        <option value="5" {{ ($line['wtax_rate'] ?? 0) == 5 ? 'selected' : '' }}>5%</option>
-                                                                        <option value="15" {{ ($line['wtax_rate'] ?? 0) == 15 ? 'selected' : '' }}>15%</option>
-                                                                    </select>
-                                                                </td>
-                                                                <td>
-                                                                    <select name="lines[{{ $index }}][project_id]"
-                                                                        class="form-control form-control-sm select2bs4">
-                                                                        <option value="">-- none --</option>
-                                                                        @foreach ($projects as $p)
-                                                                            <option value="{{ $p->id }}"
-                                                                                {{ isset($line['project_id']) && $line['project_id'] == $p->id ? 'selected' : '' }}>
-                                                                                {{ $p->code }}</option>
-                                                                        @endforeach
                                                                     </select>
                                                                 </td>
                                                                 <td class="text-center">
@@ -376,6 +353,9 @@
                                                     @else
                                                         <tr class="line-item">
                                                             <td>
+                                                                <input type="hidden" name="lines[0][description]" value="">
+                                                                <input type="hidden" name="lines[0][item_code]" value="">
+                                                                <input type="hidden" name="lines[0][item_name]" value="">
                                                                 <select name="lines[0][account_id]"
                                                                     class="form-control form-control-sm select2bs4"
                                                                     required>
@@ -401,11 +381,6 @@
                                                                     style="background-color: #e9ecef;">
                                                             </td>
                                                             <td>
-                                                                <input type="text" name="lines[0][description]"
-                                                                    class="form-control form-control-sm"
-                                                                    placeholder="Description">
-                                                            </td>
-                                                            <td>
                                                                 <input type="number" step="0.01" min="0.01"
                                                                     name="lines[0][qty]"
                                                                     class="form-control form-control-sm text-right qty-input"
@@ -419,11 +394,10 @@
                                                             </td>
                                                             <td>
                                                                 <select name="lines[0][tax_code_id]"
-                                                                    class="form-control form-control-sm select2bs4">
-                                                                    <option value="">-- none --</option>
-                                                                    @foreach ($taxCodes as $t)
-                                                                        <option value="{{ $t->id }}">
-                                                                            {{ $t->code }}</option>
+                                                                    class="form-control form-control-sm vat-select">
+                                                                    <option value="">No</option>
+                                                                    @foreach ($vatTaxCodes ?? [] as $t)
+                                                                        <option value="{{ $t->id }}" data-rate="{{ $t->rate }}">{{ (int)$t->rate }}%</option>
                                                                     @endforeach
                                                                 </select>
                                                             </td>
@@ -432,18 +406,6 @@
                                                                     class="form-control form-control-sm wtax-select">
                                                                     <option value="0">No</option>
                                                                     <option value="2">2%</option>
-                                                                    <option value="5">5%</option>
-                                                                    <option value="15">15%</option>
-                                                                </select>
-                                                            </td>
-                                                            <td>
-                                                                <select name="lines[0][project_id]"
-                                                                    class="form-control form-control-sm select2bs4">
-                                                                    <option value="">-- none --</option>
-                                                                    @foreach ($projects as $p)
-                                                                        <option value="{{ $p->id }}">
-                                                                            {{ $p->code }}</option>
-                                                                    @endforeach
                                                                 </select>
                                                             </td>
                                                             <td class="text-center">
@@ -456,8 +418,23 @@
                                                 </tbody>
                                                 <tfoot>
                                                     <tr>
-                                                        <th colspan="6" class="text-right">Total:</th>
+                                                        <th colspan="4" class="text-right">Original Amount:</th>
                                                         <th class="text-right" id="total-amount">0.00</th>
+                                                        <th colspan="3"></th>
+                                                    </tr>
+                                                    <tr>
+                                                        <th colspan="4" class="text-right">Total VAT:</th>
+                                                        <th class="text-right" id="total-vat">0.00</th>
+                                                        <th colspan="3"></th>
+                                                    </tr>
+                                                    <tr>
+                                                        <th colspan="4" class="text-right">Total WTax:</th>
+                                                        <th class="text-right" id="total-wtax">0.00</th>
+                                                        <th colspan="3"></th>
+                                                    </tr>
+                                                    <tr>
+                                                        <th colspan="4" class="text-right">Amount Due:</th>
+                                                        <th class="text-right" id="amount-due">0.00</th>
                                                         <th colspan="3"></th>
                                                     </tr>
                                                 </tfoot>
@@ -590,8 +567,11 @@
                 updateTotalAmount();
             });
 
-            // Update total when unit price or quantity changes
+            // Update total when unit price, quantity, VAT or WTax changes
             $(document).on('input', '.qty-input, .price-input', function() {
+                updateTotalAmount();
+            });
+            $(document).on('change', '.vat-select, .wtax-select', function() {
                 updateTotalAmount();
             });
 
@@ -604,6 +584,9 @@
             row.className = 'line-item';
             row.innerHTML = `
                 <td>
+                    <input type="hidden" name="lines[${idx}][description]" value="">
+                    <input type="hidden" name="lines[${idx}][item_code]" value="">
+                    <input type="hidden" name="lines[${idx}][item_name]" value="">
                     <select name="lines[${idx}][account_id]" class="form-control form-control-sm select2bs4" required>
                         @foreach ($accounts as $a)
                             <option value="{{ $a->id }}">{{ $a->code }} - {{ $a->name }}</option>
@@ -617,9 +600,6 @@
                     <input type="text" name="lines[${idx}][item_name_display]" class="form-control form-control-sm" placeholder="Item Name" readonly style="background-color: #e9ecef;">
                 </td>
                 <td>
-                    <input type="text" name="lines[${idx}][description]" class="form-control form-control-sm" placeholder="Description">
-                </td>
-                <td>
                     <input type="number" step="0.01" min="0.01" name="lines[${idx}][qty]" 
                         class="form-control form-control-sm text-right qty-input" value="1" required>
                 </td>
@@ -627,28 +607,18 @@
                     <input type="number" step="0.01" min="0" name="lines[${idx}][unit_price]" 
                         class="form-control form-control-sm text-right price-input" value="0" required>
                 </td>
-                                                                <td>
-                                                                    <select name="lines[${idx}][tax_code_id]" class="form-control form-control-sm select2bs4">
-                                                                        <option value="">-- none --</option>
-                                                                        @foreach ($taxCodes as $t)
-                                                                            <option value="{{ $t->id }}">{{ $t->code }}</option>
-                                                                        @endforeach
-                                                                    </select>
-                                                                </td>
-                                                                <td>
-                                                                    <select name="lines[${idx}][wtax_rate]" class="form-control form-control-sm wtax-select">
-                                                                        <option value="0">No</option>
-                                                                        <option value="2">2%</option>
-                                                                        <option value="5">5%</option>
-                                                                        <option value="15">15%</option>
-                                                                    </select>
-                                                                </td>
-                                                                <td>
-                                                                    <select name="lines[${idx}][project_id]" class="form-control form-control-sm select2bs4">
-                        <option value="">-- none --</option>
-                        @foreach ($projects as $p)
-                            <option value="{{ $p->id }}">{{ $p->code }}</option>
+                <td>
+                    <select name="lines[${idx}][tax_code_id]" class="form-control form-control-sm vat-select">
+                        <option value="">No</option>
+                        @foreach ($vatTaxCodes ?? [] as $t)
+                            <option value="{{ $t->id }}" data-rate="{{ $t->rate }}">{{ (int)$t->rate }}%</option>
                         @endforeach
+                    </select>
+                </td>
+                <td>
+                    <select name="lines[${idx}][wtax_rate]" class="form-control form-control-sm wtax-select">
+                        <option value="0">No</option>
+                        <option value="2">2%</option>
                     </select>
                 </td>
                 <td class="text-center">
@@ -671,20 +641,32 @@
         }
 
         function updateTotalAmount() {
-            let total = 0;
+            let originalTotal = 0;
+            let totalVat = 0;
+            let totalWtax = 0;
 
-            // Calculate total from all line items
             $('#lines tr').each(function() {
                 const qty = parseFloat($(this).find('.qty-input').val() || 0);
                 const price = parseFloat($(this).find('.price-input').val() || 0);
-                total += qty * price;
+                const vatRate = parseFloat($(this).find('.vat-select option:selected').data('rate') || 0);
+                const wtaxRate = parseFloat($(this).find('.wtax-select').val() || 0);
+
+                const lineAmount = qty * price;
+                const vatAmount = lineAmount * (vatRate / 100);
+                const wtaxAmount = lineAmount * (wtaxRate / 100);
+
+                originalTotal += lineAmount;
+                totalVat += vatAmount;
+                totalWtax += wtaxAmount;
             });
 
-            // Update total display with Indonesian number formatting
-            $('#total-amount').text(total.toLocaleString('id-ID', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2
-            }));
+            const amountDue = originalTotal + totalVat - totalWtax;
+
+            const fmt = (n) => n.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            $('#total-amount').text(fmt(originalTotal));
+            $('#total-vat').text(fmt(totalVat));
+            $('#total-wtax').text(fmt(totalWtax));
+            $('#amount-due').text(fmt(amountDue));
         }
     </script>
 @endpush

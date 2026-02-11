@@ -67,7 +67,7 @@ class SalesInvoiceController extends Controller
         $fromDo = (bool) $request->query('from_do');
 
         if ($request->filled('delivery_order_id')) {
-            $deliveryOrder = DeliveryOrder::with(['lines.inventoryItem.category', 'lines.account', 'lines.salesOrderLine'])
+            $deliveryOrder = DeliveryOrder::with(['salesOrder', 'lines.inventoryItem.category', 'lines.account', 'lines.salesOrderLine'])
                 ->findOrFail($request->delivery_order_id);
             if (!in_array($deliveryOrder->status, ['delivered', 'completed'])) {
                 return redirect()->route('sales-invoices.create')
@@ -128,16 +128,19 @@ class SalesInvoiceController extends Controller
             ];
         }
 
-        return view('sales_invoices.create', compact('accounts', 'customers', 'taxCodes', 'projects', 'departments', 'entities', 'defaultEntity', 'prefill', 'salesQuotation', 'deliveryOrder', 'invoicableDeliveryOrders', 'fromDo'));
+        $vatTaxCodes = DB::table('tax_codes')->where('type', 'ppn_output')->whereIn('rate', [11, 12])->orderBy('rate')->get(['id', 'code', 'rate']);
+        return view('sales_invoices.create', compact('accounts', 'customers', 'taxCodes', 'vatTaxCodes', 'projects', 'departments', 'entities', 'defaultEntity', 'prefill', 'salesQuotation', 'deliveryOrder', 'invoicableDeliveryOrders', 'fromDo'));
     }
 
     private function buildPrefillFromDeliveryOrder(DeliveryOrder $deliveryOrder, int $defaultEntityId): array
     {
+        $salesOrder = $deliveryOrder->salesOrder;
         return [
             'date' => now()->toDateString(),
             'business_partner_id' => $deliveryOrder->business_partner_id,
             'company_entity_id' => $deliveryOrder->company_entity_id ?? $defaultEntityId,
             'description' => 'From DO ' . ($deliveryOrder->do_number ?: ('#' . $deliveryOrder->id)),
+            'reference_no' => $salesOrder->reference_no ?? null,
             'lines' => $deliveryOrder->lines->map(function ($l) {
                 $accountId = (int)$l->account_id;
                 $accountDisplay = null;
@@ -260,8 +263,8 @@ class SalesInvoiceController extends Controller
                 SalesInvoiceLine::create([
                     'invoice_id' => $invoice->id,
                     'inventory_item_id' => $l['inventory_item_id'] ?? null,
-                    'item_code' => $l['item_code'] ?? null,
-                    'item_name' => $l['item_name'] ?? null,
+                    'item_code' => $l['item_code'] ?? $l['item_code_display'] ?? null,
+                    'item_name' => $l['item_name'] ?? $l['item_name_display'] ?? null,
                     'account_id' => $l['account_id'],
                     'description' => $l['description'] ?? null,
                     'qty' => (float) $l['qty'],
@@ -347,7 +350,7 @@ class SalesInvoiceController extends Controller
 
     public function pdf(int $id)
     {
-        $invoice = SalesInvoice::with('lines')->findOrFail($id);
+        $invoice = SalesInvoice::with(['lines', 'lines.account', 'lines.taxCode', 'lines.inventoryItem', 'businessPartner', 'businessPartner.primaryAddress', 'companyEntity', 'deliveryOrder'])->findOrFail($id);
         $pdf = app(\App\Services\PdfService::class)->renderViewToString('sales_invoices.print', [
             'invoice' => $invoice,
         ]);
@@ -359,7 +362,7 @@ class SalesInvoiceController extends Controller
 
     public function queuePdf(int $id)
     {
-        $invoice = SalesInvoice::with('lines')->findOrFail($id);
+        $invoice = SalesInvoice::with(['lines', 'lines.account', 'lines.taxCode', 'lines.inventoryItem', 'businessPartner', 'businessPartner.primaryAddress', 'companyEntity', 'deliveryOrder'])->findOrFail($id);
         $path = 'public/pdfs/invoice-' . $invoice->id . '.pdf';
         \App\Jobs\GeneratePdfJob::dispatch('sales_invoices.print', ['invoice' => $invoice], $path);
         $url = \Illuminate\Support\Facades\Storage::url($path);
