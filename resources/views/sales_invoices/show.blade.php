@@ -20,6 +20,11 @@
                     toastr.success(@json(session('success')));
                 </script>
             @endif
+            @if (session('error'))
+                <script>
+                    toastr.error(@json(session('error')));
+                </script>
+            @endif
             @if (session('pdf_url'))
                 <div class="alert alert-info">PDF ready: <a href="{{ session('pdf_url') }}"
                         target="_blank">Download</a></div>
@@ -52,6 +57,9 @@
                         @endcan
                         @can('ar.invoices.create')
                             @if ($invoice->status === 'draft')
+                                <a href="{{ route('sales-invoices.edit', $invoice->id) }}" class="btn btn-sm btn-primary">
+                                    <i class="fas fa-edit mr-1"></i> Edit
+                                </a>
                                 <form method="post" action="{{ route('sales-invoices.destroy', $invoice->id) }}" class="d-inline" onsubmit="return confirm('Delete this draft invoice?');">
                                     @csrf
                                     @method('DELETE')

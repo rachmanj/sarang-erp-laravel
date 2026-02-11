@@ -28,7 +28,7 @@ class SalesInvoiceController extends Controller
     ) {
         $this->middleware(['auth']);
         $this->middleware('permission:ar.invoices.view')->only(['index', 'show']);
-        $this->middleware('permission:ar.invoices.create')->only(['create', 'store']);
+        $this->middleware('permission:ar.invoices.create')->only(['create', 'store', 'edit', 'update']);
         $this->middleware('permission:ar.invoices.post')->only(['post']);
         $this->middleware('permission:ar.invoices.create')->only(['destroy']);
     }
@@ -177,6 +177,97 @@ class SalesInvoiceController extends Controller
                 ];
             }),
         ];
+    }
+
+    public function edit(int $id)
+    {
+        $invoice = SalesInvoice::with(['lines.account', 'lines.taxCode', 'lines.inventoryItem'])->findOrFail($id);
+
+        if ($invoice->status !== 'draft') {
+            return redirect()->route('sales-invoices.show', $id)
+                ->with('error', 'Only draft sales invoices can be edited.');
+        }
+
+        $accounts = DB::table('accounts')->where('is_postable', 1)->orderBy('code')->get();
+        $customers = DB::table('business_partners')->where('partner_type', 'customer')->orderBy('name')->get();
+        $vatTaxCodes = DB::table('tax_codes')->where('type', 'ppn_output')->whereIn('rate', [11, 12])->orderBy('rate')->get(['id', 'code', 'rate']);
+        $entities = $this->companyEntityService->getActiveEntities();
+        $defaultEntity = $this->companyEntityService->getDefaultEntity();
+
+        return view('sales_invoices.edit', compact('invoice', 'accounts', 'customers', 'vatTaxCodes', 'entities', 'defaultEntity'));
+    }
+
+    public function update(Request $request, int $id)
+    {
+        $invoice = SalesInvoice::findOrFail($id);
+
+        if ($invoice->status !== 'draft') {
+            return redirect()->route('sales-invoices.show', $id)
+                ->with('error', 'Only draft sales invoices can be edited.');
+        }
+
+        $data = $request->validate([
+            'date' => ['required', 'date'],
+            'business_partner_id' => ['required', 'integer', 'exists:business_partners,id'],
+            'company_entity_id' => ['required', 'integer', 'exists:company_entities,id'],
+            'description' => ['nullable', 'string', 'max:255'],
+            'reference_no' => ['nullable', 'string', 'max:100'],
+            'lines' => ['required', 'array', 'min:1'],
+            'lines.*.account_id' => ['required', 'integer', 'exists:accounts,id'],
+            'lines.*.description' => ['nullable', 'string', 'max:255'],
+            'lines.*.qty' => ['required', 'numeric', 'min:0.01'],
+            'lines.*.unit_price' => ['required', 'numeric', 'min:0'],
+            'lines.*.tax_code_id' => ['nullable', 'integer', 'exists:tax_codes,id'],
+            'lines.*.wtax_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'lines.*.project_id' => ['nullable', 'integer'],
+            'lines.*.dept_id' => ['nullable', 'integer'],
+        ]);
+
+        $entity = $this->companyEntityService->resolveFromModel(
+            $request->input('company_entity_id'),
+            $invoice->deliveryOrder ?? $invoice->salesOrder ?? null
+        );
+
+        return DB::transaction(function () use ($data, $request, $invoice, $entity) {
+            $invoice->update([
+                'date' => $data['date'],
+                'business_partner_id' => $data['business_partner_id'],
+                'company_entity_id' => $entity->id,
+                'description' => $data['description'] ?? null,
+                'reference_no' => $data['reference_no'] ?? null,
+                'is_opening_balance' => $request->boolean('is_opening_balance', false),
+            ]);
+
+            $invoice->lines()->delete();
+
+            $total = 0;
+            foreach ($data['lines'] as $l) {
+                $amount = (float) $l['qty'] * (float) $l['unit_price'];
+                $total += $amount;
+                SalesInvoiceLine::create([
+                    'invoice_id' => $invoice->id,
+                    'inventory_item_id' => $l['inventory_item_id'] ?? null,
+                    'item_code' => $l['item_code'] ?? $l['item_code_display'] ?? null,
+                    'item_name' => $l['item_name'] ?? $l['item_name_display'] ?? null,
+                    'account_id' => $l['account_id'],
+                    'description' => $l['description'] ?? null,
+                    'qty' => (float) $l['qty'],
+                    'unit_price' => (float) $l['unit_price'],
+                    'amount' => $amount,
+                    'tax_code_id' => $l['tax_code_id'] ?? null,
+                    'wtax_rate' => $l['wtax_rate'] ?? 0,
+                    'project_id' => $l['project_id'] ?? null,
+                    'dept_id' => $l['dept_id'] ?? null,
+                ]);
+            }
+
+            $termsDays = (int) ($request->input('terms_days') ?? 0);
+            $dueDate = $termsDays > 0 ? date('Y-m-d', strtotime($data['date'] . ' +' . $termsDays . ' days')) : null;
+            $invoice->update(['total_amount' => $total, 'terms_days' => $termsDays ?: null, 'due_date' => $dueDate]);
+
+            return redirect()->route('sales-invoices.show', $invoice->id)
+                ->with('success', 'Sales invoice updated.');
+        });
     }
 
     public function store(Request $request)
