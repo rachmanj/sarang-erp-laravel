@@ -7,6 +7,7 @@
         body {
             font-family: Arial, sans-serif;
             margin: 20px;
+            padding-bottom: 60px;
         }
 
         .company-header {
@@ -18,6 +19,10 @@
         .company-logo {
             float: left;
             margin-right: 20px;
+        }
+
+        .company-logo img {
+            height: 60px;
         }
 
         .company-info {
@@ -66,25 +71,45 @@
             text-align: center;
         }
 
+        .delivery-address-cell {
+            white-space: pre-line;
+            vertical-align: top;
+            min-height: 80px;
+        }
+
+        .print-float-btn {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            padding: 12px 24px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            font-size: 16px;
+        }
+
+        .print-float-btn:hover {
+            background: #0056b3;
+        }
+
         @media print {
             body {
                 margin: 0;
+                padding-bottom: 0;
             }
 
             .no-print {
-                display: none;
+                display: none !important;
             }
         }
     </style>
 </head>
 
 <body>
-    <div class="no-print" style="text-align: center; margin-bottom: 20px;">
-        <button onclick="window.print()"
-            style="padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer;">Print</button>
-        <button onclick="window.close()"
-            style="padding: 10px 20px; background: #6c757d; color: white; border: none; border-radius: 5px; cursor: pointer; margin-left: 10px;">Close</button>
-    </div>
+    <button class="no-print print-float-btn" onclick="window.print()">Print</button>
 
     <div class="company-header">
         @php
@@ -93,14 +118,11 @@
             $companyPhone = \App\Models\ErpParameter::get('company_phone', '');
             $companyEmail = \App\Models\ErpParameter::get('company_email', '');
             $companyTaxNumber = \App\Models\ErpParameter::get('company_tax_number', '');
-            $companyLogo = \App\Models\ErpParameter::get('company_logo_path', '');
         @endphp
 
-        @if ($companyLogo && file_exists(public_path('storage/' . $companyLogo)))
-            <div class="company-logo">
-                <img src="{{ public_path('storage/' . $companyLogo) }}" alt="Logo" style="height: 60px;">
-            </div>
-        @endif
+        <div class="company-logo">
+            <img src="{{ asset('logo_pt_csj.png') }}" alt="Logo">
+        </div>
 
         <div class="company-info">
             <div class="company-name">{{ $companyName }}</div>
@@ -135,10 +157,16 @@
     <table>
         <tr>
             <td><strong>Sales Order:</strong></td>
-            <td>{{ $deliveryOrder->salesOrder->order_no }}</td>
+            <td>{{ $deliveryOrder->salesOrder?->order_no ?? '-' }}</td>
             <td><strong>Customer:</strong></td>
-            <td>{{ $deliveryOrder->customer->name }}</td>
+            <td>{{ $deliveryOrder->customer?->name ?? 'N/A' }}</td>
         </tr>
+        @if ($deliveryOrder->salesOrder?->reference_no)
+        <tr>
+            <td><strong>Customer Ref No:</strong></td>
+            <td colspan="3">{{ $deliveryOrder->salesOrder->reference_no }}</td>
+        </tr>
+        @endif
         <tr>
             <td><strong>Planned Delivery:</strong></td>
             <td>{{ $deliveryOrder->planned_delivery_date->format('d M Y') }}</td>
@@ -147,37 +175,31 @@
         </tr>
         <tr>
             <td><strong>Delivery Address:</strong></td>
-            <td colspan="3">{{ $deliveryOrder->delivery_address }}</td>
+            <td colspan="3" class="delivery-address-cell">{{ $deliveryOrder->delivery_address ?? '' }}</td>
         </tr>
     </table>
 
     <table>
         <thead>
             <tr>
+                <th class="text-center" style="width: 50px;">No</th>
                 <th>Item Code</th>
                 <th>Item Name</th>
                 <th class="text-right">Ordered Qty</th>
-                <th class="text-right">Unit Price</th>
-                <th class="text-right">Amount</th>
+                <th class="text-center" style="width: 50px;"></th>
             </tr>
         </thead>
         <tbody>
-            @foreach ($deliveryOrder->lines as $line)
+            @foreach ($deliveryOrder->lines as $index => $line)
                 <tr>
+                    <td class="text-center">{{ $index + 1 }}</td>
                     <td>{{ $line->item_code ?? 'N/A' }}</td>
                     <td>{{ $line->item_name ?? 'N/A' }}</td>
                     <td class="text-right">{{ number_format($line->ordered_qty, 2) }}</td>
-                    <td class="text-right">{{ number_format($line->unit_price, 2) }}</td>
-                    <td class="text-right">{{ number_format($line->amount, 2) }}</td>
+                    <td class="text-center"><input type="checkbox" disabled></td>
                 </tr>
             @endforeach
         </tbody>
-        <tfoot>
-            <tr>
-                <th colspan="4" class="text-right">Total Amount:</th>
-                <th class="text-right">{{ number_format($deliveryOrder->total_amount, 2) }}</th>
-            </tr>
-        </tfoot>
     </table>
 
     <div style="margin-top: 50px;">
