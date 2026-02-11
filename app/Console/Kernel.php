@@ -15,6 +15,7 @@ class Kernel extends BaseKernel
      */
     protected $commands = [
         \App\Console\Commands\BackfillDeliveryOrderInventoryTransactions::class,
+        \App\Console\Commands\BackfillSalesInvoiceItemCodes::class,
         \App\Console\Commands\FixSalesOrderApproval::class,
         \App\Console\Commands\EnsureOfficerRole::class,
     ];
