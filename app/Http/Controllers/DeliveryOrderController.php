@@ -177,9 +177,11 @@ class DeliveryOrderController extends Controller
         if (($deliveryOrder->closure_status ?? 'open') === 'closed') {
             return redirect()->back()->with('error', 'This delivery order has already been invoiced.');
         }
-        $existingSi = \App\Models\Accounting\SalesInvoice::where('delivery_order_id', $deliveryOrder->id)->first();
+        $existingSi = DB::table('delivery_order_sales_invoice')
+            ->where('delivery_order_id', $deliveryOrder->id)
+            ->first();
         if ($existingSi) {
-            return redirect()->route('sales-invoices.show', $existingSi->id)
+            return redirect()->route('sales-invoices.show', $existingSi->sales_invoice_id)
                 ->with('info', 'A Sales Invoice already exists for this Delivery Order.');
         }
 

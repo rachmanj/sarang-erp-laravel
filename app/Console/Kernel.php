@@ -19,6 +19,7 @@ class Kernel extends BaseKernel
         \App\Console\Commands\BackfillSalesInvoiceItemCodes::class,
         \App\Console\Commands\FixSalesOrderApproval::class,
         \App\Console\Commands\EnsureOfficerRole::class,
+        \App\Console\Commands\FixOverAllocatedDeliveryOrder::class,
     ];
     
     /**

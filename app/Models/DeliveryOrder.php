@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
@@ -81,6 +82,12 @@ class DeliveryOrder extends Model
     public function tracking(): HasOne
     {
         return $this->hasOne(DeliveryTracking::class, 'delivery_order_id');
+    }
+
+    public function salesInvoices(): BelongsToMany
+    {
+        return $this->belongsToMany(\App\Models\Accounting\SalesInvoice::class, 'delivery_order_sales_invoice', 'delivery_order_id', 'sales_invoice_id')
+            ->withTimestamps();
     }
 
     public function createdBy(): BelongsTo

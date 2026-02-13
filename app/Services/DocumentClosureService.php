@@ -305,12 +305,23 @@ class DocumentClosureService
     public function canCloseDeliveryOrder($doId, $siId)
     {
         $do = DeliveryOrder::with('lines')->findOrFail($doId);
-        $si = SalesInvoice::with('lines')->findOrFail($siId);
+        $si = SalesInvoice::with(['lines', 'lines.deliveryOrderLine'])->findOrFail($siId);
 
         $doTotalQty = $do->lines->sum('delivered_qty');
-        $siTotalQty = $si->lines->sum('qty');
 
-        return $siTotalQty >= $doTotalQty;
+        $siQtyForDo = $si->lines->filter(function ($line) use ($doId) {
+            if (!$line->delivery_order_line_id) {
+                return false;
+            }
+            $doLine = $line->deliveryOrderLine;
+            return $doLine && (int) $doLine->delivery_order_id === (int) $doId;
+        })->sum('qty');
+
+        if ($siQtyForDo > 0) {
+            return $siQtyForDo >= $doTotalQty;
+        }
+
+        return $si->lines->sum('qty') >= $doTotalQty;
     }
 
     /**

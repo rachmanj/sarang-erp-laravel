@@ -1,6 +1,6 @@
 # Sarange ERP - Modules and Features List
 
-**Last Updated**: 2025-01-21  
+**Last Updated**: 2026-02-09  
 **System Status**: Production Ready (95% Complete)  
 **Technology Stack**: Laravel 12, PHP 8.2+, MySQL, AdminLTE 3.14
 
@@ -216,6 +216,7 @@
 - Print functionality
 
 ### 20. Delivery Orders
+- **Multiple Partial DOs per SO**: A Sales Order can have multiple Delivery Orders. New DO creation uses remaining qty per SO line (skips fully-delivered lines). SO status `confirmed` or `processing` allows Create Delivery Order. Delivered qty syncs across all DOs.
 - **Delivery Management**: Complete delivery process from sales order to completion
 - **Automatic Numbering**: Entity-aware format `EEYYDDNNNNN` (code 07)
 - **Inventory Reservation**: Automatic stock allocation and reservation upon approval

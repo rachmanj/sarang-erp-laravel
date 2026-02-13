@@ -250,8 +250,8 @@
                 @if ($invoice->description)
                     <div><span class="label">Description:</span> {{ $invoice->description }}</div>
                 @endif
-                @if ($invoice->deliveryOrder)
-                    <div><span class="label">Delivery Order:</span> {{ $invoice->deliveryOrder->do_number ?? '#' . $invoice->delivery_order_id }}</div>
+                @if ($invoice->deliveryOrders && $invoice->deliveryOrders->isNotEmpty())
+                    <div><span class="label">Delivery Order(s):</span> {{ $invoice->deliveryOrders->map(fn($d) => $d->do_number ?? '#' . $d->id)->implode(', ') }}</div>
                 @endif
             </div>
             <div class="bill-to-box">

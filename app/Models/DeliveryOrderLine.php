@@ -138,6 +138,6 @@ class DeliveryOrderLine extends Model
 
     public function canDeliverQuantity($quantity)
     {
-        return $quantity <= $this->picked_qty && $quantity <= ($this->picked_qty - $this->delivered_qty);
+        return $quantity >= 0 && $quantity <= $this->picked_qty;
     }
 }

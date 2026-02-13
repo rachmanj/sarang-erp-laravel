@@ -1,5 +1,5 @@
 **Purpose**: Record technical decisions and rationale for future reference
-**Last Updated**: 2026-02-09 (Added Delivery Order Inventory Reduction decision)
+**Last Updated**: 2026-02-09 (Added Multiple Partial DOs per SO decision)
 
 # Technical Decision Records
 
@@ -62,6 +62,48 @@ Decision: [Title] - [YYYY-MM-DD]
 - **Reference**: `reference_type = 'delivery_order_line'`, `reference_id = line.id`
 
 **Review Date**: 2027-02-09 (after full year of production use to assess reduction timing and backfill effectiveness).
+
+---
+
+### Decision: Multiple Partial Delivery Orders per Sales Order - 2026-02-09
+
+**Context**: Historically, a Sales Order could only have one Delivery Order. Users needed to create multiple partial DOs from the same SO—e.g., split deliveries by date, warehouse, or partial fulfillment—with accurate tracking of delivered quantities per SO line across all DOs.
+
+**Options Considered**:
+
+1. **Option A**: Single DO per SO - Keep existing behavior, require workarounds (e.g., manual SO splits).
+    - ✅ Pros: No code changes
+    - ❌ Cons: Inflexible for real-world partial delivery scenarios
+
+2. **Option B**: Multiple partial DOs per SO with centralized delivered_qty tracking - Sum `delivered_qty` from non-cancelled DO lines per SO line; sync `SalesOrderLine.delivered_qty` and `pending_qty` from that sum.
+    - ✅ Pros: Flexible partial deliveries, accurate SO line tracking, no double-counting
+    - ❌ Cons: Requires service-layer changes and backfill for existing data
+
+**Decision**: Adopt Option B—implement multiple partial DOs per SO with `getDeliveredQtyForSalesOrderLine()`, `syncSalesOrderLineFromDeliveries()`, and `createDeliveryOrderLine()` using remaining qty = `SO qty - getDeliveredQtyForSalesOrderLine()`. New DO creation skips fully-delivered lines and accepts SO status `confirmed` or `processing`.
+
+**Rationale**:
+- Real-world fulfillment requires split deliveries (different dates, warehouses, partial shipments)
+- SO line `delivered_qty` must reflect sum across all DOs for accurate pending tracking
+- `canCreateDeliveryOrder` accepting `processing` allows creating additional DOs while prior DOs are in progress
+
+**Implementation**:
+- **DeliveryService**: `getDeliveredQtyForSalesOrderLine()`, `syncSalesOrderLineFromDeliveries()`, `updateDeliveryStatus()` and `cancelDeliveryOrder()` sync SO lines; `createDeliveryOrderLine()` uses remaining qty; `canCreateDeliveryOrder()` accepts `confirmed` and `processing`
+- **Backfill**: `php artisan sales-orders:backfill-delivered-qty` with `--dry-run`
+- **UI**: Create Delivery Order button on SO show when status is `confirmed` or `processing`; Sales Dashboard info banner for insufficient stock during picking
+
+**Review Date**: 2027-02-09 (after full year of production use to assess partial DO usage patterns).
+
+---
+
+### Decision: Use Allocated Qty (Not Just Delivered) for New DO Creation - 2026-02-09
+
+**Context**: When creating a new DO from an SO, the system used `getDeliveredQtyForSalesOrderLine()` (sum of delivered_qty) to compute remaining qty. This caused over-allocation when DO 1 had picked but not yet delivered—DO 2 was created with the same items because delivered_qty was still 0.
+
+**Decision**: Use `getAllocatedQtyForSalesOrderLine()` = sum of `max(picked_qty, delivered_qty)` from non-cancelled DO lines. Remaining qty = SO qty - allocated. Picked goods are considered allocated even before delivery.
+
+**Implementation**: Added `getAllocatedQtyForSalesOrderLine()` in DeliveryService; `createDeliveryOrderLine()` uses it instead of `getDeliveredQtyForSalesOrderLine()` for remaining qty. Fix command: `php artisan delivery-orders:fix-over-allocated {do_id}` to cancel over-allocated DO and backfill SO lines.
+
+**Review Date**: 2027-02-09.
 
 ---
 

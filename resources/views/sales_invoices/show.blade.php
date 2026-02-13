@@ -155,13 +155,15 @@
                                         </td>
                                     </tr>
                                 @endif
-                                @if ($invoice->delivery_order_id && $invoice->deliveryOrder)
+                                @if ($invoice->deliveryOrders && $invoice->deliveryOrders->isNotEmpty())
                                     <tr>
-                                        <th class="text-nowrap text-muted">Delivery Order</th>
+                                        <th class="text-nowrap text-muted">Delivery Order(s)</th>
                                         <td>
-                                            <a href="{{ route('delivery-orders.show', $invoice->delivery_order_id) }}" class="badge badge-info">
-                                                {{ $invoice->deliveryOrder->do_number ?? '#' . $invoice->delivery_order_id }}
-                                            </a>
+                                            @foreach ($invoice->deliveryOrders as $do)
+                                                <a href="{{ route('delivery-orders.show', $do) }}" class="badge badge-info mr-1">
+                                                    {{ $do->do_number ?? '#' . $do->id }}
+                                                </a>
+                                            @endforeach
                                         </td>
                                     </tr>
                                 @endif

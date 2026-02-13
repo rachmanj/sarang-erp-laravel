@@ -3,8 +3,9 @@
 namespace App\Models\Accounting;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class SalesInvoice extends Model
 {
@@ -18,7 +19,6 @@ class SalesInvoice extends Model
         'business_partner_id',
         'company_entity_id',
         'sales_order_id',
-        'delivery_order_id',
         'reference_no',
         'is_opening_balance',
         'description',
@@ -58,9 +58,15 @@ class SalesInvoice extends Model
         return $this->belongsTo(\App\Models\SalesOrder::class, 'sales_order_id');
     }
 
-    public function deliveryOrder(): BelongsTo
+    public function deliveryOrders(): BelongsToMany
     {
-        return $this->belongsTo(\App\Models\DeliveryOrder::class, 'delivery_order_id');
+        return $this->belongsToMany(\App\Models\DeliveryOrder::class, 'delivery_order_sales_invoice', 'sales_invoice_id', 'delivery_order_id')
+            ->withTimestamps();
+    }
+
+    public function getDeliveryOrderIdAttribute(): ?int
+    {
+        return $this->deliveryOrders()->first()?->id;
     }
 
     public function customer(): BelongsTo

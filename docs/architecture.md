@@ -1,5 +1,5 @@
 Purpose: Technical reference for understanding system design and development patterns
-Last Updated: 2026-02-09 (Updated with Delivery Order Inventory Reduction & Sales Order Approval Fix)
+Last Updated: 2026-02-09 (Updated with Multiple Partial DOs per SO & Delivery Order Inventory Reduction)
 
 ## Architecture Documentation Guidelines
 
@@ -333,6 +333,7 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 
 ### 6.3. Delivery Order System
 
+-   **Multiple Partial DOs per SO**: A Sales Order can have multiple Delivery Orders. `DeliveryService::getDeliveredQtyForSalesOrderLine()` sums `delivered_qty` from non-cancelled DO lines; `syncSalesOrderLineFromDeliveries()` updates `SalesOrderLine.delivered_qty` and `pending_qty`. New DO creation uses remaining qty = SO qty - delivered, skips fully-delivered lines; `canCreateDeliveryOrder()` accepts SO status `confirmed` or `processing`. Backfill: `php artisan sales-orders:backfill-delivered-qty`.
 -   **Delivery Lifecycle Management**: Complete delivery process from sales order to completion
 -   **Inventory Reservation**: Automatic stock allocation and reservation upon delivery order approval
 -   **Inventory Stock Reduction**: Stock reduces when **Picked Qty** is updated (primary) or when **Delivered Qty** is updated (fallback for skip-pick workflows). `DeliveryService::ensureInventoryReduction()` uses `should_reduce = max(picked_qty, delivered_qty)`, computes `already_reduced` from `inventory_transactions` where `reference_type = 'delivery_order_line'`, and creates sale transactions via `InventoryService::processSaleTransaction()` for delta > 0. Reversal via `processAdjustmentTransaction` when DO is cancelled with picked_qty > 0
@@ -343,7 +344,7 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 -   **Delivery Tracking**: Logistics cost tracking, performance metrics, and customer satisfaction monitoring
 -   **Print Functionality**: Professional delivery order documents with company branding
 -   **Data Integrity**: Foreign key constraint handling with graceful NULL assignment when inventory items are deleted, preventing creation failures
--   **Sales Order Integration**: Customer-based filtering for Sales Order selection using Select2 `templateResult` function for dynamic client-side filtering
+-   **Sales Order Integration**: Customer-based filtering for Sales Order selection using Select2 `templateResult` function for dynamic client-side filtering. Create Delivery Order available when SO status is `confirmed` or `processing`.
 -   **Item Display**: Fallback chain for displaying item information (item_code → inventoryItem->code, description → inventoryItem->name → item_name) ensuring data availability when denormalized fields are NULL
 -   **Backfill Command**: `php artisan delivery-orders:backfill-inventory-transactions` with `--dry-run` for existing DO lines with picked/delivered qty but no inventory transactions
 

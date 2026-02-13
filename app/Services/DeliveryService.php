@@ -197,8 +197,8 @@ class DeliveryService
             }
         }
 
-        $alreadyDelivered = $this->getDeliveredQtyForSalesOrderLine($salesOrderLine->id);
-        $pendingQty = max(0, $salesOrderLine->qty - $alreadyDelivered);
+        $alreadyAllocated = $this->getAllocatedQtyForSalesOrderLine($salesOrderLine->id);
+        $pendingQty = max(0, $salesOrderLine->qty - $alreadyAllocated);
         if ($pendingQty <= 0) {
             Log::info('DeliveryService: Skipping line with no remaining qty', ['sales_order_line_id' => $salesOrderLine->id]);
             return null;
@@ -368,6 +368,14 @@ class DeliveryService
         return (float) DeliveryOrderLine::where('sales_order_line_id', $salesOrderLineId)
             ->whereHas('deliveryOrder', fn($q) => $q->where('status', '!=', 'cancelled'))
             ->sum('delivered_qty');
+    }
+
+    private function getAllocatedQtyForSalesOrderLine(int $salesOrderLineId): float
+    {
+        $lines = DeliveryOrderLine::where('sales_order_line_id', $salesOrderLineId)
+            ->whereHas('deliveryOrder', fn($q) => $q->where('status', '!=', 'cancelled'))
+            ->get();
+        return (float) $lines->sum(fn($l) => max((float) $l->picked_qty, (float) $l->delivered_qty));
     }
 
     private function syncSalesOrderLineFromDeliveries(int $salesOrderLineId): void

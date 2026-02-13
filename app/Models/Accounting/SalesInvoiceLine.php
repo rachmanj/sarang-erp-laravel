@@ -11,6 +11,7 @@ class SalesInvoiceLine extends Model
 
     protected $fillable = [
         'invoice_id',
+        'delivery_order_line_id',
         'inventory_item_id',
         'item_code',
         'item_name',
@@ -51,5 +52,10 @@ class SalesInvoiceLine extends Model
     public function inventoryItem(): BelongsTo
     {
         return $this->belongsTo(\App\Models\InventoryItem::class, 'inventory_item_id');
+    }
+
+    public function deliveryOrderLine(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\DeliveryOrderLine::class, 'delivery_order_line_id');
     }
 }

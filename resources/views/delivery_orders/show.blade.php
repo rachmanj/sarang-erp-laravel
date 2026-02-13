@@ -117,7 +117,7 @@
                             <!-- Items -->
                             @php
                                 $pickingStatuses = ['picking', 'packed', 'ready', 'in_transit'];
-                                $deliveryStatuses = ['ready', 'in_transit', 'delivered'];
+                                $deliveryStatuses = ['ready', 'in_transit', 'partial_delivered', 'delivered'];
                                 $canEditPicking = $deliveryOrder->approval_status === 'approved'
                                     && in_array($deliveryOrder->status, $pickingStatuses);
                                 $canEditDelivery = $deliveryOrder->approval_status === 'approved'
@@ -145,10 +145,6 @@
                                                 <th class="text-right">Ordered Qty</th>
                                                 <th class="text-right">Picked Qty</th>
                                                 <th class="text-right">Delivered Qty</th>
-                                                <th class="text-right">Unit Price</th>
-                                                <th class="text-right">Amount</th>
-                                                <th>VAT</th>
-                                                <th>WTax %</th>
                                                 <th>Status</th>
                                             </tr>
                                         </thead>
@@ -202,10 +198,6 @@
                                                             {{ number_format($line->delivered_qty, 2) }}
                                                         @endif
                                                     </td>
-                                                    <td class="text-right">{{ number_format($line->unit_price, 2) }}</td>
-                                                    <td class="text-right">{{ number_format($line->amount, 2) }}</td>
-                                                    <td class="text-muted">{{ $line->taxCode?->code ?? '—' }}</td>
-                                                    <td class="text-muted text-right">{{ optional($line->salesOrderLine)->wtax_rate ? number_format($line->salesOrderLine->wtax_rate, 2) . '%' : '—' }}</td>
                                                     <td class="line-status-cell">
                                                         <span
                                                             class="badge badge-{{ $line->status === 'delivered' ? 'success' : 'warning' }}">
@@ -217,10 +209,8 @@
                                         </tbody>
                                         <tfoot>
                                             <tr>
-                                                <th colspan="7" class="text-right">Total:</th>
-                                                <th class="text-right">{{ number_format($deliveryOrder->total_amount, 2) }}
-                                                </th>
-                                                <th colspan="3"></th>
+                                                <th colspan="5" class="text-right">Total:</th>
+                                                <th class="text-right">{{ number_format($deliveryOrder->total_amount, 2) }}</th>
                                             </tr>
                                         </tfoot>
                                     </table>

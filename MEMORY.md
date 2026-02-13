@@ -1,5 +1,5 @@
 **Purpose**: AI's persistent knowledge base for project context and learnings
-**Last Updated**: 2026-02-11 (Sales Dashboard Redesign)
+**Last Updated**: 2026-02-09 (Multiple Partial DOs per SO)
 
 ## Memory Maintenance Guidelines
 
@@ -26,6 +26,14 @@
 ---
 
 ## Project Memory Entries
+
+### [086] Multiple Partial Delivery Orders per Sales Order (2026-02-09) ✅ COMPLETE
+
+**Challenge**: Previously, a Sales Order could only have one Delivery Order. Users needed to create multiple partial DOs from the same SO (split deliveries by date, warehouse, or partial fulfillment) with accurate delivered quantity tracking.
+
+**Solution**: Implemented multiple partial DOs per SO in DeliveryService: `getDeliveredQtyForSalesOrderLine()` sums delivered_qty from non-cancelled DO lines; `syncSalesOrderLineFromDeliveries()` updates SO line delivered_qty/pending_qty; `createDeliveryOrderLine()` uses remaining qty = SO qty - delivered; new DO creation skips fully-delivered lines. `canCreateDeliveryOrder()` accepts SO status `confirmed` or `processing`. Added BackfillSalesOrderLineDeliveredQty command. Sales Dashboard info banner explains insufficient stock during picking.
+
+**Key Learning**: Real-world fulfillment requires split deliveries. SO line delivered_qty must reflect sum across all DOs. Inventory reduction at pick ensures stock accuracy; when picking fails with "Insufficient stock", the system is correct—user should pick smaller qty or replenish stock.
 
 ### [001] Approval Workflow Admin UI Implementation (2025-01-22) ✅ COMPLETE
 

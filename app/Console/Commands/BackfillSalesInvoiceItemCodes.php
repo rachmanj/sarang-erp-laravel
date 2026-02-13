@@ -14,20 +14,36 @@ class BackfillSalesInvoiceItemCodes extends Command
 
     public function handle(): int
     {
-        $invoices = SalesInvoice::whereNotNull('delivery_order_id')->with('lines')->get();
+        $invoices = SalesInvoice::with(['lines', 'deliveryOrders'])->get();
         $updated = 0;
 
         foreach ($invoices as $si) {
-            $doLines = DeliveryOrderLine::where('delivery_order_id', $si->delivery_order_id)->orderBy('id')->get();
+            $doIds = $si->deliveryOrders->pluck('id')->all();
+            if (empty($doIds)) {
+                continue;
+            }
 
             foreach ($si->lines as $i => $sil) {
-                if (isset($doLines[$i]) && empty($sil->item_code)) {
+                if (!empty($sil->item_code)) {
+                    continue;
+                }
+
+                $doLine = null;
+                if ($sil->delivery_order_line_id) {
+                    $doLine = DeliveryOrderLine::find($sil->delivery_order_line_id);
+                }
+                if (!$doLine && isset($doIds[0])) {
+                    $doLines = DeliveryOrderLine::where('delivery_order_id', $doIds[0])->orderBy('id')->get();
+                    $doLine = $doLines[$i] ?? null;
+                }
+
+                if ($doLine) {
                     $sil->update([
-                        'item_code' => $doLines[$i]->item_code,
-                        'item_name' => $doLines[$i]->item_name ?? $sil->description,
+                        'item_code' => $doLine->item_code ?? optional($doLine->inventoryItem)->code,
+                        'item_name' => $doLine->item_name ?? optional($doLine->inventoryItem)->name ?? $sil->description,
                     ]);
                     $updated++;
-                    $this->line("  SI #{$si->invoice_no} line " . ($i + 1) . ": {$doLines[$i]->item_code}");
+                    $this->line("  SI #{$si->invoice_no} line " . ($i + 1) . ": " . ($doLine->item_code ?? optional($doLine->inventoryItem)->code ?? ''));
                 }
             }
         }

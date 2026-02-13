@@ -209,6 +209,9 @@
                                                     @forelse ($invoice->lines as $index => $line)
                                                         <tr class="line-item">
                                                             <td>
+                                                                @if (!empty($line->delivery_order_line_id))
+                                                                    <input type="hidden" name="lines[{{ $index }}][delivery_order_line_id]" value="{{ $line->delivery_order_line_id }}">
+                                                                @endif
                                                                 @if (!empty($line->inventory_item_id))
                                                                     <input type="hidden" name="lines[{{ $index }}][inventory_item_id]" value="{{ $line->inventory_item_id }}">
                                                                 @endif

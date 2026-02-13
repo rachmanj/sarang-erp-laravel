@@ -1,10 +1,10 @@
 @extends('layouts.main')
 
-@section('title', isset($deliveryOrder) ? 'Create Sales Invoice from DO ' . ($deliveryOrder->do_number ?? '') : 'Create Sales Invoice')
+@section('title', isset($prefill['delivery_order_ids']) ? 'Create Sales Invoice from DO(s)' : 'Create Sales Invoice')
 
 @section('title_page')
-    @if (isset($deliveryOrder))
-        Create Sales Invoice from Delivery Order {{ $deliveryOrder->do_number }}
+    @if (isset($prefill['delivery_order_ids']))
+        Create Sales Invoice from Delivery Order(s)
     @else
         Create Sales Invoice
     @endif
@@ -37,8 +37,8 @@
                         <div class="card-header">
                             <h3 class="card-title">
                                 <i class="fas fa-file-invoice-dollar mr-1"></i>
-                                @if (isset($deliveryOrder))
-                                    New Sales Invoice (from DO {{ $deliveryOrder->do_number }})
+                                @if (isset($prefill['delivery_order_ids']))
+                                    New Sales Invoice (from {{ count($prefill['delivery_order_ids']) }} DO(s))
                                 @else
                                     New Sales Invoice
                                 @endif
@@ -60,14 +60,16 @@
                                 @isset($sales_order_id)
                                     <input type="hidden" name="sales_order_id" value="{{ $sales_order_id }}" />
                                 @endisset
-                                @isset($deliveryOrder)
-                                    <input type="hidden" name="delivery_order_id" value="{{ $deliveryOrder->id }}" />
-                                @endisset
+                                @if (isset($prefill['delivery_order_ids']) && !empty($prefill['delivery_order_ids']))
+                                    @foreach ($prefill['delivery_order_ids'] as $doId)
+                                        <input type="hidden" name="delivery_order_ids[]" value="{{ $doId }}" />
+                                    @endforeach
+                                @endif
                                 @if (isset($salesQuotation))
                                     <input type="hidden" name="sales_quotation_id" value="{{ $salesQuotation->id }}" />
                                 @endif
 
-                                @if (!isset($deliveryOrder) && isset($invoicableDeliveryOrders))
+                                @if (!isset($prefill['delivery_order_ids']) && isset($invoicableDeliveryOrders))
                                     <div class="card card-info card-outline mb-3 {{ ($fromDo ?? false) ? '' : 'collapsed-card' }}" id="prefill-do-card">
                                         <div class="card-header py-2">
                                             <h3 class="card-title">
@@ -86,15 +88,15 @@
                                             @else
                                                 <div class="row align-items-end">
                                                     <div class="col-md-8">
-                                                        <label class="form-label">Select a Delivery Order</label>
-                                                        <select id="delivery_order_select" class="form-control form-control-sm select2bs4" style="width: 100%;">
-                                                            <option value="">-- select delivery order --</option>
+                                                        <label class="form-label">Select Delivery Order(s)</label>
+                                                        <select id="delivery_order_select" class="form-control form-control-sm select2bs4" style="width: 100%;" multiple>
                                                             @foreach ($invoicableDeliveryOrders as $do)
                                                                 <option value="{{ $do->id }}">
                                                                     {{ $do->do_number }} - {{ optional($do->customer)->name ?? 'N/A' }} ({{ $do->planned_delivery_date ? $do->planned_delivery_date->format('d M Y') : '' }})
                                                                 </option>
                                                             @endforeach
                                                         </select>
+                                                        <small class="form-text text-muted">Hold Ctrl/Cmd to select multiple delivery orders.</small>
                                                     </div>
                                                     <div class="col-md-4">
                                                         <button type="button" id="btn-load-do" class="btn btn-sm btn-primary">
@@ -274,6 +276,9 @@
                                                         @foreach ($prefill['lines'] as $index => $line)
                                                             <tr class="line-item">
                                                                 <td>
+                                                                    @if (!empty($line['delivery_order_line_id']))
+                                                                        <input type="hidden" name="lines[{{ $index }}][delivery_order_line_id]" value="{{ $line['delivery_order_line_id'] }}">
+                                                                    @endif
                                                                     @if (!empty($line['inventory_item_id']))
                                                                         <input type="hidden" name="lines[{{ $index }}][inventory_item_id]" value="{{ $line['inventory_item_id'] }}">
                                                                     @endif
@@ -481,11 +486,15 @@
             });
 
             $('#btn-load-do').on('click', function() {
-                const doId = $('#delivery_order_select').val();
-                if (doId) {
-                    window.location.href = '{{ route("sales-invoices.create") }}?delivery_order_id=' + doId;
+                const doIds = $('#delivery_order_select').val();
+                if (doIds && doIds.length > 0) {
+                    const params = new URLSearchParams();
+                    doIds.forEach(function(id) {
+                        params.append('delivery_order_id[]', id);
+                    });
+                    window.location.href = '{{ route("sales-invoices.create") }}?' + params.toString();
                 } else {
-                    toastr.warning('Please select a delivery order.');
+                    toastr.warning('Please select at least one delivery order.');
                 }
             });
 

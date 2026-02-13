@@ -240,8 +240,10 @@ class DocumentRelationshipService
             // Initialize DO -> SO relationships
             $this->initializeDORelationships();
 
-            // Initialize SI -> DO relationships
             $this->initializeSIRelationships();
+
+            // Initialize SI -> DO relationships (from pivot)
+            $this->initializeSIRelationshipsFromDO();
 
             // Initialize SR -> SI relationships
             $this->initializeSRRelationships();
@@ -389,6 +391,32 @@ class DocumentRelationshipService
                 'target_document_id' => $combination->invoice_id,
                 'relationship_type' => 'base',
             ]);
+        }
+    }
+
+    /**
+     * Initialize SI -> DO relationships from delivery_order_sales_invoice pivot
+     */
+    private function initializeSIRelationshipsFromDO(): void
+    {
+        $pivots = DB::table('delivery_order_sales_invoice')->get();
+
+        foreach ($pivots as $pivot) {
+            DocumentRelationship::updateOrCreate([
+                'source_document_type' => 'App\Models\DeliveryOrder',
+                'source_document_id' => $pivot->delivery_order_id,
+                'target_document_type' => 'App\Models\Accounting\SalesInvoice',
+                'target_document_id' => $pivot->sales_invoice_id,
+                'relationship_type' => 'target',
+            ], []);
+
+            DocumentRelationship::updateOrCreate([
+                'source_document_type' => 'App\Models\DeliveryOrder',
+                'source_document_id' => $pivot->delivery_order_id,
+                'target_document_type' => 'App\Models\Accounting\SalesInvoice',
+                'target_document_id' => $pivot->sales_invoice_id,
+                'relationship_type' => 'base',
+            ], []);
         }
     }
 
