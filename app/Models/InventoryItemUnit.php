@@ -14,6 +14,7 @@ class InventoryItemUnit extends Model
         'unit_id',
         'is_base_unit',
         'conversion_quantity',
+        'purchase_price',
         'selling_price',
         'selling_price_level_2',
         'selling_price_level_3',

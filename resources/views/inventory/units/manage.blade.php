@@ -214,6 +214,16 @@
                                                             </td>
                                                             <td>
                                                                 <div class="btn-group btn-group-sm">
+                                                                    <button type="button"
+                                                                        class="btn btn-warning btn-sm btn-edit-unit"
+                                                                        title="Edit"
+                                                                        data-item-unit-id="{{ $itemUnit->id }}"
+                                                                        data-unit-name="{{ $itemUnit->unit->display_name }}"
+                                                                        data-selling-price="{{ $itemUnit->selling_price }}"
+                                                                        data-purchase-price="{{ $itemUnit->purchase_price ?? 0 }}"
+                                                                        data-is-active="{{ $itemUnit->is_active ? 1 : 0 }}">
+                                                                        <i class="fas fa-edit"></i>
+                                                                    </button>
                                                                     @if (!$itemUnit->is_base_unit)
                                                                         <form
                                                                             action="{{ route('inventory-items.units.set-base', $inventoryItem) }}"
@@ -266,6 +276,50 @@
 @push('scripts')
     <script>
         $(document).ready(function() {
+            const unitsBaseUrl = '{{ url("inventory-items/{$inventoryItem->id}/units") }}';
+
+            $('.btn-edit-unit').on('click', function() {
+                const btn = $(this);
+                const itemUnitId = btn.data('item-unit-id');
+                const unitName = btn.data('unit-name');
+                const sellingPrice = btn.data('selling-price');
+                const purchasePrice = btn.data('purchase-price');
+                const isActive = btn.data('is-active');
+
+                $('#editUnitModal').data('item-unit-id', itemUnitId);
+                $('#edit_unit_name').text(unitName);
+                $('#edit_selling_price').val(sellingPrice);
+                $('#edit_purchase_price').val(purchasePrice);
+                $('#edit_is_active').prop('checked', isActive == 1);
+                $('#editUnitModal').modal('show');
+            });
+
+            $('#editUnitForm').on('submit', function(e) {
+                e.preventDefault();
+                const form = $(this);
+                const itemUnitId = $('#editUnitModal').data('item-unit-id');
+                const url = unitsBaseUrl + '/' + itemUnitId;
+                const btn = form.find('button[type="submit"]');
+                btn.prop('disabled', true);
+
+                $.ajax({
+                    url: url,
+                    method: 'POST',
+                    data: form.serialize() + '&_method=PUT',
+                    headers: {
+                        'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                    },
+                    success: function() {
+                        window.location.reload();
+                    },
+                    error: function(xhr) {
+                        const msg = xhr.responseJSON?.message || 'Failed to update unit';
+                        toastr.error(msg);
+                        btn.prop('disabled', false);
+                    }
+                });
+            });
+
             // Open quick-add unit modal
             $('#btn-add-unit').on('click', function() {
                 $('#quickAddUnitModal').modal('show');
@@ -312,6 +366,61 @@
 @endpush
 
 @push('modals')
+    <div class="modal fade" id="editUnitModal" tabindex="-1" role="dialog" aria-labelledby="editUnitLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editUnitLabel">Edit Unit</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <form id="editUnitForm">
+                    @csrf
+                    @method('PUT')
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label>Unit</label>
+                            <p class="form-control-plaintext font-weight-bold" id="edit_unit_name"></p>
+                        </div>
+                        <div class="form-group">
+                            <label for="edit_purchase_price">Purchase Price <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <div class="input-group-prepend">
+                                    <span class="input-group-text">Rp</span>
+                                </div>
+                                <input type="number" class="form-control" id="edit_purchase_price" name="purchase_price"
+                                    step="0.01" min="0" required>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="edit_selling_price">Selling Price <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <div class="input-group-prepend">
+                                    <span class="input-group-text">Rp</span>
+                                </div>
+                                <input type="number" class="form-control" id="edit_selling_price" name="selling_price"
+                                    step="0.01" min="0" required>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" id="edit_is_active" name="is_active" value="1">
+                                <label class="form-check-label" for="edit_is_active">Active</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Save Changes
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <div class="modal fade" id="quickAddUnitModal" tabindex="-1" role="dialog" aria-labelledby="quickAddUnitLabel"
         aria-hidden="true">
         <div class="modal-dialog" role="document">
