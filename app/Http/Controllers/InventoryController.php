@@ -478,17 +478,16 @@ class InventoryController extends Controller
         $item = InventoryItem::findOrFail($id);
 
         return DB::transaction(function () use ($item) {
-            // Get all transactions with warehouse_id
-            $transactions = InventoryTransaction::where('item_id', $item->id)
-                ->whereNotNull('warehouse_id')
-                ->get();
+            $transactions = InventoryTransaction::where('item_id', $item->id)->get();
 
-            // Group by warehouse and calculate totals
-            $warehouseTotals = $transactions->groupBy('warehouse_id')->map(function ($group) {
+            $fallbackWarehouseId = $item->default_warehouse_id ?? \App\Models\Warehouse::min('id');
+
+            $warehouseTotals = $transactions->groupBy(function ($t) use ($fallbackWarehouseId) {
+                return $t->warehouse_id ?? $fallbackWarehouseId;
+            })->map(function ($group) {
                 return $group->sum('quantity');
             });
 
-            // Update warehouse stock for each warehouse
             foreach ($warehouseTotals as $warehouseId => $totalQuantity) {
                 $warehouseStock = InventoryWarehouseStock::firstOrCreate(
                     ['item_id' => $item->id, 'warehouse_id' => $warehouseId],

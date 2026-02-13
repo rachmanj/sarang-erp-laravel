@@ -452,7 +452,8 @@ class SalesService
                         $line->unit_price,
                         'sales_order',
                         $so->id,
-                        "Delivered from SO {$so->order_no}"
+                        "Delivered from SO {$so->order_no}",
+                        $so->warehouse_id
                     );
                 }
             }

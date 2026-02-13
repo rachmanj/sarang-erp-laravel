@@ -59,9 +59,9 @@ class InventoryService
         });
     }
 
-    public function processSaleTransaction(int $itemId, int $quantity, float $unitCost, string $referenceType = null, int $referenceId = null, string $notes = null)
+    public function processSaleTransaction(int $itemId, int $quantity, float $unitCost, string $referenceType = null, int $referenceId = null, string $notes = null, ?int $warehouseId = null)
     {
-        return DB::transaction(function () use ($itemId, $quantity, $unitCost, $referenceType, $referenceId, $notes) {
+        return DB::transaction(function () use ($itemId, $quantity, $unitCost, $referenceType, $referenceId, $notes, $warehouseId) {
             $item = InventoryItem::findOrFail($itemId);
 
             // Check stock availability
@@ -71,9 +71,9 @@ class InventoryService
 
             $totalCost = $quantity * $unitCost;
 
-            // Create sale transaction
             $transaction = InventoryTransaction::create([
                 'item_id' => $itemId,
+                'warehouse_id' => $warehouseId,
                 'transaction_type' => 'sale',
                 'quantity' => -$quantity,
                 'unit_cost' => $unitCost,
@@ -85,7 +85,6 @@ class InventoryService
                 'created_by' => Auth::id(),
             ]);
 
-            // Update valuation
             $this->updateItemValuation($item);
 
             return $transaction;

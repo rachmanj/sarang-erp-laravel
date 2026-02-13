@@ -1,5 +1,5 @@
 **Purpose**: Track current work and immediate priorities
-**Last Updated**: 2026-02-09 (Multiple Partial DOs per SO)
+**Last Updated**: 2026-02-13 (Delivery Order Simplified Flow)
 
 ## Task Management Guidelines
 
@@ -45,6 +45,7 @@ Include relevant context in brackets to help with future AI-assisted coding:
 
 ## Recently Completed
 
+-   `[done] P1: Delivery Order Simplified Flow & Mark as Delivered [DeliveryService: approveDeliveryOrder with reduceStockOnApproval, markAsDelivered with revenue recognition; migration delivered_at/delivered_by; simplified table columns (No, Item Code, Item Name, Ordered Qty, Remain Qty, Delivery Qty, Action); VAT/WTax/Unit Price hidden; Mark as Delivered modal; removed picking and Complete Delivery steps; docs/architecture.md, docs/decisions.md, MEMORY.md, docs/MODULES-AND-FEATURES.md, docs/manuals/delivery-order-manual-id.md updated] (completed: 2026-02-13)`
 -   `[done] P1: Multiple Partial Delivery Orders per Sales Order [DeliveryService: getDeliveredQtyForSalesOrderLine, syncSalesOrderLineFromDeliveries, createDeliveryOrderLine uses remaining qty = SO qty - delivered; createDeliveryOrderFromSalesOrder skips fully-delivered lines; canCreateDeliveryOrder accepts confirmed/processing SO; Create DO button shown for processing SOs; BackfillSalesOrderLineDeliveredQty command; Sales Dashboard info banner for insufficient stock during picking; docs/architecture.md, docs/decisions.md, MEMORY.md, docs/MODULES-AND-FEATURES.md, docs/manuals/delivery-order-manual-id.md updated] (completed: 2026-02-09)`
 -   `[done] P1: Sales Dashboard Redesign - Comprehensive Sales Overview [Executive Summary with 5 KPIs (Sales MTD, Sales YTD, Open Pipeline, Outstanding AR, Collections MTD), document-stage summary cards for SQ/SO/DO/SI/SR, filters (customer, date range, aging bucket) with cache bypass when filters active, AR aging enhancements (Overdue badge, High/Medium risk badges, Chart.js bar/pie), Sales Funnel mini-widget, Days Overdue column in Recent Invoices, SalesDashboardDataService extended with buildSalesOverview/buildSalesQuotationStats/buildSalesReceiptStats/getSalesFunnelCounts, SalesDashboardController passes filters and customersList, docs/sales-dashboard-review.md updated] (completed: 2026-02-11)`
 -   `[done] P0: Delivery Order Inventory Stock Reduction Fix [Inventory was not reduced when Picked Qty or Delivered Qty updated; implemented ensureInventoryReduction in DeliveryService called from updatePickingStatus and updateDeliveryStatus; reversal in cancelDeliveryOrder; created BackfillDeliveryOrderInventoryTransactions command; registered command in Kernel; updated delivery-order-manual-id.md with inventory impact notes; docs/architecture.md, docs/decisions.md, MEMORY.md updated, app/Services/DeliveryService.php, app/Console/Commands/BackfillDeliveryOrderInventoryTransactions.php, app/Console/Kernel.php] (completed: 2026-02-09)`

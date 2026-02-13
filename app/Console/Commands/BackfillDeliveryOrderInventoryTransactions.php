@@ -78,7 +78,8 @@ class BackfillDeliveryOrderInventoryTransactions extends Command
                             (float) $unitCost,
                             'delivery_order_line',
                             $line->id,
-                            "Backfill: Picked/Delivered from DO {$do->do_number} - {$line->item_name}"
+                            "Backfill: Picked/Delivered from DO {$do->do_number} - {$line->item_name}",
+                            $do->warehouse_id
                         );
                     });
                 }

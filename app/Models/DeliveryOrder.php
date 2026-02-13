@@ -21,6 +21,8 @@ class DeliveryOrder extends Model
         'delivery_phone',
         'planned_delivery_date',
         'actual_delivery_date',
+        'delivered_at',
+        'delivered_by',
         'delivery_method',
         'delivery_instructions',
         'logistics_cost',
@@ -40,6 +42,7 @@ class DeliveryOrder extends Model
     protected $casts = [
         'planned_delivery_date' => 'date',
         'actual_delivery_date' => 'date',
+        'delivered_at' => 'datetime',
         'logistics_cost' => 'decimal:2',
         'approved_at' => 'datetime',
     ];
@@ -153,6 +156,6 @@ class DeliveryOrder extends Model
 
     public function canBeCancelled()
     {
-        return in_array($this->status, ['draft', 'picking', 'packed']);
+        return in_array($this->status, ['draft', 'picking', 'packed', 'in_transit']);
     }
 }

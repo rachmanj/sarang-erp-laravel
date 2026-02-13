@@ -287,7 +287,7 @@ Route::prefix('delivery-orders')->group(function () {
     Route::post('/{deliveryOrder}/reject', [DeliveryOrderController::class, 'reject'])->name('delivery-orders.reject');
     Route::post('/{deliveryOrder}/update-picking', [DeliveryOrderController::class, 'updatePicking'])->name('delivery-orders.update-picking');
     Route::post('/{deliveryOrder}/update-delivery', [DeliveryOrderController::class, 'updateDelivery'])->name('delivery-orders.update-delivery');
-    Route::post('/{deliveryOrder}/complete-delivery', [DeliveryOrderController::class, 'completeDelivery'])->name('delivery-orders.complete-delivery');
+    Route::post('/{deliveryOrder}/mark-delivered', [DeliveryOrderController::class, 'markAsDelivered'])->name('delivery-orders.mark-delivered');
     Route::get('/{deliveryOrder}/print', [DeliveryOrderController::class, 'print'])->name('delivery-orders.print');
     Route::get('/{deliveryOrder}/create-invoice', [DeliveryOrderController::class, 'createInvoice'])->name('delivery-orders.create-invoice');
 });

@@ -216,14 +216,16 @@
 - Print functionality
 
 ### 20. Delivery Orders
+- **Simplified Flow**: Draft → Approve → In Transit → Mark as Delivered → Completed. Stock reduces at approval; revenue recognition on Mark as Delivered.
 - **Multiple Partial DOs per SO**: A Sales Order can have multiple Delivery Orders. New DO creation uses remaining qty per SO line (skips fully-delivered lines). SO status `confirmed` or `processing` allows Create Delivery Order. Delivered qty syncs across all DOs.
-- **Delivery Management**: Complete delivery process from sales order to completion
+- **Delivery Items Table**: No, Item Code, Item Name, Ordered Qty, Remain Qty, Delivery Qty, Action. VAT, WTax, Unit Price hidden from UI (kept in DB for invoicing).
+- **Mark as Delivered**: Single button with modal (date, time, delivered by). Triggers revenue recognition journal and sets status to completed.
 - **Automatic Numbering**: Entity-aware format `EEYYDDNNNNN` (code 07)
 - **Inventory Reservation**: Automatic stock allocation and reservation upon approval
-- **Revenue Recognition**: Automated revenue recognition with COGS calculation upon completion
-- **Status Tracking**: Comprehensive status management (draft, picking, packed, ready, in_transit, delivered, completed)
+- **Revenue Recognition**: Automated revenue recognition with COGS calculation upon Mark as Delivered
+- **Status Tracking**: draft, in_transit, ready, completed, cancelled
 - **Approval Workflows**: Multi-level approval process
-- **Journal Entries Integration**: Automatic journal entries for inventory reservation and revenue recognition
+- **Journal Entries Integration**: Inventory reservation on approval; revenue recognition on Mark as Delivered
 - **Delivery Tracking**: Logistics cost tracking and performance metrics
 
 ### 21. Sales Invoices

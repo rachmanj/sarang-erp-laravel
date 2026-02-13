@@ -1,5 +1,5 @@
 **Purpose**: AI's persistent knowledge base for project context and learnings
-**Last Updated**: 2026-02-09 (Multiple Partial DOs per SO)
+**Last Updated**: 2026-02-13 (Delivery Order Simplified Flow)
 
 ## Memory Maintenance Guidelines
 
@@ -26,6 +26,14 @@
 ---
 
 ## Project Memory Entries
+
+### [087] Delivery Order Simplified Flow & Mark as Delivered (2026-02-13) ✅ COMPLETE
+
+**Challenge**: DO flow had multiple steps (Picking, Packing, Complete Delivery) with stock reduction at pick/delivery and revenue recognition at a separate step. Users needed simpler flow with clearer stock handling.
+
+**Solution**: Simplified to Draft → Approve → In Transit → Mark as Delivered → Completed. Stock reduces at approval via `reduceStockOnApproval()`. `markAsDelivered()` sets `delivered_at`, `delivered_by`, syncs SO lines, creates revenue recognition journal. Removed picking and Complete Delivery steps. Delivery items table: No, Item Code, Item Name, Ordered Qty, Remain Qty, Delivery Qty, Action; VAT/WTax/Unit Price hidden from UI (kept in DB for invoicing).
+
+**Key Learning**: Stock reduction at approval reflects "goods on the way" and prevents overselling. Mark as Delivered is the natural point for revenue recognition. Single modal (date, time, delivered by) simplifies user workflow.
 
 ### [086] Multiple Partial Delivery Orders per Sales Order (2026-02-09) ✅ COMPLETE
 

@@ -81,6 +81,8 @@ class DeliveryOrderController extends Controller
             }
         }
 
+        $remainingLines = $salesOrder ? $this->deliveryService->getRemainingLinesForSalesOrder($salesOrder->id) : [];
+
         $salesOrders = SalesOrder::with(['customer', 'businessPartner'])
             ->where('approval_status', 'approved')
             ->whereIn('status', ['confirmed', 'processing'])
@@ -96,7 +98,7 @@ class DeliveryOrderController extends Controller
         $entities = $this->companyEntityService->getActiveEntities();
         $defaultEntity = $salesOrder ? $this->companyEntityService->getEntity($salesOrder->company_entity_id) : $this->companyEntityService->getDefaultEntity();
 
-        return view('delivery_orders.create', compact('salesOrders', 'salesOrder', 'customers', 'warehouses', 'entities', 'defaultEntity'));
+        return view('delivery_orders.create', compact('salesOrders', 'salesOrder', 'customers', 'warehouses', 'entities', 'defaultEntity', 'remainingLines'));
     }
 
     /**
@@ -118,7 +120,14 @@ class DeliveryOrderController extends Controller
             'delivery_instructions' => ['nullable', 'string', 'max:1000'],
             'logistics_cost' => ['nullable', 'numeric', 'min:0'],
             'notes' => ['nullable', 'string', 'max:1000'],
+            'lines' => ['nullable', 'array'],
+            'lines.*.sales_order_line_id' => ['required_with:lines', 'integer', 'exists:sales_order_lines,id'],
+            'lines.*.qty' => ['required_with:lines', 'numeric', 'min:0.01'],
         ]);
+
+        $lines = $data['lines'] ?? [];
+        $validLines = array_values(array_filter($lines, fn($l) => ((float) ($l['qty'] ?? 0)) > 0));
+        $data['lines'] = $validLines;
 
         try {
             Log::info('Calling DeliveryService::createDeliveryOrderFromSalesOrder', [
@@ -201,8 +210,9 @@ class DeliveryOrderController extends Controller
             'createdBy',
             'approvedBy'
         ]);
+        $remainQtyByLine = $this->deliveryService->getRemainQtyByLineForDeliveryOrder($deliveryOrder);
 
-        return view('delivery_orders.show', compact('deliveryOrder'));
+        return view('delivery_orders.show', compact('deliveryOrder', 'remainQtyByLine'));
     }
 
     /**
@@ -216,8 +226,9 @@ class DeliveryOrderController extends Controller
         }
 
         $deliveryOrder->load(['customer', 'salesOrder', 'warehouse', 'lines.inventoryItem', 'lines.account', 'lines.taxCode', 'lines.salesOrderLine']);
+        $remainQtyByLine = $this->deliveryService->getRemainQtyByLineForDeliveryOrder($deliveryOrder);
 
-        return view('delivery_orders.edit', compact('deliveryOrder'));
+        return view('delivery_orders.edit', compact('deliveryOrder', 'remainQtyByLine'));
     }
 
     /**
@@ -242,14 +253,20 @@ class DeliveryOrderController extends Controller
             'lines' => ['required', 'array', 'min:1'],
             'lines.*.id' => ['required', 'integer', 'exists:delivery_order_lines,id'],
             'lines.*.ordered_qty' => ['required', 'numeric', 'min:0'],
-            'lines.*.unit_price' => ['required', 'numeric', 'min:0'],
-            'lines.*.amount' => ['required', 'numeric', 'min:0'],
-            'lines.*.description' => ['nullable', 'string', 'max:500'],
-            'lines.*.notes' => ['nullable', 'string', 'max:500'],
+            'deleted_lines' => ['nullable', 'array'],
+            'deleted_lines.*' => ['integer', 'exists:delivery_order_lines,id'],
         ]);
 
-        DB::transaction(function () use ($deliveryOrder, $data) {
-            // Update delivery order header
+        $remainQtyByLine = $this->deliveryService->getRemainQtyByLineForDeliveryOrder($deliveryOrder);
+
+        DB::transaction(function () use ($deliveryOrder, $data, $remainQtyByLine) {
+            $deletedLineIds = $data['deleted_lines'] ?? [];
+            foreach ($deletedLineIds as $lineId) {
+                $line = DeliveryOrderLine::find($lineId);
+                if ($line && $line->delivery_order_id === $deliveryOrder->id) {
+                    $line->delete();
+                }
+            }
             $deliveryOrder->update([
                 'delivery_address' => $data['delivery_address'],
                 'delivery_contact_person' => $data['delivery_contact_person'] ?? null,
@@ -261,30 +278,28 @@ class DeliveryOrderController extends Controller
                 'notes' => $data['notes'] ?? null,
             ]);
 
-            // Update delivery order lines
-            $totalAmount = 0;
             foreach ($data['lines'] as $lineData) {
-                $line = DeliveryOrderLine::findOrFail($lineData['id']);
-                
-                // Verify line belongs to this delivery order
+                $line = DeliveryOrderLine::with('salesOrderLine')->findOrFail($lineData['id']);
+
                 if ($line->delivery_order_id !== $deliveryOrder->id) {
                     throw new \Exception('Invalid line ID');
                 }
 
-                // Update line - VAT (tax_code_id) and WTax are intentionally excluded; they are set from SO and must not be changed on DO
+                $orderedQty = (float) $lineData['ordered_qty'];
+                $remainQty = $remainQtyByLine[$line->sales_order_line_id] ?? 0;
+                if ($orderedQty > $remainQty) {
+                    throw new \Exception("Delivery Qty cannot exceed Remain Qty ({$remainQty}) for item {$line->item_name}");
+                }
+
+                $unitPrice = $line->salesOrderLine ? (float) $line->salesOrderLine->unit_price : (float) $line->unit_price;
+                $amount = $orderedQty * $unitPrice;
+
                 $line->update([
-                    'ordered_qty' => $lineData['ordered_qty'],
-                    'unit_price' => $lineData['unit_price'],
-                    'amount' => $lineData['amount'],
-                    'description' => $lineData['description'] ?? $line->description,
-                    'notes' => $lineData['notes'] ?? null,
+                    'ordered_qty' => $orderedQty,
+                    'unit_price' => $unitPrice,
+                    'amount' => $amount,
                 ]);
-
-                $totalAmount += $lineData['amount'];
             }
-
-            // Update delivery order total amount
-            $deliveryOrder->update(['total_amount' => $totalAmount]);
         });
 
         return redirect()->route('delivery-orders.show', $deliveryOrder->id)
@@ -457,23 +472,28 @@ class DeliveryOrderController extends Controller
     }
 
     /**
-     * Complete delivery and create revenue recognition journal entry
+     * Mark delivery order as delivered (modal: date, time, delivered by)
      */
-    public function completeDelivery(Request $request, DeliveryOrder $deliveryOrder)
+    public function markAsDelivered(Request $request, DeliveryOrder $deliveryOrder)
     {
-        $request->validate([
-            'actual_delivery_date' => ['nullable', 'date'],
+        $data = $request->validate([
+            'delivered_at' => ['required', 'date'],
+            'delivered_by' => ['required', 'string', 'max:255'],
         ]);
 
         try {
-            $this->deliveryService->completeDelivery(
+            $this->deliveryService->markAsDelivered(
                 $deliveryOrder->id,
-                $request->input('actual_delivery_date')
+                $data['delivered_at'],
+                $data['delivered_by']
             );
 
-            return back()->with('success', 'Delivery completed and revenue recognized successfully.');
+            return redirect()->route('delivery-orders.show', $deliveryOrder->id)
+                ->with('success', 'Delivery Order marked as delivered and revenue recognized successfully');
         } catch (\Exception $e) {
-            return back()->with('error', 'Failed to complete delivery: ' . $e->getMessage());
+            return redirect()->back()
+                ->with('error', $e->getMessage());
         }
     }
+
 }

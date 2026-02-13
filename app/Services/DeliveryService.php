@@ -119,26 +119,36 @@ class DeliveryService
                 throw $e;
             }
 
-            // Create delivery order lines from sales order lines
-            Log::info('DeliveryService: Creating delivery order lines', ['lines_count' => $salesOrder->lines->count()]);
-
             $linesCreated = 0;
-            foreach ($salesOrder->lines as $salesOrderLine) {
-                if (!$salesOrderLine->inventory_item_id) {
-                    Log::info('DeliveryService: Skipping line without inventory_item_id', ['line_id' => $salesOrderLine->id]);
-                    continue;
-                }
+            $formLines = $data['lines'] ?? null;
 
-                Log::info('DeliveryService: Creating delivery order line', [
-                    'sales_order_line_id' => $salesOrderLine->id,
-                    'inventory_item_id' => $salesOrderLine->inventory_item_id
-                ]);
-
-                $doLine = $this->createDeliveryOrderLine($do, $salesOrderLine, $data);
-                if ($doLine === null) {
-                    continue;
+            if (!empty($formLines)) {
+                $solById = $salesOrder->lines->keyBy('id');
+                foreach ($formLines as $lineData) {
+                    $solId = (int) ($lineData['sales_order_line_id'] ?? 0);
+                    $qty = (float) ($lineData['qty'] ?? 0);
+                    if ($solId <= 0 || $qty <= 0) {
+                        continue;
+                    }
+                    $salesOrderLine = $solById->get($solId);
+                    if (!$salesOrderLine || !$salesOrderLine->inventory_item_id) {
+                        continue;
+                    }
+                    $doLine = $this->createDeliveryOrderLine($do, $salesOrderLine, $data, $qty);
+                    if ($doLine !== null) {
+                        $linesCreated++;
+                    }
                 }
-                $linesCreated++;
+            } else {
+                foreach ($salesOrder->lines as $salesOrderLine) {
+                    if (!$salesOrderLine->inventory_item_id) {
+                        continue;
+                    }
+                    $doLine = $this->createDeliveryOrderLine($do, $salesOrderLine, $data);
+                    if ($doLine !== null) {
+                        $linesCreated++;
+                    }
+                }
             }
 
             if ($linesCreated === 0) {
@@ -166,7 +176,7 @@ class DeliveryService
         });
     }
 
-    public function createDeliveryOrderLine($deliveryOrder, $salesOrderLine, $data = [])
+    public function createDeliveryOrderLine($deliveryOrder, $salesOrderLine, $data = [], ?float $requestedQty = null)
     {
         Log::info('DeliveryService: Starting createDeliveryOrderLine', [
             'delivery_order_id' => $deliveryOrder->id,
@@ -198,14 +208,21 @@ class DeliveryService
         }
 
         $alreadyAllocated = $this->getAllocatedQtyForSalesOrderLine($salesOrderLine->id);
-        $pendingQty = max(0, $salesOrderLine->qty - $alreadyAllocated);
+        $pendingQty = max(0, (float) $salesOrderLine->qty - $alreadyAllocated);
         if ($pendingQty <= 0) {
             Log::info('DeliveryService: Skipping line with no remaining qty', ['sales_order_line_id' => $salesOrderLine->id]);
             return null;
         }
 
+        $orderedQty = $requestedQty !== null
+            ? min((float) $requestedQty, $pendingQty)
+            : $pendingQty;
+        if ($orderedQty <= 0) {
+            return null;
+        }
+
         Log::info('DeliveryService: Creating delivery order line', [
-            'pending_qty' => $pendingQty,
+            'ordered_qty' => $orderedQty,
             'unit_price' => $salesOrderLine->unit_price,
             'account_id' => $salesOrderLine->account_id,
             'inventory_item_id' => $inventoryItemId
@@ -221,12 +238,12 @@ class DeliveryService
                 'item_code' => $inventoryItem ? $inventoryItem->code : $salesOrderLine->item_code,
                 'item_name' => $inventoryItem ? $inventoryItem->name : $salesOrderLine->item_name,
                 'description' => $salesOrderLine->description,
-                'ordered_qty' => $pendingQty, // Use pending quantity
+                'ordered_qty' => $orderedQty,
                 'reserved_qty' => 0,
                 'picked_qty' => 0,
                 'delivered_qty' => 0,
                 'unit_price' => $salesOrderLine->unit_price,
-                'amount' => $pendingQty * $salesOrderLine->unit_price, // Recalculate based on pending qty
+                'amount' => $orderedQty * $salesOrderLine->unit_price,
                 'tax_code_id' => $salesOrderLine->tax_code_id,
                 'warehouse_location' => $data['warehouse_location'] ?? null,
                 'status' => 'pending',
@@ -370,11 +387,32 @@ class DeliveryService
             ->sum('delivered_qty');
     }
 
+    public function getDeliveredQtyForSalesOrderLineExcludingDo(int $salesOrderLineId, ?int $excludeDeliveryOrderId): float
+    {
+        $query = DeliveryOrderLine::where('sales_order_line_id', $salesOrderLineId)
+            ->whereHas('deliveryOrder', fn($q) => $q->where('status', '!=', 'cancelled'));
+        if ($excludeDeliveryOrderId !== null) {
+            $query->where('delivery_order_id', '!=', $excludeDeliveryOrderId);
+        }
+        return (float) $query->sum('delivered_qty');
+    }
+
     private function getAllocatedQtyForSalesOrderLine(int $salesOrderLineId): float
     {
         $lines = DeliveryOrderLine::where('sales_order_line_id', $salesOrderLineId)
             ->whereHas('deliveryOrder', fn($q) => $q->where('status', '!=', 'cancelled'))
             ->get();
+        return (float) $lines->sum(fn($l) => max((float) $l->picked_qty, (float) $l->delivered_qty));
+    }
+
+    private function getAllocatedQtyForSalesOrderLineExcludingDo(int $salesOrderLineId, ?int $excludeDeliveryOrderId): float
+    {
+        $query = DeliveryOrderLine::where('sales_order_line_id', $salesOrderLineId)
+            ->whereHas('deliveryOrder', fn($q) => $q->where('status', '!=', 'cancelled'));
+        if ($excludeDeliveryOrderId !== null) {
+            $query->where('delivery_order_id', '!=', $excludeDeliveryOrderId);
+        }
+        $lines = $query->get();
         return (float) $lines->sum(fn($l) => max((float) $l->picked_qty, (float) $l->delivered_qty));
     }
 
@@ -417,40 +455,9 @@ class DeliveryService
             (float) $unitCost,
             'delivery_order_line',
             $line->id,
-            "Picked/Delivered from DO {$do->do_number} - {$line->item_name}"
+            "Picked/Delivered from DO {$do->do_number} - {$line->item_name}",
+            $do->warehouse_id
         );
-    }
-
-    /**
-     * Complete delivery and create revenue recognition journal entry
-     */
-    public function completeDelivery($deliveryOrderId, $actualDeliveryDate = null)
-    {
-        return DB::transaction(function () use ($deliveryOrderId, $actualDeliveryDate) {
-            $deliveryOrder = DeliveryOrder::findOrFail($deliveryOrderId);
-
-            if ($deliveryOrder->status !== 'delivered') {
-                throw new \Exception('Delivery Order must be in delivered status to complete.');
-            }
-
-            // Update actual delivery date if provided
-            if ($actualDeliveryDate) {
-                $deliveryOrder->update(['actual_delivery_date' => $actualDeliveryDate]);
-            }
-
-            // Create revenue recognition journal entry
-            try {
-                $this->deliveryJournalService->createRevenueRecognition($deliveryOrder);
-
-                // Update status to completed
-                $deliveryOrder->update(['status' => 'completed']);
-            } catch (\Exception $e) {
-                Log::error('Failed to create revenue recognition journal entry: ' . $e->getMessage());
-                throw $e;
-            }
-
-            return $deliveryOrder;
-        });
     }
 
     public function updateDeliveryOrderStatus($deliveryOrder)
@@ -471,25 +478,111 @@ class DeliveryService
     public function approveDeliveryOrder($deliveryOrderId, $userId, $comments = null)
     {
         return DB::transaction(function () use ($deliveryOrderId, $userId, $comments) {
-            $deliveryOrder = DeliveryOrder::findOrFail($deliveryOrderId);
+            $deliveryOrder = DeliveryOrder::with('lines.inventoryItem')->findOrFail($deliveryOrderId);
 
             $deliveryOrder->update([
                 'approval_status' => 'approved',
                 'approved_by' => $userId,
                 'approved_at' => now(),
-                'status' => 'picking', // Move to picking stage after approval
+                'status' => 'in_transit',
                 'notes' => $comments ? $deliveryOrder->notes . "\nApproval: " . $comments : $deliveryOrder->notes
             ]);
 
-            // Create inventory reservation journal entry
+            foreach ($deliveryOrder->lines as $line) {
+                $line->update(['picked_qty' => $line->ordered_qty, 'status' => 'picked']);
+            }
+
+            $this->reduceStockOnApproval($deliveryOrder);
+
             try {
                 $this->deliveryJournalService->createInventoryReservation($deliveryOrder);
             } catch (\Exception $e) {
-                // Log the error but don't fail the approval
                 Log::error('Failed to create inventory reservation journal entry: ' . $e->getMessage());
             }
 
             return $deliveryOrder;
+        });
+    }
+
+    private function reduceStockOnApproval(DeliveryOrder $deliveryOrder): void
+    {
+        foreach ($deliveryOrder->lines as $line) {
+            if (!$line->inventory_item_id || !$line->inventoryItem) {
+                continue;
+            }
+
+            $alreadyReduced = (int) abs(
+                InventoryTransaction::where('reference_type', 'delivery_order_line')
+                    ->where('reference_id', $line->id)
+                    ->where('transaction_type', 'sale')
+                    ->sum('quantity')
+            );
+
+            $shouldReduce = (int) round($line->ordered_qty);
+            $delta = $shouldReduce - $alreadyReduced;
+
+            if ($delta <= 0) {
+                continue;
+            }
+
+            $unitCost = $this->inventoryService->calculateUnitCost($line->inventoryItem);
+
+            $this->inventoryService->processSaleTransaction(
+                $line->inventory_item_id,
+                $delta,
+                (float) $unitCost,
+                'delivery_order_line',
+                $line->id,
+                "Approved DO {$deliveryOrder->do_number} - {$line->item_name} (on the way)",
+                $deliveryOrder->warehouse_id
+            );
+        }
+    }
+
+    public function markAsDelivered($deliveryOrderId, $deliveredAt, $deliveredBy)
+    {
+        return DB::transaction(function () use ($deliveryOrderId, $deliveredAt, $deliveredBy) {
+            $deliveryOrder = DeliveryOrder::with('lines.inventoryItem')->findOrFail($deliveryOrderId);
+
+            if (!in_array($deliveryOrder->status, ['in_transit', 'ready'])) {
+                throw new \Exception('Delivery Order must be in transit or ready status to mark as delivered.');
+            }
+
+            if ($deliveryOrder->approval_status !== 'approved') {
+                throw new \Exception('Delivery Order must be approved to mark as delivered.');
+            }
+
+            $deliveredAtCarbon = \Carbon\Carbon::parse($deliveredAt);
+
+            foreach ($deliveryOrder->lines as $line) {
+                $line->update([
+                    'delivered_qty' => $line->ordered_qty,
+                    'status' => 'delivered',
+                ]);
+            }
+
+            $deliveryOrder->update([
+                'status' => 'delivered',
+                'delivered_at' => $deliveredAtCarbon,
+                'delivered_by' => $deliveredBy,
+                'actual_delivery_date' => $deliveredAtCarbon->toDateString(),
+            ]);
+
+            foreach ($deliveryOrder->lines as $line) {
+                if ($line->sales_order_line_id) {
+                    $this->syncSalesOrderLineFromDeliveries($line->sales_order_line_id);
+                }
+            }
+
+            try {
+                $this->deliveryJournalService->createRevenueRecognition($deliveryOrder);
+                $deliveryOrder->update(['status' => 'completed']);
+            } catch (\Exception $e) {
+                Log::error('Failed to create revenue recognition journal entry: ' . $e->getMessage());
+                throw $e;
+            }
+
+            return $deliveryOrder->fresh();
         });
     }
 
@@ -564,6 +657,53 @@ class DeliveryService
 
             $deliveryOrderLine->update(['reserved_qty' => 0]);
         }
+    }
+
+    public function getRemainingLinesForSalesOrder(int $salesOrderId, ?int $excludeDeliveryOrderId = null): array
+    {
+        $salesOrder = SalesOrder::with(['lines.inventoryItem'])->findOrFail($salesOrderId);
+        $result = [];
+        foreach ($salesOrder->lines as $line) {
+            if (!$line->inventory_item_id) {
+                continue;
+            }
+            $orderedQty = (float) $line->qty;
+            $allocated = $excludeDeliveryOrderId !== null
+                ? $this->getAllocatedQtyForSalesOrderLineExcludingDo($line->id, $excludeDeliveryOrderId)
+                : $this->getAllocatedQtyForSalesOrderLine($line->id);
+            $deliveredByOthers = $this->getDeliveredQtyForSalesOrderLineExcludingDo($line->id, $excludeDeliveryOrderId);
+            $remainQty = max(0, $orderedQty - $deliveredByOthers);
+            $maxQty = max(0, $orderedQty - $allocated);
+            if ($maxQty <= 0 && $excludeDeliveryOrderId === null) {
+                continue;
+            }
+            if ($excludeDeliveryOrderId !== null && $remainQty <= 0) {
+                continue;
+            }
+            $result[] = [
+                'sales_order_line_id' => $line->id,
+                'item_code' => $line->inventoryItem->code ?? $line->item_code ?? 'N/A',
+                'item_name' => $line->inventoryItem->name ?? $line->item_name ?? ($line->description ?? 'N/A'),
+                'ordered_qty' => $orderedQty,
+                'remaining_qty' => $remainQty,
+                'max_qty' => $maxQty,
+            ];
+        }
+        return $result;
+    }
+
+    public function getRemainQtyByLineForDeliveryOrder(DeliveryOrder $deliveryOrder): array
+    {
+        $result = [];
+        foreach ($deliveryOrder->lines as $line) {
+            if ($line->sales_order_line_id) {
+                $sol = SalesOrderLine::find($line->sales_order_line_id);
+                $orderedQty = $sol ? (float) $sol->qty : 0;
+                $deliveredByOthers = $this->getDeliveredQtyForSalesOrderLineExcludingDo($line->sales_order_line_id, $deliveryOrder->id);
+                $result[$line->sales_order_line_id] = max(0, $orderedQty - $deliveredByOthers);
+            }
+        }
+        return $result;
     }
 
     public function canCreateDeliveryOrder($salesOrder)

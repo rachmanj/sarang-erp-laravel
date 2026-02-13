@@ -249,43 +249,36 @@
 
                                 @if ($salesOrder)
                                     <div class="card card-secondary card-outline mt-3 mb-2">
-                                        <div class="card-header py-2">
-                                            <h3 class="card-title">
+                                        <div class="card-header py-2 d-flex justify-content-between align-items-center">
+                                            <h3 class="card-title mb-0">
                                                 <i class="fas fa-list-ul mr-1"></i>
                                                 Sales Order Items
                                             </h3>
+                                            <button type="button" id="copy-lines-table-btn" class="btn btn-sm btn-success">
+                                                <i class="fas fa-copy"></i> Copy Lines
+                                            </button>
                                         </div>
                                         <div class="card-body p-0">
                                             <div class="table-responsive">
-                                                <table class="table table-sm table-striped mb-0">
+                                                <table class="table table-sm table-striped mb-0" id="do-lines-table">
                                                     <thead>
                                                         <tr>
-                                                            <th>Item</th>
-                                                            <th>Description</th>
-                                                            <th>Qty</th>
-                                                            <th>Unit Price</th>
-                                                            <th>Amount</th>
+                                                            <th class="text-center" style="width: 40px;">No</th>
+                                                            <th>Item Code</th>
+                                                            <th>Item Name</th>
+                                                            <th class="text-right">Ordered Qty</th>
+                                                            <th class="text-right">Remain Qty</th>
+                                                            <th class="text-right" style="width: 120px;">Delivery Qty</th>
+                                                            <th style="width: 50px;">Action</th>
                                                         </tr>
                                                     </thead>
-                                                    <tbody>
-                                                        @foreach ($salesOrder->lines as $line)
-                                                            <tr>
-                                                                <td>{{ $line->item_code ?? ($line->inventoryItem->code ?? 'N/A') }}</td>
-                                                                <td>{{ $line->description ?? ($line->inventoryItem->name ?? ($line->item_name ?? 'N/A')) }}</td>
-                                                                <td class="text-right">{{ number_format($line->qty, 2) }}
-                                                                </td>
-                                                                <td class="text-right">
-                                                                    {{ number_format($line->unit_price, 2) }}</td>
-                                                                <td class="text-right">
-                                                                    {{ number_format($line->amount, 2) }}</td>
-                                                            </tr>
-                                                        @endforeach
+                                                    <tbody id="do-lines-tbody">
                                                     </tbody>
                                                     <tfoot>
                                                         <tr>
-                                                            <th colspan="4" class="text-right">Total:</th>
-                                                            <th class="text-right">
-                                                                {{ number_format($salesOrder->total_amount, 2) }}</th>
+                                                            <th colspan="5" class="text-right">Total Delivery Qty:</th>
+                                                            <th class="text-right" id="do-lines-total">0.00</th>
+                                                            <th></th>
                                                         </tr>
                                                     </tfoot>
                                                 </table>
@@ -321,6 +314,7 @@
 
 @push('scripts')
     <script>
+        var remainingLinesData = @json($remainingLines ?? []);
         $(document).ready(function() {
             // Ensure sales order field is enabled
             $('#sales_order_id').prop('disabled', false);
@@ -443,18 +437,92 @@
                 }
             });
 
-            // Handle Copy Lines button click
+            // Handle Copy Lines button (next to SO dropdown) - redirect
             $('#copy-lines-btn').on('click', function() {
                 var salesOrderId = $('#sales_order_id').val();
                 if (!salesOrderId) {
                     toastr.error('Please select a Sales Order first');
                     return;
                 }
-
-                // Redirect to create page with sales_order_id parameter
-                window.location.href = "{{ route('delivery-orders.create') }}?sales_order_id=" +
-                    salesOrderId;
+                window.location.href = "{{ route('delivery-orders.create') }}?sales_order_id=" + salesOrderId;
             });
+
+            function renderDoLinesTable() {
+                var tbody = $('#do-lines-tbody');
+                tbody.empty();
+                var total = 0;
+                remainingLinesData.forEach(function(line, idx) {
+                    var qty = parseFloat(line.remaining_qty) || 0;
+                    if (qty > parseFloat(line.max_qty || 0)) {
+                        qty = parseFloat(line.max_qty) || 0;
+                    }
+                    total += qty;
+                    var row = '<tr data-sol-id="' + line.sales_order_line_id + '">' +
+                        '<td class="text-center">' + (idx + 1) + '</td>' +
+                        '<td>' + (line.item_code || 'N/A') + '</td>' +
+                        '<td>' + (line.item_name || 'N/A') + '</td>' +
+                        '<td class="text-right">' + parseFloat(line.ordered_qty || 0).toFixed(2) + '</td>' +
+                        '<td class="text-right">' + parseFloat(line.remaining_qty || 0).toFixed(2) + '</td>' +
+                        '<td class="text-right">' +
+                        '<input type="number" step="0.01" min="0" max="' + line.max_qty + '" ' +
+                        'name="lines[' + idx + '][qty]" value="' + qty + '" ' +
+                        'class="form-control form-control-sm text-right do-line-qty" ' +
+                        'data-max="' + line.max_qty + '" style="width: 90px;">' +
+                        '<input type="hidden" name="lines[' + idx + '][sales_order_line_id]" value="' + line.sales_order_line_id + '">' +
+                        '</td>' +
+                        '<td><button type="button" class="btn btn-sm btn-outline-danger do-line-delete" title="Delete row"><i class="fas fa-trash"></i></button></td>' +
+                        '</tr>';
+                    tbody.append(row);
+                });
+                reindexLineInputs();
+                $('#do-lines-total').text(total.toFixed(2));
+            }
+
+            function reindexLineInputs() {
+                $('#do-lines-tbody tr').each(function(idx) {
+                    $(this).find('input[name*="[qty]"]').attr('name', 'lines[' + idx + '][qty]');
+                    $(this).find('input[name*="[sales_order_line_id]"]').attr('name', 'lines[' + idx + '][sales_order_line_id]');
+                });
+            }
+
+            function updateTotalQty() {
+                var total = 0;
+                $('.do-line-qty').each(function() {
+                    total += parseFloat($(this).val()) || 0;
+                });
+                $('#do-lines-total').text(total.toFixed(2));
+            }
+
+            $('#copy-lines-table-btn').on('click', function() {
+                renderDoLinesTable();
+                if (remainingLinesData.length > 0) {
+                    toastr.success('Remaining items loaded. You can edit qty or delete rows.');
+                } else {
+                    toastr.info('No remaining items to deliver for this Sales Order.');
+                }
+            });
+
+            $(document).on('click', '.do-line-delete', function() {
+                $(this).closest('tr').remove();
+                reindexLineInputs();
+                updateTotalQty();
+            });
+
+            $(document).on('input', '.do-line-qty', function() {
+                var $input = $(this);
+                var max = parseFloat($input.data('max')) || 999999;
+                var val = parseFloat($input.val()) || 0;
+                if (val > max) {
+                    $input.val(max);
+                } else if (val < 0) {
+                    $input.val(0);
+                }
+                updateTotalQty();
+            });
+
+            if (remainingLinesData.length > 0) {
+                renderDoLinesTable();
+            }
         });
     </script>
 @endpush

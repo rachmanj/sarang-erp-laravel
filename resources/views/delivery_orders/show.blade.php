@@ -99,6 +99,18 @@
                                             <td><strong>Delivery Method:</strong></td>
                                             <td>{{ ucfirst(str_replace('_', ' ', $deliveryOrder->delivery_method)) }}</td>
                                         </tr>
+                                        @if ($deliveryOrder->delivered_at)
+                                        <tr>
+                                            <td><strong>Delivered At:</strong></td>
+                                            <td>{{ $deliveryOrder->delivered_at->format('d M Y H:i') }}</td>
+                                        </tr>
+                                        @endif
+                                        @if ($deliveryOrder->delivered_by)
+                                        <tr>
+                                            <td><strong>Delivered By:</strong></td>
+                                            <td>{{ $deliveryOrder->delivered_by }}</td>
+                                        </tr>
+                                        @endif
                                     </table>
                                 </div>
                                 <div class="col-md-6">
@@ -114,15 +126,6 @@
                                 </div>
                             </div>
 
-                            <!-- Items -->
-                            @php
-                                $pickingStatuses = ['picking', 'packed', 'ready', 'in_transit'];
-                                $deliveryStatuses = ['ready', 'in_transit', 'partial_delivered', 'delivered'];
-                                $canEditPicking = $deliveryOrder->approval_status === 'approved'
-                                    && in_array($deliveryOrder->status, $pickingStatuses);
-                                $canEditDelivery = $deliveryOrder->approval_status === 'approved'
-                                    && in_array($deliveryOrder->status, $deliveryStatuses);
-                            @endphp
                             @if ($errors->any())
                                 <div class="alert alert-danger">
                                     <ul class="mb-0">
@@ -140,79 +143,30 @@
                                     <table class="table table-sm table-striped mb-0">
                                         <thead>
                                             <tr>
+                                                <th class="text-center" style="width: 40px;">No</th>
                                                 <th>Item Code</th>
                                                 <th>Item Name</th>
                                                 <th class="text-right">Ordered Qty</th>
-                                                <th class="text-right">Picked Qty</th>
-                                                <th class="text-right">Delivered Qty</th>
-                                                <th>Status</th>
+                                                <th class="text-right">Remain Qty</th>
+                                                <th class="text-right">Delivery Qty</th>
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            @foreach ($deliveryOrder->lines as $line)
-                                                <tr data-line-id="{{ $line->id }}">
+                                            @foreach ($deliveryOrder->lines as $index => $line)
+                                                @php
+                                                    $soLineQty = $line->salesOrderLine ? (float) $line->salesOrderLine->qty : 0;
+                                                    $remainQty = $remainQtyByLine[$line->sales_order_line_id] ?? 0;
+                                                @endphp
+                                                <tr>
+                                                    <td class="text-center">{{ $index + 1 }}</td>
                                                     <td>{{ $line->item_code ?? 'N/A' }}</td>
                                                     <td>{{ $line->item_name ?? 'N/A' }}</td>
+                                                    <td class="text-right">{{ number_format($soLineQty, 2) }}</td>
+                                                    <td class="text-right">{{ number_format($remainQty, 2) }}</td>
                                                     <td class="text-right">{{ number_format($line->ordered_qty, 2) }}</td>
-                                                    <td class="text-right" data-line-id="{{ $line->id }}" data-field="picked">
-                                                        @if ($canEditPicking)
-                                                            <form method="post"
-                                                                action="{{ route('delivery-orders.update-picking', $deliveryOrder) }}"
-                                                                class="d-inline do-qty-form" data-field="picked" data-ordered="{{ $line->ordered_qty }}">
-                                                                @csrf
-                                                                <input type="hidden" name="line_id" value="{{ $line->id }}">
-                                                                <input type="number" name="picked_qty"
-                                                                    value="{{ old('line_id') == $line->id ? (old('picked_qty') ?? $line->picked_qty) : $line->picked_qty }}"
-                                                                    min="0" max="{{ $line->ordered_qty }}" step="0.01"
-                                                                    placeholder="0"
-                                                                    class="form-control form-control-sm text-right d-inline-block mr-1"
-                                                                    style="width: 80px;" required>
-                                                                <button type="submit" class="btn btn-xs btn-outline-primary d-inline-block" title="Save">
-                                                                    <i class="fas fa-save"></i>
-                                                                </button>
-                                                            </form>
-                                                            <small class="text-muted d-block">Max: {{ number_format($line->ordered_qty, 2) }}</small>
-                                                        @else
-                                                            {{ number_format($line->picked_qty, 2) }}
-                                                        @endif
-                                                    </td>
-                                                    <td class="text-right" data-line-id="{{ $line->id }}" data-field="delivered" data-picked="{{ $line->picked_qty }}">
-                                                        @if ($canEditDelivery && $line->picked_qty > 0)
-                                                            <form method="post"
-                                                                action="{{ route('delivery-orders.update-delivery', $deliveryOrder) }}"
-                                                                class="d-inline do-qty-form" data-field="delivered" data-picked="{{ $line->picked_qty }}">
-                                                                @csrf
-                                                                <input type="hidden" name="line_id" value="{{ $line->id }}">
-                                                                <input type="number" name="delivered_qty"
-                                                                    value="{{ old('line_id') == $line->id ? (old('delivered_qty') ?? $line->delivered_qty) : $line->delivered_qty }}"
-                                                                    min="0" max="{{ $line->picked_qty }}" step="0.01"
-                                                                    placeholder="0"
-                                                                    class="form-control form-control-sm text-right d-inline-block mr-1"
-                                                                    style="width: 80px;" required>
-                                                                <button type="submit" class="btn btn-xs btn-outline-primary d-inline-block" title="Save">
-                                                                    <i class="fas fa-save"></i>
-                                                                </button>
-                                                            </form>
-                                                            <small class="text-muted d-block">Max: {{ number_format($line->picked_qty, 2) }}</small>
-                                                        @else
-                                                            {{ number_format($line->delivered_qty, 2) }}
-                                                        @endif
-                                                    </td>
-                                                    <td class="line-status-cell">
-                                                        <span
-                                                            class="badge badge-{{ $line->status === 'delivered' ? 'success' : 'warning' }}">
-                                                            {{ ucfirst(str_replace('_', ' ', $line->status)) }}
-                                                        </span>
-                                                    </td>
                                                 </tr>
                                             @endforeach
                                         </tbody>
-                                        <tfoot>
-                                            <tr>
-                                                <th colspan="5" class="text-right">Total:</th>
-                                                <th class="text-right">{{ number_format($deliveryOrder->total_amount, 2) }}</th>
-                                            </tr>
-                                        </tfoot>
                                     </table>
                                 </div>
                             </div>
@@ -236,24 +190,13 @@
                                 </div>
                             @endif
 
-                            <!-- Complete Delivery Action -->
-                            @if ($deliveryOrder->status === 'in_transit' && $deliveryOrder->approval_status === 'approved')
+                            <!-- Mark as Delivered Action -->
+                            @if (in_array($deliveryOrder->status, ['in_transit', 'ready']) && $deliveryOrder->approval_status === 'approved')
                                 <div class="row mt-3">
                                     <div class="col-md-12">
-                                        <form method="post"
-                                            action="{{ route('delivery-orders.complete-delivery', $deliveryOrder) }}"
-                                            class="d-inline">
-                                            @csrf
-                                            <div class="form-group">
-                                                <label for="actual_delivery_date">Actual Delivery Date:</label>
-                                                <input type="date" name="actual_delivery_date" id="actual_delivery_date"
-                                                    value="{{ $deliveryOrder->actual_delivery_date ? $deliveryOrder->actual_delivery_date->format('Y-m-d') : now()->format('Y-m-d') }}"
-                                                    class="form-control d-inline-block" style="width: auto;">
-                                            </div>
-                                            <button type="submit" class="btn btn-primary">
-                                                <i class="fas fa-check-circle"></i> Complete Delivery & Recognize Revenue
-                                            </button>
-                                        </form>
+                                        <button type="button" class="btn btn-primary" onclick="showMarkDeliveredModal()">
+                                            <i class="fas fa-check-circle"></i> Mark as Delivered
+                                        </button>
                                     </div>
                                 </div>
                             @endif
@@ -276,6 +219,41 @@
             </div>
         </div>
     </section>
+
+    <!-- Mark as Delivered Modal -->
+    <div class="modal fade" id="markDeliveredModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h4 class="modal-title">Mark as Delivered</h4>
+                    <button type="button" class="close" data-dismiss="modal">&times;</button>
+                </div>
+                <form method="post" action="{{ route('delivery-orders.mark-delivered', $deliveryOrder) }}">
+                    @csrf
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label for="delivered_at">Date & Time Delivered: <span class="text-danger">*</span></label>
+                            <input type="datetime-local" name="delivered_at" id="delivered_at"
+                                value="{{ old('delivered_at', now()->format('Y-m-d\TH:i')) }}"
+                                class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="delivered_by">Delivered By: <span class="text-danger">*</span></label>
+                            <input type="text" name="delivered_by" id="delivered_by"
+                                value="{{ old('delivered_by') }}"
+                                class="form-control" placeholder="Name of person who delivered" required maxlength="255">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-check"></i> Mark as Delivered
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 
     <!-- Reject Modal -->
     <div class="modal fade" id="rejectModal" tabindex="-1">
@@ -311,6 +289,10 @@
     <script>
         function showRejectModal() {
             $('#rejectModal').modal('show');
+        }
+
+        function showMarkDeliveredModal() {
+            $('#markDeliveredModal').modal('show');
         }
 
         document.querySelectorAll('.do-qty-form').forEach(function(form) {

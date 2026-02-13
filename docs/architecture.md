@@ -1,5 +1,5 @@
 Purpose: Technical reference for understanding system design and development patterns
-Last Updated: 2026-02-09 (Updated with Multiple Partial DOs per SO & Delivery Order Inventory Reduction)
+Last Updated: 2026-02-13 (Delivery Order Simplified Flow & Mark as Delivered)
 
 ## Architecture Documentation Guidelines
 
@@ -333,19 +333,19 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 
 ### 6.3. Delivery Order System
 
--   **Multiple Partial DOs per SO**: A Sales Order can have multiple Delivery Orders. `DeliveryService::getDeliveredQtyForSalesOrderLine()` sums `delivered_qty` from non-cancelled DO lines; `syncSalesOrderLineFromDeliveries()` updates `SalesOrderLine.delivered_qty` and `pending_qty`. New DO creation uses remaining qty = SO qty - delivered, skips fully-delivered lines; `canCreateDeliveryOrder()` accepts SO status `confirmed` or `processing`. Backfill: `php artisan sales-orders:backfill-delivered-qty`.
--   **Delivery Lifecycle Management**: Complete delivery process from sales order to completion
--   **Inventory Reservation**: Automatic stock allocation and reservation upon delivery order approval
--   **Inventory Stock Reduction**: Stock reduces when **Picked Qty** is updated (primary) or when **Delivered Qty** is updated (fallback for skip-pick workflows). `DeliveryService::ensureInventoryReduction()` uses `should_reduce = max(picked_qty, delivered_qty)`, computes `already_reduced` from `inventory_transactions` where `reference_type = 'delivery_order_line'`, and creates sale transactions via `InventoryService::processSaleTransaction()` for delta > 0. Reversal via `processAdjustmentTransaction` when DO is cancelled with picked_qty > 0
--   **Revenue Recognition**: Automated revenue recognition with COGS calculation upon delivery completion
--   **Status Tracking**: Comprehensive status management (draft, picking, packed, ready, in_transit, delivered, completed)
+-   **Simplified Flow**: Draft → Approve → In Transit → Mark as Delivered → Completed. Picking step removed; stock reduces at approval. `DeliveryService::approveDeliveryOrder()` sets status to `in_transit`, auto-sets `picked_qty = ordered_qty` per line, calls `reduceStockOnApproval()` for inventory sale transactions, and creates inventory reservation journal. `markAsDelivered()` creates revenue recognition journal and sets status to `completed`.
+-   **Multiple Partial DOs per SO**: A Sales Order can have multiple Delivery Orders. `DeliveryService::getDeliveredQtyForSalesOrderLineExcludingDo()` sums `delivered_qty` from non-cancelled DO lines (optionally excluding current DO); `syncSalesOrderLineFromDeliveries()` updates `SalesOrderLine.delivered_qty`. New DO creation uses remaining qty = SO qty - allocated; `getRemainingLinesForSalesOrder()` returns `ordered_qty`, `remaining_qty`, `max_qty` per line (Remain Qty = SO qty - delivered by other DOs).
+-   **Delivery Items Table**: Columns No, Item Code, Item Name, Ordered Qty (SO line original), Remain Qty (SO - delivered by others, read-only), Delivery Qty (qty for this DO, editable when draft), Action (edit/delete when draft). VAT, WTax, Unit Price hidden from create/edit/show/print (kept in DB for invoicing).
+-   **Inventory Stock Reduction**: Stock reduces at **approval** via `reduceStockOnApproval()` (not at pick). `DeliveryService::processSaleTransaction()` creates inventory sale transactions for `ordered_qty` per line. Reversal via `processAdjustmentTransaction` when DO is cancelled with picked_qty > 0.
+-   **Mark as Delivered**: Single button with modal (date, time, delivered by). `markAsDelivered()` sets `delivered_at`, `delivered_by`, `actual_delivery_date`; sets all line `delivered_qty = ordered_qty`; syncs SO lines; creates revenue recognition journal via `DeliveryJournalService::createRevenueRecognition()`; sets status to `completed`. `delivery_orders` table has `delivered_at` (datetime) and `delivered_by` (string).
+-   **Journal Flow**: Approve → Inventory Reservation journal (DR Inventory Reserved, CR Inventory Available). Mark as Delivered → Revenue Recognition journal (Revenue, COGS, AR UnInvoice, release Inventory Reserved). Complete Delivery step removed; revenue recognition merged into Mark as Delivered.
+-   **Status Tracking**: draft, in_transit, ready, delivered (transient), completed, cancelled. Picking, packed, partial_delivered statuses no longer used in new flow.
 -   **Approval Workflows**: Multi-level approval process with proper authorization controls
--   **Journal Entries Integration**: Automatic journal entries for inventory reservation and revenue recognition
 -   **Delivery Tracking**: Logistics cost tracking, performance metrics, and customer satisfaction monitoring
--   **Print Functionality**: Professional delivery order documents with company branding
--   **Data Integrity**: Foreign key constraint handling with graceful NULL assignment when inventory items are deleted, preventing creation failures
--   **Sales Order Integration**: Customer-based filtering for Sales Order selection using Select2 `templateResult` function for dynamic client-side filtering. Create Delivery Order available when SO status is `confirmed` or `processing`.
--   **Item Display**: Fallback chain for displaying item information (item_code → inventoryItem->code, description → inventoryItem->name → item_name) ensuring data availability when denormalized fields are NULL
+-   **Print Functionality**: Professional delivery order documents (No, Item Code, Item Name, Delivery Qty)
+-   **Data Integrity**: Foreign key constraint handling with graceful NULL assignment when inventory items are deleted
+-   **Sales Order Integration**: Customer-based filtering for Sales Order selection. Create Delivery Order available when SO status is `confirmed` or `processing`.
+-   **Item Display**: Fallback chain for displaying item information (item_code → inventoryItem->code, description → inventoryItem->name → item_name)
 -   **Backfill Command**: `php artisan delivery-orders:backfill-inventory-transactions` with `--dry-run` for existing DO lines with picked/delivered qty but no inventory transactions
 
 ### 7. Control Account Management System
@@ -703,10 +703,10 @@ graph TD
     Q --> R[Control Account Balance Update]
 
     S[Sales Order] --> T[Delivery Order Creation]
-    T --> U[Inventory Reservation]
-    U --> V[Delivery Approval]
-    V --> W[Picking/Packing]
-    W --> X[Delivery Completion]
+    T --> U[Delivery Approval]
+    U --> V[Stock Reduction + Inventory Reservation]
+    V --> W[In Transit]
+    W --> X[Mark as Delivered]
     X --> Y[Revenue Recognition]
     Y --> Z[Journal Entries]
     Z --> AA[Control Account Reconciliation]

@@ -195,7 +195,7 @@
                     <td class="text-center">{{ $index + 1 }}</td>
                     <td>{{ $line->item_code ?? 'N/A' }}</td>
                     <td>{{ $line->item_name ?? 'N/A' }}</td>
-                    <td class="text-right">{{ number_format($line->picked_qty, 2) }}</td>
+                    <td class="text-right">{{ number_format($line->delivered_qty > 0 ? $line->delivered_qty : $line->ordered_qty, 2) }}</td>
                     <td class="text-center"><input type="checkbox" disabled></td>
                 </tr>
             @endforeach

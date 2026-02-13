@@ -30,9 +30,10 @@
                                 <i class="fas fa-arrow-left"></i> Back
                             </a>
                         </div>
-                        <form method="post" action="{{ route('delivery-orders.update', $deliveryOrder) }}">
+                        <form method="post" action="{{ route('delivery-orders.update', $deliveryOrder) }}" id="edit-do-form">
                             @csrf
                             @method('PATCH')
+                            <div id="deleted-lines-container"></div>
                             <div class="card-body pb-1">
                                 <div class="row">
                                     <div class="col-md-6">
@@ -182,81 +183,51 @@
                                                 <table class="table table-sm table-striped mb-0" id="delivery-items-table">
                                                     <thead>
                                                         <tr>
+                                                            <th class="text-center" style="width: 40px;">No</th>
                                                             <th>Item Code</th>
                                                             <th>Item Name</th>
                                                             <th class="text-right">Ordered Qty</th>
-                                                            <th class="text-right">Unit Price</th>
-                                                            <th class="text-right">Amount</th>
-                                                            <th>VAT</th>
-                                                            <th>WTax %</th>
-                                                            <th>Description</th>
-                                                            <th>Notes</th>
+                                                            <th class="text-right">Remain Qty</th>
+                                                            <th class="text-right">Delivery Qty</th>
+                                                            <th style="width: 80px;">Action</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody>
                                                         @foreach ($deliveryOrder->lines as $index => $line)
+                                                            @php
+                                                                $soLineQty = $line->salesOrderLine ? (float) $line->salesOrderLine->qty : 0;
+                                                                $remainQty = $remainQtyByLine[$line->sales_order_line_id] ?? 0;
+                                                            @endphp
                                                             <tr>
+                                                                <td class="text-center">{{ $index + 1 }}</td>
                                                                 <td>
                                                                     {{ $line->item_code ?? ($line->inventoryItem->code ?? 'N/A') }}
                                                                     <input type="hidden" name="lines[{{ $index }}][id]" value="{{ $line->id }}">
-                                                                    <input type="hidden" name="lines[{{ $index }}][sales_order_line_id]" value="{{ $line->sales_order_line_id }}">
-                                                                    <input type="hidden" name="lines[{{ $index }}][inventory_item_id]" value="{{ $line->inventory_item_id }}">
                                                                 </td>
                                                                 <td>{{ $line->item_name ?? ($line->inventoryItem->name ?? ($line->description ?? 'N/A')) }}</td>
+                                                                <td class="text-right">{{ number_format($soLineQty, 2) }}</td>
+                                                                <td class="text-right">{{ number_format($remainQty, 2) }}</td>
                                                                 <td class="text-right">
-                                                                    <input type="number" 
-                                                                           name="lines[{{ $index }}][ordered_qty]" 
-                                                                           class="form-control form-control-sm text-right qty-input" 
-                                                                           value="{{ old('lines.'.$index.'.ordered_qty', $line->ordered_qty) }}" 
-                                                                           step="0.01" 
-                                                                           min="0" 
+                                                                    <input type="number"
+                                                                           name="lines[{{ $index }}][ordered_qty]"
+                                                                           class="form-control form-control-sm text-right qty-input"
+                                                                           value="{{ old('lines.'.$index.'.ordered_qty', $line->ordered_qty) }}"
+                                                                           step="0.01"
+                                                                           min="0"
+                                                                           max="{{ $remainQty }}"
                                                                            required
-                                                                           data-line-index="{{ $index }}">
-                                                                </td>
-                                                                <td class="text-right">
-                                                                    <input type="number" 
-                                                                           name="lines[{{ $index }}][unit_price]" 
-                                                                           class="form-control form-control-sm text-right price-input" 
-                                                                           value="{{ old('lines.'.$index.'.unit_price', $line->unit_price) }}" 
-                                                                           step="0.01" 
-                                                                           min="0" 
-                                                                           required
-                                                                           data-line-index="{{ $index }}">
-                                                                </td>
-                                                                <td class="text-right">
-                                                                    <span class="amount-display" data-line-index="{{ $index }}">
-                                                                        {{ number_format($line->amount, 2) }}
-                                                                    </span>
-                                                                    <input type="hidden" name="lines[{{ $index }}][amount]" class="amount-input" value="{{ $line->amount }}" data-line-index="{{ $index }}">
-                                                                </td>
-                                                                <td class="text-muted">
-                                                                    {{ $line->taxCode?->code ?? '—' }}
-                                                                </td>
-                                                                <td class="text-muted text-right">
-                                                                    {{ optional($line->salesOrderLine)->wtax_rate ? number_format($line->salesOrderLine->wtax_rate, 2) . '%' : '—' }}
+                                                                           data-max="{{ $remainQty }}"
+                                                                           data-line-index="{{ $index }}"
+                                                                           style="width: 90px;">
                                                                 </td>
                                                                 <td>
-                                                                    <input type="text" 
-                                                                           name="lines[{{ $index }}][description]" 
-                                                                           class="form-control form-control-sm" 
-                                                                           value="{{ old('lines.'.$index.'.description', $line->description) }}">
-                                                                </td>
-                                                                <td>
-                                                                    <input type="text" 
-                                                                           name="lines[{{ $index }}][notes]" 
-                                                                           class="form-control form-control-sm" 
-                                                                           value="{{ old('lines.'.$index.'.notes', $line->notes) }}">
+                                                                    <button type="button" class="btn btn-sm btn-outline-danger do-line-delete" data-line-id="{{ $line->id }}" title="Delete row">
+                                                                        <i class="fas fa-trash"></i>
+                                                                    </button>
                                                                 </td>
                                                             </tr>
                                                         @endforeach
                                                     </tbody>
-                                                    <tfoot>
-                                                        <tr>
-                                                            <th colspan="4" class="text-right">Total:</th>
-                                                            <th class="text-right" id="total-amount">{{ number_format($deliveryOrder->total_amount, 2) }}</th>
-                                                            <th colspan="4"></th>
-                                                        </tr>
-                                                    </tfoot>
                                                 </table>
                                             </div>
                                         </div>
@@ -282,37 +253,21 @@
 @push('scripts')
     <script>
         $(document).ready(function() {
-            // Calculate amount and total when qty or price changes
-            function calculateAmount(lineIndex) {
-                const row = $(`tr:has(input[data-line-index="${lineIndex}"])`);
-                const qty = parseFloat(row.find('.qty-input').val()) || 0;
-                const price = parseFloat(row.find('.price-input').val()) || 0;
-                const amount = qty * price;
-                
-                row.find(`.amount-display[data-line-index="${lineIndex}"]`).text(amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ","));
-                row.find(`.amount-input[data-line-index="${lineIndex}"]`).val(amount.toFixed(2));
-                
-                calculateTotal();
-            }
-            
-            function calculateTotal() {
-                let total = 0;
-                $('.amount-input').each(function() {
-                    total += parseFloat($(this).val()) || 0;
-                });
-                $('#total-amount').text(total.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ","));
-            }
-            
-            // Bind change events
-            $(document).on('input', '.qty-input, .price-input', function() {
-                const lineIndex = $(this).data('line-index');
-                calculateAmount(lineIndex);
+            $(document).on('input', '.qty-input', function() {
+                var $input = $(this);
+                var max = parseFloat($input.data('max')) || 999999;
+                var val = parseFloat($input.val()) || 0;
+                if (val > max) {
+                    $input.val(max);
+                } else if (val < 0) {
+                    $input.val(0);
+                }
             });
-            
-            // Initial calculation
-            $('.qty-input').each(function() {
-                const lineIndex = $(this).data('line-index');
-                calculateAmount(lineIndex);
+
+            $(document).on('click', '.do-line-delete', function() {
+                var lineId = $(this).data('line-id');
+                $(this).closest('tr').remove();
+                $('#deleted-lines-container').append('<input type="hidden" name="deleted_lines[]" value="' + lineId + '">');
             });
         });
     </script>

@@ -1,5 +1,5 @@
 **Purpose**: Record technical decisions and rationale for future reference
-**Last Updated**: 2026-02-09 (Added Multiple Partial DOs per SO decision)
+**Last Updated**: 2026-02-13 (Delivery Order Simplified Flow & Mark as Delivered)
 
 # Technical Decision Records
 
@@ -29,6 +29,38 @@ Decision: [Title] - [YYYY-MM-DD]
 ---
 
 ## Recent Decisions
+
+### Decision: Delivery Order Simplified Flow & Journal Consolidation - 2026-02-13
+
+**Context**: The Delivery Order flow had multiple steps (Picking, Packing, Complete Delivery) with stock reduction at pick/delivery and revenue recognition at a separate "Complete Delivery" step. Users needed a simpler flow with clearer stock handling and single-point revenue recognition.
+
+**Options Considered**:
+
+1. **Option A**: Keep existing flow with pick/deliver steps
+    - ✅ Pros: No changes
+    - ❌ Cons: Complex, multiple steps, revenue recognition separate from delivery confirmation
+
+2. **Option B**: Simplify to Approve → In Transit → Mark as Delivered; reduce stock at approval; merge revenue recognition into Mark as Delivered
+    - ✅ Pros: Simpler flow, stock reflects "on the way" at approval; single Mark as Delivered action captures date/time/delivered-by and triggers revenue recognition
+    - ❌ Cons: Requires migration (delivered_at, delivered_by), service refactor
+
+**Decision**: Adopt Option B—simplified flow: Draft → Approve (stock reduction + inventory reservation) → In Transit → Mark as Delivered (revenue recognition) → Completed. Stock reduces at approval via `reduceStockOnApproval()`. `markAsDelivered()` sets `delivered_at`, `delivered_by`, syncs SO lines, creates revenue recognition journal, sets status to `completed`. Removed picking step and separate Complete Delivery step.
+
+**Rationale**:
+- Stock must reflect goods "on the way" at approval to prevent overselling
+- Mark as Delivered is the natural point for revenue recognition (goods received by customer)
+- Single modal (date, time, delivered by) simplifies user workflow
+- Delivery items table simplified: No, Item Code, Item Name, Ordered Qty, Remain Qty, Delivery Qty, Action; VAT/WTax/Unit Price hidden (kept in DB for invoicing)
+
+**Implementation**:
+- **Migration**: `delivered_at` (datetime), `delivered_by` (string) on `delivery_orders`
+- **DeliveryService**: `approveDeliveryOrder()` → `reduceStockOnApproval()`, `markAsDelivered()` → `createRevenueRecognition()`; removed `completeDelivery()`
+- **Views**: Create/Edit/Show/Print use simplified columns; Mark as Delivered button + modal on show page
+- **Routes**: `POST delivery-orders/{id}/mark-delivered`; removed `complete-delivery`
+
+**Review Date**: 2027-02-13 (after full year of production use).
+
+---
 
 ### Decision: Delivery Order Inventory Reduction at Pick vs Delivery - 2026-02-09
 
