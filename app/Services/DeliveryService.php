@@ -122,8 +122,8 @@ class DeliveryService
             // Create delivery order lines from sales order lines
             Log::info('DeliveryService: Creating delivery order lines', ['lines_count' => $salesOrder->lines->count()]);
 
+            $linesCreated = 0;
             foreach ($salesOrder->lines as $salesOrderLine) {
-                // Skip non-inventory items
                 if (!$salesOrderLine->inventory_item_id) {
                     Log::info('DeliveryService: Skipping line without inventory_item_id', ['line_id' => $salesOrderLine->id]);
                     continue;
@@ -134,7 +134,15 @@ class DeliveryService
                     'inventory_item_id' => $salesOrderLine->inventory_item_id
                 ]);
 
-                $this->createDeliveryOrderLine($do, $salesOrderLine, $data);
+                $doLine = $this->createDeliveryOrderLine($do, $salesOrderLine, $data);
+                if ($doLine === null) {
+                    continue;
+                }
+                $linesCreated++;
+            }
+
+            if ($linesCreated === 0) {
+                throw new \Exception('Sales Order has no remaining quantity to deliver');
             }
 
             // Create delivery tracking record
@@ -189,8 +197,12 @@ class DeliveryService
             }
         }
 
-        // Get pending quantity (full quantity if first delivery, or remaining if partial)
-        $pendingQty = $salesOrderLine->pending_qty ?? $salesOrderLine->qty;
+        $alreadyDelivered = $this->getDeliveredQtyForSalesOrderLine($salesOrderLine->id);
+        $pendingQty = max(0, $salesOrderLine->qty - $alreadyDelivered);
+        if ($pendingQty <= 0) {
+            Log::info('DeliveryService: Skipping line with no remaining qty', ['sales_order_line_id' => $salesOrderLine->id]);
+            return null;
+        }
 
         Log::info('DeliveryService: Creating delivery order line', [
             'pending_qty' => $pendingQty,
@@ -341,10 +353,31 @@ class DeliveryService
 
             $this->ensureInventoryReduction($deliveryOrderLine);
 
+            if ($deliveryOrderLine->sales_order_line_id) {
+                $this->syncSalesOrderLineFromDeliveries($deliveryOrderLine->sales_order_line_id);
+            }
+
             $this->updateDeliveryOrderStatus($deliveryOrderLine->deliveryOrder);
 
             return $deliveryOrderLine->fresh();
         });
+    }
+
+    private function getDeliveredQtyForSalesOrderLine(int $salesOrderLineId): float
+    {
+        return (float) DeliveryOrderLine::where('sales_order_line_id', $salesOrderLineId)
+            ->whereHas('deliveryOrder', fn($q) => $q->where('status', '!=', 'cancelled'))
+            ->sum('delivered_qty');
+    }
+
+    private function syncSalesOrderLineFromDeliveries(int $salesOrderLineId): void
+    {
+        $line = SalesOrderLine::find($salesOrderLineId);
+        if (!$line) {
+            return;
+        }
+        $delivered = $this->getDeliveredQtyForSalesOrderLine($salesOrderLineId);
+        $line->updateDeliveredQuantity($delivered);
     }
 
     private function ensureInventoryReduction(DeliveryOrderLine $line): void
@@ -498,6 +531,12 @@ class DeliveryService
                 'notes' => $reason ? $deliveryOrder->notes . "\nCancellation: " . $reason : $deliveryOrder->notes
             ]);
 
+            foreach ($deliveryOrder->lines as $line) {
+                if ($line->sales_order_line_id) {
+                    $this->syncSalesOrderLineFromDeliveries($line->sales_order_line_id);
+                }
+            }
+
             return $deliveryOrder;
         });
     }
@@ -521,9 +560,10 @@ class DeliveryService
 
     public function canCreateDeliveryOrder($salesOrder)
     {
-        return $salesOrder->approval_status === 'approved' &&
-            $salesOrder->status === 'confirmed' &&
-            $salesOrder->order_type === 'item';
+        if ($salesOrder->approval_status !== 'approved' || $salesOrder->order_type !== 'item') {
+            return false;
+        }
+        return in_array($salesOrder->status, ['confirmed', 'processing']);
     }
 
     public function getDeliveryPerformanceMetrics($dateFrom = null, $dateTo = null)

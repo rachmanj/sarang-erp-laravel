@@ -49,7 +49,7 @@
                                     aria-label="Create Invoice from Sales Order">
                                     <i class="fas fa-file-invoice-dollar"></i> Create Invoice
                                 </a>
-                                @if ($order->order_type === 'item' && $order->approval_status === 'approved' && $order->status === 'confirmed')
+                                @if ($order->order_type === 'item' && $order->approval_status === 'approved' && in_array($order->status, ['confirmed', 'processing']))
                                     <a href="{{ route('delivery-orders.create', ['sales_order_id' => $order->id]) }}"
                                         class="btn btn-sm btn-info" aria-label="Create Delivery Order from Sales Order">
                                         <i class="fas fa-truck"></i> Create Delivery Order

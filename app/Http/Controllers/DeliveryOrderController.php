@@ -83,7 +83,7 @@ class DeliveryOrderController extends Controller
 
         $salesOrders = SalesOrder::with(['customer', 'businessPartner'])
             ->where('approval_status', 'approved')
-            ->where('status', 'confirmed')
+            ->whereIn('status', ['confirmed', 'processing'])
             ->where('order_type', 'item')
             ->orderBy('created_at', 'desc')
             ->get();

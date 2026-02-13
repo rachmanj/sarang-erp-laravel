@@ -31,7 +31,11 @@
             <h4 class="mb-1">
                 Sales Dashboard - {{ __('As of :date', ['date' => now()->format('d M Y')]) }}
             </h4>
-            @if (!empty($filters['customer_id']) || !empty($filters['date_from']) || !empty($filters['date_to']) || !empty($filters['aging_bucket']))
+            @if (
+                !empty($filters['customer_id']) ||
+                    !empty($filters['date_from']) ||
+                    !empty($filters['date_to']) ||
+                    !empty($filters['aging_bucket']))
                 <span class="badge badge-info">Filters active</span>
             @endif
         </div>
@@ -85,7 +89,8 @@
                     <p>Sales (MTD)</p>
                 </div>
                 <div class="icon"><i class="fas fa-cash-register"></i></div>
-                <a href="{{ route('sales-invoices.index') }}" class="small-box-footer">Sales Invoices <i class="fas fa-arrow-circle-right"></i></a>
+                <a href="{{ route('sales-invoices.index') }}" class="small-box-footer">Sales Invoices <i
+                        class="fas fa-arrow-circle-right"></i></a>
             </div>
         </div>
         <div class="col-lg col-6">
@@ -95,7 +100,8 @@
                     <p>Sales (YTD)</p>
                 </div>
                 <div class="icon"><i class="fas fa-chart-line"></i></div>
-                <a href="{{ route('sales-invoices.index') }}" class="small-box-footer">Sales Invoices <i class="fas fa-arrow-circle-right"></i></a>
+                <a href="{{ route('sales-invoices.index') }}" class="small-box-footer">Sales Invoices <i
+                        class="fas fa-arrow-circle-right"></i></a>
             </div>
         </div>
         <div class="col-lg col-6">
@@ -105,7 +111,8 @@
                     <p>Open Pipeline</p>
                 </div>
                 <div class="icon"><i class="fas fa-shopping-bag"></i></div>
-                <a href="{{ route('sales-orders.index') }}" class="small-box-footer">Sales Orders <i class="fas fa-arrow-circle-right"></i></a>
+                <a href="{{ route('sales-orders.index') }}" class="small-box-footer">Sales Orders <i
+                        class="fas fa-arrow-circle-right"></i></a>
             </div>
         </div>
         <div class="col-lg col-6">
@@ -115,7 +122,8 @@
                     <p>Outstanding AR</p>
                 </div>
                 <div class="icon"><i class="fas fa-file-invoice-dollar"></i></div>
-                <a href="{{ route('sales-invoices.index') }}" class="small-box-footer">View Invoices <i class="fas fa-arrow-circle-right"></i></a>
+                <a href="{{ route('sales-invoices.index') }}" class="small-box-footer">View Invoices <i
+                        class="fas fa-arrow-circle-right"></i></a>
             </div>
         </div>
         <div class="col-lg col-6">
@@ -125,7 +133,8 @@
                     <p>Collections (MTD)</p>
                 </div>
                 <div class="icon"><i class="fas fa-money-bill-wave"></i></div>
-                <a href="{{ route('sales-receipts.index') }}" class="small-box-footer">Sales Receipts <i class="fas fa-arrow-circle-right"></i></a>
+                <a href="{{ route('sales-receipts.index') }}" class="small-box-footer">Sales Receipts <i
+                        class="fas fa-arrow-circle-right"></i></a>
             </div>
         </div>
     </div>
@@ -140,16 +149,21 @@
                     <div class="row mb-3">
                         <div class="col-sm-6 border-right">
                             <h6 class="text-muted text-uppercase font-weight-bold">Status Summary</h6>
-                            <p class="mb-1">Total: <strong>{{ number_format(data_get($salesQuotations, 'total', 0)) }}</strong></p>
-                            <p class="mb-1">Pending: <strong>{{ number_format(data_get($salesQuotations, 'pending', 0)) }}</strong></p>
-                            <p class="mb-1">Accepted: <strong>{{ number_format(data_get($salesQuotations, 'accepted', 0)) }}</strong></p>
-                            <p class="mb-0">Converted: <strong>{{ number_format(data_get($salesQuotations, 'converted', 0)) }}</strong></p>
+                            <p class="mb-1">Total:
+                                <strong>{{ number_format(data_get($salesQuotations, 'total', 0)) }}</strong></p>
+                            <p class="mb-1">Pending:
+                                <strong>{{ number_format(data_get($salesQuotations, 'pending', 0)) }}</strong></p>
+                            <p class="mb-1">Accepted:
+                                <strong>{{ number_format(data_get($salesQuotations, 'accepted', 0)) }}</strong></p>
+                            <p class="mb-0">Converted:
+                                <strong>{{ number_format(data_get($salesQuotations, 'converted', 0)) }}</strong></p>
                         </div>
                         <div class="col-sm-6">
                             <h6 class="text-muted text-uppercase font-weight-bold">Value</h6>
                             <p class="mb-0">
                                 <span class="text-muted d-block">Open Value</span>
-                                <strong>Rp {{ number_format(data_get($salesQuotations, 'open_value', 0), 0, ',', '.') }}</strong>
+                                <strong>Rp
+                                    {{ number_format(data_get($salesQuotations, 'open_value', 0), 0, ',', '.') }}</strong>
                             </p>
                         </div>
                     </div>
@@ -168,17 +182,23 @@
                     <div class="row mb-3">
                         <div class="col-sm-6 border-right">
                             <h6 class="text-muted text-uppercase font-weight-bold">Status Summary</h6>
-                            <p class="mb-1">Total: <strong>{{ number_format(data_get($salesOrders, 'total', 0)) }}</strong></p>
-                            <p class="mb-1">Draft: <strong>{{ number_format(data_get($salesOrders, 'draft', 0)) }}</strong></p>
-                            <p class="mb-1">Approved: <strong>{{ number_format(data_get($salesOrders, 'approved', 0)) }}</strong></p>
-                            <p class="mb-1">Closed: <strong>{{ number_format(data_get($salesOrders, 'closed', 0)) }}</strong></p>
-                            <p class="mb-0">Open: <strong>{{ number_format(data_get($salesOrders, 'open', 0)) }}</strong></p>
+                            <p class="mb-1">Total:
+                                <strong>{{ number_format(data_get($salesOrders, 'total', 0)) }}</strong></p>
+                            <p class="mb-1">Draft:
+                                <strong>{{ number_format(data_get($salesOrders, 'draft', 0)) }}</strong></p>
+                            <p class="mb-1">Approved:
+                                <strong>{{ number_format(data_get($salesOrders, 'approved', 0)) }}</strong></p>
+                            <p class="mb-1">Closed:
+                                <strong>{{ number_format(data_get($salesOrders, 'closed', 0)) }}</strong></p>
+                            <p class="mb-0">Open:
+                                <strong>{{ number_format(data_get($salesOrders, 'open', 0)) }}</strong></p>
                         </div>
                         <div class="col-sm-6">
                             <h6 class="text-muted text-uppercase font-weight-bold">Value</h6>
                             <p class="mb-0">
                                 <span class="text-muted d-block">Open SO Value</span>
-                                <strong>Rp {{ number_format(data_get($salesOrders, 'total_value', 0), 0, ',', '.') }}</strong>
+                                <strong>Rp
+                                    {{ number_format(data_get($salesOrders, 'total_value', 0), 0, ',', '.') }}</strong>
                             </p>
                         </div>
                     </div>
@@ -197,10 +217,14 @@
                     <div class="row mb-3">
                         <div class="col-sm-6 border-right">
                             <h6 class="text-muted text-uppercase font-weight-bold">Status Summary</h6>
-                            <p class="mb-1">Total: <strong>{{ number_format(data_get($deliveryOrders, 'total', 0)) }}</strong></p>
-                            <p class="mb-1">Pending: <strong>{{ number_format(data_get($deliveryOrders, 'pending', 0)) }}</strong></p>
-                            <p class="mb-1">Delivered: <strong>{{ number_format(data_get($deliveryOrders, 'delivered', 0)) }}</strong></p>
-                            <p class="mb-0">Completed: <strong>{{ number_format(data_get($deliveryOrders, 'completed', 0)) }}</strong></p>
+                            <p class="mb-1">Total:
+                                <strong>{{ number_format(data_get($deliveryOrders, 'total', 0)) }}</strong></p>
+                            <p class="mb-1">Pending:
+                                <strong>{{ number_format(data_get($deliveryOrders, 'pending', 0)) }}</strong></p>
+                            <p class="mb-1">Delivered:
+                                <strong>{{ number_format(data_get($deliveryOrders, 'delivered', 0)) }}</strong></p>
+                            <p class="mb-0">Completed:
+                                <strong>{{ number_format(data_get($deliveryOrders, 'completed', 0)) }}</strong></p>
                         </div>
                         <div class="col-sm-6">
                             <h6 class="text-muted text-uppercase font-weight-bold">Actions</h6>
@@ -224,20 +248,26 @@
                     <div class="row mb-3">
                         <div class="col-sm-6 border-right">
                             <h6 class="text-muted text-uppercase font-weight-bold">Status Summary</h6>
-                            <p class="mb-1">Total: <strong>{{ number_format(data_get($salesInvoices, 'total', 0)) }}</strong></p>
-                            <p class="mb-1">Draft: <strong>{{ number_format(data_get($salesInvoices, 'draft', 0)) }}</strong></p>
-                            <p class="mb-1">Posted: <strong>{{ number_format(data_get($salesInvoices, 'posted', 0)) }}</strong></p>
-                            <p class="mb-0">Open: <strong>{{ number_format(data_get($salesInvoices, 'open', 0)) }}</strong></p>
+                            <p class="mb-1">Total:
+                                <strong>{{ number_format(data_get($salesInvoices, 'total', 0)) }}</strong></p>
+                            <p class="mb-1">Draft:
+                                <strong>{{ number_format(data_get($salesInvoices, 'draft', 0)) }}</strong></p>
+                            <p class="mb-1">Posted:
+                                <strong>{{ number_format(data_get($salesInvoices, 'posted', 0)) }}</strong></p>
+                            <p class="mb-0">Open:
+                                <strong>{{ number_format(data_get($salesInvoices, 'open', 0)) }}</strong></p>
                         </div>
                         <div class="col-sm-6">
                             <h6 class="text-muted text-uppercase font-weight-bold">Amounts</h6>
                             <p class="mb-1">
                                 <span class="text-muted d-block">Total Amount</span>
-                                <strong>Rp {{ number_format(data_get($salesInvoices, 'total_amount', 0), 0, ',', '.') }}</strong>
+                                <strong>Rp
+                                    {{ number_format(data_get($salesInvoices, 'total_amount', 0), 0, ',', '.') }}</strong>
                             </p>
                             <p class="mb-0">
                                 <span class="text-muted d-block">Outstanding</span>
-                                <strong class="text-warning">Rp {{ number_format(data_get($salesInvoices, 'outstanding_amount', 0), 0, ',', '.') }}</strong>
+                                <strong class="text-warning">Rp
+                                    {{ number_format(data_get($salesInvoices, 'outstanding_amount', 0), 0, ',', '.') }}</strong>
                             </p>
                         </div>
                     </div>
@@ -256,17 +286,20 @@
                     <div class="row mb-3">
                         <div class="col-sm-6 border-right">
                             <h6 class="text-muted text-uppercase font-weight-bold">Summary</h6>
-                            <p class="mb-1">Posted: <strong>{{ number_format(data_get($salesReceipts, 'total', 0)) }}</strong></p>
+                            <p class="mb-1">Posted:
+                                <strong>{{ number_format(data_get($salesReceipts, 'total', 0)) }}</strong></p>
                             <p class="mb-0">
                                 <span class="text-muted d-block">Total Collected</span>
-                                <strong>Rp {{ number_format(data_get($salesReceipts, 'total_posted', 0), 0, ',', '.') }}</strong>
+                                <strong>Rp
+                                    {{ number_format(data_get($salesReceipts, 'total_posted', 0), 0, ',', '.') }}</strong>
                             </p>
                         </div>
                         <div class="col-sm-6">
                             <h6 class="text-muted text-uppercase font-weight-bold">MTD</h6>
                             <p class="mb-0">
                                 <span class="text-muted d-block">Collections MTD</span>
-                                <strong>Rp {{ number_format(data_get($salesReceipts, 'mtd_collected', 0), 0, ',', '.') }}</strong>
+                                <strong>Rp
+                                    {{ number_format(data_get($salesReceipts, 'mtd_collected', 0), 0, ',', '.') }}</strong>
                             </p>
                         </div>
                     </div>
@@ -315,7 +348,8 @@
                                 </li>
                                 <li class="d-flex justify-content-between py-2 mt-2">
                                     <span class="font-weight-bold">Total Outstanding</span>
-                                    <strong class="text-primary">Rp {{ number_format($totalOutstanding, 0, ',', '.') }}</strong>
+                                    <strong class="text-primary">Rp
+                                        {{ number_format($totalOutstanding, 0, ',', '.') }}</strong>
                                 </li>
                             </ul>
                         </div>
@@ -323,14 +357,30 @@
                     @if ($totalOutstanding > 0)
                         <div class="progress mb-3" style="height: 30px;">
                             @php
-                                $currentPercent = $totalOutstanding > 0 ? (data_get($buckets, 'current', 0) / $totalOutstanding) * 100 : 0;
-                                $days30Percent = $totalOutstanding > 0 ? (data_get($buckets, '1_30', 0) / $totalOutstanding) * 100 : 0;
-                                $days60Percent = $totalOutstanding > 0 ? (data_get($buckets, '31_60', 0) / $totalOutstanding) * 100 : 0;
-                                $days90Percent = $totalOutstanding > 0 ? (data_get($buckets, '61_90', 0) / $totalOutstanding) * 100 : 0;
-                                $days90PlusPercent = $totalOutstanding > 0 ? (data_get($buckets, '90_plus', 0) / $totalOutstanding) * 100 : 0;
+                                $currentPercent =
+                                    $totalOutstanding > 0
+                                        ? (data_get($buckets, 'current', 0) / $totalOutstanding) * 100
+                                        : 0;
+                                $days30Percent =
+                                    $totalOutstanding > 0
+                                        ? (data_get($buckets, '1_30', 0) / $totalOutstanding) * 100
+                                        : 0;
+                                $days60Percent =
+                                    $totalOutstanding > 0
+                                        ? (data_get($buckets, '31_60', 0) / $totalOutstanding) * 100
+                                        : 0;
+                                $days90Percent =
+                                    $totalOutstanding > 0
+                                        ? (data_get($buckets, '61_90', 0) / $totalOutstanding) * 100
+                                        : 0;
+                                $days90PlusPercent =
+                                    $totalOutstanding > 0
+                                        ? (data_get($buckets, '90_plus', 0) / $totalOutstanding) * 100
+                                        : 0;
                             @endphp
-                            <div class="progress-bar bg-success" role="progressbar" style="width: {{ $currentPercent }}%"
-                                aria-valuenow="{{ $currentPercent }}" aria-valuemin="0" aria-valuemax="100"
+                            <div class="progress-bar bg-success" role="progressbar"
+                                style="width: {{ $currentPercent }}%" aria-valuenow="{{ $currentPercent }}"
+                                aria-valuemin="0" aria-valuemax="100"
                                 title="Current: Rp {{ number_format(data_get($buckets, 'current', 0), 0, ',', '.') }}">
                             </div>
                             <div class="progress-bar bg-info" role="progressbar" style="width: {{ $days30Percent }}%"
@@ -345,8 +395,9 @@
                                 aria-valuenow="{{ $days90Percent }}" aria-valuemin="0" aria-valuemax="100"
                                 title="61-90 Days: Rp {{ number_format(data_get($buckets, '61_90', 0), 0, ',', '.') }}">
                             </div>
-                            <div class="progress-bar bg-danger" role="progressbar" style="width: {{ $days90PlusPercent }}%"
-                                aria-valuenow="{{ $days90PlusPercent }}" aria-valuemin="0" aria-valuemax="100"
+                            <div class="progress-bar bg-danger" role="progressbar"
+                                style="width: {{ $days90PlusPercent }}%" aria-valuenow="{{ $days90PlusPercent }}"
+                                aria-valuemin="0" aria-valuemax="100"
                                 title="90+ Days: Rp {{ number_format(data_get($buckets, '90_plus', 0), 0, ',', '.') }}">
                             </div>
                         </div>
@@ -435,12 +486,14 @@
                                         </td>
                                         <td class="text-right">{{ number_format($customer['invoice_count']) }}</td>
                                         <td class="text-right">
-                                            <strong>Rp {{ number_format($customer['outstanding_amount'], 0, ',', '.') }}</strong>
+                                            <strong>Rp
+                                                {{ number_format($customer['outstanding_amount'], 0, ',', '.') }}</strong>
                                         </td>
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="3" class="text-center text-muted">{{ __('No customer data') }}</td>
+                                        <td colspan="3" class="text-center text-muted">{{ __('No customer data') }}
+                                        </td>
                                     </tr>
                                 @endforelse
                             </tbody>
@@ -471,7 +524,8 @@
                             <tbody>
                                 @forelse ($recentInvoices as $invoice)
                                     @php
-                                        $isOverdue = ($invoice['days_overdue'] ?? 0) > 0 && $invoice['outstanding_amount'] > 0;
+                                        $isOverdue =
+                                            ($invoice['days_overdue'] ?? 0) > 0 && $invoice['outstanding_amount'] > 0;
                                     @endphp
                                     <tr class="{{ $isOverdue ? 'table-warning' : '' }}">
                                         <td>
@@ -481,9 +535,11 @@
                                         </td>
                                         <td>{{ \Carbon\Carbon::parse($invoice['date'])->format('d-M-Y') }}</td>
                                         <td>{{ $invoice['customer_name'] ?? 'N/A' }}</td>
-                                        <td class="text-right">Rp {{ number_format($invoice['total_amount'], 0, ',', '.') }}</td>
+                                        <td class="text-right">Rp
+                                            {{ number_format($invoice['total_amount'], 0, ',', '.') }}</td>
                                         <td class="text-right">
-                                            <strong class="{{ $invoice['outstanding_amount'] > 0 ? 'text-warning' : 'text-success' }}">
+                                            <strong
+                                                class="{{ $invoice['outstanding_amount'] > 0 ? 'text-warning' : 'text-success' }}">
                                                 Rp {{ number_format($invoice['outstanding_amount'], 0, ',', '.') }}
                                             </strong>
                                         </td>
@@ -498,7 +554,8 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="7" class="text-center text-muted">{{ __('No recent invoices') }}</td>
+                                        <td colspan="7" class="text-center text-muted">{{ __('No recent invoices') }}
+                                        </td>
                                     </tr>
                                 @endforelse
                             </tbody>
@@ -518,6 +575,7 @@
         .bg-orange {
             background-color: #ff9800 !important;
         }
+
         .text-orange {
             color: #ff9800 !important;
         }
@@ -598,7 +656,8 @@
                                     const value = data.datasets[0].data[tooltipItem.index] || 0;
                                     const percent = total > 0 ? (value / total * 100) : 0;
                                     return data.labels[tooltipItem.index] + ': Rp ' +
-                                        Number(value).toLocaleString('id-ID') + ' (' + percent.toFixed(1) + '%)';
+                                        Number(value).toLocaleString('id-ID') + ' (' + percent.toFixed(1) +
+                                        '%)';
                                 }
                             }
                         }
