@@ -266,6 +266,18 @@ Route::prefix('delivery-orders')->group(function () {
             });
         }
         return Yajra\DataTables\Facades\DataTables::of($q)
+            ->filterColumn('do_number', function ($query, $keyword) {
+                $query->where('do.do_number', 'like', '%' . $keyword . '%');
+            })
+            ->filterColumn('sales_order_no', function ($query, $keyword) {
+                $query->where('so.order_no', 'like', '%' . $keyword . '%');
+            })
+            ->filterColumn('customer', function ($query, $keyword) {
+                $query->where('c.name', 'like', '%' . $keyword . '%');
+            })
+            ->filterColumn('created_by', function ($query, $keyword) {
+                $query->where('u.name', 'like', '%' . $keyword . '%');
+            })
             ->editColumn('planned_delivery_date', function ($r) {
                 return $r->planned_delivery_date ? \Carbon\Carbon::parse($r->planned_delivery_date)->format('d-M-Y') : '';
             })
