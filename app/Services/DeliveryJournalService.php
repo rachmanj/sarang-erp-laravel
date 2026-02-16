@@ -219,12 +219,17 @@ class DeliveryJournalService
     private function getCOGSAccount(): int
     {
         $account = DB::table('accounts')
-            ->where('code', '5.1.1') // Cost of Goods Sold
-            ->orWhere('name', 'like', '%Cost of Goods Sold%')
+            ->where(function ($q) {
+                $q->where('code', '5.1.1')
+                    ->orWhere('code', '5.1')
+                    ->orWhere('name', 'like', '%Cost of Goods Sold%')
+                    ->orWhere('name', 'like', '%HPP Barang Dagangan%');
+            })
+            ->orderByRaw("CASE WHEN code = '5.1.1' THEN 0 WHEN code = '5.1' THEN 1 ELSE 2 END")
             ->first();
 
         if (!$account) {
-            throw new Exception('Cost of Goods Sold account not found. Please create account with code 5.1.1');
+            throw new Exception('Cost of Goods Sold account not found. Please create account with code 5.1.1 or 5.1 (HPP Barang Dagangan)');
         }
 
         return $account->id;
