@@ -63,9 +63,15 @@
                                                     <div class="input-group-prepend">
                                                         <span class="input-group-text"><i class="fas fa-hashtag"></i></span>
                                                     </div>
-                                                    <input type="text" name="order_no" value="{{ $soNumber }}"
-                                                        class="form-control bg-light" readonly>
+                                                    <input type="text" id="order_no_preview" class="form-control bg-light" readonly
+                                                        placeholder="Will be assigned on save">
+                                                    <div class="input-group-append">
+                                                        <button type="button" class="btn btn-outline-secondary" id="preview-so-number" title="Preview next number (does not consume)">
+                                                            <i class="fas fa-eye"></i> Preview
+                                                        </button>
+                                                    </div>
                                                 </div>
+                                                <small class="form-text text-muted">Number is generated when you save. Preview shows next number without consuming it.</small>
                                             </div>
                                         </div>
                                         <div class="form-group row mb-2">
@@ -424,6 +430,11 @@
                 updateDocumentNumber();
             });
 
+            // Preview button - show next SO number without consuming
+            $('#preview-so-number').on('click', function() {
+                updateDocumentNumber();
+            });
+
             function updateDocumentNumber() {
                 const entityId = $('#company_entity_id').val();
                 const date = $('input[name="date"]').val();
@@ -441,7 +452,7 @@
                     },
                     success: function(response) {
                         if (response.document_number) {
-                            $('input[name="order_no"]').val(response.document_number);
+                            $('#order_no_preview').val(response.document_number);
                         } else if (response.error) {
                             console.error('Document number error:', response.error);
                         }
@@ -451,6 +462,9 @@
                     }
                 });
             }
+
+            // Initial preview on page load
+            updateDocumentNumber();
 
             // Handle item search button clicks
             $(document).on('click', '.item-search-btn', function() {

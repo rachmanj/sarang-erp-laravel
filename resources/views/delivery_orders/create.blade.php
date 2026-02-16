@@ -72,7 +72,8 @@
                                                                 data-customer-address="{{ $deliveryAddr }}"
                                                                 data-customer-contact="{{ $deliveryContact }}"
                                                                 data-customer-phone="{{ $deliveryPhone }}"
-                                                                data-expected-delivery="{{ $so->expected_delivery_date ?? '' }}">
+                                                                data-expected-delivery="{{ $so->expected_delivery_date ?? '' }}"
+                                                                data-company-entity-id="{{ $so->company_entity_id ?? $defaultEntity?->id ?? '' }}">
                                                                 {{ $so->order_no }} - {{ $customer ? $customer->name : 'N/A' }}
                                                                 ({{ $so->date }})
                                                             </option>
@@ -86,6 +87,24 @@
                                                         </button>
                                                     </div>
                                                 </div>
+                                            </div>
+                                        </div>
+                                        <div class="form-group row mb-2">
+                                            <label class="col-sm-3 col-form-label">DO Number</label>
+                                            <div class="col-sm-9">
+                                                <div class="input-group input-group-sm">
+                                                    <div class="input-group-prepend">
+                                                        <span class="input-group-text"><i class="fas fa-hashtag"></i></span>
+                                                    </div>
+                                                    <input type="text" id="do_number_preview" class="form-control bg-light" readonly
+                                                        placeholder="Will be assigned on save">
+                                                    <div class="input-group-append">
+                                                        <button type="button" class="btn btn-outline-secondary" id="preview-do-number" title="Preview next number (does not consume)">
+                                                            <i class="fas fa-eye"></i> Preview
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                <small class="form-text text-muted">Number is generated when you save. Select Sales Order first for accurate preview.</small>
                                             </div>
                                         </div>
                                     </div>
@@ -523,6 +542,43 @@
             if (remainingLinesData.length > 0) {
                 renderDoLinesTable();
             }
+
+            var defaultEntityId = {{ $defaultEntity?->id ?? 'null' }};
+
+            function updateDocumentNumber() {
+                var entityId = null;
+                var soOption = $('#sales_order_id').find('option:selected');
+                if (soOption.length && soOption.val()) {
+                    entityId = soOption.data('company-entity-id');
+                }
+                if (!entityId) {
+                    entityId = defaultEntityId;
+                }
+                var date = $('input[name="planned_delivery_date"]').val() || new Date().toISOString().slice(0, 10);
+                if (!entityId) {
+                    return;
+                }
+                $.ajax({
+                    url: '{{ route('delivery-orders.api.document-number') }}',
+                    method: 'GET',
+                    data: { company_entity_id: entityId, date: date },
+                    success: function(response) {
+                        if (response.document_number) {
+                            $('#do_number_preview').val(response.document_number);
+                        } else if (response.error) {
+                            console.error('Document number error:', response.error);
+                        }
+                    },
+                    error: function(xhr) {
+                        console.error('Document number request failed:', xhr);
+                    }
+                });
+            }
+
+            $('#sales_order_id').on('change', updateDocumentNumber);
+            $('input[name="planned_delivery_date"]').on('change', updateDocumentNumber);
+            $('#preview-do-number').on('click', updateDocumentNumber);
+            updateDocumentNumber();
         });
     </script>
 @endpush

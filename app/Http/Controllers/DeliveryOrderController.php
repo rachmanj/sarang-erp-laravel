@@ -8,6 +8,7 @@ use App\Models\SalesOrder;
 use App\Models\Master\Customer;
 use App\Services\DeliveryService;
 use App\Services\DocumentClosureService;
+use App\Services\DocumentNumberingService;
 use App\Services\SalesWorkflowAuditService;
 use App\Services\CompanyEntityService;
 use Illuminate\Http\Request;
@@ -19,15 +20,18 @@ class DeliveryOrderController extends Controller
 {
     protected $deliveryService;
     protected $documentClosureService;
+    protected $documentNumberingService;
     protected $companyEntityService;
 
     public function __construct(
         DeliveryService $deliveryService,
         DocumentClosureService $documentClosureService,
+        DocumentNumberingService $documentNumberingService,
         CompanyEntityService $companyEntityService
     ) {
         $this->deliveryService = $deliveryService;
         $this->documentClosureService = $documentClosureService;
+        $this->documentNumberingService = $documentNumberingService;
         $this->companyEntityService = $companyEntityService;
     }
 
@@ -99,6 +103,26 @@ class DeliveryOrderController extends Controller
         $defaultEntity = $salesOrder ? $this->companyEntityService->getEntity($salesOrder->company_entity_id) : $this->companyEntityService->getDefaultEntity();
 
         return view('delivery_orders.create', compact('salesOrders', 'salesOrder', 'customers', 'warehouses', 'entities', 'defaultEntity', 'remainingLines'));
+    }
+
+    public function getDocumentNumber(Request $request)
+    {
+        $entityId = $request->input('company_entity_id');
+        $date = $request->input('date', now()->toDateString());
+
+        try {
+            if (!$entityId) {
+                return response()->json(['error' => 'Company entity is required'], 400);
+            }
+
+            $documentNumber = $this->documentNumberingService->previewNumber('delivery_order', $date, [
+                'company_entity_id' => $entityId,
+            ]);
+
+            return response()->json(['document_number' => $documentNumber]);
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Error generating document number: ' . $e->getMessage()], 500);
+        }
     }
 
     /**

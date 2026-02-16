@@ -80,6 +80,26 @@ class PurchaseInvoiceController extends Controller
         ));
     }
 
+    public function getDocumentNumber(Request $request)
+    {
+        $entityId = $request->input('company_entity_id');
+        $date = $request->input('date', now()->toDateString());
+
+        try {
+            if (!$entityId) {
+                return response()->json(['error' => 'Company entity is required'], 400);
+            }
+
+            $documentNumber = $this->documentNumberingService->previewNumber('purchase_invoice', $date, [
+                'company_entity_id' => $entityId,
+            ]);
+
+            return response()->json(['document_number' => $documentNumber]);
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Error generating document number: ' . $e->getMessage()], 500);
+        }
+    }
+
     public function store(Request $request)
     {
         $isAccountingUser = auth()->user()->can('accounts.view');

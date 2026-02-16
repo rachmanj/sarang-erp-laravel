@@ -171,6 +171,26 @@ class SalesInvoiceController extends Controller
         return view('sales_invoices.create', compact('accounts', 'customers', 'taxCodes', 'vatTaxCodes', 'projects', 'departments', 'entities', 'defaultEntity', 'prefill', 'salesQuotation', 'deliveryOrder', 'invoicableDeliveryOrders', 'fromDo'));
     }
 
+    public function getDocumentNumber(Request $request)
+    {
+        $entityId = $request->input('company_entity_id');
+        $date = $request->input('date', now()->toDateString());
+
+        try {
+            if (!$entityId) {
+                return response()->json(['error' => 'Company entity is required'], 400);
+            }
+
+            $documentNumber = $this->documentNumberingService->previewNumber('sales_invoice', $date, [
+                'company_entity_id' => $entityId,
+            ]);
+
+            return response()->json(['document_number' => $documentNumber]);
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Error generating document number: ' . $e->getMessage()], 500);
+        }
+    }
+
     private function buildPrefillFromDeliveryOrders($deliveryOrders, int $defaultEntityId): array
     {
         $deliveryOrders = collect($deliveryOrders);

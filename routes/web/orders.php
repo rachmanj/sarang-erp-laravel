@@ -289,6 +289,7 @@ Route::prefix('delivery-orders')->group(function () {
             })
             ->rawColumns(['actions'])->toJson();
     })->name('delivery-orders.data');
+    Route::get('/api/document-number', [DeliveryOrderController::class, 'getDocumentNumber'])->name('delivery-orders.api.document-number');
     Route::get('/create', [DeliveryOrderController::class, 'create'])->name('delivery-orders.create');
     Route::post('/', [DeliveryOrderController::class, 'store'])->name('delivery-orders.store');
     Route::get('/{deliveryOrder}', [DeliveryOrderController::class, 'show'])->name('delivery-orders.show');
@@ -500,6 +501,7 @@ Route::prefix('goods-receipt-pos')->group(function () {
         return response($csv, 200, ['Content-Type' => 'text/csv', 'Content-Disposition' => 'attachment; filename="goods-receipt-pos.csv"']);
     })->name('goods-receipt-pos.csv');
     Route::get('/create', [GoodsReceiptPOController::class, 'create'])->name('goods-receipt-pos.create');
+    Route::get('/api/document-number', [GoodsReceiptPOController::class, 'getDocumentNumber'])->name('goods-receipt-pos.api.document-number');
     Route::post('/', [GoodsReceiptPOController::class, 'store'])->name('goods-receipt-pos.store');
 
     // AJAX endpoints for enhanced functionality (must come before parameterized routes)

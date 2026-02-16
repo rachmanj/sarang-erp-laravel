@@ -188,9 +188,6 @@ class SalesQuotationController extends Controller
 
         $entities = $this->companyEntityService->getActiveEntities();
         $defaultEntity = $this->companyEntityService->getDefaultEntity();
-        $quotationNo = $this->documentNumberingService->generateNumber('sales_quotation', now()->format('Y-m-d'), [
-            'company_entity_id' => $defaultEntity->id,
-        ]);
 
         return view('sales_quotations.create', compact(
             'customers',
@@ -199,7 +196,6 @@ class SalesQuotationController extends Controller
             'inventoryItems',
             'warehouses',
             'currencies',
-            'quotationNo',
             'defaultEntity',
             'entities'
         ));
@@ -606,7 +602,7 @@ class SalesQuotationController extends Controller
                 return response()->json(['error' => 'Company entity is required'], 400);
             }
 
-            $documentNumber = $this->documentNumberingService->generateNumber('sales_quotation', $date, [
+            $documentNumber = $this->documentNumberingService->previewNumber('sales_quotation', $date, [
                 'company_entity_id' => $entityId,
             ]);
 

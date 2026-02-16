@@ -39,7 +39,29 @@ class SalesReceiptController extends Controller
     {
         $customers = DB::table('business_partners')->where('partner_type', 'customer')->orderBy('name')->get();
         $accounts = DB::table('accounts')->where('is_postable', 1)->orderBy('code')->get();
-        return view('sales_receipts.create', compact('customers', 'accounts'));
+        $entities = $this->companyEntityService->getActiveEntities();
+        $defaultEntity = $this->companyEntityService->getDefaultEntity();
+        return view('sales_receipts.create', compact('customers', 'accounts', 'entities', 'defaultEntity'));
+    }
+
+    public function getDocumentNumber(Request $request)
+    {
+        $entityId = $request->input('company_entity_id');
+        $date = $request->input('date', now()->toDateString());
+
+        try {
+            if (!$entityId) {
+                return response()->json(['error' => 'Company entity is required'], 400);
+            }
+
+            $documentNumber = $this->documentNumberingService->previewNumber('sales_receipt', $date, [
+                'company_entity_id' => $entityId,
+            ]);
+
+            return response()->json(['document_number' => $documentNumber]);
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Error generating document number: ' . $e->getMessage()], 500);
+        }
     }
 
     public function store(Request $request)

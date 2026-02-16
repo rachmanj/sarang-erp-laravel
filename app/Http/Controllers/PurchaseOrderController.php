@@ -143,9 +143,6 @@ class PurchaseOrderController extends Controller
 
         $entities = $this->companyEntityService->getActiveEntities();
         $defaultEntity = $this->companyEntityService->getDefaultEntity();
-        $poNumber = $this->documentNumberingService->generateNumber('purchase_order', now()->format('Y-m-d'), [
-            'company_entity_id' => $defaultEntity->id,
-        ]);
 
         return view('purchase_orders.create', compact(
             'vendors',
@@ -154,7 +151,6 @@ class PurchaseOrderController extends Controller
             'inventoryItems',
             'warehouses',
             'currencies',
-            'poNumber',
             'defaultEntity',
             'entities'
         ));
@@ -197,7 +193,7 @@ class PurchaseOrderController extends Controller
                 return response()->json(['error' => 'Company entity is required'], 400);
             }
 
-            $documentNumber = $this->documentNumberingService->generateNumber('purchase_order', $date, [
+            $documentNumber = $this->documentNumberingService->previewNumber('purchase_order', $date, [
                 'company_entity_id' => $entityId,
             ]);
 
@@ -221,7 +217,7 @@ class PurchaseOrderController extends Controller
         $request->merge(['lines' => array_values($filteredLines)]);
 
         $data = $request->validate([
-            'order_no' => ['required', 'string', 'max:50'],
+            'order_no' => ['nullable', 'string', 'max:50'],
             'date' => ['required', 'date'],
             'reference_no' => ['nullable', 'string', 'max:100'],
             'expected_delivery_date' => ['nullable', 'date'],
@@ -256,6 +252,13 @@ class PurchaseOrderController extends Controller
         try {
             $entity = $this->companyEntityService->getEntity($request->input('company_entity_id'));
             $data['company_entity_id'] = $entity->id;
+
+            if (empty($data['order_no'])) {
+                $data['order_no'] = $this->documentNumberingService->generateNumber('purchase_order', $data['date'], [
+                    'company_entity_id' => $entity->id,
+                ]);
+            }
+
             Log::info('Calling purchaseService->createPurchaseOrder()');
             $po = $this->purchaseService->createPurchaseOrder($data);
             Log::info('Purchase Order created successfully with ID: ' . ($po->id ?? 'null'));

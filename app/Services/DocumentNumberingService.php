@@ -70,6 +70,31 @@ class DocumentNumberingService
     }
 
     /**
+     * Preview the next document number without consuming/incrementing the sequence.
+     */
+    public function previewNumber(string $documentType, string $date, array $options = []): string
+    {
+        if ($this->usesEntityFormat($documentType)) {
+            $entity = $this->companyEntityService->getEntity($options['company_entity_id'] ?? null);
+            $year = Carbon::parse($date)->year;
+            $docCode = self::ENTITY_DOCUMENT_CODES[$documentType];
+            $sequence = $this->peekEntitySequence($entity->id, $documentType, $docCode, $year);
+
+            return $this->formatEntityNumber($entity->code, $year, $docCode, $sequence);
+        }
+
+        if (!isset(self::LEGACY_DOCUMENT_TYPES[$documentType])) {
+            throw new \InvalidArgumentException("Invalid document type: {$documentType}");
+        }
+
+        $prefix = self::LEGACY_DOCUMENT_TYPES[$documentType];
+        $yearMonth = Carbon::parse($date)->format('Ym');
+        $sequence = $this->peekLegacySequence($documentType, $yearMonth);
+
+        return sprintf('%s-%s-%06d', $prefix, $yearMonth, $sequence);
+    }
+
+    /**
      * Validate a document number format.
      */
     public function validateNumber(string $number, string $documentType): bool
@@ -146,6 +171,15 @@ class DocumentNumberingService
         return self::LEGACY_DOCUMENT_TYPES[$documentType];
     }
 
+    private function peekLegacySequence(string $documentType, string $yearMonth): int
+    {
+        $sequence = DocumentSequence::where('document_type', $documentType)
+            ->where('year_month', $yearMonth)
+            ->first();
+
+        return $sequence ? $sequence->last_sequence + 1 : 1;
+    }
+
     /**
      * Fetch next sequence for legacy PREFIX-YYYYMM-###### format.
      */
@@ -168,6 +202,18 @@ class DocumentNumberingService
             $sequence->increment('last_sequence');
             return $sequence->last_sequence;
         });
+    }
+
+    private function peekEntitySequence(int $entityId, string $documentType, string $documentCode, int $year): int
+    {
+        $sequence = DocumentSequence::where('company_entity_id', $entityId)
+            ->where('document_code', $documentCode)
+            ->where('year', $year)
+            ->first();
+
+        $current = $sequence ? ($sequence->current_number ?? $sequence->last_sequence ?? 0) : 0;
+
+        return $current + 1;
     }
 
     /**

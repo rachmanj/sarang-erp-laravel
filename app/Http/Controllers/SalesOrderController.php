@@ -118,9 +118,6 @@ class SalesOrderController extends Controller
 
         $entities = $this->companyEntityService->getActiveEntities();
         $defaultEntity = $this->companyEntityService->getDefaultEntity();
-        $soNumber = $this->documentNumberingService->generateNumber('sales_order', now()->format('Y-m-d'), [
-            'company_entity_id' => $defaultEntity->id,
-        ]);
 
         return view('sales_orders.create', compact(
             'customers',
@@ -129,7 +126,6 @@ class SalesOrderController extends Controller
             'inventoryItems',
             'warehouses',
             'currencies',
-            'soNumber',
             'defaultEntity',
             'entities'
         ));
@@ -172,7 +168,7 @@ class SalesOrderController extends Controller
                 return response()->json(['error' => 'Company entity is required'], 400);
             }
 
-            $documentNumber = $this->documentNumberingService->generateNumber('sales_order', $date, [
+            $documentNumber = $this->documentNumberingService->previewNumber('sales_order', $date, [
                 'company_entity_id' => $entityId,
             ]);
 
@@ -185,7 +181,7 @@ class SalesOrderController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
-            'order_no' => ['required', 'string', 'max:50'],
+            'order_no' => ['nullable', 'string', 'max:50'],
             'date' => ['required', 'date'],
             'reference_no' => ['nullable', 'string', 'max:100'],
             'expected_delivery_date' => ['nullable', 'date'],
@@ -246,6 +242,12 @@ class SalesOrderController extends Controller
 
             $entity = $this->companyEntityService->getEntity($request->input('company_entity_id'));
             $data['company_entity_id'] = $entity->id;
+
+            if (empty($data['order_no'])) {
+                $data['order_no'] = $this->documentNumberingService->generateNumber('sales_order', $data['date'], [
+                    'company_entity_id' => $entity->id,
+                ]);
+            }
 
             $so = $this->salesService->createSalesOrder($data);
             return redirect()->route('sales-orders.show', $so->id)

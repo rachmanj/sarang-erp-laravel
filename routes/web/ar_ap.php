@@ -12,6 +12,7 @@ Route::prefix('sales-invoices')->group(function () {
     Route::get('/', [SalesInvoiceController::class, 'index'])->middleware('permission:ar.invoices.view')->name('sales-invoices.index');
     Route::get('/data', [SalesInvoiceController::class, 'data'])->middleware('permission:ar.invoices.view')->name('sales-invoices.data');
     Route::get('/create', [SalesInvoiceController::class, 'create'])->middleware('permission:ar.invoices.create')->name('sales-invoices.create');
+    Route::get('/api/document-number', [SalesInvoiceController::class, 'getDocumentNumber'])->middleware('permission:ar.invoices.create')->name('sales-invoices.api.document-number');
     Route::post('/', [SalesInvoiceController::class, 'store'])->middleware('permission:ar.invoices.create')->name('sales-invoices.store');
     
     // Import routes - must come before /{id} route
@@ -40,6 +41,7 @@ Route::prefix('purchase-invoices')->group(function () {
     Route::get('/', [PurchaseInvoiceController::class, 'index'])->middleware('permission:ap.invoices.view')->name('purchase-invoices.index');
     Route::get('/data', [PurchaseInvoiceController::class, 'data'])->middleware('permission:ap.invoices.view')->name('purchase-invoices.data');
     Route::get('/create', [PurchaseInvoiceController::class, 'create'])->middleware('permission:ap.invoices.create')->name('purchase-invoices.create');
+    Route::get('/api/document-number', [PurchaseInvoiceController::class, 'getDocumentNumber'])->middleware('permission:ap.invoices.create')->name('purchase-invoices.api.document-number');
     Route::post('/', [PurchaseInvoiceController::class, 'store'])->middleware('permission:ap.invoices.create')->name('purchase-invoices.store');
     Route::get('/{id}', [PurchaseInvoiceController::class, 'show'])->middleware('permission:ap.invoices.view')->name('purchase-invoices.show');
     Route::get('/{id}/edit', [PurchaseInvoiceController::class, 'edit'])->middleware('permission:ap.invoices.create')->name('purchase-invoices.edit');
@@ -57,6 +59,7 @@ Route::prefix('sales-receipts')->group(function () {
     Route::get('/preview-allocation', [SalesReceiptController::class, 'previewAllocation'])->middleware('permission:ar.receipts.create')->name('sales-receipts.previewAllocation');
     Route::get('/data', [SalesReceiptController::class, 'data'])->middleware('permission:ar.receipts.view')->name('sales-receipts.data');
     Route::get('/create', [SalesReceiptController::class, 'create'])->middleware('permission:ar.receipts.create')->name('sales-receipts.create');
+    Route::get('/api/document-number', [SalesReceiptController::class, 'getDocumentNumber'])->middleware('permission:ar.receipts.create')->name('sales-receipts.api.document-number');
     Route::post('/', [SalesReceiptController::class, 'store'])->middleware('permission:ar.receipts.create')->name('sales-receipts.store');
     Route::get('/{id}', [SalesReceiptController::class, 'show'])->middleware('permission:ar.receipts.view')->name('sales-receipts.show');
     Route::post('/{id}/post', [SalesReceiptController::class, 'post'])->middleware('permission:ar.receipts.post')->name('sales-receipts.post');
@@ -75,6 +78,7 @@ Route::prefix('purchase-payments')->group(function () {
     Route::get('/preview-allocation', [PurchasePaymentController::class, 'previewAllocation'])->middleware('permission:ap.payments.create')->name('purchase-payments.previewAllocation');
     Route::get('/data', [PurchasePaymentController::class, 'data'])->middleware('permission:ap.payments.view')->name('purchase-payments.data');
     Route::get('/create', [PurchasePaymentController::class, 'create'])->middleware('permission:ap.payments.create')->name('purchase-payments.create');
+    Route::get('/api/document-number', [PurchasePaymentController::class, 'getDocumentNumber'])->middleware('permission:ap.payments.create')->name('purchase-payments.api.document-number');
     Route::post('/', [PurchasePaymentController::class, 'store'])->middleware('permission:ap.payments.create')->name('purchase-payments.store');
     Route::get('/{id}', [PurchasePaymentController::class, 'show'])->middleware('permission:ap.payments.view')->name('purchase-payments.show');
     Route::post('/{id}/post', [PurchasePaymentController::class, 'post'])->middleware('permission:ap.payments.post')->name('purchase-payments.post');
