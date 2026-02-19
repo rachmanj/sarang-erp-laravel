@@ -212,13 +212,17 @@ class InventoryItem extends Model
             ->sum('quantity');
 
         // Adjustments can be positive (increase) or negative (decrease)
-        // Positive adjustments increase stock, negative adjustments decrease stock
         $adjustments = $this->transactions()
             ->where('transaction_type', 'adjustment')
             ->sum('quantity');
 
+        // Transfers can be positive (in) or negative (out)
+        $transfers = $this->transactions()
+            ->where('transaction_type', 'transfer')
+            ->sum('quantity');
+
         // Sales quantities are already negative, so we add them (not subtract)
-        return $totalIn + $adjustments + $totalOut;
+        return $totalIn + $adjustments + $transfers + $totalOut;
     }
 
     public function getCurrentValueAttribute()
