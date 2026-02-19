@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\InventoryDetailReportExport;
 use App\Models\InventoryItem;
 use App\Models\InventoryTransaction;
 use App\Models\InventoryValuation;
@@ -19,6 +20,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Maatwebsite\Excel\Facades\Excel;
 
 class InventoryController extends Controller
 {
@@ -578,6 +580,49 @@ class InventoryController extends Controller
             ->get();
 
         return view('inventory.valuation-report', compact('items'));
+    }
+
+    public function detailReport(Request $request)
+    {
+        $reportDate = $request->input('date', now()->toDateString());
+
+        $items = InventoryItem::with('category')
+            ->where('item_type', 'item')
+            ->active()
+            ->orderBy('code')
+            ->get();
+
+        $latestValuations = InventoryValuation::where('valuation_date', '<=', $reportDate)
+            ->orderByDesc('valuation_date')
+            ->get()
+            ->unique('item_id')
+            ->keyBy('item_id');
+
+        $reportData = $items->map(function ($item) use ($latestValuations) {
+            $valuation = $latestValuations->get($item->id);
+            return (object) [
+                'item' => $item,
+                'valuation' => $valuation,
+                'quantity_on_hand' => $valuation?->quantity_on_hand ?? 0,
+                'unit_cost' => $valuation?->unit_cost ?? $item->purchase_price,
+                'total_value' => $valuation?->total_value ?? 0,
+                'valuation_method' => $valuation?->valuation_method ?? $item->valuation_method,
+                'valuation_date' => $valuation?->valuation_date,
+            ];
+        });
+
+        $totalValue = $reportData->sum('total_value');
+        $totalQty = $reportData->sum('quantity_on_hand');
+
+        return view('inventory.detail-report', compact('reportData', 'reportDate', 'totalValue', 'totalQty'));
+    }
+
+    public function exportDetailReport(Request $request)
+    {
+        $reportDate = $request->input('date', now()->toDateString());
+        $filename = 'inventory_detail_report_' . $reportDate . '.xlsx';
+
+        return Excel::download(new InventoryDetailReportExport($reportDate), $filename);
     }
 
     public function getItems()

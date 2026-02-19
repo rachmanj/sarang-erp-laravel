@@ -51,18 +51,25 @@ class ManualJournalController extends Controller
             'lines.*.memo' => ['nullable', 'string', 'max:255'],
         ]);
 
+        $lines = collect($data['lines'])->map(function ($line) {
+            if (empty($line['currency_id'])) {
+                unset($line['debit_foreign'], $line['credit_foreign'], $line['exchange_rate']);
+            }
+            return $line;
+        })->all();
+
         $payload = [
             'date' => $data['date'],
             'description' => $data['description'] ?? null,
             'source_type' => 'manual_journal',
             'source_id' => 0,
             'posted_by' => $request->user()->id,
-            'lines' => $data['lines'],
+            'lines' => $lines,
         ];
 
         $journalId = $this->service->postJournal($payload);
 
-        return redirect()->route('journals.manual.create')->with('success', "Journal #{$journalId} posted");
+        return redirect()->route('journals.manual.create')->with('status', "Journal #{$journalId} posted");
     }
 
     public function getExchangeRate(Request $request)

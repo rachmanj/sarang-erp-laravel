@@ -54,6 +54,15 @@
                         <ul class="nav nav-treeview">
                             @can('inventory.view')
                                 <li class="nav-item">
+                                    <a href="{{ route('inventory.dashboard') }}"
+                                        class="nav-link {{ request()->routeIs('inventory.dashboard') ? 'active' : '' }}">
+                                        <i class="far fa-circle nav-icon"></i>
+                                        <p>Dashboard</p>
+                                    </a>
+                                </li>
+                            @endcan
+                            @can('inventory.view')
+                                <li class="nav-item">
                                     <a href="{{ route('inventory.index') }}"
                                         class="nav-link {{ request()->routeIs('inventory.index') ? 'active' : '' }}">
                                         <i class="far fa-circle nav-icon"></i>
@@ -85,6 +94,15 @@
                                         class="nav-link {{ request()->routeIs('inventory.valuation-report') ? 'active' : '' }}">
                                         <i class="far fa-circle nav-icon"></i>
                                         <p>Valuation Report</p>
+                                    </a>
+                                </li>
+                            @endcan
+                            @can('inventory.view')
+                                <li class="nav-item">
+                                    <a href="{{ route('inventory.detail-report') }}"
+                                        class="nav-link {{ request()->routeIs('inventory.detail-report') ? 'active' : '' }}">
+                                        <i class="far fa-circle nav-icon"></i>
+                                        <p>Detail Report</p>
                                     </a>
                                 </li>
                             @endcan

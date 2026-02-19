@@ -1,5 +1,5 @@
 **Purpose**: AI's persistent knowledge base for project context and learnings
-**Last Updated**: 2026-02-19 (Sales Receipt aligned with Purchase Payment pattern)
+**Last Updated**: 2026-02-19 (Manual Journal base currency fix)
 
 ## Memory Maintenance Guidelines
 
@@ -26,6 +26,14 @@
 ---
 
 ## Project Memory Entries
+
+### [090] Manual Journal Base Currency Fix (2026-02-19) ✅ COMPLETE
+
+**Challenge**: Creating a manual journal entry with Base Currency (no foreign currency) failed with "Line 0 has debit_foreign but missing currency_id". The form sends debit_foreign/credit_foreign readonly values even when currency_id is empty.
+
+**Solution**: In ManualJournalController::store(), filter out debit_foreign, credit_foreign, and exchange_rate when currency_id is empty before passing to PostingService. Fixed redirect flash key from 'success' to 'status' to match create view.
+
+**Key Learning**: PostingService.validateMultiCurrency() requires currency_id when foreign amounts are present. Base-currency lines should not submit foreign amounts; controller sanitization handles form behavior without changing frontend.
 
 ### [089] Sales Receipt Aligned with Purchase Payment Pattern (2026-02-19) ✅ COMPLETE
 

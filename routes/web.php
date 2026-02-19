@@ -35,6 +35,7 @@ use App\Http\Controllers\AssetMovementController;
 use App\Http\Controllers\AssetImportController;
 use App\Http\Controllers\AssetDataQualityController;
 use App\Http\Controllers\InventoryController;
+use App\Http\Controllers\InventoryDashboardController;
 use App\Http\Controllers\ProductCategoryController;
 use App\Http\Controllers\TaxController;
 use App\Http\Controllers\COGSController;
@@ -305,6 +306,7 @@ Route::middleware('auth')->group(function () {
 
     // Inventory Management
     Route::prefix('inventory')->middleware(['permission:inventory.view'])->group(function () {
+        Route::get('/dashboard', [InventoryDashboardController::class, 'index'])->name('inventory.dashboard');
         Route::get('/', [InventoryController::class, 'index'])->name('inventory.index');
         Route::get('/data', [InventoryController::class, 'data'])->name('inventory.data');
         Route::get('/create', [InventoryController::class, 'create'])->middleware('permission:inventory.create')->name('inventory.create');
@@ -318,6 +320,8 @@ Route::middleware('auth')->group(function () {
         // Reports and Analytics (static routes before catch-all)
         Route::get('/low-stock', [InventoryController::class, 'lowStock'])->name('inventory.low-stock');
         Route::get('/valuation-report', [InventoryController::class, 'valuationReport'])->name('inventory.valuation-report');
+        Route::get('/detail-report', [InventoryController::class, 'detailReport'])->name('inventory.detail-report');
+        Route::get('/export-detail-report', [InventoryController::class, 'exportDetailReport'])->name('inventory.export-detail-report');
 
         // API Endpoints
         Route::get('/api/items', [InventoryController::class, 'getItems'])->name('inventory.get-items');
