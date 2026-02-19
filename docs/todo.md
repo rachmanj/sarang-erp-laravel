@@ -1,5 +1,5 @@
 **Purpose**: Track current work and immediate priorities
-**Last Updated**: 2026-02-13 (Delivery Order Simplified Flow)
+**Last Updated**: 2026-02-19 (Sales Receipt aligned with Purchase Payment pattern)
 
 ## Task Management Guidelines
 
@@ -45,6 +45,7 @@ Include relevant context in brackets to help with future AI-assisted coding:
 
 ## Recently Completed
 
+-   `[done] P1: Sales Receipt Module - Match Purchase Payment Pattern [Invoice-first flow: getAvailableInvoices API, explicit allocations with validation (receipt total must match allocation total), Select Invoices to Receive Payment table with checkboxes/Select All/Deselect All, Receipt Lines auto-populated from allocation total, show page with Receipt Information/System Information/Sales Invoices Being Paid/Receipt Lines sections; store() validates allocations and creates sales_receipt_allocations; SalesReceiptPostingTest updated for allocations] (completed: 2026-02-19)`
 -   `[done] P1: Delivery Order Simplified Flow & Mark as Delivered [DeliveryService: approveDeliveryOrder with reduceStockOnApproval, markAsDelivered with revenue recognition; migration delivered_at/delivered_by; simplified table columns (No, Item Code, Item Name, Ordered Qty, Remain Qty, Delivery Qty, Action); VAT/WTax/Unit Price hidden; Mark as Delivered modal; removed picking and Complete Delivery steps; docs/architecture.md, docs/decisions.md, MEMORY.md, docs/MODULES-AND-FEATURES.md, docs/manuals/delivery-order-manual-id.md updated] (completed: 2026-02-13)`
 -   `[done] P1: Multiple Partial Delivery Orders per Sales Order [DeliveryService: getDeliveredQtyForSalesOrderLine, syncSalesOrderLineFromDeliveries, createDeliveryOrderLine uses remaining qty = SO qty - delivered; createDeliveryOrderFromSalesOrder skips fully-delivered lines; canCreateDeliveryOrder accepts confirmed/processing SO; Create DO button shown for processing SOs; BackfillSalesOrderLineDeliveredQty command; Sales Dashboard info banner for insufficient stock during picking; docs/architecture.md, docs/decisions.md, MEMORY.md, docs/MODULES-AND-FEATURES.md, docs/manuals/delivery-order-manual-id.md updated] (completed: 2026-02-09)`
 -   `[done] P1: Sales Dashboard Redesign - Comprehensive Sales Overview [Executive Summary with 5 KPIs (Sales MTD, Sales YTD, Open Pipeline, Outstanding AR, Collections MTD), document-stage summary cards for SQ/SO/DO/SI/SR, filters (customer, date range, aging bucket) with cache bypass when filters active, AR aging enhancements (Overdue badge, High/Medium risk badges, Chart.js bar/pie), Sales Funnel mini-widget, Days Overdue column in Recent Invoices, SalesDashboardDataService extended with buildSalesOverview/buildSalesQuotationStats/buildSalesReceiptStats/getSalesFunnelCounts, SalesDashboardController passes filters and customersList, docs/sales-dashboard-review.md updated] (completed: 2026-02-11)`

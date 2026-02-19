@@ -56,6 +56,7 @@ Route::prefix('purchase-invoices')->group(function () {
 // AR - Sales Receipts
 Route::prefix('sales-receipts')->group(function () {
     Route::get('/', [SalesReceiptController::class, 'index'])->middleware('permission:ar.receipts.view')->name('sales-receipts.index');
+    Route::get('/available-invoices', [SalesReceiptController::class, 'getAvailableInvoices'])->middleware('permission:ar.receipts.create')->name('sales-receipts.availableInvoices');
     Route::get('/preview-allocation', [SalesReceiptController::class, 'previewAllocation'])->middleware('permission:ar.receipts.create')->name('sales-receipts.previewAllocation');
     Route::get('/data', [SalesReceiptController::class, 'data'])->middleware('permission:ar.receipts.view')->name('sales-receipts.data');
     Route::get('/create', [SalesReceiptController::class, 'create'])->middleware('permission:ar.receipts.create')->name('sales-receipts.create');

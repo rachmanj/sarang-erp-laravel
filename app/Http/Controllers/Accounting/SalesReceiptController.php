@@ -14,6 +14,7 @@ use App\Services\CompanyEntityService;
 use App\Services\SalesWorkflowAuditService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Yajra\DataTables\Facades\DataTables;
 
 class SalesReceiptController extends Controller
@@ -26,7 +27,7 @@ class SalesReceiptController extends Controller
     ) {
         $this->middleware(['auth']);
         $this->middleware('permission:ar.receipts.view')->only(['index', 'show']);
-        $this->middleware('permission:ar.receipts.create')->only(['create', 'store']);
+        $this->middleware('permission:ar.receipts.create')->only(['create', 'store', 'getAvailableInvoices', 'previewAllocation']);
         $this->middleware('permission:ar.receipts.post')->only(['post']);
     }
 
@@ -75,15 +76,53 @@ class SalesReceiptController extends Controller
             'lines.*.account_id' => ['required', 'integer', 'exists:accounts,id'],
             'lines.*.description' => ['nullable', 'string', 'max:255'],
             'lines.*.amount' => ['required', 'numeric', 'min:0.01'],
+            'allocations' => ['required', 'array', 'min:1'],
+            'allocations.*.invoice_id' => ['required', 'integer', 'exists:sales_invoices,id'],
+            'allocations.*.amount' => ['required', 'numeric', 'min:0.01'],
         ]);
 
         $entity = $this->companyEntityService->getEntity($data['company_entity_id']);
 
-        return DB::transaction(function () use ($data, $entity) {
-            // Get base currency for the receipt
+        return DB::transaction(function () use ($data, $entity, $request) {
+            $totalReceipt = 0;
+            foreach ($data['lines'] as $l) {
+                $totalReceipt += (float) $l['amount'];
+            }
+
+            $totalAllocation = 0;
+            foreach ($data['allocations'] as $alloc) {
+                $totalAllocation += (float) $alloc['amount'];
+            }
+
+            if (abs($totalReceipt - $totalAllocation) > 0.01) {
+                return back()->withErrors(['lines' => 'Receipt total must match allocation total.'])->withInput();
+            }
+
+            foreach ($data['allocations'] as $alloc) {
+                $invoice = SalesInvoice::findOrFail($alloc['invoice_id']);
+
+                if ($invoice->business_partner_id != $data['business_partner_id']) {
+                    return back()->withErrors(['allocations' => 'Selected invoice does not belong to selected customer.'])->withInput();
+                }
+
+                if ($invoice->status !== 'posted') {
+                    return back()->withErrors(['allocations' => 'Invoice must be posted before receipt allocation.'])->withInput();
+                }
+
+                $allocated = DB::table('sales_receipt_allocations')
+                    ->where('invoice_id', $invoice->id)
+                    ->sum('amount');
+                $remaining = (float) $invoice->total_amount - (float) $allocated;
+                $allocAmount = (float) $alloc['amount'];
+
+                if ($allocAmount > $remaining + 0.01) {
+                    return back()->withErrors(['allocations' => "Allocation amount for invoice {$invoice->invoice_no} exceeds remaining balance."])->withInput();
+                }
+            }
+
             $baseCurrency = \App\Models\Currency::getBaseCurrency();
             $currencyId = $baseCurrency ? $baseCurrency->id : 1;
-            
+
             $receipt = SalesReceipt::create([
                 'receipt_no' => null,
                 'date' => $data['date'],
@@ -92,52 +131,31 @@ class SalesReceiptController extends Controller
                 'currency_id' => $currencyId,
                 'description' => $data['description'] ?? null,
                 'status' => 'draft',
-                'total_amount' => 0,
+                'total_amount' => $totalReceipt,
             ]);
 
             $receiptNo = $this->documentNumberingService->generateNumber('sales_receipt', $data['date'], [
                 'company_entity_id' => $entity->id,
             ]);
             $receipt->update(['receipt_no' => $receiptNo]);
-            $total = 0;
+
             foreach ($data['lines'] as $l) {
-                $amount = (float) $l['amount'];
-                $total += $amount;
                 SalesReceiptLine::create([
                     'receipt_id' => $receipt->id,
                     'account_id' => $l['account_id'],
                     'description' => $l['description'] ?? null,
-                    'amount' => $amount,
+                    'amount' => (float) $l['amount'],
                 ]);
             }
 
-            $receipt->update(['total_amount' => $total]);
-            // Auto-allocate to oldest open invoices
-            $remainingPool = $total;
-            if ($remainingPool > 0) {
-                $open = DB::table('sales_invoices as si')
-                    ->leftJoin('sales_receipt_allocations as sra', 'sra.invoice_id', '=', 'si.id')
-                    ->select('si.id', 'si.total_amount', DB::raw('COALESCE(SUM(sra.amount),0) as allocated'), DB::raw('COALESCE(si.due_date, si.date) as eff_date'))
-                    ->where('si.business_partner_id', $receipt->business_partner_id)
-                    ->where('si.status', 'posted')
-                    ->groupBy('si.id', 'si.total_amount', 'eff_date')
-                    ->orderBy('eff_date')
-                    ->orderBy('si.id')
-                    ->get();
-                foreach ($open as $inv) {
-                    $remainingInv = (float)$inv->total_amount - (float)$inv->allocated;
-                    if ($remainingInv <= 0) continue;
-                    if ($remainingPool <= 0) break;
-                    $alloc = min($remainingInv, $remainingPool);
-                    DB::table('sales_receipt_allocations')->insert([
-                        'receipt_id' => $receipt->id,
-                        'invoice_id' => $inv->id,
-                        'amount' => $alloc,
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ]);
-                    $remainingPool -= $alloc;
-                }
+            foreach ($data['allocations'] as $alloc) {
+                DB::table('sales_receipt_allocations')->insert([
+                    'receipt_id' => $receipt->id,
+                    'invoice_id' => $alloc['invoice_id'],
+                    'amount' => (float) $alloc['amount'],
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
             }
 
             // Attempt to close related Sales Invoices if fully paid
@@ -145,7 +163,7 @@ class SalesReceiptController extends Controller
                 $this->documentClosureService->closeSalesInvoiceByReceipt($receipt->id, auth()->id());
             } catch (\Exception $closureException) {
                 // Log closure failure but don't fail the receipt creation
-                \Log::warning('Failed to close Sales Invoices after receipt creation', [
+                Log::warning('Failed to close Sales Invoices after receipt creation', [
                     'receipt_id' => $receipt->id,
                     'error' => $closureException->getMessage()
                 ]);
@@ -181,7 +199,37 @@ class SalesReceiptController extends Controller
     public function show(int $id)
     {
         $receipt = SalesReceipt::with('lines')->findOrFail($id);
-        return view('sales_receipts.show', compact('receipt'));
+
+        $allocations = DB::table('sales_receipt_allocations as sra')
+            ->join('sales_invoices as si', 'si.id', '=', 'sra.invoice_id')
+            ->select(
+                'sra.id as allocation_id',
+                'sra.amount as allocation_amount',
+                'si.id as invoice_id',
+                'si.invoice_no',
+                'si.date as invoice_date',
+                'si.due_date',
+                'si.total_amount as invoice_total',
+                'si.status as invoice_status'
+            )
+            ->where('sra.receipt_id', $id)
+            ->orderBy('si.date', 'ASC')
+            ->orderBy('si.invoice_no', 'ASC')
+            ->get();
+
+        $creator = null;
+        $auditLog = DB::table('audit_logs')
+            ->where('entity_type', 'sales_receipt')
+            ->where('entity_id', $id)
+            ->where('action', 'created')
+            ->orderBy('created_at', 'ASC')
+            ->first();
+
+        if ($auditLog && $auditLog->user_id) {
+            $creator = DB::table('users')->find($auditLog->user_id);
+        }
+
+        return view('sales_receipts.show', compact('receipt', 'allocations', 'creator'));
     }
 
     public function pdf(int $id)
@@ -299,35 +347,75 @@ class SalesReceiptController extends Controller
     {
         $request->validate([
             'business_partner_id' => ['required', 'integer'],
-            'amount' => ['required', 'numeric', 'min:0'],
+            'amount' => ['nullable', 'numeric', 'min:0'],
         ]);
-        $pool = (float)$request->input('amount');
+        $pool = (float) ($request->input('amount') ?? 0);
         $rows = [];
-        if ($pool > 0) {
-            $open = DB::table('sales_invoices as si')
-                ->leftJoin('sales_receipt_allocations as sra', 'sra.invoice_id', '=', 'si.id')
-                ->leftJoin('business_partners as c', 'c.id', '=', 'si.business_partner_id')
-                ->select('si.id', 'si.invoice_no', 'si.total_amount', DB::raw('COALESCE(SUM(sra.amount),0) as allocated'), DB::raw('COALESCE(si.due_date, si.date) as eff_date'))
-                ->where('si.business_partner_id', (int)$request->input('business_partner_id'))
-                ->where('si.status', 'posted')
-                ->groupBy('si.id', 'si.invoice_no', 'si.total_amount', 'eff_date')
-                ->orderBy('eff_date')
-                ->orderBy('si.id')
-                ->get();
-            foreach ($open as $inv) {
-                $remainingInv = (float)$inv->total_amount - (float)$inv->allocated;
-                if ($remainingInv <= 0) continue;
-                if ($pool <= 0) break;
-                $alloc = min($remainingInv, $pool);
-                $rows[] = [
-                    'invoice_id' => $inv->id,
-                    'invoice_no' => $inv->invoice_no,
-                    'remaining_before' => round($remainingInv, 2),
-                    'allocate' => round($alloc, 2),
-                ];
-                $pool -= $alloc;
-            }
+        $open = DB::table('sales_invoices as si')
+            ->leftJoin('sales_receipt_allocations as sra', 'sra.invoice_id', '=', 'si.id')
+            ->select('si.id', 'si.invoice_no', 'si.total_amount', DB::raw('COALESCE(SUM(sra.amount),0) as allocated'), DB::raw('COALESCE(si.due_date, si.date) as eff_date'))
+            ->where('si.business_partner_id', (int) $request->input('business_partner_id'))
+            ->where('si.status', 'posted')
+            ->groupBy('si.id', 'si.invoice_no', 'si.total_amount', 'eff_date')
+            ->orderBy('eff_date')
+            ->orderBy('si.id')
+            ->get();
+        foreach ($open as $inv) {
+            $remainingInv = (float) $inv->total_amount - (float) $inv->allocated;
+            if ($remainingInv <= 0) continue;
+            $alloc = $pool > 0 ? min($remainingInv, $pool) : 0;
+            $pool -= $alloc;
+            $rows[] = [
+                'invoice_id' => $inv->id,
+                'invoice_no' => $inv->invoice_no,
+                'remaining_before' => round($remainingInv, 2),
+                'allocate' => round($alloc, 2),
+            ];
         }
         return response()->json(['rows' => $rows]);
+    }
+
+    public function getAvailableInvoices(Request $request)
+    {
+        $request->validate([
+            'business_partner_id' => ['required', 'integer', 'exists:business_partners,id'],
+        ]);
+
+        $invoices = DB::table('sales_invoices as si')
+            ->leftJoin('sales_receipt_allocations as sra', 'sra.invoice_id', '=', 'si.id')
+            ->select(
+                'si.id',
+                'si.invoice_no',
+                'si.date',
+                'si.due_date',
+                'si.total_amount',
+                DB::raw('COALESCE(SUM(sra.amount), 0) as allocated_amount'),
+                DB::raw('si.total_amount - COALESCE(SUM(sra.amount), 0) as remaining_balance'),
+                DB::raw('COALESCE(si.due_date, si.date) as effective_due_date'),
+                DB::raw('DATEDIFF(CURDATE(), COALESCE(si.due_date, si.date)) as days_overdue')
+            )
+            ->where('si.business_partner_id', (int) $request->input('business_partner_id'))
+            ->where('si.status', 'posted')
+            ->groupBy('si.id', 'si.invoice_no', 'si.date', 'si.due_date', 'si.total_amount')
+            ->havingRaw('remaining_balance > 0')
+            ->orderBy('effective_due_date', 'ASC')
+            ->orderBy('si.id', 'ASC')
+            ->get();
+
+        return response()->json([
+            'invoices' => $invoices->map(function ($inv) {
+                return [
+                    'id' => $inv->id,
+                    'invoice_no' => $inv->invoice_no,
+                    'date' => $inv->date,
+                    'due_date' => $inv->due_date,
+                    'total_amount' => (float) $inv->total_amount,
+                    'allocated_amount' => (float) $inv->allocated_amount,
+                    'remaining_balance' => (float) $inv->remaining_balance,
+                    'days_overdue' => (int) $inv->days_overdue,
+                    'is_overdue' => (int) $inv->days_overdue > 0,
+                ];
+            }),
+        ]);
     }
 }

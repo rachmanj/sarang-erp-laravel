@@ -23,10 +23,29 @@ class SalesReceiptPostingTest extends TestCase
 
     public function test_posting_receipt_creates_balanced_journal(): void
     {
-        $cashId = (int) DB::table('accounts')->where('code', '1.1.2.01')->value('id');
+        $cashId = (int) DB::table('accounts')->where('code', '1.1.1.01')->value('id');
         $customerId = (int) DB::table('business_partners')->where('partner_type', 'customer')->value('id');
-
         $entityId = (int) DB::table('company_entities')->where('code', '71')->value('id');
+
+        $invoiceId = (int) DB::table('sales_invoices')
+            ->where('business_partner_id', $customerId)
+            ->where('status', 'posted')
+            ->value('id');
+
+        if (!$invoiceId) {
+            $invoiceId = DB::table('sales_invoices')->insertGetId([
+                'invoice_no' => 'SI-TEST-001',
+                'date' => now()->toDateString(),
+                'business_partner_id' => $customerId,
+                'company_entity_id' => $entityId,
+                'total_amount' => 150,
+                'status' => 'posted',
+                'posted_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+
         $resp = $this->post('/sales-receipts', [
             'date' => now()->toDateString(),
             'business_partner_id' => $customerId,
@@ -34,6 +53,9 @@ class SalesReceiptPostingTest extends TestCase
             'description' => 'Receipt',
             'lines' => [
                 ['account_id' => $cashId, 'description' => 'Cash', 'amount' => 150],
+            ],
+            'allocations' => [
+                ['invoice_id' => $invoiceId, 'amount' => 150],
             ],
         ]);
         $resp->assertRedirect();

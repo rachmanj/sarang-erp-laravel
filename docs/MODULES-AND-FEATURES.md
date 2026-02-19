@@ -1,6 +1,6 @@
 # Sarange ERP - Modules and Features List
 
-**Last Updated**: 2026-02-09  
+**Last Updated**: 2026-02-19  
 **System Status**: Production Ready (95% Complete)  
 **Technology Stack**: Laravel 12, PHP 8.2+, MySQL, AdminLTE 3.14
 
@@ -239,11 +239,12 @@
 - **Document Closure**: Automatic closure tracking
 
 ### 22. Sales Receipts
-- **Payment Collection**: Customer payment collection with automatic allocation
+- **Invoice-First Flow**: Select customer → load outstanding Sales Invoices via `getAvailableInvoices` API → select invoices to receive payment with checkboxes (Select All/Deselect All) → enter allocation amount per invoice → receipt lines auto-populated from total allocation
+- **Explicit Allocation**: User selects which invoices to pay and allocation amounts; receipt total must match allocation total; validation prevents over-allocation
 - **Automatic Numbering**: Entity-aware format `EEYYDDNNNNN` (code 09)
-- **Payment Allocation**: Automatic allocation to sales invoices
+- **Show Page**: Receipt Information, System Information, Sales Invoices Being Paid (with links), Receipt Lines—mirrors Purchase Payment layout
 - **Multi-Currency Support**: Foreign currency receipts
-- **Document Closure**: Automatic closure tracking
+- **Document Closure**: Automatic closure of fully paid Sales Invoices
 
 ### 23. Sales Analytics
 - **AR Aging Analysis**: Customer payment tracking with aging buckets
@@ -684,5 +685,5 @@
 
 ---
 
-**Note**: This document reflects the current state of the Sarange ERP system as of 2025-01-21. For the most up-to-date information, refer to the architecture documentation and task management files.
+**Note**: This document reflects the current state of the Sarange ERP system as of 2026-02-19. For the most up-to-date information, refer to the architecture documentation and task management files.
 

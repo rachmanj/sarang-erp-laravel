@@ -1,5 +1,5 @@
 Purpose: Technical reference for understanding system design and development patterns
-Last Updated: 2026-02-13 (Delivery Order Simplified Flow & Mark as Delivered)
+Last Updated: 2026-02-19 (Sales Receipt aligned with Purchase Payment pattern)
 
 ## Architecture Documentation Guidelines
 
@@ -144,7 +144,7 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 
 -   **Sales Dashboard**: Comprehensive sales analytics dashboard with AR aging analysis, sales KPIs (Sales MTD, Outstanding AR, Pending Approvals, Open Sales Orders), sales order statistics, sales invoice statistics, delivery order statistics, top customers by outstanding AR, and recent invoices visualization.
 -   **Sales Invoices**: Customer billing with line items, tax codes, and dimensions (SINV-YYYYMM-######)
--   **Sales Receipts**: Payment collection with automatic allocation to invoices (SR-YYYYMM-######)
+-   **Sales Receipts**: Payment collection with invoice-first flow and explicit allocation (SR-YYYYMM-######). Select customer → load outstanding invoices via `getAvailableInvoices` → select invoices and allocation amounts → receipt lines auto-populated. Receipt total must match allocation total. Mirrors Purchase Payment pattern.
 -   **Sales Orders**: Customer order management with entity-aware numbering (code 06)
 -   **AR Aging**: Customer payment tracking and aging analysis with buckets (Current, 1-30, 31-60, 61-90, 90+ days) calculated from sales invoices minus sales receipt allocations
 -   **AR Balances**: Customer account balance reporting
@@ -526,7 +526,7 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 -   `sales_receipts` / `sales_receipt_lines`: Customer payments with `company_entity_id`
 -   `purchase_invoices` / `purchase_invoice_lines`: Vendor billing with `company_entity_id`
 -   `purchase_payments` / `purchase_payment_lines`: Vendor payments with `company_entity_id`
--   `receipt_payment_allocations`: Payment allocation tracking
+-   `sales_receipt_allocations` / `purchase_payment_allocations`: Explicit invoice allocation tracking for AR/AP payments
 
 #### Asset Management Tables
 

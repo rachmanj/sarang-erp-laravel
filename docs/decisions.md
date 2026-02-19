@@ -1,5 +1,5 @@
 **Purpose**: Record technical decisions and rationale for future reference
-**Last Updated**: 2026-02-13 (Delivery Order Simplified Flow & Mark as Delivered)
+**Last Updated**: 2026-02-19 (Sales Receipt aligned with Purchase Payment pattern)
 
 # Technical Decision Records
 
@@ -29,6 +29,34 @@ Decision: [Title] - [YYYY-MM-DD]
 ---
 
 ## Recent Decisions
+
+### Decision: Sales Receipt Aligned with Purchase Payment Pattern - 2026-02-19
+
+**Context**: Sales Receipt used amount-first flow with server-side auto-allocation to oldest open invoices. Purchase Payment used invoice-first flow with explicit user selection of invoices and allocation amounts. Inconsistent patterns caused confusion and limited user control over which invoices to pay.
+
+**Options Considered**:
+
+1. **Option A**: Keep Sales Receipt auto-allocation
+    - ✅ Pros: No changes, simpler form
+    - ❌ Cons: User cannot choose which invoices to pay; partial payments always go to oldest first; inconsistent with Purchase Payment
+
+2. **Option B**: Align Sales Receipt with Purchase Payment pattern—invoice-first, explicit allocations
+    - ✅ Pros: Consistent AR/AP experience; user control over allocation; validation (receipt total = allocation total); Select All/Deselect All; overdue badges
+    - ❌ Cons: Larger form refactor, store() validation changes
+
+**Decision**: Adopt Option B—Sales Receipt now mirrors Purchase Payment: `getAvailableInvoices` API loads outstanding SIs by customer; invoice selection table with checkboxes and per-invoice allocation amount; receipt lines auto-populated from total allocation; store() validates allocations and creates `sales_receipt_allocations` explicitly; show page displays Receipt Information, System Information, Sales Invoices Being Paid, Receipt Lines.
+
+**Rationale**: AR (Sales Receipt) and AP (Purchase Payment) are symmetric operations. Consistent patterns reduce training, improve UX, and enable user control over allocation (e.g., pay specific overdue invoice first).
+
+**Implementation**:
+- **Controller**: `getAvailableInvoices()`, store() accepts `allocations` array, validates totals and remaining balances
+- **Routes**: `GET /sales-receipts/available-invoices`
+- **Create view**: Invoice selection card, Receipt lines card, validation (totals must match)
+- **Show view**: Receipt Information, System Information, Sales Invoices Being Paid table, Receipt Lines
+
+**Review Date**: 2027-02-19 (after one year of production use).
+
+---
 
 ### Decision: Delivery Order Simplified Flow & Journal Consolidation - 2026-02-13
 

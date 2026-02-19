@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="utf-8">
-    <title>Sales Receipt #{{ $receipt->id }}</title>
+    <title>Sales Receipt {{ $receipt->receipt_no ?? '#' . $receipt->id }}</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -104,11 +104,11 @@
 
     <div class="document-header">
         <div>
-            <h3>Sales Receipt #{{ $receipt->id }}</h3>
+            <h3>Sales Receipt {{ $receipt->receipt_no ?? '#' . $receipt->id }}</h3>
             <div>Date: {{ $receipt->date }}</div>
         </div>
         <div>
-            <div>Customer: {{ optional(DB::table('customers')->find($receipt->customer_id))->name }}</div>
+            <div>Customer: {{ optional(DB::table('business_partners')->find($receipt->business_partner_id))->name }}</div>
         </div>
     </div>
     <table>

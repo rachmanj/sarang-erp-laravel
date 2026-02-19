@@ -1,5 +1,5 @@
 **Purpose**: AI's persistent knowledge base for project context and learnings
-**Last Updated**: 2026-02-13 (Delivery Order Simplified Flow)
+**Last Updated**: 2026-02-19 (Sales Receipt aligned with Purchase Payment pattern)
 
 ## Memory Maintenance Guidelines
 
@@ -26,6 +26,22 @@
 ---
 
 ## Project Memory Entries
+
+### [089] Sales Receipt Aligned with Purchase Payment Pattern (2026-02-19) ✅ COMPLETE
+
+**Challenge**: Sales Receipt used auto-allocation (server allocates to oldest invoices); Purchase Payment used invoice-first flow with explicit user selection. Inconsistent AR/AP patterns.
+
+**Solution**: Refactored Sales Receipt to match Purchase Payment: `getAvailableInvoices` API; invoice selection table with checkboxes and per-invoice allocation; receipt lines auto-populated; store() validates allocations (total match, remaining balance); show page with Receipt Info, System Info, Sales Invoices Being Paid, Receipt Lines. Routes: `/sales-receipts/available-invoices`.
+
+**Key Learning**: AR and AP are symmetric—aligning Sales Receipt with Purchase Payment reduces training and gives users control over which invoices to pay. Explicit allocation enables partial payments to specific invoices (e.g., overdue first).
+
+### [088] Sales Receipt Module CRUD Testing (2026-02-19) ✅ COMPLETE
+
+**Challenge**: Validate Sales Receipt module functionality via Chrome DevTools MCP browser testing.
+
+**Solution**: Tested full CRUD flow with superadmin/ninja123: Login succeeded; Index list loads with filters (date, status, search); Create form works (customer Select2, account, amount, document number preview); Store creates receipt (SR-72260900001, PT Maju Bersama, Rp 100,000); Show displays detail; Post changes status DRAFT→POSTED and creates journal entries. No Edit/Delete—accounting documents are immutable; Post is the status-update action.
+
+**Key Learning**: Sales Receipt module is production-ready. Select2 customer dropdown may need JS trigger for automation; direct select.value + trigger('change') works. Document numbering preview (72260900001) and allocation preview function correctly.
 
 ### [087] Delivery Order Simplified Flow & Mark as Delivered (2026-02-13) ✅ COMPLETE
 
