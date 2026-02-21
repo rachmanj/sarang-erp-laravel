@@ -67,9 +67,19 @@
                                 </form>
                             @endif
                         @endcan
-                        <a class="btn btn-sm btn-outline-secondary" href="{{ route('sales-invoices.print', $invoice->id) }}" target="_blank">
-                            <i class="fas fa-print"></i> Print
-                        </a>
+                        <div class="btn-group">
+                            <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                <i class="fas fa-print"></i> Print
+                            </button>
+                            <div class="dropdown-menu">
+                                <a class="dropdown-item" href="{{ route('sales-invoices.print', $invoice->id) }}" target="_blank">
+                                    <i class="fas fa-file-alt mr-1"></i> Standard (A4/Laser)
+                                </a>
+                                <a class="dropdown-item" href="{{ route('sales-invoices.print', [$invoice->id, 'layout' => 'dotmatrix']) }}" target="_blank">
+                                    <i class="fas fa-print mr-1"></i> Dot Matrix
+                                </a>
+                            </div>
+                        </div>
                         <a class="btn btn-sm btn-outline-primary" href="{{ route('sales-invoices.pdf', $invoice->id) }}" target="_blank">PDF</a>
                         <form method="post" action="{{ route('sales-invoices.queuePdf', $invoice->id) }}" class="d-inline">
                             @csrf

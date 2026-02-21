@@ -1,5 +1,5 @@
 **Purpose**: AI's persistent knowledge base for project context and learnings
-**Last Updated**: 2026-02-19 (Manual Journal base currency fix)
+**Last Updated**: 2026-02-19 (Print Layout Selection, DO search, COGS fallback)
 
 ## Memory Maintenance Guidelines
 
@@ -26,6 +26,14 @@
 ---
 
 ## Project Memory Entries
+
+### [091] Print Layout Selection & Related Fixes (2026-02-19) ✅ COMPLETE
+
+**Challenge**: Users needed dot matrix print for warehouse/delivery; single A4 layout was unsuitable. DO DataTables search failed with "Column not found" (do.sales_order_no). Mark as Delivered failed with "COGS account 5.1.1 not found" (Indonesian chart uses 5.1).
+
+**Solution**: Print layout selection: dropdown (Standard | Dot Matrix) on DO, Sales Invoice, Purchase Order show pages; `?layout=dotmatrix` returns compact 9.5in Courier layout. Added Purchase Order print (new). DO DataTables: `filterColumn()` for do_number, sales_order_no, customer, created_by mapping to correct table.column. DeliveryJournalService: `getCOGSAccount()` fallback to 5.1 or "HPP Barang Dagangan".
+
+**Key Learning**: Indonesian chart of accounts uses different codes (5.1 vs 5.1.1); fallback improves portability. Yajra DataTables infers wrong columns for joined queries—explicit filterColumn fixes search.
 
 ### [090] Manual Journal Base Currency Fix (2026-02-19) ✅ COMPLETE
 

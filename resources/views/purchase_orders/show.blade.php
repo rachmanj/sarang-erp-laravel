@@ -26,6 +26,19 @@
                             onclick="showRelationshipMap('purchase-orders', {{ $order->id }})">
                             <i class="fas fa-sitemap"></i> Relationship Map
                         </button>
+                        <div class="btn-group mr-1">
+                            <button type="button" class="btn btn-sm btn-info dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                <i class="fas fa-print"></i> Print
+                            </button>
+                            <div class="dropdown-menu">
+                                <a class="dropdown-item" href="{{ route('purchase-orders.print', $order->id) }}" target="_blank">
+                                    <i class="fas fa-file-alt mr-1"></i> Standard (A4/Laser)
+                                </a>
+                                <a class="dropdown-item" href="{{ route('purchase-orders.print', [$order->id, 'layout' => 'dotmatrix']) }}" target="_blank">
+                                    <i class="fas fa-print mr-1"></i> Dot Matrix
+                                </a>
+                            </div>
+                        </div>
                         <a href="{{ route('purchase-orders.index') }}" class="btn btn-sm btn-secondary mr-1">
                             <i class="fas fa-arrow-left"></i> Back to Purchase Orders
                         </a>

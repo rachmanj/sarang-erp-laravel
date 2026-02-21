@@ -30,7 +30,9 @@ Route::prefix('sales-invoices')->group(function () {
     Route::post('/{id}/post', [SalesInvoiceController::class, 'post'])->middleware('permission:ar.invoices.post')->name('sales-invoices.post');
     Route::get('/{id}/print', function ($id) {
         $invoice = \App\Models\Accounting\SalesInvoice::with(['lines', 'lines.account', 'lines.taxCode', 'lines.inventoryItem', 'businessPartner', 'businessPartner.primaryAddress', 'companyEntity', 'deliveryOrders'])->findOrFail($id);
-        return view('sales_invoices.print', compact('invoice'));
+        $layout = request()->get('layout', 'standard');
+        $view = $layout === 'dotmatrix' ? 'sales_invoices.print_dotmatrix' : 'sales_invoices.print';
+        return view($view, compact('invoice'));
     })->middleware('permission:ar.invoices.view')->name('sales-invoices.print');
     Route::get('/{id}/pdf', [SalesInvoiceController::class, 'pdf'])->middleware('permission:ar.invoices.view')->name('sales-invoices.pdf');
     Route::post('/{id}/queue-pdf', [SalesInvoiceController::class, 'queuePdf'])->middleware('permission:ar.invoices.view')->name('sales-invoices.queuePdf');

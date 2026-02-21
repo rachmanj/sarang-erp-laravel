@@ -1,5 +1,5 @@
 **Purpose**: Record technical decisions and rationale for future reference
-**Last Updated**: 2026-02-19 (Sales Receipt aligned with Purchase Payment pattern)
+**Last Updated**: 2026-02-19 (Print Layout Selection for DO, SI, PO)
 
 # Technical Decision Records
 
@@ -29,6 +29,33 @@ Decision: [Title] - [YYYY-MM-DD]
 ---
 
 ## Recent Decisions
+
+### Decision: Print Layout Selection (Standard vs Dot Matrix) - 2026-02-19
+
+**Context**: Users need to print documents on different printer types—A4/laser for formal copies and dot matrix (80-column) for warehouse/delivery receipts. Single print layout did not suit both.
+
+**Options Considered**:
+
+1. **Option A**: Single layout only
+    - ✅ Pros: No changes
+    - ❌ Cons: Dot matrix output from A4 layout is wasteful; narrow paper truncates content
+
+2. **Option B**: Add dot matrix layout with layout selector (Standard / Dot Matrix)
+    - ✅ Pros: User chooses layout per print; dot matrix: 9.5in width, Courier New, compact; Standard: full A4 with logo
+    - ❌ Cons: Duplicate view files, route param handling
+
+**Decision**: Adopt Option B—add `?layout=dotmatrix` query param to print routes; dropdown on show pages (Print → Standard (A4/Laser) | Dot Matrix). Implemented for Delivery Orders, Sales Invoices, Purchase Orders. Purchase Order print was newly added (previously had no print).
+
+**Rationale**: Dot matrix printers use continuous narrow paper; compact layout reduces waste and fits 80 columns. Standard layout remains for formal/archival prints.
+
+**Implementation**:
+- **Views**: `print.blade.php` (standard), `print_dotmatrix.blade.php` (9.5in, Courier, no logo)
+- **Routes**: Print routes accept `layout` param; default `standard`
+- **Show pages**: Print button → dropdown with Standard and Dot Matrix options
+
+**Review Date**: 2027-02-19.
+
+---
 
 ### Decision: Sales Receipt Aligned with Purchase Payment Pattern - 2026-02-19
 

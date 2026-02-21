@@ -1,5 +1,5 @@
 Purpose: Technical reference for understanding system design and development patterns
-Last Updated: 2026-02-19 (Sales Receipt aligned with Purchase Payment pattern)
+Last Updated: 2026-02-19 (Print Layout Selection, DO search fix, COGS fallback)
 
 ## Architecture Documentation Guidelines
 
@@ -79,6 +79,7 @@ Sarange ERP is a comprehensive Enterprise Resource Planning system built with La
 -   **Database**: MySQL with comprehensive schema (51 migrations)
 -   **Authentication**: Laravel Auth with Spatie Permission package
 -   **PDF Generation**: DomPDF for document printing
+-   **Print Layout Selection**: Delivery Orders, Sales Invoices, and Purchase Orders support Standard (A4/Laser) and Dot Matrix print layouts via `?layout=dotmatrix`; dropdown on show pages lets users choose. Dot matrix layout: 9.5in width, Courier New, compact for 80-column printers.
 -   **Excel Export**: Laravel Excel (Maatwebsite)
 -   **UI Framework**: AdminLTE 3 with Bootstrap 4
 -   **Timezone**: Asia/Singapore (configured)
@@ -342,7 +343,9 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 -   **Status Tracking**: draft, in_transit, ready, delivered (transient), completed, cancelled. Picking, packed, partial_delivered statuses no longer used in new flow.
 -   **Approval Workflows**: Multi-level approval process with proper authorization controls
 -   **Delivery Tracking**: Logistics cost tracking, performance metrics, and customer satisfaction monitoring
--   **Print Functionality**: Professional delivery order documents (No, Item Code, Item Name, Delivery Qty)
+-   **Print Functionality**: Professional delivery order documents (No, Item Code, Item Name, Delivery Qty). **Print Layout Selection**: Dropdown on show page offers Standard (A4/Laser) and Dot Matrix layouts; `?layout=dotmatrix` returns compact 9.5in Courier layout for dot matrix printers.
+-   **DataTables Search**: `filterColumn()` overrides for do_number, sales_order_no, customer, created_by to map Yajra search to correct table columns (do.do_number, so.order_no, c.name, u.name); fixes "Column not found" when searching DO list.
+-   **DeliveryJournalService COGS Fallback**: `getCOGSAccount()` accepts code 5.1.1, 5.1, or name containing "Cost of Goods Sold"/"HPP Barang Dagangan"; Indonesian chart uses 5.1 (HPP Barang Dagangan) when 5.1.1 absent.
 -   **Data Integrity**: Foreign key constraint handling with graceful NULL assignment when inventory items are deleted
 -   **Sales Order Integration**: Customer-based filtering for Sales Order selection. Create Delivery Order available when SO status is `confirmed` or `processing`.
 -   **Item Display**: Fallback chain for displaying item information (item_code → inventoryItem->code, description → inventoryItem->name → item_name)

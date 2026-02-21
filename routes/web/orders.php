@@ -427,6 +427,12 @@ Route::prefix('purchase-orders')->group(function () {
     Route::post('/{id}/copy-to-grpo', [PurchaseOrderController::class, 'copyToGRPO'])->name('purchase-orders.copy-to-grpo');
     Route::get('/{id}/copy-to-purchase-invoice', [PurchaseOrderController::class, 'showCopyToPurchaseInvoice'])->name('purchase-orders.show-copy-to-purchase-invoice');
     Route::get('/{id}/copy-to-purchase-invoice/execute', [PurchaseOrderController::class, 'copyToPurchaseInvoice'])->name('purchase-orders.copy-to-purchase-invoice');
+    Route::get('/{id}/print', function ($id) {
+        $order = \App\Models\PurchaseOrder::with(['lines.inventoryItem', 'businessPartner', 'createdBy'])->findOrFail($id);
+        $layout = request()->get('layout', 'standard');
+        $view = $layout === 'dotmatrix' ? 'purchase_orders.print_dotmatrix' : 'purchase_orders.print';
+        return view($view, compact('order'));
+    })->name('purchase-orders.print');
 
     // Unit Conversion API Routes
     Route::get('/api/item-units', [PurchaseOrderController::class, 'getItemUnits'])->name('purchase-orders.api.item-units');

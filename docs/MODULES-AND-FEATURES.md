@@ -142,6 +142,7 @@
 ## Purchase Management
 
 ### 14. Purchase Orders
+- **Print Functionality**: Standard and Dot Matrix layouts; dropdown on show page.
 - **Order Management**: Complete purchase order lifecycle management
 - **Automatic Numbering**: Entity-aware format `EEYYDDNNNNN` (code 01)
 - **Multi-Currency Support**: Foreign currency purchase orders with exchange rate handling
@@ -220,6 +221,7 @@
 - **Multiple Partial DOs per SO**: A Sales Order can have multiple Delivery Orders. New DO creation uses remaining qty per SO line (skips fully-delivered lines). SO status `confirmed` or `processing` allows Create Delivery Order. Delivered qty syncs across all DOs.
 - **Delivery Items Table**: No, Item Code, Item Name, Ordered Qty, Remain Qty, Delivery Qty, Action. VAT, WTax, Unit Price hidden from UI (kept in DB for invoicing).
 - **Mark as Delivered**: Single button with modal (date, time, delivered by). Triggers revenue recognition journal and sets status to completed.
+- **Print Layout Selection**: Dropdown (Standard A4/Laser | Dot Matrix) for warehouse vs formal prints.
 - **Automatic Numbering**: Entity-aware format `EEYYDDNNNNN` (code 07)
 - **Inventory Reservation**: Automatic stock allocation and reservation upon approval
 - **Revenue Recognition**: Automated revenue recognition with COGS calculation upon Mark as Delivered
@@ -229,6 +231,7 @@
 - **Delivery Tracking**: Logistics cost tracking and performance metrics
 
 ### 21. Sales Invoices
+- **Print Layout Selection**: Dropdown (Standard A4/Laser | Dot Matrix) for formal vs warehouse prints.
 - **Customer Billing**: Complete sales invoice management
 - **Automatic Numbering**: Entity-aware format `EEYYDDNNNNN` (code 08)
 - **Line Items**: Multiple line items with tax handling

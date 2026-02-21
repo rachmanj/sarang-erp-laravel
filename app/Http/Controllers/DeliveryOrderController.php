@@ -482,7 +482,7 @@ class DeliveryOrderController extends Controller
     /**
      * Print delivery order
      */
-    public function print(DeliveryOrder $deliveryOrder)
+    public function print(Request $request, DeliveryOrder $deliveryOrder)
     {
         $deliveryOrder->load([
             'customer',
@@ -492,7 +492,10 @@ class DeliveryOrderController extends Controller
             'createdBy'
         ]);
 
-        return view('delivery_orders.print', compact('deliveryOrder'));
+        $layout = $request->get('layout', 'standard');
+        $view = $layout === 'dotmatrix' ? 'delivery_orders.print_dotmatrix' : 'delivery_orders.print';
+
+        return view($view, compact('deliveryOrder'));
     }
 
     /**

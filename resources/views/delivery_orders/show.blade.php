@@ -28,10 +28,23 @@
                                     onclick="showRelationshipMap('delivery-orders', {{ $deliveryOrder->id }})">
                                     <i class="fas fa-sitemap"></i> Relationship Map
                                 </button>
-                                <a href="{{ route('delivery-orders.print', $deliveryOrder) }}" class="btn btn-sm btn-info"
-                                    target="_blank">
-                                    <i class="fas fa-print"></i> Print
-                                </a>
+                                <div class="btn-group mr-1">
+                                    <button type="button" class="btn btn-sm btn-info dropdown-toggle"
+                                        data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                        <i class="fas fa-print"></i> Print
+                                    </button>
+                                    <div class="dropdown-menu">
+                                        <a class="dropdown-item" href="{{ route('delivery-orders.print', $deliveryOrder) }}"
+                                            target="_blank">
+                                            <i class="fas fa-file-alt mr-1"></i> Standard (A4/Laser)
+                                        </a>
+                                        <a class="dropdown-item"
+                                            href="{{ route('delivery-orders.print', [$deliveryOrder, 'layout' => 'dotmatrix']) }}"
+                                            target="_blank">
+                                            <i class="fas fa-print mr-1"></i> Dot Matrix
+                                        </a>
+                                    </div>
+                                </div>
                                 @if ($deliveryOrder->status === 'draft')
                                     <a href="{{ route('delivery-orders.edit', $deliveryOrder) }}"
                                         class="btn btn-sm btn-warning">
