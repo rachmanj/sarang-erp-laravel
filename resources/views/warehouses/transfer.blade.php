@@ -213,7 +213,7 @@
                                 <div class="col-md-12">
                                     <label for="transfer_out_id">Select Pending Transfer (ITO) <span
                                             class="text-danger">*</span></label>
-                                    <select class="form-control" id="transfer_out_id" name="transfer_out_id" required>
+                                    <select class="form-control" id="transfer_out_id" name="transfer_out_id">
                                         <option value="">Select Pending Transfer</option>
                                     </select>
                                     <small class="form-text text-muted">Select an Inventory Transfer Out (ITO) that is
@@ -826,10 +826,12 @@
                 if (transferType === 'iti') {
                     $('#direct_ito_form').hide();
                     $('#iti_form').show();
+                    $('#transfer_out_id').prop('required', true);
                     loadPendingTransfers();
                 } else {
                     $('#direct_ito_form').show();
                     $('#iti_form').hide();
+                    $('#transfer_out_id').prop('required', false);
                 }
             });
 
