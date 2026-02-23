@@ -131,17 +131,17 @@
                                         <tbody id="lines-tbody">
                                             <tr class="line-row">
                                                 <td>
-                                                    <select class="form-control item-select" name="lines[0][item_id]"
-                                                        required>
-                                                        <option value="">Select Item</option>
-                                                        @foreach ($items as $item)
-                                                            <option value="{{ $item->id }}"
-                                                                data-code="{{ $item->code }}"
-                                                                data-unit="{{ $item->unit_of_measure }}">
-                                                                {{ $item->code }} - {{ $item->name }}
-                                                            </option>
-                                                        @endforeach
-                                                    </select>
+                                                    <div class="input-group">
+                                                        <input type="text" name="lines[0][item_display]" class="form-control item-display"
+                                                            placeholder="Select item" readonly>
+                                                        <input type="hidden" name="lines[0][item_id]" class="item-id" value="">
+                                                        <div class="input-group-append">
+                                                            <button type="button" class="btn btn-outline-secondary btn-sm item-search-btn"
+                                                                data-line-idx="0">
+                                                                <i class="fas fa-search"></i>
+                                                            </button>
+                                                        </div>
+                                                    </div>
                                                 </td>
                                                 <td>
                                                     <input type="number" class="form-control quantity-input"
@@ -212,6 +212,8 @@
             </div>
         </div>
     </section>
+
+    @include('components.item-selection-modal')
 @endsection
 
 @push('scripts')
@@ -225,14 +227,17 @@
                 const newRow = `
             <tr class="line-row">
                 <td>
-                    <select class="form-control item-select" name="lines[${lineIndex}][item_id]" required>
-                        <option value="">Select Item</option>
-                        @foreach ($items as $item)
-                            <option value="{{ $item->id }}" data-code="{{ $item->code }}" data-unit="{{ $item->unit_of_measure }}">
-                                {{ $item->code }} - {{ $item->name }}
-                            </option>
-                        @endforeach
-                    </select>
+                    <div class="input-group">
+                        <input type="text" name="lines[${lineIndex}][item_display]" class="form-control item-display"
+                            placeholder="Select item" readonly>
+                        <input type="hidden" name="lines[${lineIndex}][item_id]" class="item-id" value="">
+                        <div class="input-group-append">
+                            <button type="button" class="btn btn-outline-secondary btn-sm item-search-btn"
+                                data-line-idx="${lineIndex}">
+                                <i class="fas fa-search"></i>
+                            </button>
+                        </div>
+                    </div>
                 </td>
                 <td>
                     <input type="number" class="form-control quantity-input" name="lines[${lineIndex}][quantity]" step="0.001" min="0.001" required>
@@ -290,35 +295,12 @@
                 $('#total-amount').text(total.toFixed(2));
             }
 
-            // Auto-fill unit price for GI documents
-            @if ($documentType === 'goods_issue')
-                $(document).on('change', '.item-select', function() {
-                    const row = $(this).closest('tr');
-                    const itemId = $(this).val();
-
-                    if (itemId) {
-                        // Calculate valuation using FIFO/LIFO/Average
-                        $.ajax({
-                            url: '{{ route('gr-gi.calculate-valuation') }}',
-                            method: 'POST',
-                            data: {
-                                _token: '{{ csrf_token() }}',
-                                item_id: itemId,
-                                quantity: 1, // Default quantity for calculation
-                                method: 'FIFO'
-                            },
-                            success: function(response) {
-                                row.find('.unit-price-input').val(response.unit_price);
-                                // Trigger calculation
-                                row.find('.quantity-input').trigger('input');
-                            },
-                            error: function() {
-                                console.log('Error calculating valuation');
-                            }
-                        });
-                    }
-                });
-            @endif
+            // Item search button - open modal
+            $(document).on('click', '.item-search-btn', function() {
+                window.currentLineIdx = $(this).data('line-idx');
+                $('#itemSelectionModal').modal('show');
+                loadItems();
+            });
 
             // Form validation
             $('#gr-gi-form').on('submit', function(e) {
@@ -332,7 +314,7 @@
                 // Validate all required fields
                 let isValid = true;
                 $('.line-row').each(function() {
-                    const itemId = $(this).find('.item-select').val();
+                    const itemId = $(this).find('.item-id').val();
                     const quantity = $(this).find('.quantity-input').val();
                     const unitPrice = $(this).find('.unit-price-input').val();
 
@@ -346,6 +328,152 @@
                     alert('Please fill in all required fields for all line items.');
                     return false;
                 }
+            });
+
+            // Modal: load items from inventory search
+            function loadItems(page = 1) {
+                const searchData = {
+                    code: $('#searchCode').val(),
+                    name: $('#searchName').val(),
+                    category_id: $('#searchCategory').val(),
+                    item_type: $('#searchType').val(),
+                    per_page: 20,
+                    page: page
+                };
+
+                $.ajax({
+                    url: '{{ route('inventory.search') }}',
+                    method: 'GET',
+                    data: searchData,
+                    success: function(response) {
+                        displayItems(response.items);
+                        updatePagination(response.pagination);
+                        $('#searchResultsCount').text('Found ' + response.pagination.total + ' items');
+                    },
+                    error: function(xhr) {
+                        console.error('Error loading items:', xhr.responseText);
+                        alert('Error loading items. Please try again.');
+                    }
+                });
+            }
+
+            function displayItems(items) {
+                const tbody = $('#itemsTable tbody');
+                tbody.empty();
+
+                if (items.length === 0) {
+                    tbody.append('<tr><td colspan="10" class="text-center text-muted">No items found</td></tr>');
+                    return;
+                }
+
+                items.forEach((item, index) => {
+                    const itemType = item.item_type || 'item';
+                    const row = `
+                        <tr>
+                            <td>${index + 1}</td>
+                            <td><strong>${item.code}</strong></td>
+                            <td>${item.name}</td>
+                            <td>${item.category ? item.category.name : '-'}</td>
+                            <td><span class="badge badge-${itemType === 'item' ? 'primary' : 'info'}">${itemType}</span></td>
+                            <td>${item.unit_of_measure || '-'}</td>
+                            <td class="text-right">${formatCurrency(item.purchase_price)}</td>
+                            <td class="text-right">${formatCurrency(item.selling_price)}</td>
+                            <td>${item.current_stock != null ? item.current_stock : '-'}</td>
+                            <td>
+                                <button type="button" class="btn btn-sm btn-success select-item-btn"
+                                        data-item-id="${item.id}"
+                                        data-item-code="${item.code}"
+                                        data-item-name="${item.name}"
+                                        data-item-purchase-price="${item.purchase_price}">
+                                    <i class="fas fa-check"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                    tbody.append(row);
+                });
+            }
+
+            function updatePagination(pagination) {
+                const container = $('#itemsPagination');
+                container.empty();
+
+                if (pagination.last_page <= 1) return;
+
+                if (pagination.current_page > 1) {
+                    container.append(`<li class="page-item"><a class="page-link" href="#" data-page="${pagination.current_page - 1}">Previous</a></li>`);
+                }
+                for (let i = 1; i <= pagination.last_page; i++) {
+                    const activeClass = i === pagination.current_page ? 'active' : '';
+                    container.append(`<li class="page-item ${activeClass}"><a class="page-link" href="#" data-page="${i}">${i}</a></li>`);
+                }
+                if (pagination.current_page < pagination.last_page) {
+                    container.append(`<li class="page-item"><a class="page-link" href="#" data-page="${pagination.current_page + 1}">Next</a></li>`);
+                }
+            }
+
+            function formatCurrency(amount) {
+                return new Intl.NumberFormat('id-ID', {
+                    style: 'currency',
+                    currency: 'IDR',
+                    minimumFractionDigits: 0
+                }).format(amount || 0);
+            }
+
+            $('#searchItems').on('click', function() {
+                loadItems(1);
+            });
+
+            $('#clearSearch').on('click', function() {
+                $('#searchCode, #searchName').val('');
+                $('#searchCategory, #searchType').val('');
+                loadItems(1);
+            });
+
+            $(document).on('click', '#itemsPagination .page-link', function(e) {
+                e.preventDefault();
+                const page = $(this).data('page');
+                if (page) loadItems(page);
+            });
+
+            $(document).on('click', '.select-item-btn', function() {
+                const itemId = $(this).data('item-id');
+                const itemCode = $(this).data('item-code');
+                const itemName = $(this).data('item-name');
+                const purchasePrice = $(this).data('item-purchase-price');
+
+                const displayInput = $(`input[name="lines[${window.currentLineIdx}][item_display]"]`);
+                const hiddenInput = $(`input[name="lines[${window.currentLineIdx}][item_id]"]`);
+                const row = displayInput.closest('tr');
+
+                displayInput.val(itemCode + ' - ' + itemName);
+                hiddenInput.val(itemId);
+
+                @if ($documentType === 'goods_receipt')
+                    row.find('.unit-price-input').val(purchasePrice || 0);
+                    row.find('.quantity-input').trigger('input');
+                @else
+                    $.ajax({
+                        url: '{{ route('gr-gi.calculate-valuation') }}',
+                        method: 'POST',
+                        data: {
+                            _token: '{{ csrf_token() }}',
+                            item_id: itemId,
+                            warehouse_id: $('#warehouse_id').val(),
+                            quantity: 1,
+                            method: 'FIFO'
+                        },
+                        success: function(response) {
+                            row.find('.unit-price-input').val(response.unit_price);
+                            row.find('.quantity-input').trigger('input');
+                        },
+                        error: function() {
+                            row.find('.unit-price-input').val(purchasePrice || 0);
+                            row.find('.quantity-input').trigger('input');
+                        }
+                    });
+                @endif
+                $('#itemSelectionModal').modal('hide');
             });
 
             // Initialize

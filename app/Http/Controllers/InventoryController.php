@@ -133,6 +133,7 @@ class InventoryController extends Controller
                     'code' => $item->code,
                     'name' => $item->name,
                     'description' => $item->description,
+                    'item_type' => $item->item_type,
                     'category' => $item->category ? [
                         'id' => $item->category->id,
                         'name' => $item->category->name,
