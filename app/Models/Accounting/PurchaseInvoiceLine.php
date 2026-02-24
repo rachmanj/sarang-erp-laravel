@@ -21,6 +21,8 @@ class PurchaseInvoiceLine extends Model
         'unit_conversion_factor',
         'unit_price',
         'amount',
+        'vat_amount',
+        'amount_after_vat',
         'tax_code_id',
         'project_id',
         'dept_id',
@@ -32,6 +34,8 @@ class PurchaseInvoiceLine extends Model
         'unit_conversion_factor' => 'float',
         'unit_price' => 'float',
         'amount' => 'float',
+        'vat_amount' => 'float',
+        'amount_after_vat' => 'float',
     ];
 
     public function invoice(): BelongsTo
@@ -52,6 +56,11 @@ class PurchaseInvoiceLine extends Model
     public function orderUnit(): BelongsTo
     {
         return $this->belongsTo(\App\Models\UnitOfMeasure::class, 'order_unit_id');
+    }
+
+    public function taxCode(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Master\TaxCode::class, 'tax_code_id');
     }
 
     /**

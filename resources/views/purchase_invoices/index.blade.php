@@ -51,6 +51,8 @@
                                         <th>Invoice No</th>
                                         <th>Vendor</th>
                                         <th>Total</th>
+                                        <th>VAT</th>
+                                        <th>Amount After VAT</th>
                                         <th>Status</th>
                                         <th>Actions</th>
                                     </tr>
@@ -96,6 +98,20 @@
                         {
                             data: 'total_amount',
                             name: 'pi.total_amount',
+                            className: 'text-right',
+                            orderable: false,
+                            searchable: false
+                        },
+                        {
+                            data: 'total_vat',
+                            name: 'total_vat',
+                            className: 'text-right',
+                            orderable: false,
+                            searchable: false
+                        },
+                        {
+                            data: 'total_amount_after_vat',
+                            name: 'total_amount_after_vat',
                             className: 'text-right',
                             orderable: false,
                             searchable: false

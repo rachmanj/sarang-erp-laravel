@@ -212,7 +212,12 @@ class PurchaseInvoiceController extends Controller
             $total = 0;
             foreach ($data['lines'] as $l) {
                 $amount = (float) $l['qty'] * (float) $l['unit_price'];
-                $total += $amount;
+                
+                // Calculate VAT amount
+                $vatAmount = $this->calculateVatAmount($amount, $l['tax_code_id'] ?? null);
+                $amountAfterVat = $amount + $vatAmount;
+                
+                $total += $amountAfterVat;
 
                 // Auto-select account from inventory item if not provided
                 $accountId = $l['account_id'] ?? null;
@@ -271,6 +276,8 @@ class PurchaseInvoiceController extends Controller
                     'unit_conversion_factor' => $conversionFactor,
                     'unit_price' => (float) $l['unit_price'],
                     'amount' => $amount,
+                    'vat_amount' => $vatAmount,
+                    'amount_after_vat' => $amountAfterVat,
                     'tax_code_id' => $l['tax_code_id'] ?? null,
                     'project_id' => $l['project_id'] ?? null,
                     'dept_id' => $l['dept_id'] ?? null,
@@ -310,9 +317,49 @@ class PurchaseInvoiceController extends Controller
             'lines.inventoryItem',
             'lines.warehouse',
             'lines.orderUnit',
-            'paymentAllocations'
+            'lines.taxCode',
+            'paymentAllocations.payment',
+            'businessPartner.primaryAddress',
+            'companyEntity',
+            'journal',
+            'inventoryTransactions.item',
+            'inventoryTransactions.warehouse'
         ])->findOrFail($id);
-        return view('purchase_invoices.show', compact('invoice'));
+        
+        // Calculate totals
+        $totalVat = $invoice->lines->sum('vat_amount');
+        $totalAmountAfterVat = $invoice->lines->sum(function($line) {
+            return ($line->amount_after_vat && $line->amount_after_vat > 0) ? $line->amount_after_vat : $line->amount;
+        });
+        $totalAllocated = $invoice->paymentAllocations->sum('amount');
+        $remainingBalance = $invoice->total_amount - $totalAllocated;
+        
+        // Get related documents
+        $purchaseOrder = null;
+        $goodsReceipt = null;
+        if ($invoice->purchase_order_id) {
+            $purchaseOrder = DB::table('purchase_orders')->find($invoice->purchase_order_id);
+        }
+        if ($invoice->goods_receipt_id) {
+            $goodsReceipt = DB::table('goods_receipt_pos')->find($invoice->goods_receipt_id);
+        }
+        
+        // Get cash account info if direct purchase
+        $cashAccount = null;
+        if ($invoice->cash_account_id) {
+            $cashAccount = DB::table('accounts')->find($invoice->cash_account_id);
+        }
+        
+        return view('purchase_invoices.show', compact(
+            'invoice',
+            'totalVat',
+            'totalAmountAfterVat',
+            'totalAllocated',
+            'remainingBalance',
+            'purchaseOrder',
+            'goodsReceipt',
+            'cashAccount'
+        ));
     }
 
     public function edit(int $id)
@@ -443,7 +490,12 @@ class PurchaseInvoiceController extends Controller
             $total = 0;
             foreach ($data['lines'] as $l) {
                 $amount = (float) $l['qty'] * (float) $l['unit_price'];
-                $total += $amount;
+                
+                // Calculate VAT amount
+                $vatAmount = $this->calculateVatAmount($amount, $l['tax_code_id'] ?? null);
+                $amountAfterVat = $amount + $vatAmount;
+                
+                $total += $amountAfterVat;
 
                 // Auto-select account from inventory item if not provided
                 $accountId = $l['account_id'] ?? null;
@@ -502,6 +554,8 @@ class PurchaseInvoiceController extends Controller
                     'unit_conversion_factor' => $conversionFactor,
                     'unit_price' => (float) $l['unit_price'],
                     'amount' => $amount,
+                    'vat_amount' => $vatAmount,
+                    'amount_after_vat' => $amountAfterVat,
                     'tax_code_id' => $l['tax_code_id'] ?? null,
                     'project_id' => $l['project_id'] ?? null,
                     'dept_id' => $l['dept_id'] ?? null,
@@ -687,6 +741,29 @@ class PurchaseInvoiceController extends Controller
      * Normal flow: Debit Inventory Account, Credit Cash Account
      * Opening balance flow: Debit Line Accounts, Credit Cash Account
      */
+    /**
+     * Calculate VAT amount from tax code
+     */
+    private function calculateVatAmount(float $amount, ?int $taxCodeId): float
+    {
+        if (!$taxCodeId) {
+            return 0.0;
+        }
+
+        $tax = DB::table('tax_codes')->where('id', $taxCodeId)->first();
+        if (!$tax) {
+            return 0.0;
+        }
+
+        $rate = (float) $tax->rate;
+        // Check if this is a VAT/PPN tax code
+        if (str_contains(strtolower((string)$tax->name), 'ppn') || strtolower((string)$tax->type) === 'ppn_input') {
+            return round($amount * ($rate / 100), 2);
+        }
+
+        return 0.0;
+    }
+
     private function postDirectCashPurchase(PurchaseInvoice $invoice): void
     {
         // Use selected cash account, or fallback to default (Kas di Tangan)
@@ -961,7 +1038,25 @@ class PurchaseInvoiceController extends Controller
     {
         $q = DB::table('purchase_invoices as pi')
             ->leftJoin('business_partners as v', 'v.id', '=', 'pi.business_partner_id')
-            ->select('pi.id', 'pi.date', 'pi.invoice_no', 'pi.business_partner_id', 'v.name as vendor_name', 'pi.total_amount', 'pi.status');
+            ->leftJoin('purchase_invoice_lines as pil', 'pil.invoice_id', '=', 'pi.id')
+            ->select(
+                'pi.id',
+                'pi.date',
+                'pi.invoice_no',
+                'pi.business_partner_id',
+                'v.name as vendor_name',
+                'pi.total_amount',
+                'pi.status',
+                DB::raw('COALESCE(SUM(pil.vat_amount), 0) as total_vat'),
+                DB::raw('CASE 
+                    WHEN COALESCE(SUM(pil.amount_after_vat), 0) = 0 AND COALESCE(SUM(pil.amount), 0) > 0 
+                    THEN SUM(pil.amount)
+                    WHEN COALESCE(SUM(pil.amount_after_vat), 0) > 0 
+                    THEN SUM(pil.amount_after_vat)
+                    ELSE pi.total_amount
+                END as total_amount_after_vat')
+            )
+            ->groupBy('pi.id', 'pi.date', 'pi.invoice_no', 'pi.business_partner_id', 'v.name', 'pi.total_amount', 'pi.status');
 
         if ($request->filled('status')) {
             $q->where('pi.status', $request->input('status'));
@@ -984,6 +1079,12 @@ class PurchaseInvoiceController extends Controller
         return DataTables::of($q)
             ->editColumn('total_amount', function ($row) {
                 return number_format((float)$row->total_amount, 2);
+            })
+            ->editColumn('total_vat', function ($row) {
+                return number_format((float)$row->total_vat, 2);
+            })
+            ->editColumn('total_amount_after_vat', function ($row) {
+                return number_format((float)$row->total_amount_after_vat, 2);
             })
             ->editColumn('status', function ($row) {
                 return strtoupper($row->status);
