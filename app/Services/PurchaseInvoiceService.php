@@ -59,10 +59,15 @@ class PurchaseInvoiceService
         // Use warehouse from line, or default warehouse from item
         $warehouseId = $line->warehouse_id ?? $item->default_warehouse_id;
 
+        // Use net unit cost when discount exists (net_amount / qty), otherwise unit_price
+        $unitCost = ($line->net_amount > 0 && $line->qty > 0)
+            ? $line->net_amount / $line->qty
+            : $line->unit_price;
+
         return app(InventoryService::class)->processPurchaseTransaction(
             itemId: $line->inventory_item_id,
             quantity: $line->qty,
-            unitCost: $line->unit_price,
+            unitCost: $unitCost,
             referenceType: 'purchase_invoice',
             referenceId: $invoice->id,
             notes: "Direct purchase from " . ($invoice->businessPartner->name ?? 'Unknown'),

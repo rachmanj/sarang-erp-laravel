@@ -20,6 +20,8 @@ class PurchaseInvoice extends Model
         'goods_receipt_id',
         'description',
         'total_amount',
+        'discount_amount',
+        'discount_percentage',
         'status',
         'posted_at',
         'terms_days',
@@ -35,6 +37,8 @@ class PurchaseInvoice extends Model
         'due_date' => 'date',
         'posted_at' => 'datetime',
         'total_amount' => 'float',
+        'discount_amount' => 'decimal:2',
+        'discount_percentage' => 'decimal:2',
         'is_direct_purchase' => 'boolean',
         'is_opening_balance' => 'boolean',
     ];

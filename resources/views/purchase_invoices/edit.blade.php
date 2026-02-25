@@ -173,7 +173,7 @@
                                 </div>
 
                                 <div class="row">
-                                    <div class="col-md-6">
+                                    <div class="col-md-4">
                                         <div class="form-group row mb-2">
                                             <label class="col-sm-3 col-form-label">Description</label>
                                             <div class="col-sm-9">
@@ -184,6 +184,31 @@
                                             </div>
                                         </div>
                                     </div>
+                                    <div class="col-md-4">
+                                        <div class="form-group row mb-2">
+                                            <label class="col-sm-3 col-form-label">Discount (%)</label>
+                                            <div class="col-sm-9">
+                                                <input type="number" step="0.01" min="0" max="100"
+                                                    name="discount_percentage" id="discount_percentage"
+                                                    value="{{ old('discount_percentage', $invoice->discount_percentage ?? 0) }}"
+                                                    class="form-control form-control-sm"
+                                                    placeholder="Header discount %">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="form-group row mb-2">
+                                            <label class="col-sm-3 col-form-label">Discount Amount</label>
+                                            <div class="col-sm-9">
+                                                <input type="number" step="0.01" min="0"
+                                                    name="discount_amount" id="discount_amount"
+                                                    value="{{ old('discount_amount', $invoice->discount_amount ?? 0) }}"
+                                                    class="form-control form-control-sm text-right" placeholder="0.00">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row">
                                     <div class="col-md-6">
                                         <div class="form-group row mb-2">
                                             <label class="col-sm-3 col-form-label">Due Date</label>
@@ -231,6 +256,8 @@
                                                                 class="text-danger">*</span></th>
                                                         <th style="width: 5%">VAT</th>
                                                         <th style="width: 5%">WTax</th>
+                                                        <th style="width: 5%">Disc %</th>
+                                                        <th style="width: 6%">Disc Amt</th>
                                                         <th style="width: 9%">Amount</th>
                                                         <th style="width: 7%">Project</th>
                                                         <th style="width: 7%">Dept</th>
@@ -333,17 +360,17 @@
                                                                     required>
                                                             </td>
                                                             <td>
-                                                                <select name="lines[{{ $lineIdx }}][vat_rate]"
-                                                                    class="form-control form-control-sm vat-select">
-                                                                    <option value="0"
-                                                                        {{ old("lines.$lineIdx.vat_rate", 0) == 0 ? 'selected' : '' }}>
-                                                                        No</option>
-                                                                    <option value="11"
-                                                                        {{ old("lines.$lineIdx.vat_rate", 0) == 11 ? 'selected' : '' }}>
-                                                                        11%</option>
-                                                                    <option value="12"
-                                                                        {{ old("lines.$lineIdx.vat_rate", 0) == 12 ? 'selected' : '' }}>
-                                                                        12%</option>
+                                                                <select name="lines[{{ $lineIdx }}][tax_code_id]"
+                                                                    class="form-control form-control-sm vat-select tax-code-select">
+                                                                    <option value="" data-rate="0">No VAT</option>
+                                                                    @foreach ($taxCodes ?? [] as $tc)
+                                                                        @if(stripos($tc->name ?? '', 'ppn') !== false || ($tc->type ?? '') === 'ppn_input')
+                                                                            <option value="{{ $tc->id }}" data-rate="{{ $tc->rate ?? 0 }}"
+                                                                                {{ old("lines.$lineIdx.tax_code_id", $line->tax_code_id) == $tc->id ? 'selected' : '' }}>
+                                                                                {{ $tc->code ?? $tc->name }} ({{ $tc->rate ?? 0 }}%)
+                                                                            </option>
+                                                                        @endif
+                                                                    @endforeach
                                                                 </select>
                                                             </td>
                                                             <td>
@@ -357,9 +384,23 @@
                                                                         2%</option>
                                                                 </select>
                                                             </td>
+                                                            <td>
+                                                                <input type="number" step="0.01" min="0" max="100"
+                                                                    name="lines[{{ $lineIdx }}][discount_percentage]"
+                                                                    class="form-control form-control-sm text-right line-discount-percentage"
+                                                                    value="{{ old("lines.$lineIdx.discount_percentage", $line->discount_percentage ?? 0) }}"
+                                                                    placeholder="0">
+                                                            </td>
+                                                            <td>
+                                                                <input type="number" step="0.01" min="0"
+                                                                    name="lines[{{ $lineIdx }}][discount_amount]"
+                                                                    class="form-control form-control-sm text-right line-discount-amount"
+                                                                    value="{{ old("lines.$lineIdx.discount_amount", $line->discount_amount ?? 0) }}"
+                                                                    placeholder="0.00">
+                                                            </td>
                                                             <td class="text-right">
                                                                 <span
-                                                                    class="line-amount">{{ number_format($line->amount, 2) }}</span>
+                                                                    class="line-amount">{{ number_format(($line->amount_after_vat ?? $line->amount), 2) }}</span>
                                                             </td>
                                                             <td>
                                                                 <select name="lines[{{ $lineIdx }}][project_id]"
@@ -394,18 +435,37 @@
                                                 <tfoot>
                                                     <tr>
                                                         <th colspan="{{ $showAccounts ?? false ? '4' : '3' }}"
-                                                            class="text-right">Original Amount:</th>
+                                                            class="text-right">Subtotal:</th>
                                                         <th class="text-right" id="original-amount">0.00</th>
                                                         <th class="text-right" id="total-vat">0.00</th>
                                                         <th class="text-right" id="total-wtax">0.00</th>
+                                                        <th colspan="2"></th>
                                                         <th class="text-right" id="total-amount">0.00</th>
                                                         <th colspan="3"></th>
                                                     </tr>
                                                     <tr>
                                                         <th colspan="{{ $showAccounts ?? false ? '4' : '3' }}"
+                                                            class="text-right">Line Discounts:</th>
+                                                        <th colspan="4" class="text-right" id="total-line-discount">0.00</th>
+                                                        <th colspan="4"></th>
+                                                    </tr>
+                                                    <tr>
+                                                        <th colspan="{{ $showAccounts ?? false ? '4' : '3' }}"
+                                                            class="text-right">Header Discount:</th>
+                                                        <th colspan="4" class="text-right" id="total-header-discount">0.00</th>
+                                                        <th colspan="4"></th>
+                                                    </tr>
+                                                    <tr>
+                                                        <th colspan="{{ $showAccounts ?? false ? '4' : '3' }}"
+                                                            class="text-right">Total Discount:</th>
+                                                        <th colspan="4" class="text-right" id="total-discount">0.00</th>
+                                                        <th colspan="4"></th>
+                                                    </tr>
+                                                    <tr>
+                                                        <th colspan="{{ $showAccounts ?? false ? '4' : '3' }}"
                                                             class="text-right">Amount Due:</th>
                                                         <th colspan="4" class="text-right" id="amount-due">0.00</th>
-                                                        <th colspan="3"></th>
+                                                        <th colspan="4"></th>
                                                     </tr>
                                                 </tfoot>
                                             </table>
@@ -444,6 +504,7 @@
 @push('scripts')
     <script>
         let idx = {{ $invoice->lines->count() }};
+        let updatingHeaderDiscount = false;
         const existingLines = @json(
             $invoice->lines->map(function ($line) {
                 return [
@@ -567,6 +628,46 @@
                 updateTotals();
             });
 
+            // Line discount sync
+            $(document).on('input', '.line-discount-percentage', function() {
+                const row = $(this).closest('tr');
+                const lineAmount = parseFloat(row.find('.qty-input').val() || 0) * parseFloat(row.find('.price-input').val() || 0);
+                const pct = parseFloat($(this).val() || 0);
+                row.find('.line-discount-amount').val((lineAmount * pct / 100).toFixed(2));
+                updateLineAmount(row);
+                updateTotals();
+            });
+            $(document).on('input', '.line-discount-amount', function() {
+                const row = $(this).closest('tr');
+                const lineAmount = parseFloat(row.find('.qty-input').val() || 0) * parseFloat(row.find('.price-input').val() || 0);
+                const amt = parseFloat($(this).val() || 0);
+                const pct = lineAmount > 0 ? (amt / lineAmount * 100) : 0;
+                row.find('.line-discount-percentage').val(pct.toFixed(2));
+                updateLineAmount(row);
+                updateTotals();
+            });
+
+            // Header discount sync
+            $('#discount_percentage').on('input', function() {
+                if (updatingHeaderDiscount) return;
+                updatingHeaderDiscount = true;
+                const subtotal = getSubtotal();
+                const pct = parseFloat($(this).val() || 0);
+                $('#discount_amount').val((subtotal * pct / 100).toFixed(2));
+                updatingHeaderDiscount = false;
+                updateTotals();
+            });
+            $('#discount_amount').on('input', function() {
+                if (updatingHeaderDiscount) return;
+                updatingHeaderDiscount = true;
+                const subtotal = getSubtotal();
+                const amt = parseFloat($(this).val() || 0);
+                const pct = subtotal > 0 ? (amt / subtotal * 100) : 0;
+                $('#discount_percentage').val(pct.toFixed(2));
+                updatingHeaderDiscount = false;
+                updateTotals();
+            });
+
             updateTotals();
         });
 
@@ -632,10 +733,13 @@
                         class="form-control form-control-sm text-right price-input" value="0" required>
                 </td>
                 <td>
-                    <select name="lines[${idx}][vat_rate]" class="form-control form-control-sm vat-select">
-                        <option value="0">No</option>
-                        <option value="11">11%</option>
-                        <option value="12">12%</option>
+                    <select name="lines[${idx}][tax_code_id]" class="form-control form-control-sm vat-select tax-code-select">
+                        <option value="" data-rate="0">No VAT</option>
+                        @foreach ($taxCodes ?? [] as $tc)
+                            @if(stripos($tc->name ?? '', 'ppn') !== false || ($tc->type ?? '') === 'ppn_input')
+                                <option value="{{ $tc->id }}" data-rate="{{ $tc->rate ?? 0 }}">{{ $tc->code ?? $tc->name }} ({{ $tc->rate ?? 0 }}%)</option>
+                            @endif
+                        @endforeach
                     </select>
                 </td>
                 <td>
@@ -643,6 +747,18 @@
                         <option value="0">No</option>
                         <option value="2">2%</option>
                     </select>
+                </td>
+                <td>
+                    <input type="number" step="0.01" min="0" max="100"
+                        name="lines[${idx}][discount_percentage]"
+                        class="form-control form-control-sm text-right line-discount-percentage"
+                        value="0" placeholder="0">
+                </td>
+                <td>
+                    <input type="number" step="0.01" min="0"
+                        name="lines[${idx}][discount_amount]"
+                        class="form-control form-control-sm text-right line-discount-amount"
+                        value="0" placeholder="0.00">
                 </td>
                 <td class="text-right">
                     <span class="line-amount">0.00</span>
@@ -697,6 +813,8 @@
             const name = $('#searchName').val();
             const category = $('#searchCategory').val();
             const type = $('#searchType').val();
+            const lineIdx = window.currentLineIndex;
+            const warehouseId = $(`select[name="lines[${lineIdx}][warehouse_id]"]`).val() || '';
 
             $.ajax({
                 url: '{{ route('inventory.search') }}',
@@ -706,6 +824,7 @@
                     name: name,
                     category_id: category,
                     item_type: type,
+                    warehouse_id: warehouseId,
                     per_page: 20,
                     page: page
                 },
@@ -725,6 +844,7 @@
                                     <td>${item.unit_of_measure}</td>
                                     <td class="text-right">${parseFloat(item.purchase_price || 0).toLocaleString('id-ID', {minimumFractionDigits: 2})}</td>
                                     <td class="text-right">${parseFloat(item.selling_price || 0).toLocaleString('id-ID', {minimumFractionDigits: 2})}</td>
+                                    <td class="text-right">${item.available_quantity != null ? parseFloat(item.available_quantity).toLocaleString('id-ID', {minimumFractionDigits: 2}) : '—'}</td>
                                     <td>
                                         <button type="button" class="btn btn-xs btn-primary select-item-btn" 
                                             data-item-id="${item.id}" 
@@ -743,7 +863,7 @@
                         updatePagination(response.pagination);
                         $('#searchResultsCount').text(`Found ${response.pagination.total} items`);
                     } else {
-                        tbody.append('<tr><td colspan="9" class="text-center">No items found</td></tr>');
+                        tbody.append('<tr><td colspan="10" class="text-center">No items found</td></tr>');
                         $('#searchResultsCount').text('No items found');
                     }
                 },
@@ -957,13 +1077,22 @@
         function updateLineAmount(row) {
             const qty = parseFloat($(row).find('.qty-input').val() || 0);
             const price = parseFloat($(row).find('.price-input').val() || 0);
-            const vatRate = parseFloat($(row).find('.vat-select').val() || 0);
+            const vatRate = parseFloat($(row).find('.vat-select option:selected').data('rate') || 0);
             const wtaxRate = parseFloat($(row).find('.wtax-select').val() || 0);
-
+            let discountAmount = parseFloat($(row).find('.line-discount-amount').val() || 0);
+            const discountPct = parseFloat($(row).find('.line-discount-percentage').val() || 0);
             const originalAmount = qty * price;
-            const vatAmount = originalAmount * (vatRate / 100);
-            const wtaxAmount = originalAmount * (wtaxRate / 100);
-            const lineAmount = originalAmount + vatAmount - wtaxAmount;
+            if (discountPct > 0 && discountAmount === 0) {
+                discountAmount = originalAmount * discountPct / 100;
+                $(row).find('.line-discount-amount').val(discountAmount.toFixed(2));
+            } else if (discountAmount > 0 && discountPct === 0) {
+                const pct = originalAmount > 0 ? (discountAmount / originalAmount * 100) : 0;
+                $(row).find('.line-discount-percentage').val(pct.toFixed(2));
+            }
+            const netAmount = originalAmount - discountAmount;
+            const vatAmount = netAmount * (vatRate / 100);
+            const wtaxAmount = netAmount * (wtaxRate / 100);
+            const lineAmount = netAmount + vatAmount - wtaxAmount;
 
             $(row).find('.line-amount').text(lineAmount.toLocaleString('id-ID', {
                 minimumFractionDigits: 2,
@@ -971,33 +1100,61 @@
             }));
         }
 
+        function getSubtotal() {
+            let subtotal = 0;
+            $('#lines tr').each(function() {
+                const qty = parseFloat($(this).find('.qty-input').val() || 0);
+                const price = parseFloat($(this).find('.price-input').val() || 0);
+                const vatRate = parseFloat($(this).find('.vat-select option:selected').data('rate') || 0);
+                const wtaxRate = parseFloat($(this).find('.wtax-select').val() || 0);
+                const discountAmount = parseFloat($(this).find('.line-discount-amount').val() || 0);
+                const originalAmount = qty * price;
+                const netAmount = originalAmount - discountAmount;
+                const vatAmount = netAmount * (vatRate / 100);
+                const wtaxAmount = netAmount * (wtaxRate / 100);
+                subtotal += netAmount + vatAmount - wtaxAmount;
+            });
+            return subtotal;
+        }
+
         function updateTotals() {
-            let originalTotal = 0;
             let totalVat = 0;
             let totalWtax = 0;
-            let totalAmount = 0;
+            let totalLineDiscount = 0;
+            let subtotal = 0;
 
             $('#lines tr').each(function() {
                 const qty = parseFloat($(this).find('.qty-input').val() || 0);
                 const price = parseFloat($(this).find('.price-input').val() || 0);
-                const vatRate = parseFloat($(this).find('.vat-select').val() || 0);
+                const vatRate = parseFloat($(this).find('.vat-select option:selected').data('rate') || 0);
                 const wtaxRate = parseFloat($(this).find('.wtax-select').val() || 0);
-
+                const discountAmount = parseFloat($(this).find('.line-discount-amount').val() || 0);
                 const originalAmount = qty * price;
-                const vatAmount = originalAmount * (vatRate / 100);
-                const wtaxAmount = originalAmount * (wtaxRate / 100);
-                const lineAmount = originalAmount + vatAmount - wtaxAmount;
+                const netAmount = originalAmount - discountAmount;
+                const vatAmount = netAmount * (vatRate / 100);
+                const wtaxAmount = netAmount * (wtaxRate / 100);
+                const lineAmount = netAmount + vatAmount - wtaxAmount;
 
-                originalTotal += originalAmount;
                 totalVat += vatAmount;
                 totalWtax += wtaxAmount;
-                totalAmount += lineAmount;
+                totalLineDiscount += discountAmount;
+                subtotal += lineAmount;
             });
 
-            const amountDue = originalTotal + totalVat - totalWtax;
+            const headerDiscountPct = parseFloat($('#discount_percentage').val() || 0);
+            let headerDiscountAmount = parseFloat($('#discount_amount').val() || 0);
+            if (headerDiscountPct > 0 && headerDiscountAmount === 0) {
+                headerDiscountAmount = subtotal * headerDiscountPct / 100;
+                if (!updatingHeaderDiscount) {
+                    updatingHeaderDiscount = true;
+                    $('#discount_amount').val(headerDiscountAmount.toFixed(2));
+                    updatingHeaderDiscount = false;
+                }
+            }
+            const totalDiscount = totalLineDiscount + headerDiscountAmount;
+            const amountDue = subtotal - headerDiscountAmount;
 
-            // Update display with Indonesian number formatting
-            $('#original-amount').text(originalTotal.toLocaleString('id-ID', {
+            $('#original-amount').text(subtotal.toLocaleString('id-ID', {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2
             }));
@@ -1012,7 +1169,22 @@
                 maximumFractionDigits: 2
             }));
 
-            $('#total-amount').text(totalAmount.toLocaleString('id-ID', {
+            $('#total-amount').text(subtotal.toLocaleString('id-ID', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }));
+
+            $('#total-line-discount').text(totalLineDiscount.toLocaleString('id-ID', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }));
+
+            $('#total-header-discount').text(headerDiscountAmount.toLocaleString('id-ID', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }));
+
+            $('#total-discount').text(totalDiscount.toLocaleString('id-ID', {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2
             }));

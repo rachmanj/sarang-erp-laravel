@@ -108,7 +108,7 @@
             <div>Date: {{ $invoice->date }}</div>
         </div>
         <div>
-            <div>Vendor: {{ optional(DB::table('vendors')->find($invoice->vendor_id))->name }}</div>
+            <div>Vendor: {{ optional($invoice->businessPartner)->name ?? '—' }}</div>
         </div>
     </div>
     <table>
@@ -119,6 +119,10 @@
                 <th>Qty</th>
                 <th>Unit Price</th>
                 <th>Amount</th>
+                @if ($invoice->lines->sum('discount_amount') > 0)
+                <th>Discount</th>
+                <th>Net Amount</th>
+                @endif
             </tr>
         </thead>
         <tbody>
@@ -129,13 +133,42 @@
                     <td style="text-align:right">{{ number_format($l->qty, 2) }}</td>
                     <td style="text-align:right">{{ number_format($l->unit_price, 2) }}</td>
                     <td style="text-align:right">{{ number_format($l->amount, 2) }}</td>
+                    @if ($invoice->lines->sum('discount_amount') > 0)
+                    <td style="text-align:right">
+                        @if (($l->discount_amount ?? 0) > 0)
+                            - {{ number_format($l->discount_amount, 2) }}
+                            @if (($l->discount_percentage ?? 0) > 0)
+                                ({{ number_format($l->discount_percentage, 2) }}%)
+                            @endif
+                        @else
+                            0.00
+                        @endif
+                    </td>
+                    <td style="text-align:right">{{ number_format(($l->net_amount ?? $l->amount), 2) }}</td>
+                    @endif
                 </tr>
             @endforeach
         </tbody>
         <tfoot>
+            @if (($invoice->discount_amount ?? 0) > 0)
             <tr>
-                <th colspan="4" style="text-align:right">Total</th>
+                <th colspan="{{ $invoice->lines->sum('discount_amount') > 0 ? 6 : 4 }}" style="text-align:right">Discount
+                    @if (($invoice->discount_percentage ?? 0) > 0)
+                        ({{ number_format($invoice->discount_percentage, 2) }}%)
+                    @endif
+                </th>
+                <th style="text-align:right">- {{ number_format($invoice->discount_amount, 2) }}</th>
+                @if ($invoice->lines->sum('discount_amount') > 0)
+                <th colspan="2"></th>
+                @endif
+            </tr>
+            @endif
+            <tr>
+                <th colspan="{{ $invoice->lines->sum('discount_amount') > 0 ? 6 : 4 }}" style="text-align:right">Total</th>
                 <th style="text-align:right">{{ number_format($invoice->total_amount, 2) }}</th>
+                @if ($invoice->lines->sum('discount_amount') > 0)
+                <th colspan="2"></th>
+                @endif
             </tr>
         </tfoot>
     </table>

@@ -21,6 +21,9 @@ class PurchaseInvoiceLine extends Model
         'unit_conversion_factor',
         'unit_price',
         'amount',
+        'discount_amount',
+        'discount_percentage',
+        'net_amount',
         'vat_amount',
         'amount_after_vat',
         'tax_code_id',
@@ -34,6 +37,9 @@ class PurchaseInvoiceLine extends Model
         'unit_conversion_factor' => 'float',
         'unit_price' => 'float',
         'amount' => 'float',
+        'discount_amount' => 'float',
+        'discount_percentage' => 'float',
+        'net_amount' => 'float',
         'vat_amount' => 'float',
         'amount_after_vat' => 'float',
     ];
@@ -83,6 +89,16 @@ class PurchaseInvoiceLine extends Model
             return $this->unit_price / $this->unit_conversion_factor;
         }
         return $this->unit_price;
+    }
+
+    /**
+     * Calculate discount from percentage and set net amount
+     */
+    public function calculateDiscount(float $discountPercentage): void
+    {
+        $this->discount_percentage = $discountPercentage;
+        $this->discount_amount = ($this->amount * $discountPercentage) / 100;
+        $this->net_amount = $this->amount - $this->discount_amount;
     }
 
     /**

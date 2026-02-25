@@ -55,12 +55,8 @@ class InventoryController extends Controller
             $query = InventoryItem::with(['category'])
                 ->active();
             
-            // Include warehouse stock if warehouse_id is provided
-            if ($warehouseId) {
-                $query->with(['warehouseStock' => function($q) use ($warehouseId) {
-                    $q->where('warehouse_id', $warehouseId);
-                }]);
-            }
+            // Always load warehouse stock for accurate available quantity
+            $query->with('warehouseStock');
 
             // Handle search - prioritize 'q' parameter, but also check 'code' and 'name'
             // Combine all search terms with OR logic
@@ -114,20 +110,29 @@ class InventoryController extends Controller
             // Transform items to include category name safely
             $transformedItems = $items->map(function ($item) use ($warehouseId) {
                 $warehouseStock = null;
-                
-                // Get warehouse stock if warehouse_id is provided
-                if ($warehouseId && $item->warehouseStock) {
-                    $stock = $item->warehouseStock->firstWhere('warehouse_id', $warehouseId);
-                    if ($stock) {
-                        $warehouseStock = [
-                            'available_quantity' => $stock->available_quantity,
-                            'quantity_on_hand' => $stock->quantity_on_hand,
-                            'reserved_quantity' => $stock->reserved_quantity,
-                            'reorder_point' => $stock->reorder_point ?? $item->reorder_point,
-                        ];
+                $availableQuantity = null;
+
+                // Services don't have stock
+                if ($item->item_type !== 'service' && $item->warehouseStock) {
+                    if ($warehouseId) {
+                        $stock = $item->warehouseStock->firstWhere('warehouse_id', $warehouseId);
+                        if ($stock) {
+                            $warehouseStock = [
+                                'available_quantity' => $stock->available_quantity,
+                                'quantity_on_hand' => $stock->quantity_on_hand,
+                                'reserved_quantity' => $stock->reserved_quantity,
+                                'reorder_point' => $stock->reorder_point ?? $item->reorder_point,
+                            ];
+                            $availableQuantity = $stock->available_quantity;
+                        } else {
+                            $availableQuantity = 0;
+                        }
+                    } else {
+                        // Sum available_quantity across all warehouses (accurate source: inventory_warehouse_stock)
+                        $availableQuantity = $item->warehouseStock->sum('available_quantity');
                     }
                 }
-                
+
                 return [
                     'id' => $item->id,
                     'code' => $item->code,
@@ -141,6 +146,7 @@ class InventoryController extends Controller
                     'unit_of_measure' => $item->unit_of_measure,
                     'purchase_price' => $item->purchase_price,
                     'selling_price' => $item->selling_price,
+                    'available_quantity' => $availableQuantity,
                     'current_stock' => $item->current_stock,
                     'min_stock_level' => $item->min_stock_level,
                     'max_stock_level' => $item->max_stock_level,

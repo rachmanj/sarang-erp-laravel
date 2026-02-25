@@ -113,6 +113,8 @@ class PurchaseInvoiceController extends Controller
             'is_opening_balance' => ['nullable', 'boolean'],
             'cash_account_id' => ['nullable', 'integer', 'exists:accounts,id'],
             'description' => ['nullable', 'string', 'max:255'],
+            'discount_amount' => ['nullable', 'numeric', 'min:0'],
+            'discount_percentage' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'lines' => ['required', 'array', 'min:1'],
             'lines.*.description' => ['nullable', 'string', 'max:255'],
             'lines.*.qty' => ['required', 'numeric', 'min:0.01'],
@@ -122,6 +124,8 @@ class PurchaseInvoiceController extends Controller
             'lines.*.tax_code_id' => ['nullable', 'integer', 'exists:tax_codes,id'],
             'lines.*.project_id' => ['nullable', 'integer'],
             'lines.*.dept_id' => ['nullable', 'integer'],
+            'lines.*.discount_amount' => ['nullable', 'numeric', 'min:0'],
+            'lines.*.discount_percentage' => ['nullable', 'numeric', 'min:0', 'max:100'],
         ];
 
         // For accounting users: allow manual account selection OR inventory item
@@ -210,13 +214,20 @@ class PurchaseInvoiceController extends Controller
             $invoice->update(['invoice_no' => $invoiceNo]);
 
             $total = 0;
+            $totalLineDiscountAmount = 0;
             foreach ($data['lines'] as $l) {
                 $amount = (float) $l['qty'] * (float) $l['unit_price'];
-                
-                // Calculate VAT amount
-                $vatAmount = $this->calculateVatAmount($amount, $l['tax_code_id'] ?? null);
-                $amountAfterVat = $amount + $vatAmount;
-                
+                $lineDiscountAmount = (float) ($l['discount_amount'] ?? 0);
+                $lineDiscountPct = (float) ($l['discount_percentage'] ?? 0);
+                if ($lineDiscountPct > 0 && $lineDiscountAmount == 0) {
+                    $lineDiscountAmount = ($amount * $lineDiscountPct) / 100;
+                } elseif ($lineDiscountAmount > 0 && $lineDiscountPct == 0) {
+                    $lineDiscountPct = $amount > 0 ? ($lineDiscountAmount / $amount) * 100 : 0;
+                }
+                $netAmount = $amount - $lineDiscountAmount;
+                $totalLineDiscountAmount += $lineDiscountAmount;
+                $vatAmount = $this->calculateVatAmount($netAmount, $l['tax_code_id'] ?? null);
+                $amountAfterVat = $netAmount + $vatAmount;
                 $total += $amountAfterVat;
 
                 // Auto-select account from inventory item if not provided
@@ -276,6 +287,9 @@ class PurchaseInvoiceController extends Controller
                     'unit_conversion_factor' => $conversionFactor,
                     'unit_price' => (float) $l['unit_price'],
                     'amount' => $amount,
+                    'discount_amount' => $lineDiscountAmount,
+                    'discount_percentage' => $lineDiscountPct,
+                    'net_amount' => $netAmount,
                     'vat_amount' => $vatAmount,
                     'amount_after_vat' => $amountAfterVat,
                     'tax_code_id' => $l['tax_code_id'] ?? null,
@@ -284,9 +298,24 @@ class PurchaseInvoiceController extends Controller
                 ]);
             }
 
+            $subtotal = $total;
+            $headerDiscountAmount = (float) ($request->input('discount_amount') ?? 0);
+            $headerDiscountPct = (float) ($request->input('discount_percentage') ?? 0);
+            if ($headerDiscountPct > 0 && $headerDiscountAmount == 0) {
+                $headerDiscountAmount = ($subtotal * $headerDiscountPct) / 100;
+            } elseif ($headerDiscountAmount > 0 && $headerDiscountPct == 0) {
+                $headerDiscountPct = $subtotal > 0 ? ($headerDiscountAmount / $subtotal) * 100 : 0;
+            }
+            $total = $subtotal - $headerDiscountAmount;
             $termsDays = (int) ($request->input('terms_days') ?? 0);
             $dueDate = $termsDays > 0 ? date('Y-m-d', strtotime($data['date'] . ' +' . $termsDays . ' days')) : null;
-            $invoice->update(['total_amount' => $total, 'terms_days' => $termsDays ?: null, 'due_date' => $dueDate]);
+            $invoice->update([
+                'total_amount' => $total,
+                'discount_amount' => $totalLineDiscountAmount + $headerDiscountAmount,
+                'discount_percentage' => $headerDiscountPct,
+                'terms_days' => $termsDays ?: null,
+                'due_date' => $dueDate,
+            ]);
 
             // Log invoice creation in Purchase Order audit trail
             if ($purchaseOrder) {
@@ -430,6 +459,8 @@ class PurchaseInvoiceController extends Controller
             'is_direct_purchase' => ['nullable', 'boolean'],
             'is_opening_balance' => ['nullable', 'boolean'],
             'description' => ['nullable', 'string', 'max:255'],
+            'discount_amount' => ['nullable', 'numeric', 'min:0'],
+            'discount_percentage' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'lines' => ['required', 'array', 'min:1'],
             'lines.*.description' => ['nullable', 'string', 'max:255'],
             'lines.*.qty' => ['required', 'numeric', 'min:0.01'],
@@ -439,6 +470,8 @@ class PurchaseInvoiceController extends Controller
             'lines.*.tax_code_id' => ['nullable', 'integer', 'exists:tax_codes,id'],
             'lines.*.project_id' => ['nullable', 'integer'],
             'lines.*.dept_id' => ['nullable', 'integer'],
+            'lines.*.discount_amount' => ['nullable', 'numeric', 'min:0'],
+            'lines.*.discount_percentage' => ['nullable', 'numeric', 'min:0', 'max:100'],
         ];
 
         // For accounting users: allow manual account selection OR inventory item
@@ -488,13 +521,20 @@ class PurchaseInvoiceController extends Controller
 
             // Create new lines
             $total = 0;
+            $totalLineDiscountAmount = 0;
             foreach ($data['lines'] as $l) {
                 $amount = (float) $l['qty'] * (float) $l['unit_price'];
-                
-                // Calculate VAT amount
-                $vatAmount = $this->calculateVatAmount($amount, $l['tax_code_id'] ?? null);
-                $amountAfterVat = $amount + $vatAmount;
-                
+                $lineDiscountAmount = (float) ($l['discount_amount'] ?? 0);
+                $lineDiscountPct = (float) ($l['discount_percentage'] ?? 0);
+                if ($lineDiscountPct > 0 && $lineDiscountAmount == 0) {
+                    $lineDiscountAmount = ($amount * $lineDiscountPct) / 100;
+                } elseif ($lineDiscountAmount > 0 && $lineDiscountPct == 0) {
+                    $lineDiscountPct = $amount > 0 ? ($lineDiscountAmount / $amount) * 100 : 0;
+                }
+                $netAmount = $amount - $lineDiscountAmount;
+                $totalLineDiscountAmount += $lineDiscountAmount;
+                $vatAmount = $this->calculateVatAmount($netAmount, $l['tax_code_id'] ?? null);
+                $amountAfterVat = $netAmount + $vatAmount;
                 $total += $amountAfterVat;
 
                 // Auto-select account from inventory item if not provided
@@ -554,6 +594,9 @@ class PurchaseInvoiceController extends Controller
                     'unit_conversion_factor' => $conversionFactor,
                     'unit_price' => (float) $l['unit_price'],
                     'amount' => $amount,
+                    'discount_amount' => $lineDiscountAmount,
+                    'discount_percentage' => $lineDiscountPct,
+                    'net_amount' => $netAmount,
                     'vat_amount' => $vatAmount,
                     'amount_after_vat' => $amountAfterVat,
                     'tax_code_id' => $l['tax_code_id'] ?? null,
@@ -562,9 +605,24 @@ class PurchaseInvoiceController extends Controller
                 ]);
             }
 
+            $subtotal = $total;
+            $headerDiscountAmount = (float) ($request->input('discount_amount') ?? 0);
+            $headerDiscountPct = (float) ($request->input('discount_percentage') ?? 0);
+            if ($headerDiscountPct > 0 && $headerDiscountAmount == 0) {
+                $headerDiscountAmount = ($subtotal * $headerDiscountPct) / 100;
+            } elseif ($headerDiscountAmount > 0 && $headerDiscountPct == 0) {
+                $headerDiscountPct = $subtotal > 0 ? ($headerDiscountAmount / $subtotal) * 100 : 0;
+            }
+            $total = $subtotal - $headerDiscountAmount;
             $termsDays = (int) ($request->input('terms_days') ?? 0);
             $dueDate = $termsDays > 0 ? date('Y-m-d', strtotime($data['date'] . ' +' . $termsDays . ' days')) : null;
-            $invoice->update(['total_amount' => $total, 'terms_days' => $termsDays ?: null, 'due_date' => $dueDate]);
+            $invoice->update([
+                'total_amount' => $total,
+                'discount_amount' => $totalLineDiscountAmount + $headerDiscountAmount,
+                'discount_percentage' => $headerDiscountPct,
+                'terms_days' => $termsDays ?: null,
+                'due_date' => $dueDate,
+            ]);
 
             return redirect()->route('purchase-invoices.show', $invoice->id)->with('success', 'Purchase invoice updated');
         });
@@ -782,7 +840,7 @@ class PurchaseInvoiceController extends Controller
         $expenseByAccount = [];
 
         foreach ($invoice->lines as $line) {
-            $lineAmount = (float) $line->amount;
+            $lineAmount = ($line->net_amount > 0) ? (float) $line->net_amount : (float) $line->amount;
             $totalAmount += $lineAmount;
 
             // Group by account for opening balance invoices
@@ -798,16 +856,16 @@ class PurchaseInvoiceController extends Controller
                 $expenseByAccount[$accountId]['amount'] += $lineAmount;
             }
 
-            // Calculate taxes
+            // Calculate taxes (VAT on net amount - use stored vat_amount from line)
             if (!empty($line->tax_code_id)) {
                 $tax = DB::table('tax_codes')->where('id', $line->tax_code_id)->first();
                 if ($tax) {
                     $rate = (float) $tax->rate;
                     if (str_contains(strtolower((string)$tax->name), 'ppn') || strtolower((string)$tax->type) === 'ppn_input') {
-                        $ppnTotal += round($lineAmount * $rate, 2);
+                        $ppnTotal += round($lineAmount * ($rate / 100), 2);
                     }
                     if (strtolower((string)$tax->type) === 'withholding') {
-                        $withholdingTotal += round($lineAmount * $rate, 2);
+                        $withholdingTotal += round($lineAmount * ($rate / 100), 2);
                     }
                 }
             }
@@ -910,7 +968,7 @@ class PurchaseInvoiceController extends Controller
         // Calculate totals and group by account for opening balance
         $expenseByAccount = [];
         foreach ($invoice->lines as $l) {
-            $lineAmount = (float) $l->amount;
+            $lineAmount = ($l->net_amount > 0) ? (float) $l->net_amount : (float) $l->amount;
             $expenseTotal += $lineAmount;
             
             // Group by account for opening balance invoices
@@ -927,10 +985,10 @@ class PurchaseInvoiceController extends Controller
                 if ($tax) {
                     $rate = (float) $tax->rate;
                     if (str_contains(strtolower((string)$tax->name), 'ppn') || strtolower((string)$tax->type) === 'ppn_input') {
-                        $ppnTotal += round($lineAmount * $rate, 2);
+                        $ppnTotal += round($lineAmount * ($rate / 100), 2);
                     }
                     if (strtolower((string)$tax->type) === 'withholding') {
-                        $withholdingTotal += round($lineAmount * $rate, 2);
+                        $withholdingTotal += round($lineAmount * ($rate / 100), 2);
                     }
                 }
             }
@@ -1009,13 +1067,13 @@ class PurchaseInvoiceController extends Controller
 
     public function print(int $id)
     {
-        $invoice = PurchaseInvoice::with('lines')->findOrFail($id);
+        $invoice = PurchaseInvoice::with(['lines', 'businessPartner'])->findOrFail($id);
         return view('purchase_invoices.print', compact('invoice'));
     }
 
     public function pdf(int $id)
     {
-        $invoice = PurchaseInvoice::with('lines')->findOrFail($id);
+        $invoice = PurchaseInvoice::with(['lines', 'businessPartner'])->findOrFail($id);
         $pdf = app(\App\Services\PdfService::class)->renderViewToString('purchase_invoices.print', [
             'invoice' => $invoice,
         ]);

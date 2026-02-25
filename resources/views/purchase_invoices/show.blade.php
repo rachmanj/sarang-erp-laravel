@@ -268,15 +268,25 @@
                                             <div class="row">
                                                 <div class="col-md-3">
                                                     <strong>Subtotal:</strong><br>
-                                                    <span class="text-muted">Rp {{ number_format($invoice->total_amount, 2) }}</span>
+                                                    <span class="text-muted">Rp {{ number_format($totalAmountAfterVat, 2) }}</span>
                                                 </div>
+                                                @if (($invoice->discount_amount ?? 0) > 0)
+                                                <div class="col-md-3">
+                                                    <strong>Discount
+                                                        @if (($invoice->discount_percentage ?? 0) > 0)
+                                                            ({{ number_format($invoice->discount_percentage, 2) }}%)
+                                                        @endif
+                                                    </strong><br>
+                                                    <span class="text-danger">- Rp {{ number_format($invoice->discount_amount, 2) }}</span>
+                                                </div>
+                                                @endif
                                                 <div class="col-md-3">
                                                     <strong>Total VAT:</strong><br>
                                                     <span class="text-muted">Rp {{ number_format($totalVat, 2) }}</span>
                                                 </div>
                                                 <div class="col-md-3">
                                                     <strong>Total Amount:</strong><br>
-                                                    <span class="text-primary font-weight-bold">Rp {{ number_format($totalAmountAfterVat, 2) }}</span>
+                                                    <span class="text-primary font-weight-bold">Rp {{ number_format($invoice->total_amount, 2) }}</span>
                                                 </div>
                                                 <div class="col-md-3">
                                                     <strong>Payment Status:</strong><br>
@@ -312,6 +322,10 @@
                                                     <th style="width: 8%;" class="text-right">Qty</th>
                                                     <th style="width: 10%;" class="text-right">Unit Price</th>
                                                     <th style="width: 10%;" class="text-right">Amount</th>
+                                                    @if ($invoice->lines->sum('discount_amount') > 0)
+                                                    <th style="width: 8%;" class="text-right">Discount</th>
+                                                    <th style="width: 8%;" class="text-right">Net Amount</th>
+                                                    @endif
                                                     <th style="width: 7%;" class="text-right">VAT</th>
                                                     <th style="width: 10%;" class="text-right">Amount After VAT</th>
                                                 </tr>
@@ -348,6 +362,19 @@
                                                         <td class="text-right">{{ number_format($l->qty, 2) }}</td>
                                                         <td class="text-right">Rp {{ number_format($l->unit_price, 2) }}</td>
                                                         <td class="text-right">Rp {{ number_format($l->amount, 2) }}</td>
+                                                        @if ($invoice->lines->sum('discount_amount') > 0)
+                                                        <td class="text-right">
+                                                            @if (($l->discount_amount ?? 0) > 0)
+                                                                <span class="text-danger">- Rp {{ number_format($l->discount_amount, 2) }}</span>
+                                                                @if (($l->discount_percentage ?? 0) > 0)
+                                                                    <br><small class="text-muted">({{ number_format($l->discount_percentage, 2) }}%)</small>
+                                                                @endif
+                                                            @else
+                                                                <span class="text-muted">Rp 0.00</span>
+                                                            @endif
+                                                        </td>
+                                                        <td class="text-right">Rp {{ number_format(($l->net_amount ?? $l->amount), 2) }}</td>
+                                                        @endif
                                                         <td class="text-right">
                                                             @if ($l->vat_amount > 0)
                                                                 <span class="text-success">Rp {{ number_format($l->vat_amount, 2) }}</span>
@@ -362,13 +389,24 @@
                                                 @endforeach
                                             </tbody>
                                             <tfoot class="thead-light">
+                                                @php $colspan = $invoice->lines->sum('discount_amount') > 0 ? 11 : 9; @endphp
                                                 <tr>
-                                                    <th colspan="7" class="text-right">Subtotal:</th>
-                                                    <th class="text-right">Rp {{ number_format($invoice->total_amount, 2) }}</th>
-                                                    <th class="text-right">Rp {{ number_format($totalVat, 2) }}</th>
-                                                    <th class="text-right">
-                                                        <strong>Rp {{ number_format($totalAmountAfterVat, 2) }}</strong>
+                                                    <th colspan="{{ $colspan }}" class="text-right">Subtotal:</th>
+                                                    <th class="text-right"><strong>Rp {{ number_format($totalAmountAfterVat, 2) }}</strong></th>
+                                                </tr>
+                                                @if (($invoice->discount_amount ?? 0) > 0)
+                                                <tr>
+                                                    <th colspan="{{ $colspan }}" class="text-right">Discount
+                                                        @if (($invoice->discount_percentage ?? 0) > 0)
+                                                            ({{ number_format($invoice->discount_percentage, 2) }}%)
+                                                        @endif
                                                     </th>
+                                                    <th class="text-right text-danger">- Rp {{ number_format($invoice->discount_amount, 2) }}</th>
+                                                </tr>
+                                                @endif
+                                                <tr>
+                                                    <th colspan="{{ $colspan }}" class="text-right">Total:</th>
+                                                    <th class="text-right"><strong>Rp {{ number_format($invoice->total_amount, 2) }}</strong></th>
                                                 </tr>
                                             </tfoot>
                                         </table>
