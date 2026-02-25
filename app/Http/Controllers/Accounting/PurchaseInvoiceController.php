@@ -829,7 +829,7 @@ class PurchaseInvoiceController extends Controller
         if (!$cashAccountId) {
             $cashAccountId = (int) DB::table('accounts')->where('code', '1.1.1.01')->value('id'); // Default: Kas di Tangan
         }
-        $ppnInputId = (int) DB::table('accounts')->where('code', '1.1.6')->value('id');
+        $ppnInputId = (int) (DB::table('accounts')->where('code', '1.1.4.01')->value('id') ?? DB::table('accounts')->where('code', '1.1.6')->value('id') ?? 0);
 
         $totalAmount = 0.0;
         $ppnTotal = 0.0;
@@ -870,11 +870,18 @@ class PurchaseInvoiceController extends Controller
                 }
             }
 
-            // For normal invoices: Debit Inventory Account (from line's account_id)
+            // For normal invoices: Debit Inventory Account (from line's account_id or resolve from inventory item)
             // For opening balance: Will be handled separately below
             if (!$invoice->is_opening_balance) {
+                $accountId = $line->account_id;
+                if (empty($accountId) && $line->inventory_item_id && $line->inventoryItem) {
+                    $accountId = $this->purchaseInvoiceService->getAccountIdForItem($line->inventoryItem);
+                }
+                if (empty($accountId)) {
+                    throw new \Exception("Line {$line->id} missing account_id. Please set account or ensure inventory item has a product category with inventory account.");
+                }
                 $journalLines[] = [
-                    'account_id' => $line->account_id,
+                    'account_id' => $accountId,
                     'debit' => $lineAmount,
                     'credit' => 0,
                     'project_id' => $line->project_id,
@@ -900,6 +907,9 @@ class PurchaseInvoiceController extends Controller
 
         // PPN Input (if any)
         if ($ppnTotal > 0) {
+            if (!$ppnInputId) {
+                throw new \Exception('PPN Input account (1.1.4.01 or 1.1.6) not found. Please create the account in Chart of Accounts.');
+            }
             $journalLines[] = [
                 'account_id' => $ppnInputId,
                 'debit' => $ppnTotal,
@@ -958,7 +968,7 @@ class PurchaseInvoiceController extends Controller
     {
         $apUnInvoiceAccountId = (int) DB::table('accounts')->where('code', '2.1.1.03')->value('id'); // AP UnInvoice
         $apAccountId = (int) DB::table('accounts')->where('code', '2.1.1.01')->value('id'); // Utang Dagang
-        $ppnInputId = (int) DB::table('accounts')->where('code', '1.1.6')->value('id');
+        $ppnInputId = (int) (DB::table('accounts')->where('code', '1.1.4.01')->value('id') ?? DB::table('accounts')->where('code', '1.1.6')->value('id') ?? 0);
 
         $expenseTotal = 0.0;
         $ppnTotal = 0.0;
@@ -995,6 +1005,9 @@ class PurchaseInvoiceController extends Controller
         }
 
         if ($ppnTotal > 0) {
+            if (!$ppnInputId) {
+                throw new \Exception('PPN Input account (1.1.4.01 or 1.1.6) not found. Please create the account in Chart of Accounts.');
+            }
             $lines[] = [
                 'account_id' => $ppnInputId,
                 'debit' => $ppnTotal,
