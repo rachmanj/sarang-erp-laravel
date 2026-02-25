@@ -328,8 +328,8 @@ class PurchasePaymentController extends Controller
             $kw = $request->input('q');
             $q->where(function ($w) use ($kw) {
                 $w->where('pp.payment_no', 'like', '%' . $kw . '%')
-                    ->orWhere('pp.description', 'like', '%' . $kw + '%')
-                    ->orWhere('v.name', 'like', '%' . $kw + '%');
+                    ->orWhere('pp.description', 'like', '%' . $kw . '%')
+                    ->orWhere('v.name', 'like', '%' . $kw . '%');
             });
         }
 

@@ -1,5 +1,5 @@
 **Purpose**: Record technical decisions and rationale for future reference
-**Last Updated**: 2026-02-19 (Print Layout Selection for DO, SI, PO)
+**Last Updated**: 2026-02-04 (Purchase Invoice enhancements)
 
 # Technical Decision Records
 
@@ -29,6 +29,30 @@ Decision: [Title] - [YYYY-MM-DD]
 ---
 
 ## Recent Decisions
+
+### Decision: Purchase Invoice Enhancements (Discount, VAT, Display, Item Selection) - 2026-02-04
+
+**Context**: Purchase Invoice module needed improvements for discount handling, VAT/Amount After VAT display, detail page usability, print reliability, and accurate stock display in item selection modal.
+
+**Options Considered**:
+
+1. **Option A**: Keep existing PI without discounts
+    - ✅ Pros: No changes
+    - ❌ Cons: Users cannot record vendor discounts; manual workarounds error-prone
+
+2. **Option B**: Add header and line discounts with VAT on net amount
+    - ✅ Pros: Matches real-world vendor invoices; VAT correctly on discounted amount; sync between Disc % and Disc Amt
+    - ❌ Cons: Migration, model, controller, view, and JS updates
+
+**Decision**: Adopt Option B. Implemented: (1) Migration for discount_amount, discount_percentage on header and lines; net_amount on lines; (2) Line discount applied first, VAT on net_amount, header discount on subtotal; (3) VAT and Amount After VAT columns in list/detail; (4) Detail page redesign (vendor info, financial summary, related documents); (5) Print view fix: use businessPartner relation instead of non-existent vendors table; (6) Inventory search API returns available_quantity from inventory_warehouse_stock (sum or per-warehouse); (7) Select Item modal displays Available Qty column; (8) Created docs/manuals/purchase-invoice-manual-id.md.
+
+**Rationale**: Discounts are common in vendor invoices. VAT must apply to net (post-discount) amount per tax rules. Display improvements (invoice_no, item code/name) improve usability. Print used legacy vendors reference; system uses business_partners. Available Qty from warehouse stock is source of truth vs transaction-based current_stock.
+
+**Implementation**: PurchaseInvoiceController, PurchaseInvoiceService, create/edit/show/print views, InventoryController::search, item-selection-modal component, purchase_invoice_lines/purchase_invoices migrations.
+
+**Review Date**: 2027-02-04.
+
+---
 
 ### Decision: Print Layout Selection (Standard vs Dot Matrix) - 2026-02-19
 

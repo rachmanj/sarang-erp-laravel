@@ -1,5 +1,5 @@
 **Purpose**: AI's persistent knowledge base for project context and learnings
-**Last Updated**: 2026-02-19 (Print Layout Selection, DO search, COGS fallback)
+**Last Updated**: 2026-02-25 (Purchase Payment module testing and fixes)
 
 ## Memory Maintenance Guidelines
 
@@ -26,6 +26,22 @@
 ---
 
 ## Project Memory Entries
+
+### [093] Purchase Payment Module Testing & Number Parsing Fix (2026-02-25) ✅ COMPLETE
+
+**Challenge**: Purchase Payment create form failed validation when selecting invoices—payment total showed 7.77 instead of 7,774,774.00. Save button stayed disabled. DataTables search used wrong PHP operator for string concatenation.
+
+**Solution**: (1) Fixed `updatePaymentLine()` and `validateForm()` in create.blade.php to sum allocation/payment amounts from input values directly instead of parsing formatted display text (formatCurrency uses Indonesian format "7.774.774,00"; parseFloat on that string with replace(/[^\d.-]/g,'') yields 7.774 due to multiple dots). (2) Fixed PurchasePaymentController::data() string concatenation: `'%' . $kw + '%'` → `'%' . $kw . '%'` (PHP uses . for string concat, not +).
+
+**Key Learning**: When displaying numbers in locale-specific format (e.g. id-ID with . as thousands separator), never re-parse displayed text for validation—always use raw input values. Indonesian format "1.234.567,89" breaks parseFloat.
+
+### [092] Purchase Invoice (PI) Enhancements (2026-02-04) ✅ COMPLETE
+
+**Challenge**: PI needed discount support, VAT/Amount After VAT display, detail page redesign, print fix, and accurate Available Qty in Select Item modal.
+
+**Solution**: (1) Header & line discounts (Disc %, Disc Amt) with sync; VAT on net_amount; (2) VAT and Amount After VAT columns in list/detail; Amount After VAT = Total when VAT=0; (3) Detail page: vendor info, financial summary, related documents, line items with item code/name; (4) Print: use businessPartner instead of vendors table; (5) InventoryController::search returns available_quantity from inventory_warehouse_stock (sum or per-warehouse); Select Item modal shows Available Qty. Created docs/manuals/purchase-invoice-manual-id.md.
+
+**Key Learning**: Print view had legacy vendors table reference; PI uses business_partners. Available Qty from warehouse stock is accurate; current_stock (transaction-based) can diverge. Discount flow: amount → line discount → net_amount → VAT → amount_after_vat; header discount on subtotal.
 
 ### [091] Print Layout Selection & Related Fixes (2026-02-19) ✅ COMPLETE
 

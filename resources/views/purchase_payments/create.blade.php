@@ -482,7 +482,10 @@
         }
 
         function updatePaymentLine() {
-            const totalAllocation = parseFloat($('#total-allocation').text().replace(/[^\d.-]/g, '') || 0);
+            let totalAllocation = 0;
+            $('.allocation-amount-input:visible').each(function() {
+                totalAllocation += parseFloat($(this).val() || 0);
+            });
 
             if (totalAllocation > 0 && selectedInvoices.size > 0) {
                 showPaymentLines();
@@ -563,8 +566,14 @@
         }
 
         function validateForm() {
-            const totalAllocation = parseFloat($('#total-allocation').text().replace(/[^\d.-]/g, '') || 0);
-            const totalPayment = parseFloat($('#total-payment').text().replace(/[^\d.-]/g, '') || 0);
+            let totalAllocation = 0;
+            $('.allocation-amount-input:visible').each(function() {
+                totalAllocation += parseFloat($(this).val() || 0);
+            });
+            let totalPayment = 0;
+            $('.payment-amount-input').each(function() {
+                totalPayment += parseFloat($(this).val() || 0);
+            });
             const diff = Math.abs(totalAllocation - totalPayment);
             const validationMsg = $('#validation-message');
             const submitBtn = $('#submit-btn');

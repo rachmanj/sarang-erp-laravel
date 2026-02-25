@@ -174,6 +174,12 @@
 ### 16. Purchase Invoices
 - **Vendor Billing**: Complete purchase invoice management
 - **Automatic Numbering**: Entity-aware format `EEYYDDNNNNN` (code 03)
+- **Discounts**: Header and line discounts (percentage or amount); VAT calculated on net amount after line discount
+- **VAT & Amount After VAT**: Columns in list and detail; Amount After VAT = Total when VAT = 0
+- **Detail Page**: Vendor info, financial summary, related documents (PO, GRPO), line items with item code/name
+- **Select Item Modal**: Available Qty from `inventory_warehouse_stock` (warehouse-specific or total)
+- **Print/PDF**: Uses businessPartner relation; Standard Print and PDF export
+- **Manual**: See `docs/manuals/purchase-invoice-manual-id.md`
 - **Line Items**: Multiple line items with tax handling
 - **Payment Allocation**: Automatic allocation to purchase payments
 - **AP UnInvoice Accounting**: Intermediate account handling for accrual accounting

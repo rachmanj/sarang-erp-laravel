@@ -1,5 +1,5 @@
 Purpose: Technical reference for understanding system design and development patterns
-Last Updated: 2026-02-19 (Print Layout Selection, DO search fix, COGS fallback)
+Last Updated: 2026-02-04 (Purchase Invoice enhancements)
 
 ## Architecture Documentation Guidelines
 
@@ -153,7 +153,7 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 ### 3. Accounts Payable (AP) Module
 
 -   **Purchase Dashboard**: Comprehensive purchase analytics dashboard with AP aging analysis, purchase KPIs (Purchases MTD, Outstanding AP, Pending Approvals, Open Purchase Orders), purchase order statistics, purchase invoice statistics, goods receipt statistics, top suppliers by outstanding AP, and recent invoices visualization.
--   **Purchase Invoices**: Vendor billing with line items and tax handling (PINV-YYYYMM-######)
+-   **Purchase Invoices**: Vendor billing with line items, tax handling (PINV-YYYYMM-######), VAT and Amount After VAT columns in list/detail, header and line discounts (percentage or amount), VAT calculated on net amount after line discount, detail page with vendor info/financial summary/related documents, Select Item modal with accurate Available Qty from `inventory_warehouse_stock` (warehouse-specific or total), print view uses `businessPartner` relation (not vendors table). See `docs/manuals/purchase-invoice-manual-id.md`.
 -   **Purchase Payments**: Vendor payment processing with allocation (PP-YYYYMM-######)
 -   **Purchase Orders**: Vendor order management with automatic numbering (PO-YYYYMM-######)
 -   **Goods Receipt PO**: Purchase Order-based inventory receipt processing with automatic numbering (GR-YYYYMM-######)
