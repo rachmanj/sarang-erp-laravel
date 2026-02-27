@@ -134,6 +134,12 @@
                                                 @endif
                                             </td>
                                         </tr>
+                                        @if($order->businessPartnerProject)
+                                        <tr>
+                                            <td><strong>Customer's Project:</strong></td>
+                                            <td>{{ $order->businessPartnerProject->display_name }}</td>
+                                        </tr>
+                                        @endif
                                         @if($order->companyEntity)
                                         <tr>
                                             <td><strong>Company Entity:</strong></td>

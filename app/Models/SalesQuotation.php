@@ -14,6 +14,7 @@ class SalesQuotation extends Model
         'date',
         'valid_until_date',
         'business_partner_id',
+        'business_partner_project_id',
         'company_entity_id',
         'currency_id',
         'exchange_rate',
@@ -70,6 +71,11 @@ class SalesQuotation extends Model
     public function businessPartner(): BelongsTo
     {
         return $this->belongsTo(BusinessPartner::class, 'business_partner_id');
+    }
+
+    public function businessPartnerProject(): BelongsTo
+    {
+        return $this->belongsTo(BusinessPartnerProject::class, 'business_partner_project_id');
     }
 
     public function companyEntity(): BelongsTo

@@ -225,6 +225,7 @@ class DeliveryOrderController extends Controller
     {
         $deliveryOrder->load([
             'customer',
+            'businessPartnerProject',
             'salesOrder',
             'warehouse',
             'lines.inventoryItem',
@@ -487,6 +488,7 @@ class DeliveryOrderController extends Controller
     {
         $deliveryOrder->load([
             'customer',
+            'businessPartnerProject',
             'salesOrder',
             'warehouse',
             'lines.inventoryItem.baseUnit.unit',

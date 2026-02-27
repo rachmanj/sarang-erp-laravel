@@ -244,6 +244,7 @@ class SalesInvoiceController extends Controller
         return [
             'date' => now()->toDateString(),
             'business_partner_id' => $firstDo->business_partner_id,
+            'business_partner_project_id' => $firstDo->business_partner_project_id,
             'company_entity_id' => $firstDo->company_entity_id ?? $defaultEntityId,
             'description' => 'From DO ' . $doNumbers,
             'reference_no' => $referenceNo,
@@ -282,6 +283,7 @@ class SalesInvoiceController extends Controller
         $data = $request->validate([
             'date' => ['required', 'date'],
             'business_partner_id' => ['required', 'integer', 'exists:business_partners,id'],
+            'business_partner_project_id' => ['nullable', 'integer', 'exists:business_partner_projects,id'],
             'company_entity_id' => ['required', 'integer', 'exists:company_entities,id'],
             'description' => ['nullable', 'string', 'max:255'],
             'reference_no' => ['nullable', 'string', 'max:100'],
@@ -307,6 +309,7 @@ class SalesInvoiceController extends Controller
             $invoice->update([
                 'date' => $data['date'],
                 'business_partner_id' => $data['business_partner_id'],
+                'business_partner_project_id' => $data['business_partner_project_id'] ?? null,
                 'company_entity_id' => $entity->id,
                 'description' => $data['description'] ?? null,
                 'reference_no' => $data['reference_no'] ?? null,
@@ -351,6 +354,7 @@ class SalesInvoiceController extends Controller
         $data = $request->validate([
             'date' => ['required', 'date'],
             'business_partner_id' => ['required', 'integer', 'exists:business_partners,id'],
+            'business_partner_project_id' => ['nullable', 'integer', 'exists:business_partner_projects,id'],
             'company_entity_id' => ['required', 'integer', 'exists:company_entities,id'],
             'delivery_order_id' => ['nullable', 'integer', 'exists:delivery_orders,id'],
             'delivery_order_ids' => ['nullable', 'array'],
@@ -408,6 +412,7 @@ class SalesInvoiceController extends Controller
                 'invoice_no' => null,
                 'date' => $data['date'],
                 'business_partner_id' => $data['business_partner_id'],
+                'business_partner_project_id' => $data['business_partner_project_id'] ?? $deliveryOrders->first()?->business_partner_project_id,
                 'sales_order_id' => $request->input('sales_order_id'),
                 'is_opening_balance' => $request->boolean('is_opening_balance', false),
                 'description' => $data['description'] ?? null,
@@ -529,6 +534,7 @@ class SalesInvoiceController extends Controller
     {
         $invoice = SalesInvoice::with([
             'businessPartner.primaryAddress',
+            'businessPartnerProject',
             'companyEntity',
             'salesOrder',
             'deliveryOrders',
@@ -541,7 +547,7 @@ class SalesInvoiceController extends Controller
 
     public function pdf(int $id)
     {
-        $invoice = SalesInvoice::with(['lines', 'lines.account', 'lines.taxCode', 'lines.inventoryItem', 'businessPartner', 'businessPartner.primaryAddress', 'companyEntity', 'deliveryOrders'])->findOrFail($id);
+        $invoice = SalesInvoice::with(['lines', 'lines.account', 'lines.taxCode', 'lines.inventoryItem', 'businessPartner', 'businessPartner.primaryAddress', 'businessPartnerProject', 'companyEntity', 'deliveryOrders'])->findOrFail($id);
         $pdf = app(\App\Services\PdfService::class)->renderViewToString('sales_invoices.print', [
             'invoice' => $invoice,
         ]);
@@ -553,7 +559,7 @@ class SalesInvoiceController extends Controller
 
     public function queuePdf(int $id)
     {
-        $invoice = SalesInvoice::with(['lines', 'lines.account', 'lines.taxCode', 'lines.inventoryItem', 'businessPartner', 'businessPartner.primaryAddress', 'companyEntity', 'deliveryOrders'])->findOrFail($id);
+        $invoice = SalesInvoice::with(['lines', 'lines.account', 'lines.taxCode', 'lines.inventoryItem', 'businessPartner', 'businessPartner.primaryAddress', 'businessPartnerProject', 'companyEntity', 'deliveryOrders'])->findOrFail($id);
         $path = 'public/pdfs/invoice-' . $invoice->id . '.pdf';
         \App\Jobs\GeneratePdfJob::dispatch('sales_invoices.print', ['invoice' => $invoice], $path);
         $url = \Illuminate\Support\Facades\Storage::url($path);

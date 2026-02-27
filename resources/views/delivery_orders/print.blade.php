@@ -161,6 +161,12 @@
             <td><strong>Customer:</strong></td>
             <td>{{ $deliveryOrder->customer?->name ?? 'N/A' }}</td>
         </tr>
+        @if ($deliveryOrder->businessPartnerProject)
+        <tr>
+            <td><strong>Customer's Project:</strong></td>
+            <td colspan="3">{{ $deliveryOrder->businessPartnerProject->display_name }}</td>
+        </tr>
+        @endif
         @if ($deliveryOrder->salesOrder?->reference_no)
         <tr>
             <td><strong>Customer Ref No:</strong></td>

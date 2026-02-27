@@ -138,12 +138,12 @@
                                 </div>
 
                                 <div class="row mt-2">
-                                    <div class="col-md-4">
+                                    <div class="col-md-3">
                                         <div class="form-group row mb-2">
                                             <label class="col-sm-3 col-form-label">Customer <span
                                                     class="text-danger">*</span></label>
                                             <div class="col-sm-9">
-                                                <select name="business_partner_id"
+                                                <select name="business_partner_id" id="business_partner_id"
                                                     class="form-control form-control-sm select2bs4" required>
                                                     <option value="">-- select customer --</option>
                                                     @foreach ($customers as $c)
@@ -156,7 +156,19 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="col-md-4">
+                                    <div class="col-md-3">
+                                        <div class="form-group row mb-2">
+                                            <label class="col-sm-3 col-form-label">Customer's Project</label>
+                                            <div class="col-sm-9">
+                                                <select name="business_partner_project_id" id="business_partner_project_id"
+                                                    class="form-control form-control-sm select2bs4">
+                                                    <option value="">-- select project (optional) --</option>
+                                                </select>
+                                                <small class="form-text text-muted">Select after choosing customer</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
                                         <div class="form-group row mb-2">
                                             <label class="col-sm-3 col-form-label">Warehouse</label>
                                             <div class="col-sm-9">
@@ -173,7 +185,7 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="col-md-4">
+                                    <div class="col-md-3">
                                         <div class="form-group row mb-2">
                                             <label class="col-sm-3 col-form-label">Description</label>
                                             <div class="col-sm-9">
@@ -385,6 +397,25 @@
                 placeholder: 'Select an option',
                 allowClear: true
             });
+
+            // Load customer projects when customer changes
+            function loadCustomerProjects(bpId) {
+                const $select = $('#business_partner_project_id');
+                $select.empty().append('<option value="">-- select project (optional) --</option>');
+                if (!bpId) return;
+                $.get("{{ route('business_partners.projects.list') }}", { business_partner_id: bpId }, function(data) {
+                    data.forEach(function(p) {
+                        $select.append($('<option>', { value: p.id, text: p.text }));
+                    });
+                    $select.val("{{ old('business_partner_project_id') }}").trigger('change');
+                });
+            }
+            $('#business_partner_id').on('change', function() {
+                loadCustomerProjects($(this).val());
+            });
+            @if (old('business_partner_id'))
+            loadCustomerProjects("{{ old('business_partner_id') }}");
+            @endif
 
             let i = 0;
             const $tb = $('#lines tbody');

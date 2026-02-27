@@ -91,6 +91,14 @@
                                 <i class="fas fa-university"></i> Banking
                             </a>
                         </li>
+                        @if ($businessPartner->partner_type === 'customer')
+                        <li class="nav-item">
+                            <a class="nav-link" id="projects-tab" data-toggle="tab" href="#projects" role="tab"
+                                aria-controls="projects" aria-selected="false">
+                                <i class="fas fa-project-diagram"></i> Customer's Projects
+                            </a>
+                        </li>
+                        @endif
                         <li class="nav-item">
                             <a class="nav-link" id="transactions-tab" data-toggle="tab" href="#transactions" role="tab"
                                 aria-controls="transactions" aria-selected="false">
@@ -490,6 +498,13 @@
                                 </div>
                             @endif
                         </div>
+
+                        @if ($businessPartner->partner_type === 'customer')
+                        <!-- Customer's Projects Tab -->
+                        <div class="tab-pane fade" id="projects" role="tabpanel" aria-labelledby="projects-tab">
+                            @include('business_partner_projects.partials.projects-tab')
+                        </div>
+                        @endif
 
                         <!-- Transactions Tab -->
                         <div class="tab-pane fade" id="transactions" role="tabpanel" aria-labelledby="transactions-tab">

@@ -104,6 +104,12 @@
                                             <td><strong>Customer:</strong></td>
                                             <td>{{ $deliveryOrder->customer->name }}</td>
                                         </tr>
+                                        @if($deliveryOrder->businessPartnerProject)
+                                        <tr>
+                                            <td><strong>Customer's Project:</strong></td>
+                                            <td>{{ $deliveryOrder->businessPartnerProject->display_name }}</td>
+                                        </tr>
+                                        @endif
                                         <tr>
                                             <td><strong>Planned Delivery:</strong></td>
                                             <td>{{ $deliveryOrder->planned_delivery_date->format('d M Y') }}</td>

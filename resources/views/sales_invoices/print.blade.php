@@ -247,6 +247,9 @@
                 @if ($invoice->reference_no)
                     <div><span class="label">Reference No:</span> {{ $invoice->reference_no }}</div>
                 @endif
+                @if ($invoice->businessPartnerProject)
+                    <div><span class="label">Customer's Project:</span> {{ $invoice->businessPartnerProject->display_name }}</div>
+                @endif
                 @if ($invoice->description)
                     <div><span class="label">Description:</span> {{ $invoice->description }}</div>
                 @endif

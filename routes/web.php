@@ -17,6 +17,7 @@ use App\Http\Controllers\Accounting\AccountController;
 use App\Http\Controllers\Accounting\CashExpenseController;
 use App\Http\Controllers\ControlAccountController;
 use App\Http\Controllers\BusinessPartnerController;
+use App\Http\Controllers\BusinessPartnerProjectController;
 use App\Http\Controllers\Dimensions\ProjectController as DimProjectController;
 use App\Http\Controllers\Dimensions\DepartmentController as DimDepartmentController;
 use App\Http\Controllers\DownloadController;
@@ -93,6 +94,10 @@ Route::middleware('auth')->group(function () {
         Route::get('/data', [BusinessPartnerController::class, 'data'])->name('business_partners.data');
         Route::get('/create', [BusinessPartnerController::class, 'create'])->name('business_partners.create');
         Route::post('/', [BusinessPartnerController::class, 'store'])->name('business_partners.store');
+        Route::get('/projects', [BusinessPartnerProjectController::class, 'getByPartner'])->name('business_partners.projects.list');
+        Route::post('/{businessPartner}/projects', [BusinessPartnerProjectController::class, 'store'])->name('business_partner_projects.store');
+        Route::put('/{businessPartner}/projects/{businessPartnerProject}', [BusinessPartnerProjectController::class, 'update'])->name('business_partner_projects.update');
+        Route::delete('/{businessPartner}/projects/{businessPartnerProject}', [BusinessPartnerProjectController::class, 'destroy'])->name('business_partner_projects.destroy');
         Route::get('/{businessPartner}', [BusinessPartnerController::class, 'show'])->name('business_partners.show');
         Route::get('/{businessPartner}/edit', [BusinessPartnerController::class, 'edit'])->name('business_partners.edit');
         Route::put('/{businessPartner}', [BusinessPartnerController::class, 'update'])->name('business_partners.update');

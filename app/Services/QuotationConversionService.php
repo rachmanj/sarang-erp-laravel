@@ -49,6 +49,7 @@ class QuotationConversionService
                 'date' => $options['date'] ?? now()->toDateString(),
                 'expected_delivery_date' => $options['expected_delivery_date'] ?? $quotation->valid_until_date,
                 'business_partner_id' => $quotation->business_partner_id,
+                'business_partner_project_id' => $quotation->business_partner_project_id,
                 'company_entity_id' => $entityId,
                 'currency_id' => $quotation->currency_id,
                 'exchange_rate' => $quotation->exchange_rate,

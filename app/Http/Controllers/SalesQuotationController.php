@@ -209,6 +209,7 @@ class SalesQuotationController extends Controller
             'valid_until_date' => ['required', 'date', 'after_or_equal:date'],
             'reference_no' => ['nullable', 'string', 'max:100'],
             'business_partner_id' => ['required', 'integer', 'exists:business_partners,id'],
+            'business_partner_project_id' => ['nullable', 'integer', 'exists:business_partner_projects,id'],
             'warehouse_id' => ['nullable', 'integer', 'exists:warehouses,id'],
             'currency_id' => ['required', 'integer', 'exists:currencies,id'],
             'exchange_rate' => ['required', 'numeric', 'min:0.000001'],
@@ -282,7 +283,7 @@ class SalesQuotationController extends Controller
 
     public function show($id)
     {
-        $salesQuotation = SalesQuotation::with(['lines.inventoryItem', 'lines.account', 'lines.orderUnit', 'lines.taxCode', 'businessPartner', 'companyEntity', 'currency', 'warehouse', 'approvals.user', 'convertedToSalesOrder'])
+        $salesQuotation = SalesQuotation::with(['lines.inventoryItem', 'lines.account', 'lines.orderUnit', 'lines.taxCode', 'businessPartner', 'businessPartnerProject', 'companyEntity', 'currency', 'warehouse', 'approvals.user', 'convertedToSalesOrder'])
             ->findOrFail($id);
         
         return view('sales_quotations.show', compact('salesQuotation'));
@@ -290,7 +291,7 @@ class SalesQuotationController extends Controller
 
     public function edit($id)
     {
-        $quotation = SalesQuotation::with(['lines', 'businessPartner', 'companyEntity', 'warehouse', 'currency'])->findOrFail($id);
+        $quotation = SalesQuotation::with(['lines', 'businessPartner.projects', 'companyEntity', 'warehouse', 'currency'])->findOrFail($id);
         
         if ($quotation->status !== 'draft') {
             return redirect()->route('sales-quotations.show', $id)
@@ -331,6 +332,7 @@ class SalesQuotationController extends Controller
             'valid_until_date' => ['required', 'date', 'after_or_equal:date'],
             'reference_no' => ['nullable', 'string', 'max:100'],
             'business_partner_id' => ['required', 'integer', 'exists:business_partners,id'],
+            'business_partner_project_id' => ['nullable', 'integer', 'exists:business_partner_projects,id'],
             'warehouse_id' => ['nullable', 'integer', 'exists:warehouses,id'],
             'currency_id' => ['required', 'integer', 'exists:currencies,id'],
             'exchange_rate' => ['required', 'numeric', 'min:0.000001'],
@@ -491,7 +493,7 @@ class SalesQuotationController extends Controller
 
     public function print($id)
     {
-        $salesQuotation = SalesQuotation::with(['lines.inventoryItem', 'lines.account', 'businessPartner', 'companyEntity', 'warehouse', 'currency'])->findOrFail($id);
+        $salesQuotation = SalesQuotation::with(['lines.inventoryItem', 'lines.account', 'businessPartner', 'businessPartnerProject', 'companyEntity', 'warehouse', 'currency'])->findOrFail($id);
         return view('sales_quotations.print', compact('salesQuotation'));
     }
 

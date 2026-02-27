@@ -52,6 +52,11 @@ class BusinessPartner extends Model
         return $this->hasMany(BusinessPartnerDetail::class);
     }
 
+    public function projects(): HasMany
+    {
+        return $this->hasMany(BusinessPartnerProject::class);
+    }
+
     public function primaryContact(): HasOne
     {
         return $this->hasOne(BusinessPartnerContact::class)->where('is_primary', true);

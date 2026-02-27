@@ -67,6 +67,12 @@
             <td class="label">Bill To:</td>
             <td colspan="3">{{ optional($invoice->businessPartner)->name ?? '—' }}</td>
         </tr>
+        @if ($invoice->businessPartnerProject)
+        <tr>
+            <td class="label">Project:</td>
+            <td colspan="3">{{ $invoice->businessPartnerProject->display_name }}</td>
+        </tr>
+        @endif
         @if ($invoice->reference_no)
         <tr>
             <td class="label">Ref:</td>

@@ -15,6 +15,7 @@ class SalesOrder extends Model
         'expected_delivery_date',
         'actual_delivery_date',
         'business_partner_id',
+        'business_partner_project_id',
         'company_entity_id',
         'currency_id',
         'exchange_rate',
@@ -74,6 +75,11 @@ class SalesOrder extends Model
     public function businessPartner(): BelongsTo
     {
         return $this->belongsTo(\App\Models\BusinessPartner::class, 'business_partner_id');
+    }
+
+    public function businessPartnerProject(): BelongsTo
+    {
+        return $this->belongsTo(BusinessPartnerProject::class, 'business_partner_project_id');
     }
 
     public function companyEntity(): BelongsTo

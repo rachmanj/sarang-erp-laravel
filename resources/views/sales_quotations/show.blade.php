@@ -109,6 +109,12 @@
                             <b>Customer</b>
                             <div>{{ $salesQuotation->businessPartner->name ?? '#' . $salesQuotation->business_partner_id }}</div>
                         </div>
+                        @if($salesQuotation->businessPartnerProject)
+                        <div class="col-md-3">
+                            <b>Customer's Project</b>
+                            <div>{{ $salesQuotation->businessPartnerProject->display_name }}</div>
+                        </div>
+                        @endif
                         <div class="col-md-3">
                             <b>Status</b>
                             <div>

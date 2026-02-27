@@ -146,6 +146,12 @@
                                         <td>{{ $invoice->reference_no }}</td>
                                     </tr>
                                 @endif
+                                @if ($invoice->businessPartnerProject)
+                                    <tr>
+                                        <th class="text-nowrap text-muted">Customer's Project</th>
+                                        <td>{{ $invoice->businessPartnerProject->display_name }}</td>
+                                    </tr>
+                                @endif
                                 @if ($invoice->description)
                                     <tr>
                                         <th class="text-nowrap text-muted align-top">Description</th>

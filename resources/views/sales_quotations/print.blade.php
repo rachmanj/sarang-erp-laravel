@@ -156,6 +156,9 @@
         <div>
             <div><strong>Customer:</strong></div>
             <div>{{ $salesQuotation->businessPartner->name ?? 'N/A' }}</div>
+            @if($salesQuotation->businessPartnerProject)
+            <div><strong>Customer's Project:</strong> {{ $salesQuotation->businessPartnerProject->display_name }}</div>
+            @endif
             @if($salesQuotation->businessPartner)
                 @php
                     $bpAddress = $salesQuotation->businessPartner->getDetailBySection('address', 'street')?->field_value ?? '';

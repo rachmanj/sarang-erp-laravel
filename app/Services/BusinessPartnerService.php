@@ -152,6 +152,7 @@ class BusinessPartnerService
             'contacts',
             'addresses',
             'details',
+            'projects',
         ];
         
         // Only load relationships if tables exist
