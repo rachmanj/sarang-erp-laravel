@@ -168,6 +168,10 @@
         </tr>
         @endif
         <tr>
+            <td><strong>Delivery Date:</strong></td>
+            <td colspan="3"></td>
+        </tr>
+        <tr>
             <td><strong>Planned Delivery:</strong></td>
             <td>{{ $deliveryOrder->planned_delivery_date->format('d M Y') }}</td>
             <td><strong>Delivery Method:</strong></td>
@@ -176,6 +180,10 @@
         <tr>
             <td><strong>Delivery Address:</strong></td>
             <td colspan="3" class="delivery-address-cell">{{ $deliveryOrder->delivery_address ?? '' }}</td>
+        </tr>
+        <tr>
+            <td><strong>Description:</strong></td>
+            <td colspan="3" class="delivery-address-cell">{{ $deliveryOrder->notes ?? '' }}</td>
         </tr>
     </table>
 
@@ -186,16 +194,24 @@
                 <th>Item Code</th>
                 <th>Item Name</th>
                 <th class="text-right">Delivered Qty</th>
+                <th class="text-center" style="width: 60px;">UOM</th>
                 <th class="text-center" style="width: 50px;"></th>
             </tr>
         </thead>
         <tbody>
             @foreach ($deliveryOrder->lines as $index => $line)
+                @php
+                    $uom = $line->salesOrderLine?->unit_of_measure
+                        ?? $line->salesOrderLine?->orderUnit?->code
+                        ?? $line->inventoryItem?->baseUnit?->unit?->code
+                        ?? '-';
+                @endphp
                 <tr>
                     <td class="text-center">{{ $index + 1 }}</td>
                     <td>{{ $line->item_code ?? 'N/A' }}</td>
                     <td>{{ $line->item_name ?? 'N/A' }}</td>
                     <td class="text-right">{{ number_format($line->delivered_qty > 0 ? $line->delivered_qty : $line->ordered_qty, 2) }}</td>
+                    <td class="text-center">{{ $uom }}</td>
                     <td class="text-center"><input type="checkbox" disabled></td>
                 </tr>
             @endforeach
@@ -205,13 +221,18 @@
     <div style="margin-top: 50px;">
         <table>
             <tr>
-                <td style="width: 50%;">
+                <td style="width: 33%;">
                     <strong>Prepared by:</strong><br><br><br>
                     _________________________<br>
                     {{ $deliveryOrder->createdBy->name ?? 'N/A' }}<br>
                     Date: {{ $deliveryOrder->created_at->format('d M Y') }}
                 </td>
-                <td style="width: 50%;">
+                <td style="width: 34%;">
+                    <strong>Sender:</strong><br><br><br>
+                    _________________________<br>
+                    Date: _______________
+                </td>
+                <td style="width: 33%;">
                     <strong>Received by:</strong><br><br><br>
                     _________________________<br>
                     Customer Signature<br>

@@ -139,6 +139,15 @@
                                 </div>
                             </div>
 
+                            @if ($deliveryOrder->notes)
+                            <div class="row mb-3">
+                                <div class="col-12">
+                                    <strong>Description:</strong><br>
+                                    <span class="text-muted">{{ $deliveryOrder->notes }}</span>
+                                </div>
+                            </div>
+                            @endif
+
                             @if ($errors->any())
                                 <div class="alert alert-danger">
                                     <ul class="mb-0">
