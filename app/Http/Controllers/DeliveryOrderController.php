@@ -487,7 +487,8 @@ class DeliveryOrderController extends Controller
         $deliveryOrder->load([
             'customer',
             'salesOrder',
-            'lines.inventoryItem',
+            'lines.inventoryItem.baseUnit.unit',
+            'lines.salesOrderLine.orderUnit',
             'lines.account',
             'createdBy'
         ]);

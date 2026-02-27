@@ -94,10 +94,11 @@
         }
 
         .items-table th:nth-child(1) { width: 5%; }
-        .items-table th:nth-child(2) { width: 15%; }
-        .items-table th:nth-child(3) { width: 45%; }
-        .items-table th:nth-child(4) { width: 15%; }
-        .items-table th:nth-child(5) { width: 8%; }
+        .items-table th:nth-child(2) { width: 12%; }
+        .items-table th:nth-child(3) { width: 38%; }
+        .items-table th:nth-child(4) { width: 8%; }
+        .items-table th:nth-child(5) { width: 12%; }
+        .items-table th:nth-child(6) { width: 8%; }
 
         .signature-row {
             margin-top: 12px;
@@ -164,10 +165,14 @@
         </tr>
         @if ($deliveryOrder->salesOrder?->reference_no)
         <tr>
-            <td class="label">Ref:</td>
+            <td class="label">Customer Ref No:</td>
             <td colspan="3">{{ $deliveryOrder->salesOrder->reference_no }}</td>
         </tr>
         @endif
+        <tr>
+            <td class="label">Delivery Date:</td>
+            <td colspan="3"></td>
+        </tr>
         <tr>
             <td class="label">Date:</td>
             <td>{{ $deliveryOrder->planned_delivery_date->format('d M Y') }}</td>
@@ -187,16 +192,24 @@
                 <th>Item Code</th>
                 <th>Item Name</th>
                 <th class="text-right">Qty</th>
+                <th class="text-center">UOM</th>
                 <th class="text-center">[ ]</th>
             </tr>
         </thead>
         <tbody>
             @foreach ($deliveryOrder->lines as $index => $line)
+            @php
+                $uom = $line->salesOrderLine?->unit_of_measure
+                    ?? $line->salesOrderLine?->orderUnit?->code
+                    ?? $line->inventoryItem?->baseUnit?->unit?->code
+                    ?? '-';
+            @endphp
             <tr>
                 <td class="text-center">{{ $index + 1 }}</td>
                 <td>{{ $line->item_code ?? 'N/A' }}</td>
                 <td>{{ $line->item_name ?? 'N/A' }}</td>
                 <td class="text-right">{{ number_format($line->delivered_qty > 0 ? $line->delivered_qty : $line->ordered_qty, 2) }}</td>
+                <td class="text-center">{{ $uom }}</td>
                 <td class="text-center">[ ]</td>
             </tr>
             @endforeach
@@ -205,11 +218,15 @@
 
     <table class="info-table signature-row">
         <tr>
-            <td style="width: 50%;">
+            <td style="width: 33%;">
                 Prepared: _________________________<br>
                 {{ $deliveryOrder->createdBy->name ?? 'N/A' }} | {{ $deliveryOrder->created_at->format('d M Y') }}
             </td>
-            <td style="width: 50%;">
+            <td style="width: 34%;">
+                Sender: _________________________<br>
+                Date: _______________
+            </td>
+            <td style="width: 33%;">
                 Received: _________________________<br>
                 Customer | Date: _______________
             </td>
