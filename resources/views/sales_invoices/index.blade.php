@@ -30,7 +30,7 @@
                                 <input type="date" id="filter_to" class="form-control form-control-sm d-inline-block"
                                     style="width:160px">
                                 <input type="text" id="filter_q" class="form-control form-control-sm d-inline-block"
-                                    style="width:200px" placeholder="Search...">
+                                    style="width:200px" placeholder="Search invoice, customer, ref no...">
                                 <select id="filter_status" class="form-control form-control-sm d-inline-block"
                                     style="width:140px">
                                     <option value="">All</option>
@@ -56,6 +56,7 @@
                                         <th>Date</th>
                                         <th>Invoice No</th>
                                         <th>Customer</th>
+                                        <th>Customer Ref No</th>
                                         <th>Total</th>
                                         <th>Status</th>
                                         <th>Actions</th>
@@ -98,6 +99,10 @@
                             data: 'customer',
                             name: 'c.name',
                             orderable: false
+                        },
+                        {
+                            data: 'reference_no',
+                            name: 'si.reference_no'
                         },
                         {
                             data: 'total_amount',

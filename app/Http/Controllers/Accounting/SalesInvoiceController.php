@@ -690,7 +690,7 @@ class SalesInvoiceController extends Controller
     {
         $q = DB::table('sales_invoices as si')
             ->leftJoin('business_partners as c', 'c.id', '=', 'si.business_partner_id')
-            ->select('si.id', 'si.date', 'si.invoice_no', 'si.business_partner_id', 'c.name as customer_name', 'si.total_amount', 'si.status');
+            ->select('si.id', 'si.date', 'si.invoice_no', 'si.reference_no', 'si.business_partner_id', 'c.name as customer_name', 'si.total_amount', 'si.status');
 
         if ($request->filled('status')) {
             $q->where('si.status', $request->input('status'));
@@ -705,6 +705,7 @@ class SalesInvoiceController extends Controller
             $kw = $request->input('q');
             $q->where(function ($w) use ($kw) {
                 $w->where('si.invoice_no', 'like', '%' . $kw . '%')
+                    ->orWhere('si.reference_no', 'like', '%' . $kw . '%')
                     ->orWhere('si.description', 'like', '%' . $kw . '%')
                     ->orWhere('c.name', 'like', '%' . $kw . '%');
             });
@@ -719,6 +720,9 @@ class SalesInvoiceController extends Controller
             })
             ->addColumn('customer', function ($row) {
                 return $row->customer_name ?: ('#' . $row->business_partner_id);
+            })
+            ->addColumn('reference_no', function ($row) {
+                return $row->reference_no ?? '—';
             })
             ->addColumn('actions', function ($row) {
                 $url = route('sales-invoices.show', $row->id);

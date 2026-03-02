@@ -17,6 +17,7 @@ class Kernel extends BaseKernel
         \App\Console\Commands\BackfillDeliveryOrderInventoryTransactions::class,
         \App\Console\Commands\BackfillSalesOrderLineDeliveredQty::class,
         \App\Console\Commands\BackfillSalesInvoiceItemCodes::class,
+        \App\Console\Commands\DeleteSalesInvoices::class,
         \App\Console\Commands\FixSalesOrderApproval::class,
         \App\Console\Commands\EnsureOfficerRole::class,
         \App\Console\Commands\FixOverAllocatedDeliveryOrder::class,
