@@ -86,32 +86,36 @@ class DeliveryJournalService
                 $unitCost = $this->inventoryService->calculateUnitCost($line->inventoryItem);
                 $cogsAmount = $line->delivered_qty * $unitCost;
 
-                $lines[] = [
-                    'account_id' => $this->getSalesRevenueAccount(),
-                    'debit' => 0,
-                    'credit' => $deliveredAmount,
-                    'project_id' => $line->project_id ?? null,
-                    'dept_id' => $line->dept_id ?? null,
-                    'memo' => "Revenue from DO {$deliveryOrder->do_number} - {$line->item_name}",
-                ];
+                if ($deliveredAmount > 0) {
+                    $lines[] = [
+                        'account_id' => $this->getSalesRevenueAccount(),
+                        'debit' => 0,
+                        'credit' => $deliveredAmount,
+                        'project_id' => $line->project_id ?? null,
+                        'dept_id' => $line->dept_id ?? null,
+                        'memo' => "Revenue from DO {$deliveryOrder->do_number} - {$line->item_name}",
+                    ];
+                }
 
-                $lines[] = [
-                    'account_id' => $this->getCOGSAccount(),
-                    'debit' => $cogsAmount,
-                    'credit' => 0,
-                    'project_id' => $line->project_id ?? null,
-                    'dept_id' => $line->dept_id ?? null,
-                    'memo' => "COGS for DO {$deliveryOrder->do_number} - {$line->item_name}",
-                ];
+                if ($cogsAmount > 0) {
+                    $lines[] = [
+                        'account_id' => $this->getCOGSAccount(),
+                        'debit' => $cogsAmount,
+                        'credit' => 0,
+                        'project_id' => $line->project_id ?? null,
+                        'dept_id' => $line->dept_id ?? null,
+                        'memo' => "COGS for DO {$deliveryOrder->do_number} - {$line->item_name}",
+                    ];
 
-                $lines[] = [
-                    'account_id' => $this->getInventoryReservedAccount(),
-                    'debit' => 0,
-                    'credit' => $cogsAmount,
-                    'project_id' => $line->project_id ?? null,
-                    'dept_id' => $line->dept_id ?? null,
-                    'memo' => "Release reserved inventory - DO {$deliveryOrder->do_number} - {$line->item_name}",
-                ];
+                    $lines[] = [
+                        'account_id' => $this->getInventoryReservedAccount(),
+                        'debit' => 0,
+                        'credit' => $cogsAmount,
+                        'project_id' => $line->project_id ?? null,
+                        'dept_id' => $line->dept_id ?? null,
+                        'memo' => "Release reserved inventory - DO {$deliveryOrder->do_number} - {$line->item_name}",
+                    ];
+                }
 
                 $totalRevenue += $deliveredAmount;
                 $totalCOGS += $cogsAmount;
