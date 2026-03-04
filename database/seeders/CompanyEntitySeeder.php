@@ -33,9 +33,9 @@ class CompanyEntitySeeder extends Seeder
                 'name' => 'CV Cahaya Saranghae',
                 'legal_name' => 'CV Cahaya Saranghae',
                 'tax_number' => null,
-                'address' => 'Jl. Melati No. 8, Jakarta, Indonesia',
-                'phone' => '+62 21 777 9876',
-                'email' => 'halo@cahayasaranghae.com',
+                'address' => 'Ruko Puri Mal Fantasi, Balikpapan Baru No. A 35 Damai Baru, Balikpapan Selatan, Kalimantan Timur',
+                'phone' => '0811-5403-108',
+                'email' => 'cvcahayasaranghae@gmail.com',
                 'website' => 'https://www.cahayasaranghae.com',
                 'logo_path' => 'logo_cv_saranghae_saja.png',
                 'letterhead_meta' => [
