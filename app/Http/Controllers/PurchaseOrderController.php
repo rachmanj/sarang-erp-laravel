@@ -234,6 +234,8 @@ class PurchaseOrderController extends Controller
             'freight_cost' => ['nullable', 'numeric', 'min:0'],
             'handling_cost' => ['nullable', 'numeric', 'min:0'],
             'insurance_cost' => ['nullable', 'numeric', 'min:0'],
+            'discount_amount' => ['nullable', 'numeric', 'min:0'],
+            'discount_percentage' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'order_type' => ['required', 'in:item,service'],
             'lines' => ['required', 'array', 'min:1'],
             'lines.*.item_id' => ['required', 'integer'],
@@ -244,6 +246,8 @@ class PurchaseOrderController extends Controller
             'lines.*.order_unit_id' => ['nullable', 'integer', 'exists:units_of_measure,id'],
             'lines.*.vat_rate' => ['required', 'numeric', 'min:0', 'max:100'],
             'lines.*.wtax_rate' => ['required', 'numeric', 'min:0', 'max:100'],
+            'lines.*.discount_amount' => ['nullable', 'numeric', 'min:0'],
+            'lines.*.discount_percentage' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'lines.*.notes' => ['nullable', 'string'],
         ]);
 
@@ -321,6 +325,8 @@ class PurchaseOrderController extends Controller
             'freight_cost' => ['nullable', 'numeric', 'min:0'],
             'handling_cost' => ['nullable', 'numeric', 'min:0'],
             'insurance_cost' => ['nullable', 'numeric', 'min:0'],
+            'discount_amount' => ['nullable', 'numeric', 'min:0'],
+            'discount_percentage' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'order_type' => ['required', 'in:item,service'],
             'lines' => ['required', 'array', 'min:1'],
             'lines.*.item_id' => ['required', 'integer'],
@@ -330,6 +336,8 @@ class PurchaseOrderController extends Controller
             'lines.*.order_unit_id' => ['nullable', 'integer', 'exists:units_of_measure,id'],
             'lines.*.vat_rate' => ['required', 'numeric', 'min:0', 'max:100'],
             'lines.*.wtax_rate' => ['required', 'numeric', 'min:0', 'max:100'],
+            'lines.*.discount_amount' => ['nullable', 'numeric', 'min:0'],
+            'lines.*.discount_percentage' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'lines.*.notes' => ['nullable', 'string'],
         ]);
 

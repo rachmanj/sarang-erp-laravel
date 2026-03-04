@@ -64,7 +64,12 @@ class GRPOCopyService
                     throw new \Exception('Only item-type inventory items can be copied to GRPO');
                 }
 
-                $lineAmount = $line->qty * $line->unit_price;
+                $effectiveUnitPrice = ($line->net_amount > 0)
+                    ? $line->net_amount / max(1, $line->qty)
+                    : $line->unit_price;
+                $lineAmount = ($line->net_amount > 0)
+                    ? $line->net_amount
+                    : $line->qty * $line->unit_price;
                 $totalAmount += $lineAmount;
 
                 GoodsReceiptPOLine::create([
@@ -73,7 +78,7 @@ class GRPOCopyService
                     'account_id' => $line->account_id,
                     'description' => $line->description,
                     'qty' => $line->qty,
-                    'unit_price' => $line->unit_price,
+                    'unit_price' => $effectiveUnitPrice,
                     'amount' => $lineAmount,
                     'tax_code_id' => $line->tax_code_id,
                 ]);

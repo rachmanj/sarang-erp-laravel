@@ -231,9 +231,38 @@
                                 @endforeach
                             </tbody>
                             <tfoot class="thead-light">
+                                @php
+                                    $originalTotal = $invoice->lines->sum('amount');
+                                    $totalVat = 0;
+                                    $totalWtax = 0;
+                                    foreach ($invoice->lines as $l) {
+                                        $lineBase = (float) $l->qty * (float) $l->unit_price;
+                                        $vatRate = $l->taxCode ? (float) $l->taxCode->rate : 0;
+                                        $wtaxRate = (float) ($l->wtax_rate ?? 0);
+                                        $totalVat += $lineBase * ($vatRate / 100);
+                                        $totalWtax += $lineBase * ($wtaxRate / 100);
+                                    }
+                                    $amountDue = $originalTotal + $totalVat - $totalWtax;
+                                @endphp
                                 <tr>
-                                    <th colspan="6" class="text-right">Total</th>
-                                    <th class="text-right">{{ number_format($invoice->total_amount, 2) }}</th>
+                                    <th colspan="6" class="text-right">Original Amount</th>
+                                    <th class="text-right">{{ number_format($originalTotal, 2) }}</th>
+                                </tr>
+                                @if ($totalVat != 0)
+                                <tr>
+                                    <th colspan="6" class="text-right">Total VAT</th>
+                                    <th class="text-right">{{ number_format($totalVat, 2) }}</th>
+                                </tr>
+                                @endif
+                                @if ($totalWtax != 0)
+                                <tr>
+                                    <th colspan="6" class="text-right">Total WTax</th>
+                                    <th class="text-right">({{ number_format($totalWtax, 2) }})</th>
+                                </tr>
+                                @endif
+                                <tr>
+                                    <th colspan="6" class="text-right">Amount Due</th>
+                                    <th class="text-right">{{ number_format($amountDue, 2) }}</th>
                                 </tr>
                             </tfoot>
                         </table>
@@ -243,7 +272,7 @@
                         $alloc = \Illuminate\Support\Facades\DB::table('sales_receipt_allocations')
                             ->where('invoice_id', $invoice->id)
                             ->sum('amount');
-                        $remaining = max(0, (float) $invoice->total_amount - (float) $alloc);
+                        $remaining = max(0, (float) $amountDue - (float) $alloc);
                     @endphp
                     <div class="row mt-3">
                         <div class="col-md-6">

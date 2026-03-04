@@ -126,6 +126,26 @@
                             <div>Rp {{ number_format($order->total_amount, 2) }}</div>
                         </div>
                     </div>
+                    @php
+                        $hasLineDiscount = $order->lines->sum('discount_amount') > 0;
+                        $hasHeaderDiscount = ($order->discount_amount ?? 0) > 0;
+                        $subtotal = $order->lines->sum('amount');
+                        $headerDiscount = (float) ($order->discount_amount ?? 0);
+                    @endphp
+                    @if ($hasHeaderDiscount || $hasLineDiscount)
+                        <div class="row mb-3">
+                            <div class="col-md-12">
+                                <b>Financial Summary:</b>
+                                <div class="mt-1">
+                                    @if ($hasHeaderDiscount)
+                                        <span class="mr-3">Subtotal: Rp {{ number_format($subtotal, 2) }}</span>
+                                        <span class="mr-3">Discount {{ $order->discount_percentage > 0 ? '(' . number_format($order->discount_percentage, 2) . '%)' : '' }}: Rp {{ number_format($headerDiscount, 2) }}</span>
+                                    @endif
+                                    <span>Net Total: Rp {{ number_format($order->total_amount, 2) }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    @endif
                     @if ($order->approvals && $order->approvals->count() > 0)
                         <div class="row mb-3">
                             <div class="col-md-12">
@@ -193,6 +213,10 @@
                                     <th class="text-right">Unit Price</th>
                                     <th class="text-right">VAT</th>
                                     <th class="text-right">WTax</th>
+                                    @if ($hasLineDiscount)
+                                        <th class="text-right">Discount</th>
+                                        <th class="text-right">Net Amount</th>
+                                    @endif
                                     <th class="text-right">Amount</th>
                                 </tr>
                             </thead>
@@ -215,6 +239,17 @@
                                         <td class="text-right">{{ number_format($l->unit_price, 2) }}</td>
                                         <td class="text-right">{{ $l->vat_rate ?? 0 }}%</td>
                                         <td class="text-right">{{ $l->wtax_rate ?? 0 }}%</td>
+                                        @if ($hasLineDiscount)
+                                            <td class="text-right">
+                                                @if (($l->discount_amount ?? 0) > 0)
+                                                    {{ $l->discount_percentage > 0 ? number_format($l->discount_percentage, 2) . '%' : '' }}
+                                                    Rp {{ number_format($l->discount_amount ?? 0, 2) }}
+                                                @else
+                                                    -
+                                                @endif
+                                            </td>
+                                            <td class="text-right">{{ number_format($l->net_amount > 0 ? $l->net_amount : ($l->qty * $l->unit_price), 2) }}</td>
+                                        @endif
                                         <td class="text-right">{{ number_format($l->amount, 2) }}</td>
                                     </tr>
                                 @endforeach

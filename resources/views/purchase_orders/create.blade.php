@@ -274,6 +274,37 @@
                                     </div>
                                 </div>
 
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <div class="form-group row mb-2">
+                                            <label class="col-sm-4 col-form-label">Discount (%)</label>
+                                            <div class="col-sm-8">
+                                                <input type="number" step="0.01" min="0" max="100"
+                                                    name="discount_percentage" id="discount_percentage"
+                                                    value="{{ old('discount_percentage', 0) }}"
+                                                    class="form-control form-control-sm text-right"
+                                                    placeholder="Header discount %">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="form-group row mb-2">
+                                            <label class="col-sm-4 col-form-label">Discount Amount</label>
+                                            <div class="col-sm-8">
+                                                <div class="input-group input-group-sm">
+                                                    <div class="input-group-prepend">
+                                                        <span class="input-group-text">Rp</span>
+                                                    </div>
+                                                    <input type="number" step="0.01" min="0"
+                                                        name="discount_amount" id="discount_amount"
+                                                        value="{{ old('discount_amount', 0) }}"
+                                                        class="form-control form-control-sm text-right" placeholder="0.00">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <div class="card card-secondary card-outline mt-3 mb-2">
                                     <div class="card-header py-2">
                                         <h3 class="card-title">
@@ -289,40 +320,52 @@
                                             <table class="table table-sm table-striped mb-0" id="lines">
                                                 <thead>
                                                     <tr>
-                                                        <th style="width: 20%">Item/Account <span
+                                                        <th style="width: 18%">Item/Account <span
                                                                 class="text-danger">*</span>
                                                         </th>
-                                                        <th style="width: 15%">Description</th>
-                                                        <th style="width: 8%">Qty <span class="text-danger">*</span></th>
-                                                        <th style="width: 10%">Unit</th>
-                                                        <th style="width: 10%">Unit Price <span
+                                                        <th style="width: 12%">Description</th>
+                                                        <th style="width: 6%">Qty <span class="text-danger">*</span></th>
+                                                        <th style="width: 8%">Unit</th>
+                                                        <th style="width: 9%">Unit Price <span
                                                                 class="text-danger">*</span>
                                                         </th>
-                                                        <th style="width: 8%">VAT</th>
-                                                        <th style="width: 8%">WTax</th>
-                                                        <th style="width: 12%">Amount</th>
-                                                        <th style="width: 10%">Actions</th>
+                                                        <th style="width: 6%">VAT</th>
+                                                        <th style="width: 6%">WTax</th>
+                                                        <th style="width: 5%">Disc %</th>
+                                                        <th style="width: 6%">Disc Amt</th>
+                                                        <th style="width: 9%">Amount</th>
+                                                        <th style="width: 8%">Actions</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody></tbody>
                                                 <tfoot>
                                                     <tr>
-                                                        <th colspan="7" class="text-right">Original Amount:</th>
+                                                        <th colspan="9" class="text-right">Subtotal:</th>
                                                         <th class="text-right" id="original-amount">0.00</th>
                                                         <th></th>
                                                     </tr>
                                                     <tr>
-                                                        <th colspan="7" class="text-right">VAT:</th>
+                                                        <th colspan="9" class="text-right">Line Discounts:</th>
+                                                        <th class="text-right" id="total-line-discount">0.00</th>
+                                                        <th></th>
+                                                    </tr>
+                                                    <tr>
+                                                        <th colspan="9" class="text-right">Header Discount:</th>
+                                                        <th class="text-right" id="total-header-discount">0.00</th>
+                                                        <th></th>
+                                                    </tr>
+                                                    <tr>
+                                                        <th colspan="9" class="text-right">VAT:</th>
                                                         <th class="text-right" id="total-vat">0.00</th>
                                                         <th></th>
                                                     </tr>
                                                     <tr>
-                                                        <th colspan="7" class="text-right">WTax:</th>
+                                                        <th colspan="9" class="text-right">WTax:</th>
                                                         <th class="text-right" id="total-wtax">0.00</th>
                                                         <th></th>
                                                     </tr>
                                                     <tr>
-                                                        <th colspan="7" class="text-right">Amount Due:</th>
+                                                        <th colspan="9" class="text-right">Amount Due:</th>
                                                         <th class="text-right" id="amount-due">0.00</th>
                                                         <th></th>
                                                     </tr>
@@ -447,6 +490,70 @@
                 updateTotals();
             });
 
+            // Line discount sync
+            let updatingLineDiscount = false;
+            $(document).on('input', '.line-discount-percentage', function() {
+                if (updatingLineDiscount) return;
+                const row = $(this).closest('tr');
+                const lineAmount = parseFloat(row.find('.qty-input').val() || 0) * parseFloat(row.find('.price-input').val() || 0);
+                const pct = parseFloat($(this).val() || 0);
+                updatingLineDiscount = true;
+                row.find('.line-discount-amount').val((lineAmount * pct / 100).toFixed(2));
+                updatingLineDiscount = false;
+                updateLineAmount(row);
+                updateTotals();
+            });
+            $(document).on('input', '.line-discount-amount', function() {
+                if (updatingLineDiscount) return;
+                const row = $(this).closest('tr');
+                const lineAmount = parseFloat(row.find('.qty-input').val() || 0) * parseFloat(row.find('.price-input').val() || 0);
+                const amt = parseFloat($(this).val() || 0);
+                const pct = lineAmount > 0 ? (amt / lineAmount * 100) : 0;
+                updatingLineDiscount = true;
+                row.find('.line-discount-percentage').val(pct.toFixed(2));
+                updatingLineDiscount = false;
+                updateLineAmount(row);
+                updateTotals();
+            });
+
+            // Header discount sync
+            let updatingHeaderDiscount = false;
+            function getSubtotal() {
+                let s = 0;
+                $('#lines tbody tr').each(function() {
+                    const qty = parseFloat($(this).find('.qty-input').val() || 0);
+                    const price = parseFloat($(this).find('.price-input').val() || 0);
+                    const vatRate = parseFloat($(this).find('.vat-select').val() || 0);
+                    const wtaxRate = parseFloat($(this).find('.wtax-select').val() || 0);
+                    const discountAmount = parseFloat($(this).find('.line-discount-amount').val() || 0);
+                    const originalAmount = qty * price;
+                    const netAmount = originalAmount - discountAmount;
+                    const vatAmount = netAmount * (vatRate / 100);
+                    const wtaxAmount = netAmount * (wtaxRate / 100);
+                    s += netAmount + vatAmount - wtaxAmount;
+                });
+                return s;
+            }
+            $('#discount_percentage').on('input', function() {
+                if (updatingHeaderDiscount) return;
+                const subtotal = getSubtotal();
+                const pct = parseFloat($(this).val() || 0);
+                updatingHeaderDiscount = true;
+                $('#discount_amount').val((subtotal * pct / 100).toFixed(2));
+                updatingHeaderDiscount = false;
+                updateTotals();
+            });
+            $('#discount_amount').on('input', function() {
+                if (updatingHeaderDiscount) return;
+                const subtotal = getSubtotal();
+                const amt = parseFloat($(this).val() || 0);
+                const pct = subtotal > 0 ? (amt / subtotal * 100) : 0;
+                updatingHeaderDiscount = true;
+                $('#discount_percentage').val(pct.toFixed(2));
+                updatingHeaderDiscount = false;
+                updateTotals();
+            });
+
             // Handle order type change
             $('#order_type').on('change', function() {
                 updateAllLineDropdowns();
@@ -544,6 +651,14 @@
                             <option value="2" ${data.wtax_rate == 2 ? 'selected' : ''}>2%</option>
                         </select>
                     </td>
+                    <td>
+                        <input type="number" step="0.01" min="0" max="100" name="lines[${lineIdx}][discount_percentage]" 
+                            class="form-control form-control-sm text-right line-discount-percentage" value="${data.discount_percentage || 0}">
+                    </td>
+                    <td>
+                        <input type="number" step="0.01" min="0" name="lines[${lineIdx}][discount_amount]" 
+                            class="form-control form-control-sm text-right line-discount-amount" value="${data.discount_amount || 0}">
+                    </td>
                     <td class="text-right">
                         <span class="line-amount">0.00</span>
                     </td>
@@ -588,11 +703,21 @@
                 const price = parseFloat($(row).find('.price-input').val() || 0);
                 const vatRate = parseFloat($(row).find('.vat-select').val() || 0);
                 const wtaxRate = parseFloat($(row).find('.wtax-select').val() || 0);
+                let discountAmount = parseFloat($(row).find('.line-discount-amount').val() || 0);
+                const discountPct = parseFloat($(row).find('.line-discount-percentage').val() || 0);
 
                 const originalAmount = qty * price;
-                const vatAmount = originalAmount * (vatRate / 100);
-                const wtaxAmount = originalAmount * (wtaxRate / 100);
-                const lineAmount = originalAmount + vatAmount - wtaxAmount;
+                if (discountPct > 0 && discountAmount === 0) {
+                    discountAmount = originalAmount * discountPct / 100;
+                    $(row).find('.line-discount-amount').val(discountAmount.toFixed(2));
+                } else if (discountAmount > 0 && discountPct === 0) {
+                    const pct = originalAmount > 0 ? (discountAmount / originalAmount * 100) : 0;
+                    $(row).find('.line-discount-percentage').val(pct.toFixed(2));
+                }
+                const netAmount = originalAmount - discountAmount;
+                const vatAmount = netAmount * (vatRate / 100);
+                const wtaxAmount = netAmount * (wtaxRate / 100);
+                const lineAmount = netAmount + vatAmount - wtaxAmount;
 
                 $(row).find('.line-amount').text(lineAmount.toLocaleString('id-ID', {
                     minimumFractionDigits: 2,
@@ -601,32 +726,54 @@
             }
 
             function updateTotals() {
-                let originalTotal = 0;
+                let subtotal = 0;
+                let totalLineDiscount = 0;
                 let totalVat = 0;
                 let totalWtax = 0;
-                let totalAmount = 0;
 
                 $('#lines tbody tr').each(function() {
                     const qty = parseFloat($(this).find('.qty-input').val() || 0);
                     const price = parseFloat($(this).find('.price-input').val() || 0);
                     const vatRate = parseFloat($(this).find('.vat-select').val() || 0);
                     const wtaxRate = parseFloat($(this).find('.wtax-select').val() || 0);
+                    const discountAmount = parseFloat($(this).find('.line-discount-amount').val() || 0);
 
                     const originalAmount = qty * price;
-                    const vatAmount = originalAmount * (vatRate / 100);
-                    const wtaxAmount = originalAmount * (wtaxRate / 100);
-                    const lineAmount = originalAmount + vatAmount - wtaxAmount;
+                    const netAmount = originalAmount - discountAmount;
+                    const vatAmount = netAmount * (vatRate / 100);
+                    const wtaxAmount = netAmount * (wtaxRate / 100);
+                    const lineAmount = netAmount + vatAmount - wtaxAmount;
 
-                    originalTotal += originalAmount;
+                    subtotal += lineAmount;
+                    totalLineDiscount += discountAmount;
                     totalVat += vatAmount;
                     totalWtax += wtaxAmount;
-                    totalAmount += lineAmount;
                 });
 
-                const amountDue = originalTotal + totalVat - totalWtax;
+                const headerDiscountPct = parseFloat($('#discount_percentage').val() || 0);
+                let headerDiscountAmount = parseFloat($('#discount_amount').val() || 0);
+                if (headerDiscountPct > 0 && headerDiscountAmount === 0) {
+                    headerDiscountAmount = subtotal * headerDiscountPct / 100;
+                    if (!updatingHeaderDiscount) {
+                        updatingHeaderDiscount = true;
+                        $('#discount_amount').val(headerDiscountAmount.toFixed(2));
+                        updatingHeaderDiscount = false;
+                    }
+                }
+                const amountDue = subtotal - headerDiscountAmount;
 
                 // Update display with Indonesian number formatting
-                $('#original-amount').text(originalTotal.toLocaleString('id-ID', {
+                $('#original-amount').text(subtotal.toLocaleString('id-ID', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
+                }));
+
+                $('#total-line-discount').text(totalLineDiscount.toLocaleString('id-ID', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
+                }));
+
+                $('#total-header-discount').text(headerDiscountAmount.toLocaleString('id-ID', {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2
                 }));
@@ -637,11 +784,6 @@
                 }));
 
                 $('#total-wtax').text(totalWtax.toLocaleString('id-ID', {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2
-                }));
-
-                $('#total-amount').text(totalAmount.toLocaleString('id-ID', {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2
                 }));

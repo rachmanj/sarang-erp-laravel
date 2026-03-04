@@ -35,10 +35,14 @@ class PurchaseInvoiceCopyService
             $invoice = PurchaseInvoice::create([
                 'invoice_no' => null, // Will be generated
                 'date' => now()->toDateString(),
-                'vendor_id' => $po->vendor_id,
+                'business_partner_id' => $po->business_partner_id,
+                'company_entity_id' => $po->company_entity_id,
+                'purchase_order_id' => $po->id,
                 'description' => 'From Service PO: ' . $po->order_no,
                 'status' => 'draft',
-                'total_amount' => $po->total_amount,
+                'total_amount' => 0,
+                'discount_amount' => $po->discount_amount ?? 0,
+                'discount_percentage' => $po->discount_percentage ?? 0,
                 'freight_cost' => $po->freight_cost ?? 0,
                 'handling_cost' => $po->handling_cost ?? 0,
                 'insurance_cost' => $po->insurance_cost ?? 0,
@@ -52,16 +56,21 @@ class PurchaseInvoiceCopyService
             $invoiceNo = $this->documentNumberingService->generateNumber('purchase_invoice', $invoice->date);
             $invoice->update(['invoice_no' => $invoiceNo]);
 
-            // Copy all lines
-            $totalAmount = 0;
+            // Copy all lines with discount
+            $subtotal = 0;
             foreach ($po->lines as $line) {
                 // Validate line item type
                 if ($line->inventoryItem && $line->inventoryItem->item_type !== 'service') {
                     throw new \Exception('Only service-type inventory items can be copied to Purchase Invoice');
                 }
 
-                $lineAmount = $line->qty * $line->unit_price;
-                $totalAmount += $lineAmount;
+                $originalAmount = $line->qty * $line->unit_price;
+                $lineDiscountAmount = (float) ($line->discount_amount ?? 0);
+                $lineDiscountPct = (float) ($line->discount_percentage ?? 0);
+                $netAmount = ($line->net_amount > 0) ? $line->net_amount : $originalAmount;
+                $vatAmount = $netAmount * (($line->vat_rate ?? 0) / 100);
+                $amountAfterVat = $netAmount + $vatAmount;
+                $subtotal += $amountAfterVat;
 
                 PurchaseInvoiceLine::create([
                     'invoice_id' => $invoice->id,
@@ -73,14 +82,22 @@ class PurchaseInvoiceCopyService
                     'description' => $line->description,
                     'qty' => $line->qty,
                     'unit_price' => $line->unit_price,
-                    'amount' => $lineAmount,
+                    'amount' => $originalAmount,
+                    'discount_amount' => $lineDiscountAmount,
+                    'discount_percentage' => $lineDiscountPct,
+                    'net_amount' => $netAmount,
+                    'vat_amount' => $vatAmount,
+                    'amount_after_vat' => $amountAfterVat,
                     'freight_cost' => $line->freight_cost ?? 0,
                     'handling_cost' => $line->handling_cost ?? 0,
-                    'total_cost' => $lineAmount + ($line->freight_cost ?? 0) + ($line->handling_cost ?? 0),
+                    'total_cost' => $amountAfterVat + ($line->freight_cost ?? 0) + ($line->handling_cost ?? 0),
                     'tax_code_id' => $line->tax_code_id,
                     'notes' => $line->notes,
                 ]);
             }
+
+            $headerDiscountAmount = (float) ($po->discount_amount ?? 0);
+            $totalAmount = $subtotal - $headerDiscountAmount;
 
             // Update invoice total amount
             $invoice->update(['total_amount' => $totalAmount]);
@@ -114,8 +131,8 @@ class PurchaseInvoiceCopyService
             'id' => $po->id,
             'order_no' => $po->order_no,
             'date' => $po->date,
-            'vendor_id' => $po->vendor_id,
-            'vendor_name' => $po->vendor->name ?? '',
+            'business_partner_id' => $po->business_partner_id,
+            'vendor_name' => $po->businessPartner->name ?? '',
             'total_amount' => $po->total_amount,
             'freight_cost' => $po->freight_cost ?? 0,
             'handling_cost' => $po->handling_cost ?? 0,

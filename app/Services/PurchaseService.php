@@ -105,9 +105,17 @@ class PurchaseService
                     Log::info("Processing line {$index} with data:", $lineData);
 
                     $originalAmount = $lineData['qty'] * $lineData['unit_price'];
-                    $vatAmount = $originalAmount * ($lineData['vat_rate'] / 100);
-                    $wtaxAmount = $originalAmount * ($lineData['wtax_rate'] / 100);
-                    $amount = $originalAmount + $vatAmount - $wtaxAmount;
+                    $lineDiscountAmount = (float) ($lineData['discount_amount'] ?? 0);
+                    $lineDiscountPct = (float) ($lineData['discount_percentage'] ?? 0);
+                    if ($lineDiscountPct > 0 && $lineDiscountAmount == 0) {
+                        $lineDiscountAmount = ($originalAmount * $lineDiscountPct) / 100;
+                    } elseif ($lineDiscountAmount > 0 && $lineDiscountPct == 0) {
+                        $lineDiscountPct = $originalAmount > 0 ? ($lineDiscountAmount / $originalAmount) * 100 : 0;
+                    }
+                    $netAmount = $originalAmount - $lineDiscountAmount;
+                    $vatAmount = $netAmount * ($lineData['vat_rate'] / 100);
+                    $wtaxAmount = $netAmount * ($lineData['wtax_rate'] / 100);
+                    $amount = $netAmount + $vatAmount - $wtaxAmount;
 
                     // Calculate foreign currency amounts
                     $unitPriceForeign = $lineData['unit_price_foreign'] ?? $lineData['unit_price'];
@@ -162,6 +170,9 @@ class PurchaseService
                         'unit_price_foreign' => $unitPriceForeign,
                         'amount' => $amount,
                         'amount_foreign' => $amountForeign,
+                        'discount_amount' => $lineDiscountAmount,
+                        'discount_percentage' => $lineDiscountPct,
+                        'net_amount' => $netAmount,
                         'freight_cost' => 0,
                         'handling_cost' => 0,
                         'tax_code_id' => null,
@@ -182,12 +193,25 @@ class PurchaseService
                 }
             }
 
+            // Apply header discount
+            $subtotal = $totalAmount;
+            $headerDiscountAmount = (float) ($data['discount_amount'] ?? 0);
+            $headerDiscountPct = (float) ($data['discount_percentage'] ?? 0);
+            if ($headerDiscountPct > 0 && $headerDiscountAmount == 0) {
+                $headerDiscountAmount = ($subtotal * $headerDiscountPct) / 100;
+            } elseif ($headerDiscountAmount > 0 && $headerDiscountPct == 0) {
+                $headerDiscountPct = $subtotal > 0 ? ($headerDiscountAmount / $subtotal) * 100 : 0;
+            }
+            $totalAmount = $subtotal - $headerDiscountAmount;
+
             // Update totals
             try {
                 Log::info("Updating Purchase Order totals: amount={$totalAmount}, freight={$totalFreightCost}, handling={$totalHandlingCost}");
                 $po->update([
                     'total_amount' => $totalAmount,
                     'total_amount_foreign' => $totalAmountForeign,
+                    'discount_amount' => $headerDiscountAmount,
+                    'discount_percentage' => $headerDiscountPct,
                     'freight_cost' => $totalFreightCost,
                     'freight_cost_foreign' => $totalFreightCostForeign,
                     'handling_cost' => $totalHandlingCost,
@@ -237,7 +261,7 @@ class PurchaseService
                 'insurance_cost' => $po->insurance_cost,
             ];
 
-            // Update the purchase order
+            // Update the purchase order (header discount applied after line totals)
             $po->update([
                 'order_no' => $data['order_no'],
                 'reference_no' => $data['reference_no'] ?? null,
@@ -274,11 +298,19 @@ class PurchaseService
                     $processedLine = $lineData;
                 }
 
-                // Calculate amounts
+                // Calculate amounts with discount
                 $originalAmount = $processedLine['qty'] * $processedLine['unit_price'];
-                $vatAmount = $originalAmount * ($processedLine['vat_rate'] / 100);
-                $wtaxAmount = $originalAmount * ($processedLine['wtax_rate'] / 100);
-                $amount = $originalAmount + $vatAmount - $wtaxAmount;
+                $lineDiscountAmount = (float) ($lineData['discount_amount'] ?? 0);
+                $lineDiscountPct = (float) ($lineData['discount_percentage'] ?? 0);
+                if ($lineDiscountPct > 0 && $lineDiscountAmount == 0) {
+                    $lineDiscountAmount = ($originalAmount * $lineDiscountPct) / 100;
+                } elseif ($lineDiscountAmount > 0 && $lineDiscountPct == 0) {
+                    $lineDiscountPct = $originalAmount > 0 ? ($lineDiscountAmount / $originalAmount) * 100 : 0;
+                }
+                $netAmount = $originalAmount - $lineDiscountAmount;
+                $vatAmount = $netAmount * ($processedLine['vat_rate'] / 100);
+                $wtaxAmount = $netAmount * ($processedLine['wtax_rate'] / 100);
+                $amount = $netAmount + $vatAmount - $wtaxAmount;
 
                 // Determine if this is an inventory item or account based on order type
                 $inventoryItemId = null;
@@ -300,6 +332,9 @@ class PurchaseService
                     'qty' => $processedLine['qty'],
                     'unit_price' => $processedLine['unit_price'],
                     'amount' => $amount,
+                    'discount_amount' => $lineDiscountAmount,
+                    'discount_percentage' => $lineDiscountPct,
+                    'net_amount' => $netAmount,
                     'order_unit_id' => $processedLine['order_unit_id'] ?? null,
                     'base_quantity' => $processedLine['base_quantity'] ?? $processedLine['qty'],
                     'unit_conversion_factor' => $processedLine['unit_conversion_factor'] ?? 1,
@@ -326,8 +361,23 @@ class PurchaseService
                 }
             }
 
-            // Update total amount
-            $po->update(['total_amount' => $totalAmount]);
+            // Apply header discount
+            $subtotal = $totalAmount;
+            $headerDiscountAmount = (float) ($data['discount_amount'] ?? 0);
+            $headerDiscountPct = (float) ($data['discount_percentage'] ?? 0);
+            if ($headerDiscountPct > 0 && $headerDiscountAmount == 0) {
+                $headerDiscountAmount = ($subtotal * $headerDiscountPct) / 100;
+            } elseif ($headerDiscountAmount > 0 && $headerDiscountPct == 0) {
+                $headerDiscountPct = $subtotal > 0 ? ($headerDiscountAmount / $subtotal) * 100 : 0;
+            }
+            $totalAmount = $subtotal - $headerDiscountAmount;
+
+            // Update total amount and header discount
+            $po->update([
+                'total_amount' => $totalAmount,
+                'discount_amount' => $headerDiscountAmount,
+                'discount_percentage' => $headerDiscountPct,
+            ]);
             $po->refresh();
 
             $newAmounts = [

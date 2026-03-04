@@ -25,6 +25,9 @@ class PurchaseOrderLine extends Model
         'unit_price_foreign',
         'amount',
         'amount_foreign',
+        'discount_amount',
+        'discount_percentage',
+        'net_amount',
         'freight_cost',
         'handling_cost',
         'total_cost',
@@ -45,6 +48,9 @@ class PurchaseOrderLine extends Model
         'unit_price_foreign' => 'decimal:2',
         'amount' => 'decimal:2',
         'amount_foreign' => 'decimal:2',
+        'discount_amount' => 'decimal:2',
+        'discount_percentage' => 'decimal:2',
+        'net_amount' => 'decimal:2',
         'freight_cost' => 'decimal:2',
         'handling_cost' => 'decimal:2',
         'total_cost' => 'decimal:2',
@@ -150,5 +156,13 @@ class PurchaseOrderLine extends Model
     public function canReceiveQuantity($quantity)
     {
         return $quantity <= $this->pending_qty;
+    }
+
+    public function calculateDiscount(float $discountPercentage): void
+    {
+        $originalAmount = $this->qty * $this->unit_price;
+        $this->discount_percentage = $discountPercentage;
+        $this->discount_amount = ($originalAmount * $discountPercentage) / 100;
+        $this->net_amount = $originalAmount - $this->discount_amount;
     }
 }
