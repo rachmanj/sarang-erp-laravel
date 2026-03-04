@@ -491,6 +491,7 @@ class DeliveryOrderController extends Controller
             'businessPartnerProject',
             'salesOrder',
             'warehouse',
+            'companyEntity',
             'lines.inventoryItem.baseUnit.unit',
             'lines.salesOrderLine.orderUnit',
             'lines.account',
@@ -498,8 +499,19 @@ class DeliveryOrderController extends Controller
         ]);
 
         $layout = $request->get('layout', 'standard');
-        $view = $layout === 'dotmatrix' ? 'delivery_orders.print_dotmatrix' : 'delivery_orders.print';
+        $isCvEntity = $deliveryOrder->companyEntity?->name === 'CV Cahaya Saranghae';
+        $forceCv = in_array($layout, ['cv_saranghae', 'cv_saranghae_dotmatrix']);
+        $useCvTemplate = $isCvEntity || $forceCv;
 
+        if ($useCvTemplate) {
+            $entity = $deliveryOrder->companyEntity
+                ?? \App\Models\CompanyEntity::where('name', 'CV Cahaya Saranghae')->first();
+            $useDotMatrix = $layout === 'dotmatrix' || $layout === 'cv_saranghae_dotmatrix';
+            $view = $useDotMatrix ? 'delivery_orders.print_dotmatrix_cv_saranghae' : 'delivery_orders.print_cv_saranghae';
+            return view($view, compact('deliveryOrder', 'entity'));
+        }
+
+        $view = $layout === 'dotmatrix' ? 'delivery_orders.print_dotmatrix' : 'delivery_orders.print';
         return view($view, compact('deliveryOrder'));
     }
 

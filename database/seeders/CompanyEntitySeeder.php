@@ -37,7 +37,7 @@ class CompanyEntitySeeder extends Seeder
                 'phone' => '+62 21 777 9876',
                 'email' => 'halo@cahayasaranghae.com',
                 'website' => 'https://www.cahayasaranghae.com',
-                'logo_path' => 'logo_cv_saranghae.png',
+                'logo_path' => 'logo_cv_saranghae_saja.png',
                 'letterhead_meta' => [
                     'primary_color' => '#1C2236',
                     'secondary_color' => '#1C2236',

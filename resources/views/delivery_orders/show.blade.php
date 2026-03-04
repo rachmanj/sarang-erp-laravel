@@ -43,6 +43,17 @@
                                             target="_blank">
                                             <i class="fas fa-print mr-1"></i> Dot Matrix
                                         </a>
+                                        <div class="dropdown-divider"></div>
+                                        <a class="dropdown-item"
+                                            href="{{ route('delivery-orders.print', [$deliveryOrder, 'layout' => 'cv_saranghae']) }}"
+                                            target="_blank">
+                                            <i class="fas fa-file-alt mr-1"></i> CV Cahaya Saranghae (A4)
+                                        </a>
+                                        <a class="dropdown-item"
+                                            href="{{ route('delivery-orders.print', [$deliveryOrder, 'layout' => 'cv_saranghae_dotmatrix']) }}"
+                                            target="_blank">
+                                            <i class="fas fa-print mr-1"></i> CV Cahaya Saranghae (Dot Matrix)
+                                        </a>
                                     </div>
                                 </div>
                                 @if ($deliveryOrder->status === 'draft')
