@@ -224,7 +224,7 @@
         $companyName = $entity?->name ?? 'PT Cahaya Sarange Jaya';
         $officeBalikpapan = \App\Models\ErpParameter::get(
             'pt_csj_office_balikpapan',
-            $entity?->address ?? 'Mal Fantasi Balikpapan Baru, Ruko Puri Blok A35, Balikpapan Baru, Kal-Tim, 76114',
+            'Mal Fantasi Balikpapan Baru, Ruko Puri Blok A35, Balikpapan Baru, Kal-Tim 76114',
         );
         $officeJakarta = \App\Models\ErpParameter::get(
             'pt_csj_office_jakarta',
