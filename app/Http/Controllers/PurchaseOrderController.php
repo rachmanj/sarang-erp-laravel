@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CompanyEntity;
 use App\Models\GoodsReceipt;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderLine;
@@ -277,8 +278,72 @@ class PurchaseOrderController extends Controller
     {
         $order = PurchaseOrder::with(['lines.inventoryItem', 'businessPartner', 'approvals.user', 'approvedBy', 'createdBy'])
             ->findOrFail($id);
-        
+
         return view('purchase_orders.show', compact('order'));
+    }
+
+    public function print(Request $request, int $id)
+    {
+        $order = PurchaseOrder::with([
+            'lines.inventoryItem',
+            'lines.orderUnit',
+            'businessPartner.primaryAddress',
+            'businessPartner.addresses',
+            'companyEntity',
+            'createdBy',
+            'approvedBy',
+            'currency',
+        ])->findOrFail($id);
+
+        $layout = $request->get('layout', 'standard');
+
+        $viewMap = [
+            'standard' => 'purchase_orders.print',
+            'dotmatrix' => 'purchase_orders.print_dotmatrix',
+            'pt_csj' => 'purchase_orders.print_pt_csj',
+            'pt_csj_dotmatrix' => 'purchase_orders.print_dotmatrix_pt_csj',
+            'cv_saranghae' => 'purchase_orders.print_cv_saranghae',
+            'cv_saranghae_dotmatrix' => 'purchase_orders.print_dotmatrix_cv_saranghae',
+        ];
+        $view = $viewMap[$layout] ?? $viewMap['standard'];
+
+        $entity = null;
+        if (in_array($layout, ['pt_csj', 'pt_csj_dotmatrix'])) {
+            $entity = CompanyEntity::where('name', 'PT Cahaya Sarange Jaya')->first();
+        } elseif (in_array($layout, ['cv_saranghae', 'cv_saranghae_dotmatrix'])) {
+            $entity = CompanyEntity::where('name', 'CV Cahaya Saranghae')->first();
+        }
+
+        $terbilang = $entity ? $this->convertToWords((float) $order->total_amount) : null;
+
+        return view($view, compact('order', 'entity', 'terbilang'));
+    }
+
+    private function convertToWords(float $number): string
+    {
+        $ones = ['', 'satu', 'dua', 'tiga', 'empat', 'lima', 'enam', 'tujuh', 'delapan', 'sembilan', 'sepuluh', 'sebelas', 'dua belas', 'tiga belas', 'empat belas', 'lima belas', 'enam belas', 'tujuh belas', 'delapan belas', 'sembilan belas'];
+        $tens = ['', '', 'dua puluh', 'tiga puluh', 'empat puluh', 'lima puluh', 'enam puluh', 'tujuh puluh', 'delapan puluh', 'sembilan puluh'];
+        $hundreds = ['', 'seratus', 'dua ratus', 'tiga ratus', 'empat ratus', 'lima ratus', 'enam ratus', 'tujuh ratus', 'delapan ratus', 'sembilan ratus'];
+
+        $toWords = function (int $n) use (&$toWords, $ones, $tens, $hundreds): string {
+            if ($n == 0) return '';
+            if ($n >= 1000000000) return trim($toWords((int) ($n / 1000000000)) . ' milyar ' . $toWords($n % 1000000000));
+            if ($n >= 1000000) return trim($toWords((int) ($n / 1000000)) . ' juta ' . $toWords($n % 1000000));
+            if ($n >= 1000) {
+                $th = (int) ($n / 1000);
+                $rest = $n % 1000;
+                $thStr = $th === 1 ? 'seribu' : trim($toWords($th)) . ' ribu';
+                return trim($thStr . ' ' . $toWords($rest));
+            }
+            if ($n >= 100) return trim($hundreds[(int) ($n / 100)] . ' ' . $toWords($n % 100));
+            if ($n >= 20) return trim($tens[(int) ($n / 10)] . ' ' . $toWords($n % 10));
+            if ($n >= 10) return $ones[$n];
+            return $ones[$n];
+        };
+
+        $n = (int) round($number);
+        if ($n == 0) return 'nol rupiah';
+        return trim($toWords($n)) . ' rupiah';
     }
 
     public function edit(int $id)

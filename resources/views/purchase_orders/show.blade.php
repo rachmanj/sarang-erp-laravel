@@ -31,11 +31,26 @@
                                 <i class="fas fa-print"></i> Print
                             </button>
                             <div class="dropdown-menu">
-                                <a class="dropdown-item" href="{{ route('purchase-orders.print', $order->id) }}" target="_blank">
-                                    <i class="fas fa-file-alt mr-1"></i> Standard (A4/Laser)
+                                <h6 class="dropdown-header">Standard (A4)</h6>
+                                <a class="dropdown-item" href="{{ route('purchase-orders.print', [$order->id, 'layout' => 'standard']) }}" target="_blank">
+                                    <i class="fas fa-file-alt mr-1"></i> Default
                                 </a>
+                                <a class="dropdown-item" href="{{ route('purchase-orders.print', [$order->id, 'layout' => 'pt_csj']) }}" target="_blank">
+                                    <i class="fas fa-file-alt mr-1"></i> PT Cahaya Sarange Jaya (A4)
+                                </a>
+                                <a class="dropdown-item" href="{{ route('purchase-orders.print', [$order->id, 'layout' => 'cv_saranghae']) }}" target="_blank">
+                                    <i class="fas fa-file-alt mr-1"></i> CV Cahaya Saranghae (A4)
+                                </a>
+                                <div class="dropdown-divider"></div>
+                                <h6 class="dropdown-header">Dot Matrix</h6>
                                 <a class="dropdown-item" href="{{ route('purchase-orders.print', [$order->id, 'layout' => 'dotmatrix']) }}" target="_blank">
-                                    <i class="fas fa-print mr-1"></i> Dot Matrix
+                                    <i class="fas fa-print mr-1"></i> Default
+                                </a>
+                                <a class="dropdown-item" href="{{ route('purchase-orders.print', [$order->id, 'layout' => 'pt_csj_dotmatrix']) }}" target="_blank">
+                                    <i class="fas fa-print mr-1"></i> PT Cahaya Sarange Jaya
+                                </a>
+                                <a class="dropdown-item" href="{{ route('purchase-orders.print', [$order->id, 'layout' => 'cv_saranghae_dotmatrix']) }}" target="_blank">
+                                    <i class="fas fa-print mr-1"></i> CV Cahaya Saranghae
                                 </a>
                             </div>
                         </div>
