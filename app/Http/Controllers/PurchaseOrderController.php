@@ -289,6 +289,7 @@ class PurchaseOrderController extends Controller
             'lines.orderUnit',
             'businessPartner.primaryAddress',
             'businessPartner.addresses',
+            'warehouse',
             'companyEntity',
             'createdBy',
             'approvedBy',

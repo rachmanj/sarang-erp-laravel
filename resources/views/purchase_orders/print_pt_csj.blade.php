@@ -302,9 +302,16 @@
             <h3>SHIP TO :</h3>
             <div class="content">
                 <strong>{{ $companyName }}</strong><br>
-                {{ $officeBalikpapan }}<br>
-                <strong>Contact :</strong> {{ $entity?->phone ?? '' }}<br>
-                <strong>Attn :</strong> {{ $order->createdBy->name ?? '' }}
+                @if ($order->warehouse)
+                    {{ $order->warehouse->name }}<br>
+                    {{ $order->warehouse->address ?? '' }}<br>
+                    <strong>Contact :</strong> {{ $order->warehouse->phone ?? '' }}<br>
+                    <strong>Attn :</strong> {{ $order->warehouse->contact_person ?? '' }}
+                @else
+                    {{ $officeBalikpapan }}<br>
+                    <strong>Contact :</strong> {{ $entity?->phone ?? '' }}<br>
+                    <strong>Attn :</strong> {{ $order->createdBy->name ?? '' }}
+                @endif
             </div>
         </div>
     </div>
