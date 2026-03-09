@@ -320,8 +320,9 @@
         <thead>
             <tr>
                 <th class="text-center" style="width:5%">NO</th>
-                <th style="width:12%">PART NO.</th>
-                <th style="width:38%">ITEM DESCRIPTION</th>
+                <th style="width:10%">ITEM CODE</th>
+                <th style="width:10%">PART NO.</th>
+                <th style="width:33%">ITEM DESCRIPTION</th>
                 <th class="text-center" style="width:8%">UOM</th>
                 <th class="text-right" style="width:10%">QTY</th>
                 <th class="text-right" style="width:12%">UNIT PRICE</th>
@@ -335,7 +336,8 @@
                 @endphp
                 <tr>
                     <td class="text-center">{{ $index + 1 }}</td>
-                    <td>{{ $line->inventoryItem?->code ?? ($line->item_code ?? '') }}</td>
+                    <td>{{ $line->inventoryItem?->code ?? ($line->item_code ?? '-') }}</td>
+                    <td>{{ $line->partNumber?->part_number ?? '-' }}</td>
                     <td>{{ $line->inventoryItem?->name ?? ($line->item_name ?? ($line->description ?? '-')) }}</td>
                     <td class="text-center">{{ $uom }}</td>
                     <td class="text-right">{{ number_format($line->qty, 2, ',', '.') }}</td>

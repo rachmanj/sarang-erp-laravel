@@ -110,6 +110,16 @@ class InventoryItem extends Model
         return $this->itemUnits()->where('is_active', true);
     }
 
+    public function partNumbers(): HasMany
+    {
+        return $this->hasMany(InventoryItemPartNumber::class);
+    }
+
+    public function defaultPartNumber(): HasOne
+    {
+        return $this->hasOne(InventoryItemPartNumber::class)->where('is_default', true);
+    }
+
     // Scopes
     public function scopeActive($query)
     {

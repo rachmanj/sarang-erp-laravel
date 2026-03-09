@@ -493,6 +493,7 @@ class DeliveryOrderController extends Controller
             'warehouse',
             'companyEntity',
             'lines.inventoryItem.baseUnit.unit',
+            'lines.partNumber',
             'lines.salesOrderLine.orderUnit',
             'lines.account',
             'createdBy'

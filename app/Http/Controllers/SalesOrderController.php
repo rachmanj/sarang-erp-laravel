@@ -112,7 +112,7 @@ class SalesOrderController extends Controller
             ->get();
         $accounts = DB::table('accounts')->where('is_postable', 1)->orderBy('code')->get();
         $taxCodes = DB::table('tax_codes')->orderBy('code')->get();
-        $inventoryItems = InventoryItem::active()->orderBy('name')->get();
+        $inventoryItems = InventoryItem::active()->with('partNumbers')->orderBy('name')->get();
         $warehouses = DB::table('warehouses')->where('is_active', 1)->where('name', 'not like', '%Transit%')->orderBy('name')->get();
         $currencies = $this->currencyService->getActiveCurrencies();
 
@@ -207,6 +207,7 @@ class SalesOrderController extends Controller
             'order_type' => ['required', 'in:item,service'],
             'lines' => ['required', 'array', 'min:1'],
             'lines.*.item_id' => ['required', 'integer'],
+            'lines.*.part_number_id' => ['nullable', 'integer', 'exists:inventory_item_part_numbers,id'],
             'lines.*.description' => ['nullable', 'string', 'max:255'],
             'lines.*.qty' => ['required', 'numeric', 'min:0.01'],
             'lines.*.unit_price' => ['required', 'numeric', 'min:0'],
@@ -273,7 +274,7 @@ class SalesOrderController extends Controller
             ->get();
         $accounts = DB::table('accounts')->where('is_postable', 1)->orderBy('code')->get();
         $taxCodes = DB::table('tax_codes')->orderBy('code')->get();
-        $inventoryItems = InventoryItem::active()->orderBy('name')->get();
+        $inventoryItems = InventoryItem::active()->with('partNumbers')->orderBy('name')->get();
         $warehouses = DB::table('warehouses')->where('is_active', 1)->where('name', 'not like', '%Transit%')->orderBy('name')->get();
         $currencies = $this->currencyService->getActiveCurrencies();
         $entities = $this->companyEntityService->getActiveEntities();
@@ -330,6 +331,7 @@ class SalesOrderController extends Controller
             'order_type' => ['required', 'in:item,service'],
             'lines' => ['required', 'array', 'min:1'],
             'lines.*.item_id' => ['required', 'integer'],
+            'lines.*.part_number_id' => ['nullable', 'integer', 'exists:inventory_item_part_numbers,id'],
             'lines.*.description' => ['nullable', 'string', 'max:255'],
             'lines.*.qty' => ['required', 'numeric', 'min:0.01'],
             'lines.*.unit_price' => ['required', 'numeric', 'min:0'],
@@ -363,6 +365,7 @@ class SalesOrderController extends Controller
     {
         $order = SalesOrder::with([
             'lines.inventoryItem',
+            'lines.partNumber',
             'lines.account',
             'lines.taxCode',
             'customer',

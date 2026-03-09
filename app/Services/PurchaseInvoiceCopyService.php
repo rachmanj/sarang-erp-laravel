@@ -76,6 +76,7 @@ class PurchaseInvoiceCopyService
                     'invoice_id' => $invoice->id,
                     'account_id' => $line->account_id,
                     'inventory_item_id' => $line->inventory_item_id,
+                    'part_number_id' => $line->part_number_id,
                     'item_code' => $line->item_code,
                     'item_name' => $line->item_name,
                     'unit_of_measure' => $line->unit_of_measure,

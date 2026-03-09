@@ -312,6 +312,9 @@
                                                                     @if (!empty($line['inventory_item_id']))
                                                                         <input type="hidden" name="lines[{{ $index }}][inventory_item_id]" value="{{ $line['inventory_item_id'] }}">
                                                                     @endif
+                                                                    @if (!empty($line['part_number_id']))
+                                                                        <input type="hidden" name="lines[{{ $index }}][part_number_id]" value="{{ $line['part_number_id'] }}">
+                                                                    @endif
                                                                     <input type="hidden" name="lines[{{ $index }}][description]" value="{{ $line['description'] ?? $line['item_name'] ?? '' }}">
                                                                     <input type="hidden" name="lines[{{ $index }}][item_code]" value="{{ $line['item_code'] ?? '' }}">
                                                                     <input type="hidden" name="lines[{{ $index }}][item_name]" value="{{ $line['item_name'] ?? '' }}">

@@ -553,6 +553,9 @@
                                 </button>
                             </div>
                         </div>
+                        <select name="lines[${lineIdx}][part_number_id]" class="form-control form-control-sm part-number-select mt-1" style="display:none;max-width:180px;">
+                            <option value="">Internal code</option>
+                        </select>
                     </td>
                     <td>
                         <input type="text" name="lines[${lineIdx}][description]" class="form-control form-control-sm" 
@@ -605,7 +608,7 @@
             function getItemOptions(orderType, selectedId) {
                 if (orderType === 'item') {
                     return window.inventoryItems.map(item =>
-                        `<option value="${item.id}" ${selectedId == item.id ? 'selected' : ''}>${item.code} - ${item.name}</option>`
+                        `<option value="${item.id}" data-part-numbers='${JSON.stringify(item.part_numbers || []).replace(/'/g, "&#39;")}' ${selectedId == item.id ? 'selected' : ''}>${item.code} - ${item.name}</option>`
                     ).join('');
                 } else {
                     return window.accounts.map(account =>
@@ -613,6 +616,30 @@
                     ).join('');
                 }
             }
+
+            $(document).on('change', '.item-select', function() {
+                const orderType = $('#order_type').val();
+                if (orderType !== 'item') return;
+                const row = $(this).closest('tr');
+                const partNumberSelect = row.find('.part-number-select');
+                partNumberSelect.empty().append('<option value="">Internal code</option>');
+                const opt = $(this).find('option:selected');
+                let partNumbers = [];
+                try {
+                    partNumbers = JSON.parse(opt.data('part-numbers') || '[]');
+                } catch (e) {}
+                if (partNumbers && partNumbers.length) {
+                    partNumberSelect.show();
+                    let defaultPartNumberId = '';
+                    partNumbers.forEach(function(pn) {
+                        partNumberSelect.append(`<option value="${pn.id}" ${pn.is_default ? 'selected' : ''}>${pn.part_number}${pn.description ? ' - ' + pn.description : ''}</option>`);
+                        if (pn.is_default) defaultPartNumberId = pn.id;
+                    });
+                    if (defaultPartNumberId) partNumberSelect.val(defaultPartNumberId);
+                } else {
+                    partNumberSelect.hide();
+                }
+            });
 
             function updateAllLineDropdowns() {
                 const orderType = $('#order_type').val() || 'item';
@@ -770,6 +797,7 @@
 
                 filteredItems.forEach((item, index) => {
                     const stockInfo = getStockDisplay(item);
+                    const partNumbersJson = (item.part_numbers && item.part_numbers.length) ? JSON.stringify(item.part_numbers) : '[]';
                     const row = `
                         <tr ${stockInfo.isOutOfStock ? 'class="table-danger"' : (stockInfo.isLowStock ? 'class="table-warning"' : '')}>
                             <td>${index + 1}</td>
@@ -787,6 +815,7 @@
                                         data-item-code="${item.code}" 
                                         data-item-name="${item.name}"
                                         data-item-price="${item.selling_price}"
+                                        data-item-part-numbers='${partNumbersJson.replace(/'/g, "&#39;")}'
                                         data-available-qty="${stockInfo.availableQty}"
                                         ${stockInfo.isOutOfStock && item.item_type === 'item' ? 'title="Out of stock"' : ''}>
                                     <i class="fas fa-check"></i> Select
@@ -952,6 +981,10 @@
                 const itemCode = $(this).data('item-code');
                 const itemName = $(this).data('item-name');
                 const itemPrice = $(this).data('item-price');
+                let partNumbers = $(this).data('item-part-numbers');
+                if (typeof partNumbers === 'string') {
+                    try { partNumbers = JSON.parse(partNumbers); } catch (e) { partNumbers = []; }
+                }
                 const availableQty = $(this).data('available-qty');
                 const orderType = window.currentOrderType || $('#order_type').val();
 
@@ -967,17 +1000,17 @@
                             cancelButtonText: 'Cancel'
                         }).then((result) => {
                             if (result.isConfirmed) {
-                                selectItem(itemId, itemCode, itemName, itemPrice, availableQty);
+                                selectItem(itemId, itemCode, itemName, itemPrice, availableQty, partNumbers);
                             }
                         });
                         return;
                     }
                 }
 
-                selectItem(itemId, itemCode, itemName, itemPrice, availableQty);
+                selectItem(itemId, itemCode, itemName, itemPrice, availableQty, partNumbers);
             });
             
-            function selectItem(itemId, itemCode, itemName, itemPrice, availableQty) {
+            function selectItem(itemId, itemCode, itemName, itemPrice, availableQty, partNumbers) {
                 // Update the select dropdown
                 const selectElement = $(`select[name="lines[${window.currentLineIdx}][item_id]"]`);
                 selectElement.empty();
@@ -987,9 +1020,23 @@
                 // Update the price field
                 const priceInput = selectElement.closest('tr').find('.price-input');
                 priceInput.val(itemPrice);
+
+                const row = selectElement.closest('tr');
+                const partNumberSelect = row.find('.part-number-select');
+                partNumberSelect.empty().append('<option value="">Internal code</option>');
+                let defaultPartNumberId = '';
+                if (partNumbers && partNumbers.length) {
+                    partNumberSelect.show();
+                    partNumbers.forEach(function(pn) {
+                        partNumberSelect.append(`<option value="${pn.id}" ${pn.is_default ? 'selected' : ''}>${pn.part_number}${pn.description ? ' - ' + pn.description : ''}</option>`);
+                        if (pn.is_default) defaultPartNumberId = pn.id;
+                    });
+                    if (defaultPartNumberId) partNumberSelect.val(defaultPartNumberId);
+                } else {
+                    partNumberSelect.hide();
+                }
                 
                 // Store available quantity as data attribute for validation
-                const row = selectElement.closest('tr');
                 row.data('available-qty', availableQty);
                 
                 // Add stock info badge if available

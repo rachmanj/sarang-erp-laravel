@@ -11,6 +11,7 @@ class SalesOrderLine extends Model
         'order_id',
         'account_id',
         'inventory_item_id',
+        'part_number_id',
         'item_code',
         'item_name',
         'unit_of_measure',
@@ -67,6 +68,11 @@ class SalesOrderLine extends Model
     public function inventoryItem(): BelongsTo
     {
         return $this->belongsTo(InventoryItem::class, 'inventory_item_id');
+    }
+
+    public function partNumber(): BelongsTo
+    {
+        return $this->belongsTo(InventoryItemPartNumber::class, 'part_number_id');
     }
 
     public function account(): BelongsTo

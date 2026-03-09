@@ -83,6 +83,7 @@
             <tr>
                 <th class="text-center" style="width:50px">No</th>
                 <th>Item Code</th>
+                <th>Part No.</th>
                 <th>Description</th>
                 <th class="text-right">Qty</th>
                 <th class="text-right">Unit Price</th>
@@ -94,6 +95,7 @@
             <tr>
                 <td class="text-center">{{ $index + 1 }}</td>
                 <td>{{ $line->inventoryItem->code ?? $line->item_code ?? '-' }}</td>
+                <td>{{ $line->partNumber?->part_number ?? '-' }}</td>
                 <td>{{ $line->inventoryItem->name ?? $line->item_name ?? $line->description ?? '-' }}</td>
                 <td class="text-right">{{ number_format($line->qty, 2) }}</td>
                 <td class="text-right">{{ number_format($line->unit_price, 2) }}</td>
@@ -103,7 +105,7 @@
         </tbody>
         <tfoot>
             <tr>
-                <th colspan="5" class="text-right">Total</th>
+                <th colspan="6" class="text-right">Total</th>
                 <th class="text-right">Rp {{ number_format($order->total_amount, 2) }}</th>
             </tr>
         </tfoot>

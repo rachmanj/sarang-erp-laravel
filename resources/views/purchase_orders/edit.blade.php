@@ -277,6 +277,18 @@
                                                                         </button>
                                                                     </div>
                                                                 </div>
+                                                                @if($line->inventoryItem && $line->inventoryItem->partNumbers->isNotEmpty())
+                                                                <select name="lines[{{ $index }}][part_number_id]" class="form-control form-control-sm part-number-select mt-1" style="max-width:180px;">
+                                                                    <option value="">Internal code</option>
+                                                                    @foreach($line->inventoryItem->partNumbers as $pn)
+                                                                        <option value="{{ $pn->id }}" {{ old('lines.'.$index.'.part_number_id', $line->part_number_id) == $pn->id ? 'selected' : '' }}>{{ $pn->part_number }}{{ $pn->description ? ' - ' . $pn->description : '' }}</option>
+                                                                    @endforeach
+                                                                </select>
+                                                                @else
+                                                                <select name="lines[{{ $index }}][part_number_id]" class="form-control form-control-sm part-number-select mt-1" style="display:none;max-width:180px;">
+                                                                    <option value="">Internal code</option>
+                                                                </select>
+                                                                @endif
                                                             </td>
                                                             <td>
                                                                 <input type="text"

@@ -253,6 +253,7 @@
                                                     <th>#</th>
                                                     <th>Account</th>
                                                     <th>Item Code</th>
+                                                    <th>Part No.</th>
                                                     <th>Item Name</th>
                                                     <th>Description</th>
                                                     <th class="text-right">Qty</th>
@@ -292,6 +293,7 @@
                                                                 <span class="text-muted">-</span>
                                                             @endif
                                                         </td>
+                                                        <td>{{ $line->partNumber?->part_number ?? '-' }}</td>
                                                         <td>
                                                             @if($line->item_name)
                                                                 <strong>{{ $line->item_name }}</strong>

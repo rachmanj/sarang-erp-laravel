@@ -223,6 +223,57 @@
                             </div>
                         </div>
 
+                        <hr>
+                        <h5><i class="fas fa-barcode mr-1"></i> Part Numbers</h5>
+                        <p class="text-muted small">Add alternate part numbers (e.g. customer PN, manufacturer PN). One can be set as default for document lines.</p>
+                        <div class="table-responsive mb-2">
+                            <table class="table table-sm" id="part-numbers-table">
+                                <thead>
+                                    <tr>
+                                        <th>Part Number <span class="text-danger">*</span></th>
+                                        <th>Description</th>
+                                        <th width="100">Default</th>
+                                        <th width="60"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="part-numbers-tbody">
+                                    @php
+                                        $partNumbers = old('part_numbers', $item->partNumbers->toArray());
+                                        if (empty($partNumbers)) {
+                                            $partNumbers = [['id' => null, 'part_number' => '', 'description' => '', 'is_default' => false]];
+                                        }
+                                    @endphp
+                                    @foreach ($partNumbers as $idx => $pn)
+                                        @php
+                                            $pnId = $pn['id'] ?? null;
+                                            $pnVal = $pn['part_number'] ?? '';
+                                            $descVal = $pn['description'] ?? '';
+                                            $isDef = !empty($pn['is_default']);
+                                        @endphp
+                                        <tr class="part-number-row">
+                                            <td>
+                                                <input type="hidden" name="part_numbers[{{ $idx }}][id]" value="{{ $pnId }}">
+                                                <input type="hidden" name="part_numbers[{{ $idx }}][is_default]" class="part-number-is-default" value="{{ $isDef ? '1' : '0' }}">
+                                                <input type="text" class="form-control form-control-sm" name="part_numbers[{{ $idx }}][part_number]" value="{{ old("part_numbers.{$idx}.part_number", $pnVal) }}" placeholder="e.g. PN-5800C">
+                                            </td>
+                                            <td>
+                                                <input type="text" class="form-control form-control-sm" name="part_numbers[{{ $idx }}][description]" value="{{ old("part_numbers.{$idx}.description", $descVal) }}" placeholder="e.g. Customer PN">
+                                            </td>
+                                            <td>
+                                                <input type="radio" name="part_numbers_default" value="{{ $idx }}" {{ $isDef ? 'checked' : '' }} class="part-number-default-radio">
+                                            </td>
+                                            <td>
+                                                <button type="button" class="btn btn-danger btn-sm remove-part-number"><i class="fas fa-trash"></i></button>
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                        <button type="button" class="btn btn-secondary btn-sm" id="add-part-number">
+                            <i class="fas fa-plus"></i> Add Part Number
+                        </button>
+
                         @if ($item->transactions()->count() > 0)
                             <div class="alert alert-warning">
                                 <i class="fas fa-exclamation-triangle"></i>
@@ -299,6 +350,49 @@
                     e.preventDefault();
                     toastr.error('Reorder point cannot be greater than minimum stock level');
                     return false;
+                }
+            });
+
+            let partNumberIdx = {{ count($partNumbers) }};
+
+            $('input[name="part_numbers_default"]:checked').each(function() {
+                const idx = $(this).val();
+                $('#part-numbers-tbody tr').eq(idx).find('.part-number-is-default').val('1');
+            });
+
+            $(document).on('change', 'input[name="part_numbers_default"]', function() {
+                $('#part-numbers-tbody .part-number-is-default').val('0');
+                const idx = $(this).val();
+                $('#part-numbers-tbody tr').eq(idx).find('.part-number-is-default').val('1');
+            });
+
+            $('#add-part-number').on('click', function() {
+                const row = `
+                    <tr class="part-number-row">
+                        <td>
+                            <input type="hidden" name="part_numbers[${partNumberIdx}][id]" value="">
+                            <input type="hidden" name="part_numbers[${partNumberIdx}][is_default]" class="part-number-is-default" value="0">
+                            <input type="text" class="form-control form-control-sm" name="part_numbers[${partNumberIdx}][part_number]" value="" placeholder="e.g. PN-5800C">
+                        </td>
+                        <td>
+                            <input type="text" class="form-control form-control-sm" name="part_numbers[${partNumberIdx}][description]" value="" placeholder="e.g. Customer PN">
+                        </td>
+                        <td>
+                            <input type="radio" name="part_numbers_default" value="${partNumberIdx}" class="part-number-default-radio">
+                        </td>
+                        <td>
+                            <button type="button" class="btn btn-danger btn-sm remove-part-number"><i class="fas fa-trash"></i></button>
+                        </td>
+                    </tr>
+                `;
+                $('#part-numbers-tbody').append(row);
+                partNumberIdx++;
+            });
+
+            $(document).on('click', '.remove-part-number', function() {
+                const rows = $('#part-numbers-tbody tr').length;
+                if (rows > 1) {
+                    $(this).closest('tr').remove();
                 }
             });
 

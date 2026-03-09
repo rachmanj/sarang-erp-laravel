@@ -619,6 +619,9 @@
                                 </button>
                             </div>
                         </div>
+                        <select name="lines[${lineIdx}][part_number_id]" class="form-control form-control-sm part-number-select mt-1" style="display:none;max-width:180px;">
+                            <option value="">Internal code</option>
+                        </select>
                     </td>
                     <td>
                         <input type="text" name="lines[${lineIdx}][description]" class="form-control form-control-sm" 
@@ -831,6 +834,7 @@
                 }
 
                 items.forEach((item, index) => {
+                    const partNumbersJson = (item.part_numbers && item.part_numbers.length) ? JSON.stringify(item.part_numbers) : '[]';
                     const row = `
                         <tr>
                             <td>${index + 1}</td>
@@ -846,7 +850,8 @@
                                         data-item-id="${item.id}" 
                                         data-item-code="${item.code}" 
                                         data-item-name="${item.name}"
-                                        data-item-price="${item.purchase_price}">
+                                        data-item-price="${item.purchase_price}"
+                                        data-item-part-numbers='${partNumbersJson.replace(/'/g, "&#39;")}'>
                                     <i class="fas fa-check"></i>
                                 </button>
                             </td>
@@ -925,26 +930,37 @@
                 const itemCode = $(this).data('item-code');
                 const itemName = $(this).data('item-name');
                 const itemPrice = $(this).data('item-price');
+                let partNumbers = $(this).data('item-part-numbers');
+                if (typeof partNumbers === 'string') {
+                    try { partNumbers = JSON.parse(partNumbers); } catch (e) { partNumbers = []; }
+                }
+                partNumbers = partNumbers || [];
 
-                // Update the input field and hidden field
                 const displayInput = $(`input[name="lines[${window.currentLineIdx}][item_display]"]`);
                 const hiddenInput = $(`input[name="lines[${window.currentLineIdx}][item_id]"]`);
+                const row = displayInput.closest('tr');
 
                 displayInput.val(`${itemCode} - ${itemName}`);
                 hiddenInput.val(itemId);
 
-                // Update the price field
-                const priceInput = displayInput.closest('tr').find('.price-input');
+                const partNumberSelect = row.find('.part-number-select');
+                partNumberSelect.empty().append('<option value="">Internal code</option>');
+                let defaultPartNumberId = '';
+                partNumbers.forEach(function(pn) {
+                    partNumberSelect.append(`<option value="${pn.id}" ${pn.is_default ? 'selected' : ''}>${pn.part_number}${pn.description ? ' - ' + pn.description : ''}</option>`);
+                    if (pn.is_default) defaultPartNumberId = pn.id;
+                });
+                if (defaultPartNumberId) partNumberSelect.val(defaultPartNumberId);
+                partNumberSelect.toggle(partNumbers.length > 0);
+
+                const priceInput = row.find('.price-input');
                 priceInput.val(itemPrice);
 
-                // Update line amount
-                updateLineAmount(displayInput.closest('tr'));
+                updateLineAmount(row);
                 updateTotals();
 
-                // Load units for selected item
-                loadItemUnits(itemId, displayInput.closest('tr'));
+                loadItemUnits(itemId, row);
 
-                // Close modal
                 $('#itemSelectionModal').modal('hide');
             });
 

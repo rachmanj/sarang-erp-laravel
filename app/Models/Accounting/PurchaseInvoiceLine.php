@@ -12,6 +12,7 @@ class PurchaseInvoiceLine extends Model
     protected $fillable = [
         'invoice_id',
         'inventory_item_id',
+        'part_number_id',
         'warehouse_id',
         'account_id',
         'description',
@@ -52,6 +53,11 @@ class PurchaseInvoiceLine extends Model
     public function inventoryItem(): BelongsTo
     {
         return $this->belongsTo(\App\Models\InventoryItem::class, 'inventory_item_id');
+    }
+
+    public function partNumber(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\InventoryItemPartNumber::class, 'part_number_id');
     }
 
     public function warehouse(): BelongsTo

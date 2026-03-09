@@ -156,6 +156,7 @@ class PurchaseService
                         'order_id' => $po->id,
                         'account_id' => $accountId,
                         'inventory_item_id' => $inventoryItemId,
+                        'part_number_id' => $lineData['part_number_id'] ?? null,
                         'item_code' => null,
                         'item_name' => null,
                         'unit_of_measure' => null,
@@ -327,6 +328,7 @@ class PurchaseService
                 $line = PurchaseOrderLine::create([
                     'order_id' => $po->id,
                     'inventory_item_id' => $inventoryItemId,
+                    'part_number_id' => $processedLine['part_number_id'] ?? $lineData['part_number_id'] ?? null,
                     'account_id' => $accountId,
                     'description' => $processedLine['description'],
                     'qty' => $processedLine['qty'],

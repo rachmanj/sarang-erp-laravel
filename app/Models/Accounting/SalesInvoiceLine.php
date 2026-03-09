@@ -13,6 +13,7 @@ class SalesInvoiceLine extends Model
         'invoice_id',
         'delivery_order_line_id',
         'inventory_item_id',
+        'part_number_id',
         'item_code',
         'item_name',
         'account_id',
@@ -52,6 +53,11 @@ class SalesInvoiceLine extends Model
     public function inventoryItem(): BelongsTo
     {
         return $this->belongsTo(\App\Models\InventoryItem::class, 'inventory_item_id');
+    }
+
+    public function partNumber(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\InventoryItemPartNumber::class, 'part_number_id');
     }
 
     public function deliveryOrderLine(): BelongsTo

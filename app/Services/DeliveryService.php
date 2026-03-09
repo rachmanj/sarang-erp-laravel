@@ -236,6 +236,7 @@ class DeliveryService
                 'delivery_order_id' => $deliveryOrder->id,
                 'sales_order_line_id' => $salesOrderLine->id,
                 'inventory_item_id' => $inventoryItemId,
+                'part_number_id' => $salesOrderLine->part_number_id,
                 'account_id' => $salesOrderLine->account_id,
                 'item_code' => $inventoryItem ? $inventoryItem->code : $salesOrderLine->item_code,
                 'item_name' => $inventoryItem ? $inventoryItem->name : $salesOrderLine->item_name,

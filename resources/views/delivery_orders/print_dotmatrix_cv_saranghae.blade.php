@@ -226,6 +226,7 @@
             <tr>
                 <th class="text-center">No</th>
                 <th>Item Code</th>
+                <th>Part No.</th>
                 <th>Item Name</th>
                 <th class="text-right">Qty</th>
                 <th class="text-center">UOM</th>
@@ -242,7 +243,8 @@
             @endphp
             <tr>
                 <td class="text-center">{{ $index + 1 }}</td>
-                <td>{{ $line->item_code ?? 'N/A' }}</td>
+                <td>{{ $line->inventoryItem?->code ?? $line->item_code ?? 'N/A' }}</td>
+                <td>{{ $line->partNumber?->part_number ?? '-' }}</td>
                 <td>{{ $line->item_name ?? 'N/A' }}</td>
                 <td class="text-right">{{ number_format($line->delivered_qty > 0 ? $line->delivered_qty : $line->ordered_qty, 2) }}</td>
                 <td class="text-center">{{ $uom }}</td>

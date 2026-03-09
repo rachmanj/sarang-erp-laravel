@@ -78,6 +78,7 @@ class QuotationConversionService
                     'order_id' => $salesOrder->id,
                     'account_id' => $quotationLine->account_id,
                     'inventory_item_id' => $quotationLine->inventory_item_id,
+                    'part_number_id' => $quotationLine->part_number_id,
                     'item_code' => $quotationLine->item_code,
                     'item_name' => $quotationLine->item_name,
                     'unit_of_measure' => $quotationLine->unit_of_measure,

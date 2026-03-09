@@ -240,6 +240,7 @@ class PurchaseOrderController extends Controller
             'order_type' => ['required', 'in:item,service'],
             'lines' => ['required', 'array', 'min:1'],
             'lines.*.item_id' => ['required', 'integer'],
+            'lines.*.part_number_id' => ['nullable', 'integer', 'exists:inventory_item_part_numbers,id'],
             'lines.*.description' => ['nullable', 'string', 'max:255'],
             'lines.*.qty' => ['required', 'numeric', 'min:0.01'],
             'lines.*.unit_price' => ['required', 'numeric', 'min:0'],
@@ -276,7 +277,7 @@ class PurchaseOrderController extends Controller
 
     public function show(int $id)
     {
-        $order = PurchaseOrder::with(['lines.inventoryItem', 'businessPartner', 'approvals.user', 'approvedBy', 'createdBy'])
+        $order = PurchaseOrder::with(['lines.inventoryItem.partNumbers', 'lines.partNumber', 'businessPartner', 'approvals.user', 'approvedBy', 'createdBy'])
             ->findOrFail($id);
 
         return view('purchase_orders.show', compact('order'));
@@ -286,6 +287,7 @@ class PurchaseOrderController extends Controller
     {
         $order = PurchaseOrder::with([
             'lines.inventoryItem',
+            'lines.partNumber',
             'lines.orderUnit',
             'businessPartner.primaryAddress',
             'businessPartner.addresses',
@@ -349,7 +351,7 @@ class PurchaseOrderController extends Controller
 
     public function edit(int $id)
     {
-        $order = PurchaseOrder::with(['lines.inventoryItem', 'businessPartner'])->findOrFail($id);
+        $order = PurchaseOrder::with(['lines.inventoryItem.partNumbers', 'lines.partNumber', 'businessPartner'])->findOrFail($id);
 
         // Only allow editing of draft purchase orders
         if ($order->status !== 'draft') {
@@ -396,6 +398,7 @@ class PurchaseOrderController extends Controller
             'order_type' => ['required', 'in:item,service'],
             'lines' => ['required', 'array', 'min:1'],
             'lines.*.item_id' => ['required', 'integer'],
+            'lines.*.part_number_id' => ['nullable', 'integer', 'exists:inventory_item_part_numbers,id'],
             'lines.*.description' => ['nullable', 'string', 'max:255'],
             'lines.*.qty' => ['required', 'numeric', 'min:0.01'],
             'lines.*.unit_price' => ['required', 'numeric', 'min:0'],

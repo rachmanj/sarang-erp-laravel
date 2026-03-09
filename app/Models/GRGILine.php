@@ -12,6 +12,7 @@ class GRGILine extends Model
     protected $fillable = [
         'header_id',
         'item_id',
+        'part_number_id',
         'quantity',
         'unit_price',
         'total_amount',
@@ -33,6 +34,11 @@ class GRGILine extends Model
     public function item(): BelongsTo
     {
         return $this->belongsTo(InventoryItem::class, 'item_id');
+    }
+
+    public function partNumber(): BelongsTo
+    {
+        return $this->belongsTo(InventoryItemPartNumber::class, 'part_number_id');
     }
 
     // Accessors

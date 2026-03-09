@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Exports\InventoryDetailReportExport;
 use App\Models\InventoryItem;
+use App\Models\InventoryItemPartNumber;
 use App\Models\InventoryTransaction;
 use App\Models\InventoryValuation;
 use App\Models\InventoryItemUnit;
@@ -52,7 +53,7 @@ class InventoryController extends Controller
         try {
             $warehouseId = $request->filled('warehouse_id') ? $request->warehouse_id : null;
             
-            $query = InventoryItem::with(['category'])
+            $query = InventoryItem::with(['category', 'partNumbers'])
                 ->active();
             
             // Always load warehouse stock for accurate available quantity
@@ -153,6 +154,12 @@ class InventoryController extends Controller
                     'reorder_point' => $item->reorder_point,
                     'valuation_method' => $item->valuation_method,
                     'warehouse_stock' => $warehouseStock,
+                    'part_numbers' => $item->partNumbers->map(fn ($pn) => [
+                        'id' => $pn->id,
+                        'part_number' => $pn->part_number,
+                        'description' => $pn->description,
+                        'is_default' => $pn->is_default,
+                    ])->values()->all(),
                 ];
             });
 
@@ -379,6 +386,30 @@ class InventoryController extends Controller
         $data['is_active'] = $request->has('is_active');
 
         $item->update($data);
+
+        $partNumbers = $request->input('part_numbers', []);
+        $existingIds = [];
+        foreach ($partNumbers as $pn) {
+            if (empty(trim($pn['part_number'] ?? ''))) {
+                continue;
+            }
+            $pnData = [
+                'part_number' => trim($pn['part_number']),
+                'description' => trim($pn['description'] ?? ''),
+                'is_default' => !empty($pn['is_default']),
+            ];
+            if (!empty($pn['id'])) {
+                $partNumber = InventoryItemPartNumber::where('inventory_item_id', $item->id)->find($pn['id']);
+                if ($partNumber) {
+                    $partNumber->update($pnData);
+                    $existingIds[] = $partNumber->id;
+                }
+            } else {
+                $partNumber = $item->partNumbers()->create(array_merge($pnData, ['inventory_item_id' => $item->id]));
+                $existingIds[] = $partNumber->id;
+            }
+        }
+        $item->partNumbers()->whereNotIn('id', $existingIds)->delete();
 
         return redirect()->route('inventory.show', $item->id)
             ->with('success', 'Inventory item updated successfully');
