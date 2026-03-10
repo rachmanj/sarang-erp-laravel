@@ -107,19 +107,20 @@
 
         .items-table th:nth-child(1) { width: 5%; }
         .items-table th:nth-child(2) { width: 12%; }
-        .items-table th:nth-child(3) { width: 38%; }
-        .items-table th:nth-child(4) { width: 8%; }
+        .items-table th:nth-child(3) { width: 8%; }
+        .items-table th:nth-child(4) { width: 45%; }
         .items-table th:nth-child(5) { width: 12%; }
         .items-table th:nth-child(6) { width: 8%; }
+        .items-table th:nth-child(7) { width: 3%; }
 
         .signature-row {
-            margin-top: 12px;
+            margin-top: 24px;
             font-size: 10px;
         }
 
         .signature-row td {
             border: none;
-            padding: 4px;
+            padding: 8px 4px;
             vertical-align: top;
         }
 
