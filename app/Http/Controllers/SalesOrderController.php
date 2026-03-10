@@ -52,7 +52,9 @@ class SalesOrderController extends Controller
     public function index()
     {
         $customers = \App\Models\BusinessPartner::where('partner_type', 'customer')->orderBy('name')->get(['id', 'name']);
-        return view('sales_orders.index', compact('customers'));
+        $ptCahaya = \App\Models\CompanyEntity::where('code', '71')->first();
+        $cvCahaya = \App\Models\CompanyEntity::where('code', '72')->first();
+        return view('sales_orders.index', compact('customers', 'ptCahaya', 'cvCahaya'));
     }
 
     public function data(Request $request)

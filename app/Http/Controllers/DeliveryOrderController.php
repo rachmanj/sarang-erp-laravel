@@ -64,8 +64,10 @@ class DeliveryOrderController extends Controller
 
         $deliveryOrders = $query->paginate(20);
         $customers = \App\Models\BusinessPartner::where('partner_type', 'customer')->orderBy('name')->get();
+        $ptCahaya = \App\Models\CompanyEntity::where('code', '71')->first();
+        $cvCahaya = \App\Models\CompanyEntity::where('code', '72')->first();
 
-        return view('delivery_orders.index', compact('deliveryOrders', 'customers'));
+        return view('delivery_orders.index', compact('deliveryOrders', 'customers', 'ptCahaya', 'cvCahaya'));
     }
 
     /**

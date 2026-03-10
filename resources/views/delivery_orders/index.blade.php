@@ -29,6 +29,25 @@
                         <div class="card-body">
                             <!-- Filters -->
                             <div class="row mb-3">
+                                <div class="col-12 mb-2">
+                                    <label class="mr-2">Entity:</label>
+                                    <div class="form-check form-check-inline">
+                                        <input class="form-check-input" type="radio" name="entity-filter" id="entity-all" value="" checked>
+                                        <label class="form-check-label" for="entity-all">All</label>
+                                    </div>
+                                    @if ($ptCahaya ?? null)
+                                    <div class="form-check form-check-inline">
+                                        <input class="form-check-input" type="radio" name="entity-filter" id="entity-pt" value="{{ $ptCahaya->id }}">
+                                        <label class="form-check-label" for="entity-pt">PT Cahaya Sarange Jaya</label>
+                                    </div>
+                                    @endif
+                                    @if ($cvCahaya ?? null)
+                                    <div class="form-check form-check-inline">
+                                        <input class="form-check-input" type="radio" name="entity-filter" id="entity-cv" value="{{ $cvCahaya->id }}">
+                                        <label class="form-check-label" for="entity-cv">CV Cahaya Saranghae</label>
+                                    </div>
+                                    @endif
+                                </div>
                                 <div class="col-md-3">
                                     <select class="form-control form-control-sm" id="status-filter">
                                         <option value="">All Status</option>
@@ -103,6 +122,8 @@
                         d.customer_id = $('#customer-filter').val();
                         d.date_from = $('#date-from').val();
                         d.date_to = $('#date-to').val();
+                        var entityVal = $('input[name="entity-filter"]:checked').val();
+                        if (entityVal) d.company_entity_id = entityVal;
                     }
                 },
                 columns: [{
@@ -195,6 +216,10 @@
             window.applyFilters = function() {
                 table.ajax.reload();
             };
+
+            $('input[name="entity-filter"]').on('change', function() {
+                table.ajax.reload();
+            });
         });
     </script>
 @endpush

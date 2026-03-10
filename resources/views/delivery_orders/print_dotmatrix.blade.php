@@ -30,6 +30,11 @@
             border-bottom: 1px solid #000;
         }
 
+        .company-header .logo {
+            max-height: 48px;
+            margin-bottom: 4px;
+        }
+
         .company-name {
             font-size: 12px;
             font-weight: bold;
@@ -95,19 +100,20 @@
 
         .items-table th:nth-child(1) { width: 5%; }
         .items-table th:nth-child(2) { width: 12%; }
-        .items-table th:nth-child(3) { width: 38%; }
-        .items-table th:nth-child(4) { width: 8%; }
+        .items-table th:nth-child(3) { width: 8%; }
+        .items-table th:nth-child(4) { width: 45%; }
         .items-table th:nth-child(5) { width: 12%; }
         .items-table th:nth-child(6) { width: 8%; }
+        .items-table th:nth-child(7) { width: 3%; }
 
         .signature-row {
-            margin-top: 12px;
+            margin-top: 24px;
             font-size: 10px;
         }
 
         .signature-row td {
             border: none;
-            padding: 4px;
+            padding: 8px 4px;
             vertical-align: top;
         }
 
@@ -142,6 +148,7 @@
     @endphp
 
     <div class="company-header">
+        <img src="{{ asset('logo_pt_csj_transparan.jpeg') }}" alt="Logo" class="logo">
         <div class="company-name">{{ $companyName }}</div>
         <div class="company-details">
             {{ $companyAddress }}

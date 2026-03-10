@@ -37,7 +37,9 @@ class SalesInvoiceController extends Controller
 
     public function index()
     {
-        return view('sales_invoices.index');
+        $ptCahaya = \App\Models\CompanyEntity::where('code', '71')->first();
+        $cvCahaya = \App\Models\CompanyEntity::where('code', '72')->first();
+        return view('sales_invoices.index', compact('ptCahaya', 'cvCahaya'));
     }
 
     public function create(Request $request)
@@ -712,6 +714,9 @@ class SalesInvoiceController extends Controller
                     ->orWhere('si.description', 'like', '%' . $kw . '%')
                     ->orWhere('c.name', 'like', '%' . $kw . '%');
             });
+        }
+        if ($request->filled('company_entity_id')) {
+            $q->where('si.company_entity_id', (int) $request->company_entity_id);
         }
 
         return DataTables::of($q)

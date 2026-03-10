@@ -20,6 +20,23 @@
                         </a>
                     </div>
                     <form class="form-inline" id="filters">
+                        <label class="mr-1 small mb-0">Entity:</label>
+                        <div class="form-check form-check-inline mr-2">
+                            <input class="form-check-input" type="radio" name="entity_filter" id="entity-all" value="" checked>
+                            <label class="form-check-label" for="entity-all">All</label>
+                        </div>
+                        @if ($ptCahaya ?? null)
+                        <div class="form-check form-check-inline mr-2">
+                            <input class="form-check-input" type="radio" name="entity_filter" id="entity-pt" value="{{ $ptCahaya->id }}">
+                            <label class="form-check-label" for="entity-pt">PT Cahaya Sarange Jaya</label>
+                        </div>
+                        @endif
+                        @if ($cvCahaya ?? null)
+                        <div class="form-check form-check-inline mr-2">
+                            <input class="form-check-input" type="radio" name="entity_filter" id="entity-cv" value="{{ $cvCahaya->id }}">
+                            <label class="form-check-label" for="entity-cv">CV Cahaya Saranghae</label>
+                        </div>
+                        @endif
                         <input type="date" name="from" class="form-control form-control-sm mr-1" placeholder="From">
                         <input type="date" name="to" class="form-control form-control-sm mr-1" placeholder="To">
                         <input type="text" name="q" class="form-control form-control-sm mr-1" placeholder="Search">
@@ -131,9 +148,15 @@
                 e.preventDefault();
                 table.ajax.reload();
             });
+            $('input[name="entity_filter"]').on('change', function() {
+                table.ajax.reload();
+            });
             $('#csv').on('click', function(e) {
                 e.preventDefault();
-                this.href = '{{ route('sales-quotations.csv') }}?' + $('#filters').serialize();
+                var params = $('#filters').serialize();
+                var entityVal = $('input[name="entity_filter"]:checked').val();
+                if (entityVal) params += (params ? '&' : '') + 'company_entity_id=' + entityVal;
+                this.href = '{{ route('sales-quotations.csv') }}?' + params;
                 window.location = this.href;
             });
         });

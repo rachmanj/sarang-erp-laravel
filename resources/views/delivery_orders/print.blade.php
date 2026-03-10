@@ -121,7 +121,7 @@
         @endphp
 
         <div class="company-logo">
-            <img src="{{ asset('logo_pt_csj.png') }}" alt="Logo">
+            <img src="{{ asset('logo_pt_csj_transparan.jpeg') }}" alt="Logo">
         </div>
 
         <div class="company-info">

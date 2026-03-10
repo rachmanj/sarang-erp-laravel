@@ -25,6 +25,25 @@
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <h3 class="card-title">Sales Receipts</h3>
                             <div>
+                                <div class="d-inline-block mr-2">
+                                    <label class="mr-1 small mb-0">Entity:</label>
+                                    <div class="form-check form-check-inline d-inline">
+                                        <input class="form-check-input" type="radio" name="entity_filter" id="entity-all" value="" checked>
+                                        <label class="form-check-label" for="entity-all">All</label>
+                                    </div>
+                                    @if ($ptCahaya ?? null)
+                                    <div class="form-check form-check-inline d-inline">
+                                        <input class="form-check-input" type="radio" name="entity_filter" id="entity-pt" value="{{ $ptCahaya->id }}">
+                                        <label class="form-check-label" for="entity-pt">PT Cahaya Sarange Jaya</label>
+                                    </div>
+                                    @endif
+                                    @if ($cvCahaya ?? null)
+                                    <div class="form-check form-check-inline d-inline">
+                                        <input class="form-check-input" type="radio" name="entity_filter" id="entity-cv" value="{{ $cvCahaya->id }}">
+                                        <label class="form-check-label" for="entity-cv">CV Cahaya Saranghae</label>
+                                    </div>
+                                    @endif
+                                </div>
                                 <input type="date" id="filter_from" class="form-control form-control-sm d-inline-block"
                                     style="width:160px">
                                 <input type="date" id="filter_to" class="form-control form-control-sm d-inline-block"
@@ -116,6 +135,9 @@
                     ]
                 });
                 $('#apply_filters').on('click', function() {
+                    table.ajax.reload();
+                });
+                $('input[name="entity_filter"]').on('change', function() {
                     table.ajax.reload();
                 });
             });

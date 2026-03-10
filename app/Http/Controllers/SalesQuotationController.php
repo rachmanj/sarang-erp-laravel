@@ -44,7 +44,9 @@ class SalesQuotationController extends Controller
 
     public function index()
     {
-        return view('sales_quotations.index');
+        $ptCahaya = \App\Models\CompanyEntity::where('code', '71')->first();
+        $cvCahaya = \App\Models\CompanyEntity::where('code', '72')->first();
+        return view('sales_quotations.index', compact('ptCahaya', 'cvCahaya'));
     }
 
     public function data(Request $request)
@@ -95,6 +97,9 @@ class SalesQuotationController extends Controller
                         $bp->where('name', 'like', '%' . $request->q . '%');
                     });
             });
+        }
+        if ($request->filled('company_entity_id')) {
+            $query->where('company_entity_id', (int) $request->company_entity_id);
         }
 
         return DataTables::of($query)

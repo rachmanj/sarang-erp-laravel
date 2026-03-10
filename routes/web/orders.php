@@ -47,6 +47,9 @@ Route::prefix('sales-orders')->group(function () {
                     ->orWhere('c.name', 'like', '%' . $kw . '%');
             });
         }
+        if (request()->filled('company_entity_id')) {
+            $q->where('so.company_entity_id', (int)request('company_entity_id'));
+        }
         return Yajra\DataTables\Facades\DataTables::of($q)
             ->editColumn('id', function ($r) {
                 static $idx = -1;
@@ -104,6 +107,10 @@ Route::prefix('sales-orders')->group(function () {
                     ->orWhere('so.description', 'like', '%' . $kw . '%')
                     ->orWhere('c.name', 'like', '%' . $kw . '%');
             });
+        }
+        $entityId = request('company_entity_id') ?: request('entity_filter');
+        if ($entityId) {
+            $q->where('so.company_entity_id', (int)$entityId);
         }
         $rows = $q->orderBy('so.date', 'desc')->get();
         $csv = "date,order_no,reference_no,customer,total,status\n";
@@ -194,6 +201,10 @@ Route::prefix('sales-quotations')->middleware(['auth'])->group(function () {
                     ->orWhere('sq.reference_no', 'like', '%' . $kw . '%')
                     ->orWhere('bp.name', 'like', '%' . $kw . '%');
             });
+        }
+        $entityId = request('company_entity_id') ?: request('entity_filter');
+        if ($entityId) {
+            $q->where('sq.company_entity_id', (int)$entityId);
         }
         $rows = $q->orderBy('sq.date', 'desc')->get();
         $csv = "date,quotation_no,valid_until_date,customer,total_amount,net_amount,status,approval_status\n";

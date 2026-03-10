@@ -33,7 +33,9 @@ class SalesReceiptController extends Controller
 
     public function index()
     {
-        return view('sales_receipts.index');
+        $ptCahaya = \App\Models\CompanyEntity::where('code', '71')->first();
+        $cvCahaya = \App\Models\CompanyEntity::where('code', '72')->first();
+        return view('sales_receipts.index', compact('ptCahaya', 'cvCahaya'));
     }
 
     public function create()
@@ -320,9 +322,12 @@ class SalesReceiptController extends Controller
             $kw = $request->input('q');
             $q->where(function ($w) use ($kw) {
                 $w->where('sr.receipt_no', 'like', '%' . $kw . '%')
-                    ->orWhere('sr.description', 'like', '%' . $kw + '%')
+                    ->orWhere('sr.description', 'like', '%' . $kw . '%')
                     ->orWhere('c.name', 'like', '%' . $kw . '%');
             });
+        }
+        if ($request->filled('company_entity_id')) {
+            $q->where('sr.company_entity_id', (int) $request->company_entity_id);
         }
 
         return DataTables::of($q)
