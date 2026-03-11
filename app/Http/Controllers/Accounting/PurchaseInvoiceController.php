@@ -977,14 +977,14 @@ class PurchaseInvoiceController extends Controller
         $withholdingTotal = 0.0;
         $lines = [];
 
-        // Calculate totals and group by account for opening balance
+        // Calculate totals and group by account for opening balance or direct credit (no GRPO)
         $expenseByAccount = [];
+        $useLineAccounts = $invoice->is_opening_balance || !$invoice->goods_receipt_id;
         foreach ($invoice->lines as $l) {
             $lineAmount = ($l->net_amount > 0) ? (float) $l->net_amount : (float) $l->amount;
             $expenseTotal += $lineAmount;
             
-            // Group by account for opening balance invoices
-            if ($invoice->is_opening_balance) {
+            if ($useLineAccounts) {
                 $accountId = (int) $l->account_id;
                 if (!isset($expenseByAccount[$accountId])) {
                     $expenseByAccount[$accountId] = 0;
@@ -1034,9 +1034,7 @@ class PurchaseInvoiceController extends Controller
             }
         }
 
-        // Check if this is an opening balance invoice
-        if ($invoice->is_opening_balance) {
-            // Opening balance: Debit accounts from invoice lines, Credit Utang Dagang
+        if ($useLineAccounts) {
             foreach ($expenseByAccount as $accountId => $amount) {
                 $lines[] = [
                     'account_id' => $accountId,
@@ -1044,14 +1042,13 @@ class PurchaseInvoiceController extends Controller
                     'credit' => 0,
                     'project_id' => null,
                     'dept_id' => null,
-                    'memo' => 'Opening Balance - Expense/Inventory',
+                    'memo' => $invoice->is_opening_balance ? 'Opening Balance - Expense/Inventory' : 'Expense/Inventory',
                 ];
             }
         } else {
-            // Normal flow: Debit AP UnInvoice (reducing un-invoiced liability)
             $lines[] = [
                 'account_id' => $apUnInvoiceAccountId,
-                'debit' => ($expenseTotal + $ppnTotal) - $withholdingTotal,
+                'debit' => $expenseTotal,
                 'credit' => 0,
                 'project_id' => null,
                 'dept_id' => null,
