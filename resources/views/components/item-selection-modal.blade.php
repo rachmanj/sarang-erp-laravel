@@ -60,6 +60,11 @@
                         <button type="button" class="btn btn-secondary btn-sm" id="clearSearch">
                             <i class="fas fa-times mr-1"></i>Clear
                         </button>
+                        @can('inventory.create')
+                            <button type="button" class="btn btn-success btn-sm ml-2" id="btnAddNewItem" title="Add new inventory item">
+                                <i class="fas fa-plus mr-1"></i>Add New Item
+                            </button>
+                        @endcan
                         <span class="ml-3 text-muted" id="searchResultsCount"></span>
                     </div>
                 </div>
@@ -120,3 +125,115 @@
         </div>
     </div>
 </div>
+
+@can('inventory.create')
+<!-- Quick Add Item Modal (nested) -->
+<div class="modal fade" id="quickAddItemModal" tabindex="-1" role="dialog" aria-labelledby="quickAddItemModalLabel"
+    aria-hidden="true" data-backdrop="static">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="quickAddItemModalLabel">
+                    <i class="fas fa-plus mr-2"></i>Add New Inventory Item
+                </h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <form id="quickAddItemForm">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="quickItemCode">Code <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="quickItemCode" name="code" required
+                            placeholder="e.g. ITEM-001">
+                    </div>
+                    <div class="form-group">
+                        <label for="quickItemName">Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="quickItemName" name="name" required
+                            placeholder="Item name">
+                    </div>
+                    <div class="form-group">
+                        <label for="quickItemCategory">Category <span class="text-danger">*</span></label>
+                        <select class="form-control" id="quickItemCategory" name="category_id" required>
+                            <option value="">Select Category</option>
+                            @foreach (\App\Models\ProductCategory::with('parent')->active()->orderBy('name')->get() as $cat)
+                                <option value="{{ $cat->id }}">{{ $cat->getHierarchicalName() }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="quickItemUnit">Unit of Measure <span class="text-danger">*</span></label>
+                        <select class="form-control" id="quickItemUnit" name="base_unit_id" required>
+                            <option value="">Select Unit</option>
+                            @foreach (\App\Models\UnitOfMeasure::active()->orderBy('name')->get() as $unit)
+                                <option value="{{ $unit->id }}">{{ $unit->display_name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="quickItemPurchasePrice">Purchase Price</label>
+                        <input type="number" class="form-control" id="quickItemPurchasePrice" name="purchase_price"
+                            step="0.01" min="0" value="0" placeholder="0">
+                    </div>
+                    <div id="quickAddItemError" class="alert alert-danger" style="display: none;"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="quickAddItemSubmitBtn">
+                        <i class="fas fa-save mr-1"></i>Save & Select
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@push('scripts')
+<script>
+$(function() {
+    $('#btnAddNewItem').on('click', function() {
+        $('#quickAddItemModal').modal('show');
+        $('#quickAddItemError').hide();
+    });
+
+    $('#quickAddItemForm').on('submit', function(e) {
+        e.preventDefault();
+        var form = $(this);
+        var btn = $('#quickAddItemSubmitBtn');
+        var errEl = $('#quickAddItemError');
+        errEl.hide();
+
+        btn.prop('disabled', true);
+        $.ajax({
+            url: '{{ route('inventory.api.quick-store') }}',
+            method: 'POST',
+            data: form.serialize(),
+            headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
+            success: function(response) {
+                if (response.success && response.item) {
+                    $('#quickAddItemModal').modal('hide');
+                    $('#itemSelectionModal').modal('hide');
+                    form[0].reset();
+                    if (typeof window.applySelectedItemToLine === 'function') {
+                        window.applySelectedItemToLine(window.currentLineIndex, response.item);
+                    } else if (typeof toastr !== 'undefined') {
+                        toastr.success('Item created and selected');
+                    }
+                }
+            },
+            error: function(xhr) {
+                if (xhr.status === 422 && xhr.responseJSON && xhr.responseJSON.errors) {
+                    var msgs = [];
+                    $.each(xhr.responseJSON.errors, function(_, arr) { msgs.push(arr[0]); });
+                    errEl.html(msgs.join('<br>')).show();
+                } else {
+                    errEl.html(xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : 'Failed to create item').show();
+                }
+            },
+            complete: function() { btn.prop('disabled', false); }
+        });
+    });
+});
+</script>
+@endpush
+@endcan

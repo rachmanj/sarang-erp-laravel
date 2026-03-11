@@ -17,6 +17,7 @@ use App\Services\PriceLevelService;
 use App\Services\UnitConversionService;
 use App\Services\PurchaseInvoiceService;
 use App\Services\InventoryService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
@@ -322,6 +323,78 @@ class InventoryController extends Controller
             Log::error('Error creating inventory item: ' . $e->getMessage());
             Log::error($e->getTraceAsString());
             return back()->withInput()->withErrors(['error' => 'Failed to create inventory item: ' . $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Quick-create inventory item via AJAX (e.g. from PI/PO item selection modal).
+     * Uses minimal required fields with sensible defaults.
+     */
+    public function quickStore(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'code' => ['required', 'string', 'max:50', 'unique:inventory_items,code'],
+            'name' => ['required', 'string', 'max:255'],
+            'category_id' => ['required', 'integer', 'exists:product_categories,id'],
+            'base_unit_id' => ['required', 'integer', 'exists:units_of_measure,id'],
+            'purchase_price' => ['nullable', 'numeric', 'min:0'],
+        ]);
+
+        $baseUnitId = $data['base_unit_id'];
+        $baseUnit = UnitOfMeasure::findOrFail($baseUnitId);
+        $purchasePrice = (float) ($data['purchase_price'] ?? 0);
+
+        $itemData = [
+            'code' => $data['code'],
+            'name' => $data['name'],
+            'description' => null,
+            'category_id' => $data['category_id'],
+            'default_warehouse_id' => null,
+            'unit_of_measure' => $baseUnit->code,
+            'purchase_price' => $purchasePrice,
+            'selling_price' => $purchasePrice > 0 ? $purchasePrice : 0,
+            'item_type' => 'item',
+            'valuation_method' => 'weighted_average',
+            'min_stock_level' => 0,
+            'max_stock_level' => 0,
+            'reorder_point' => 0,
+            'is_active' => true,
+        ];
+
+        try {
+            $item = DB::transaction(function () use ($itemData, $baseUnitId) {
+                $item = InventoryItem::create($itemData);
+                app(UnitConversionService::class)->createItemUnit($item->id, $baseUnitId, [
+                    'is_base_unit' => true,
+                    'conversion_quantity' => 1,
+                    'selling_price' => $itemData['selling_price'],
+                ]);
+                app(AuditLogService::class)->logInventoryItem(
+                    'created',
+                    $item->id,
+                    null,
+                    $item->getAttributes(),
+                    "Inventory item '{$item->name}' created (quick-add)"
+                );
+                return $item;
+            });
+
+            return response()->json([
+                'success' => true,
+                'item' => [
+                    'id' => $item->id,
+                    'code' => $item->code,
+                    'name' => $item->name,
+                    'purchase_price' => (float) $item->purchase_price,
+                    'unit_of_measure' => $item->unit_of_measure,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Quick store inventory item failed: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 500);
         }
     }
 

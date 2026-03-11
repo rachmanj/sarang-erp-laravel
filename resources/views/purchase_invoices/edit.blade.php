@@ -920,43 +920,28 @@
             }
         });
 
-        $(document).on('click', '.select-item-btn', function() {
-            const itemId = $(this).data('item-id');
-            const itemCode = $(this).data('item-code');
-            const itemName = $(this).data('item-name');
-            const itemPrice = $(this).data('item-price');
-            const lineIndex = window.currentLineIndex;
+        window.applySelectedItemToLine = function(lineIndex, item) {
+            const itemId = item.id;
+            const itemCode = item.code;
+            const itemName = item.name;
+            const itemPrice = item.purchase_price || item.unit_price || 0;
 
-            // Update item fields
             $(`input[name="lines[${lineIndex}][inventory_item_id]"]`).val(itemId);
             $(`.item-name-display-${lineIndex}`).text(`${itemCode} - ${itemName}`).show();
-
-            // Update price
             $(`input[name="lines[${lineIndex}][unit_price]"]`).val(itemPrice).trigger('input');
 
-            // Auto-populate account via AJAX
             $.ajax({
                 url: `/inventory/api/items/${itemId}/account`,
                 method: 'GET',
                 success: function(response) {
                     if (response.success) {
-                        // Update account field (hidden or visible)
                         const accountInput = $(`input[name="lines[${lineIndex}][account_id]"]`);
                         const accountSelect = $(`select[name="lines[${lineIndex}][account_id]"]`);
-
-                        if (accountInput.length) {
-                            accountInput.val(response.account_id);
-                        }
-                        if (accountSelect.length) {
-                            accountSelect.val(response.account_id).trigger('change');
-                        }
-
-                        // Show account info
+                        if (accountInput.length) accountInput.val(response.account_id);
+                        if (accountSelect.length) accountSelect.val(response.account_id).trigger('change');
                         $(`.account-display-${lineIndex}`)
                             .text(`${response.account_code} - ${response.account_name}`)
                             .show();
-
-                        // Auto-select default warehouse if available
                         if (response.default_warehouse_id) {
                             $(`select[name="lines[${lineIndex}][warehouse_id]"]`)
                                 .val(response.default_warehouse_id)
@@ -970,17 +955,23 @@
                 }
             });
 
-            // Load units for selected item
             loadItemUnits(itemId, $(`input[name="lines[${lineIndex}][inventory_item_id]"]`).closest('tr'), null);
-
-            // Update line amount
             const row = $(`input[name="lines[${lineIndex}][inventory_item_id]"]`).closest('tr');
             updateLineAmount(row);
             updateTotals();
-
-            // Close modal
-            $('#itemSelectionModal').modal('hide');
             toastr.success('Item selected successfully');
+        };
+
+        $(document).on('click', '.select-item-btn', function() {
+            const lineIndex = window.currentLineIndex;
+            const item = {
+                id: $(this).data('item-id'),
+                code: $(this).data('item-code'),
+                name: $(this).data('item-name'),
+                purchase_price: $(this).data('item-price')
+            };
+            window.applySelectedItemToLine(lineIndex, item);
+            $('#itemSelectionModal').modal('hide');
         });
 
         // Function to load units for an item

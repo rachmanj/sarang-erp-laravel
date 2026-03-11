@@ -333,6 +333,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/api/items/{id}', [InventoryController::class, 'getItemDetails'])->name('inventory.get-item-details');
         Route::get('/api/items/{id}/account', [InventoryController::class, 'getItemAccount'])->name('inventory.get-item-account');
         Route::get('/api/search', [InventoryController::class, 'search'])->name('inventory.search');
+        Route::post('/api/quick-store', [InventoryController::class, 'quickStore'])->middleware('permission:inventory.create')->name('inventory.api.quick-store');
 
         // Export Functions
         Route::get('/export', [InventoryController::class, 'export'])->name('inventory.export');

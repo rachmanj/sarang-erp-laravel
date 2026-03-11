@@ -125,6 +125,14 @@
                         </div>
                     </div>
 
+                    @php
+                        $subtotalBeforeHeader = $salesQuotation->lines->sum('amount');
+                        $totalLineDiscount = $salesQuotation->lines->sum('discount_amount');
+                        $headerDiscount = (float) ($salesQuotation->discount_amount ?? 0);
+                        $sumNetAmount = $salesQuotation->lines->sum(fn($l) => (float) ($l->net_amount ?? $l->amount - ($l->discount_amount ?? 0)));
+                        $dpp = $sumNetAmount - $headerDiscount;
+                        $vatAmount = $salesQuotation->lines->sum(fn($l) => ($l->net_amount ?? ($l->amount - ($l->discount_amount ?? 0))) * (($l->vat_rate ?? 0) / 100));
+                    @endphp
                     <div class="row mb-3">
                         <div class="col-md-3">
                             <b>Approval Status</b>
@@ -211,18 +219,34 @@
                             </tbody>
                             <tfoot>
                                 <tr>
-                                    <th colspan="6" class="text-right">Subtotal:</th>
-                                    <th class="text-right">Rp {{ number_format($salesQuotation->total_amount, 0, ',', '.') }}</th>
+                                    <th colspan="6" class="text-right">Total:</th>
+                                    <th class="text-right">Rp {{ number_format($subtotalBeforeHeader, 2, ',', '.') }}</th>
                                 </tr>
-                                @if($salesQuotation->discount_amount > 0)
+                                @if($totalLineDiscount > 0 || $headerDiscount > 0)
                                 <tr>
-                                    <th colspan="6" class="text-right">Discount:</th>
-                                    <th class="text-right">- Rp {{ number_format($salesQuotation->discount_amount, 0, ',', '.') }}</th>
+                                    <th colspan="6" class="text-right">Line Discounts:</th>
+                                    <th class="text-right">Rp {{ number_format($totalLineDiscount, 2, ',', '.') }}</th>
+                                </tr>
+                                <tr>
+                                    <th colspan="6" class="text-right">Header Discount:</th>
+                                    <th class="text-right">Rp {{ number_format($headerDiscount, 2, ',', '.') }}</th>
                                 </tr>
                                 @endif
                                 <tr>
-                                    <th colspan="6" class="text-right">Total:</th>
-                                    <th class="text-right">Rp {{ number_format($salesQuotation->net_amount, 0, ',', '.') }}</th>
+                                    <th colspan="6" class="text-right">DPP (11/12):</th>
+                                    <th class="text-right">Rp {{ number_format($dpp, 2, ',', '.') }}</th>
+                                </tr>
+                                <tr>
+                                    <th colspan="6" class="text-right">Tax 12%:</th>
+                                    <th class="text-right">Rp {{ number_format($vatAmount, 2, ',', '.') }}</th>
+                                </tr>
+                                <tr>
+                                    <th colspan="6" class="text-right">Total After Tax:</th>
+                                    <th class="text-right">Rp {{ number_format($salesQuotation->net_amount, 2, ',', '.') }}</th>
+                                </tr>
+                                <tr>
+                                    <th colspan="6" class="text-right"><strong>Grand Total:</strong></th>
+                                    <th class="text-right"><strong>Rp {{ number_format($salesQuotation->net_amount, 2, ',', '.') }}</strong></th>
                                 </tr>
                             </tfoot>
                         </table>
