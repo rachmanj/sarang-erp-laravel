@@ -402,6 +402,10 @@ Route::prefix('purchase-orders')->group(function () {
                 $w->where('po.order_no', 'like', '%' . $kw . '%')->orWhere('po.description', 'like', '%' . $kw . '%')->orWhere('v.name', 'like', '%' . $kw . '%');
             });
         }
+        $entityId = request('company_entity_id') ?: request('entity_filter');
+        if ($entityId) {
+            $q->where('po.company_entity_id', (int)$entityId);
+        }
         $rows = $q->orderBy('po.date', 'desc')->get();
         $csv = "date,order_no,vendor,total,status,closure_status\n";
         foreach ($rows as $r) {
@@ -474,6 +478,9 @@ Route::prefix('goods-receipt-pos')->group(function () {
                 $w->where('grpo.grn_no', 'like', '%' . $kw . '%')->orWhere('grpo.description', 'like', '%' . $kw . '%')->orWhere('v.name', 'like', '%' . $kw . '%');
             });
         }
+        if (request()->filled('company_entity_id')) {
+            $q->where('grpo.company_entity_id', (int)request('company_entity_id'));
+        }
         return Yajra\DataTables\Facades\DataTables::of($q)
             ->editColumn('total_amount', fn($r) => number_format((float)$r->total_amount, 2))
             ->addColumn('vendor', fn($r) => $r->vendor_name ?: ('#' . $r->business_partner_id))
@@ -504,6 +511,9 @@ Route::prefix('goods-receipt-pos')->group(function () {
             $q->where(function ($w) use ($kw) {
                 $w->where('grpo.grn_no', 'like', '%' . $kw . '%')->orWhere('grpo.description', 'like', '%' . $kw . '%')->orWhere('v.name', 'like', '%' . $kw . '%');
             });
+        }
+        if (request()->filled('company_entity_id')) {
+            $q->where('grpo.company_entity_id', (int)request('company_entity_id'));
         }
         $rows = $q->orderBy('grpo.date', 'desc')->get();
         $csv = "date,grpo_no,vendor,total,status\n";

@@ -61,7 +61,9 @@ class PurchaseOrderController extends Controller
 
     public function index()
     {
-        return view('purchase_orders.index');
+        $ptCahaya = CompanyEntity::where('code', '71')->first();
+        $cvCahaya = CompanyEntity::where('code', '72')->first();
+        return view('purchase_orders.index', compact('ptCahaya', 'cvCahaya'));
     }
 
     public function data(Request $request)

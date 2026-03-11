@@ -129,12 +129,17 @@ class AccountStatementService
     ): void {
         $lines = collect();
 
-        // Get journal lines
-        $journalLines = JournalLine::where('account_id', $statement->account_id)
-            ->whereBetween('created_at', [$fromDate->startOfDay(), $toDate->endOfDay()])
-            ->when($projectId, fn($q) => $q->where('project_id', $projectId))
-            ->when($deptId, fn($q) => $q->where('dept_id', $deptId))
+        // Get journal lines (filter by journal date, not created_at; order by transaction date)
+        $journalLines = JournalLine::query()
+            ->select('journal_lines.*')
+            ->join('journals', 'journal_lines.journal_id', '=', 'journals.id')
+            ->where('journal_lines.account_id', $statement->account_id)
+            ->whereBetween('journals.date', [$fromDate, $toDate])
+            ->when($projectId, fn($q) => $q->where('journal_lines.project_id', $projectId))
+            ->when($deptId, fn($q) => $q->where('journal_lines.dept_id', $deptId))
             ->with(['journal'])
+            ->orderBy('journals.date')
+            ->orderBy('journal_lines.id')
             ->get();
 
         foreach ($journalLines as $line) {

@@ -38,7 +38,9 @@ class PurchaseInvoiceController extends Controller
 
     public function index()
     {
-        return view('purchase_invoices.index');
+        $ptCahaya = \App\Models\CompanyEntity::where('code', '71')->first();
+        $cvCahaya = \App\Models\CompanyEntity::where('code', '72')->first();
+        return view('purchase_invoices.index', compact('ptCahaya', 'cvCahaya'));
     }
 
     public function create()
@@ -1145,6 +1147,9 @@ class PurchaseInvoiceController extends Controller
                     ->orWhere('pi.description', 'like', '%' . $kw . '%')
                     ->orWhere('v.name', 'like', '%' . $kw . '%');
             });
+        }
+        if ($request->filled('company_entity_id')) {
+            $q->where('pi.company_entity_id', (int) $request->company_entity_id);
         }
 
         return DataTables::of($q)

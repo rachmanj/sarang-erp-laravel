@@ -71,7 +71,9 @@ class AccountStatement extends Model
 
     public function lines(): HasMany
     {
-        return $this->hasMany(AccountStatementLine::class);
+        return $this->hasMany(AccountStatementLine::class)
+            ->orderBy('transaction_date')
+            ->orderBy('sort_order');
     }
 
     // Scopes

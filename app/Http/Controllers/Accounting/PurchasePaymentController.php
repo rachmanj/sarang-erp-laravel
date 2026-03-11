@@ -33,7 +33,9 @@ class PurchasePaymentController extends Controller
 
     public function index()
     {
-        return view('purchase_payments.index');
+        $ptCahaya = \App\Models\CompanyEntity::where('code', '71')->first();
+        $cvCahaya = \App\Models\CompanyEntity::where('code', '72')->first();
+        return view('purchase_payments.index', compact('ptCahaya', 'cvCahaya'));
     }
 
     public function create()
@@ -331,6 +333,9 @@ class PurchasePaymentController extends Controller
                     ->orWhere('pp.description', 'like', '%' . $kw . '%')
                     ->orWhere('v.name', 'like', '%' . $kw . '%');
             });
+        }
+        if ($request->filled('company_entity_id')) {
+            $q->where('pp.company_entity_id', (int) $request->company_entity_id);
         }
 
         return DataTables::of($q)

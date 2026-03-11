@@ -2,8 +2,8 @@
 
 namespace App\Models\Accounting;
 
-use App\Models\Project;
-use App\Models\Department;
+use App\Models\Dimensions\Project;
+use App\Models\Dimensions\Department;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -134,7 +134,6 @@ class AccountStatementLine extends Model
     public function getReferenceUrl()
     {
         $routeMap = [
-            'journal' => 'journals.show',
             'sales_invoice' => 'sales-invoices.show',
             'purchase_invoice' => 'purchase-invoices.show',
             'sales_receipt' => 'sales-receipts.show',
@@ -145,7 +144,7 @@ class AccountStatementLine extends Model
         ];
 
         $route = $routeMap[$this->reference_type] ?? null;
-        if ($route) {
+        if ($route && \Illuminate\Support\Facades\Route::has($route)) {
             return route($route, $this->reference_id);
         }
         return null;

@@ -32,7 +32,9 @@ class GoodsReceiptPOController extends Controller
 
     public function index()
     {
-        return view('goods_receipt_pos.index');
+        $ptCahaya = \App\Models\CompanyEntity::where('code', '71')->first();
+        $cvCahaya = \App\Models\CompanyEntity::where('code', '72')->first();
+        return view('goods_receipt_pos.index', compact('ptCahaya', 'cvCahaya'));
     }
 
     public function create()
