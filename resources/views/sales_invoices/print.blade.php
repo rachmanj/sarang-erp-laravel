@@ -196,16 +196,9 @@
             $companyTaxNumber = \App\Models\ErpParameter::get('company_tax_number', '');
         @endphp
 
-        @php
-            $logoDataUri = null;
-            $logoPath = public_path('logo_pt_csj.png');
-            if (file_exists($logoPath)) {
-                $logoDataUri = 'data:image/png;base64,' . base64_encode(file_get_contents($logoPath));
-            }
-        @endphp
-        @if ($logoDataUri)
+        @if (file_exists(public_path('logo_pt_csj_transparan.jpeg')))
             <div class="company-logo">
-                <img src="{{ $logoDataUri }}" alt="{{ $companyName }}">
+                <img src="{{ asset('logo_pt_csj_transparan.jpeg') }}" alt="{{ $companyName }}">
             </div>
         @endif
 
@@ -306,8 +299,9 @@
     <table>
         <thead>
             <tr>
-                <th style="width: 40px;">No</th>
+                <th class="text-center" style="width: 40px;">No</th>
                 <th>Item Code</th>
+                <th>Part No.</th>
                 <th>Description</th>
                 <th class="text-right" style="width: 80px;">Qty</th>
                 <th class="text-right" style="width: 100px;">Unit Price</th>
@@ -317,8 +311,9 @@
         <tbody>
             @foreach ($invoice->lines as $num => $l)
                 <tr>
-                    <td>{{ $num + 1 }}</td>
+                    <td class="text-center">{{ $num + 1 }}</td>
                     <td>{{ $l->item_code ?? optional($l->inventoryItem)->code ?? '—' }}</td>
+                    <td>{{ $l->partNumber?->part_number ?? $l->deliveryOrderLine?->partNumber?->part_number ?? '—' }}</td>
                     <td>{{ $l->item_name ?? $l->description ?? '—' }}</td>
                     <td class="text-right">{{ number_format($l->qty, 2) }}</td>
                     <td class="text-right">{{ number_format($l->unit_price, 2) }}</td>
@@ -326,30 +321,29 @@
                 </tr>
             @endforeach
         </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="6" class="text-right"><strong>Subtotal</strong></td>
+                <td class="text-right">{{ number_format($originalTotal, 2) }}</td>
+            </tr>
+            @if ($totalVat != 0)
+            <tr>
+                <td colspan="6" class="text-right">Total VAT</td>
+                <td class="text-right">{{ number_format($totalVat, 2) }}</td>
+            </tr>
+            @endif
+            @if ($totalWtax != 0)
+            <tr>
+                <td colspan="6" class="text-right">Total WTax</td>
+                <td class="text-right">({{ number_format($totalWtax, 2) }})</td>
+            </tr>
+            @endif
+            <tr>
+                <td colspan="6" class="text-right"><strong>Amount Due</strong></td>
+                <td class="text-right"><strong>{{ number_format($amountDue, 2) }}</strong></td>
+            </tr>
+        </tfoot>
     </table>
-
-    <div class="totals-section">
-        <div class="totals-row">
-            <span>Subtotal:</span>
-            <span>{{ number_format($originalTotal, 2) }}</span>
-        </div>
-        @if ($totalVat != 0)
-            <div class="totals-row">
-                <span>Total VAT:</span>
-                <span>{{ number_format($totalVat, 2) }}</span>
-            </div>
-        @endif
-        @if ($totalWtax != 0)
-            <div class="totals-row">
-                <span>Total WTax:</span>
-                <span>({{ number_format($totalWtax, 2) }})</span>
-            </div>
-        @endif
-        <div class="totals-row total-due">
-            <span>Amount Due:</span>
-            <span>{{ number_format($amountDue, 2) }}</span>
-        </div>
-    </div>
 
     <div class="signature-block">
         <div class="signature-box">

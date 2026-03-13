@@ -7,15 +7,7 @@
     <style>
         @page { size: 9.5in; margin: 0.25in; }
         * { box-sizing: border-box; }
-        body {
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 11px;
-            line-height: 1.2;
-            margin: 0;
-            padding: 8px;
-            max-width: 9.5in;
-            width: 100%;
-        }
+        body { font-family: 'Courier New', Courier, monospace; font-size: 11px; line-height: 1.2; margin: 0; padding: 8px; max-width: 9.5in; width: 100%; }
         .company-header { text-align: center; margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid #000; }
         .company-header .logo { max-height: 48px; margin-bottom: 4px; }
         .company-name { font-size: 12px; font-weight: bold; margin-bottom: 2px; }
@@ -43,10 +35,11 @@
     <button class="no-print print-btn" onclick="window.print()">Print</button>
 
     @php
-        $companyName = \App\Models\ErpParameter::get('company_name', 'Company Name');
-        $companyAddress = \App\Models\ErpParameter::get('company_address', '');
-        $companyPhone = \App\Models\ErpParameter::get('company_phone', '');
-        $companyEmail = \App\Models\ErpParameter::get('company_email', '');
+        $entity = $entity ?? \App\Models\CompanyEntity::where('name', 'PT Cahaya Sarange Jaya')->first();
+        $companyName = $entity?->name ?? 'PT Cahaya Sarange Jaya';
+        $companyAddress = $entity?->address ?? \App\Models\ErpParameter::get('company_address', '');
+        $companyPhone = $entity?->phone ?? \App\Models\ErpParameter::get('company_phone', '');
+        $companyEmail = $entity?->email ?? \App\Models\ErpParameter::get('company_email', '');
     @endphp
 
     <div class="company-header">
@@ -89,8 +82,7 @@
 
     @php
         $originalTotal = $invoice->lines->sum('amount');
-        $totalVat = 0;
-        $totalWtax = 0;
+        $totalVat = 0; $totalWtax = 0;
         foreach ($invoice->lines as $l) {
             $lineBase = (float) $l->qty * (float) $l->unit_price;
             $vatRate = $l->taxCode ? (float) $l->taxCode->rate : 0;
@@ -152,18 +144,9 @@
 
     <table class="info-table signature-row">
         <tr>
-            <td style="width: 33%;">
-                Prepared: _________________________<br>
-                {{ $invoice->created_at->format('d M Y') }}
-            </td>
-            <td style="width: 34%;">
-                Authorized: _________________________<br>
-                Date: _______________
-            </td>
-            <td style="width: 33%;">
-                Received: _________________________<br>
-                Customer | Date: _______________
-            </td>
+            <td style="width: 33%;">Prepared: _________________________<br>{{ $invoice->created_at->format('d M Y') }}</td>
+            <td style="width: 34%;">Authorized: _________________________<br>Date: _______________</td>
+            <td style="width: 33%;">Received: _________________________<br>Customer | Date: _______________</td>
         </tr>
     </table>
 </body>

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Accounting;
 use App\Http\Controllers\Controller;
 use App\Models\Accounting\SalesInvoice;
 use App\Models\Accounting\SalesInvoiceLine;
+use App\Models\CompanyEntity;
 use App\Models\SalesOrder;
 use App\Models\DeliveryOrder;
 use App\Models\SalesQuotation;
@@ -546,8 +547,47 @@ class SalesInvoiceController extends Controller
             'lines.account',
             'lines.taxCode',
             'lines.inventoryItem',
+            'lines.partNumber',
+            'lines.deliveryOrderLine.inventoryItem',
+            'lines.deliveryOrderLine.partNumber',
         ])->findOrFail($id);
         return view('sales_invoices.show', compact('invoice'));
+    }
+
+    public function print(Request $request, int $id)
+    {
+        $invoice = SalesInvoice::with([
+            'lines.account',
+            'lines.taxCode',
+            'lines.inventoryItem',
+            'lines.partNumber',
+            'lines.deliveryOrderLine.partNumber',
+            'businessPartner.primaryAddress',
+            'businessPartnerProject',
+            'companyEntity',
+            'deliveryOrders',
+        ])->findOrFail($id);
+
+        $layout = $request->get('layout', 'standard');
+
+        $viewMap = [
+            'standard' => 'sales_invoices.print',
+            'dotmatrix' => 'sales_invoices.print_dotmatrix',
+            'pt_csj' => 'sales_invoices.print_pt_csj',
+            'pt_csj_dotmatrix' => 'sales_invoices.print_dotmatrix_pt_csj',
+            'cv_saranghae' => 'sales_invoices.print_cv_saranghae',
+            'cv_saranghae_dotmatrix' => 'sales_invoices.print_dotmatrix_cv_saranghae',
+        ];
+        $view = $viewMap[$layout] ?? $viewMap['standard'];
+
+        $entity = null;
+        if (in_array($layout, ['pt_csj', 'pt_csj_dotmatrix'])) {
+            $entity = CompanyEntity::where('name', 'PT Cahaya Sarange Jaya')->first();
+        } elseif (in_array($layout, ['cv_saranghae', 'cv_saranghae_dotmatrix'])) {
+            $entity = CompanyEntity::where('name', 'CV Cahaya Saranghae')->first();
+        }
+
+        return view($view, compact('invoice', 'entity'));
     }
 
     public function pdf(int $id)

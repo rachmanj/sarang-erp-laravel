@@ -28,12 +28,7 @@ Route::prefix('sales-invoices')->group(function () {
     Route::put('/{id}', [SalesInvoiceController::class, 'update'])->middleware('permission:ar.invoices.create')->name('sales-invoices.update');
     Route::delete('/{id}', [SalesInvoiceController::class, 'destroy'])->middleware('permission:ar.invoices.create')->name('sales-invoices.destroy');
     Route::post('/{id}/post', [SalesInvoiceController::class, 'post'])->middleware('permission:ar.invoices.post')->name('sales-invoices.post');
-    Route::get('/{id}/print', function ($id) {
-        $invoice = \App\Models\Accounting\SalesInvoice::with(['lines', 'lines.account', 'lines.taxCode', 'lines.inventoryItem', 'businessPartner', 'businessPartner.primaryAddress', 'businessPartnerProject', 'companyEntity', 'deliveryOrders'])->findOrFail($id);
-        $layout = request()->get('layout', 'standard');
-        $view = $layout === 'dotmatrix' ? 'sales_invoices.print_dotmatrix' : 'sales_invoices.print';
-        return view($view, compact('invoice'));
-    })->middleware('permission:ar.invoices.view')->name('sales-invoices.print');
+    Route::get('/{id}/print', [SalesInvoiceController::class, 'print'])->middleware('permission:ar.invoices.view')->name('sales-invoices.print');
     Route::get('/{id}/pdf', [SalesInvoiceController::class, 'pdf'])->middleware('permission:ar.invoices.view')->name('sales-invoices.pdf');
     Route::post('/{id}/queue-pdf', [SalesInvoiceController::class, 'queuePdf'])->middleware('permission:ar.invoices.view')->name('sales-invoices.queuePdf');
 });

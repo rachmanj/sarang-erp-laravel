@@ -72,11 +72,26 @@
                                 <i class="fas fa-print"></i> Print
                             </button>
                             <div class="dropdown-menu">
-                                <a class="dropdown-item" href="{{ route('sales-invoices.print', $invoice->id) }}" target="_blank">
-                                    <i class="fas fa-file-alt mr-1"></i> Standard (A4/Laser)
+                                <h6 class="dropdown-header">Standard (A4)</h6>
+                                <a class="dropdown-item" href="{{ route('sales-invoices.print', [$invoice->id, 'layout' => 'standard']) }}" target="_blank">
+                                    <i class="fas fa-file-alt mr-1"></i> Default
                                 </a>
+                                <a class="dropdown-item" href="{{ route('sales-invoices.print', [$invoice->id, 'layout' => 'pt_csj']) }}" target="_blank">
+                                    <i class="fas fa-file-alt mr-1"></i> PT Cahaya Sarange Jaya (A4)
+                                </a>
+                                <a class="dropdown-item" href="{{ route('sales-invoices.print', [$invoice->id, 'layout' => 'cv_saranghae']) }}" target="_blank">
+                                    <i class="fas fa-file-alt mr-1"></i> CV Cahaya Saranghae (A4)
+                                </a>
+                                <div class="dropdown-divider"></div>
+                                <h6 class="dropdown-header">Dot Matrix</h6>
                                 <a class="dropdown-item" href="{{ route('sales-invoices.print', [$invoice->id, 'layout' => 'dotmatrix']) }}" target="_blank">
-                                    <i class="fas fa-print mr-1"></i> Dot Matrix
+                                    <i class="fas fa-print mr-1"></i> Default
+                                </a>
+                                <a class="dropdown-item" href="{{ route('sales-invoices.print', [$invoice->id, 'layout' => 'pt_csj_dotmatrix']) }}" target="_blank">
+                                    <i class="fas fa-print mr-1"></i> PT Cahaya Sarange Jaya
+                                </a>
+                                <a class="dropdown-item" href="{{ route('sales-invoices.print', [$invoice->id, 'layout' => 'cv_saranghae_dotmatrix']) }}" target="_blank">
+                                    <i class="fas fa-print mr-1"></i> CV Cahaya Saranghae
                                 </a>
                             </div>
                         </div>
@@ -194,6 +209,7 @@
                                 <tr>
                                     <th style="width: 40px;">#</th>
                                     <th>Item Code</th>
+                                    <th>Part No.</th>
                                     <th>Item Name</th>
                                     <th class="text-right">Qty</th>
                                     <th class="text-right">Unit Price</th>
@@ -206,14 +222,16 @@
                                     <tr>
                                         <td>{{ $idx + 1 }}</td>
                                         <td>
-                                            @if($line->inventoryItem && $line->inventoryItem->code)
-                                                <span class="badge badge-secondary">{{ $line->inventoryItem->code }}</span>
-                                            @elseif($line->item_code)
-                                                <span class="badge badge-secondary">{{ $line->item_code }}</span>
+                                            @php
+                                                $itemCode = $line->inventoryItem?->code ?? $line->item_code ?? $line->deliveryOrderLine?->inventoryItem?->code ?? $line->deliveryOrderLine?->item_code;
+                                            @endphp
+                                            @if($itemCode)
+                                                <span class="badge badge-secondary">{{ $itemCode }}</span>
                                             @else
                                                 <span class="text-muted">—</span>
                                             @endif
                                         </td>
+                                        <td>{{ $line->partNumber?->part_number ?? $line->deliveryOrderLine?->partNumber?->part_number ?? '—' }}</td>
                                         <td>
                                             @if($line->inventoryItem && $line->inventoryItem->name)
                                                 <strong>{{ $line->inventoryItem->name }}</strong>
@@ -245,23 +263,23 @@
                                     $amountDue = $originalTotal + $totalVat - $totalWtax;
                                 @endphp
                                 <tr>
-                                    <th colspan="6" class="text-right">Original Amount</th>
+                                    <th colspan="7" class="text-right">Original Amount</th>
                                     <th class="text-right">{{ number_format($originalTotal, 2) }}</th>
                                 </tr>
                                 @if ($totalVat != 0)
                                 <tr>
-                                    <th colspan="6" class="text-right">Total VAT</th>
+                                    <th colspan="7" class="text-right">Total VAT</th>
                                     <th class="text-right">{{ number_format($totalVat, 2) }}</th>
                                 </tr>
                                 @endif
                                 @if ($totalWtax != 0)
                                 <tr>
-                                    <th colspan="6" class="text-right">Total WTax</th>
+                                    <th colspan="7" class="text-right">Total WTax</th>
                                     <th class="text-right">({{ number_format($totalWtax, 2) }})</th>
                                 </tr>
                                 @endif
                                 <tr>
-                                    <th colspan="6" class="text-right">Amount Due</th>
+                                    <th colspan="7" class="text-right">Amount Due</th>
                                     <th class="text-right">{{ number_format($amountDue, 2) }}</th>
                                 </tr>
                             </tfoot>
