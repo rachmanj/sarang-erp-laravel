@@ -24,7 +24,7 @@
         .totals { margin-top: 8px; width: 100%; }
         .totals-row { display: flex; justify-content: space-between; padding: 2px 0; }
         .totals-row.total-due { font-weight: bold; border-top: 1px solid #000; margin-top: 4px; padding-top: 4px; }
-        .signature-row { margin-top: 24px; font-size: 10px; }
+        .signature-row { margin-top: 24px; font-size: 10px; text-align: right; }
         .signature-row td { border: none; padding: 8px 4px; vertical-align: top; }
         .print-btn { position: fixed; bottom: 16px; right: 16px; padding: 8px 16px; background: #333; color: white; border: none; cursor: pointer; font-size: 12px; }
         @media print { body { padding: 0; } .no-print { display: none !important; } }
@@ -142,13 +142,9 @@
         </tfoot>
     </table>
 
-    <table class="info-table signature-row">
-        <tr>
-            <td style="width: 33%;">Prepared: _________________________<br>{{ $invoice->created_at->format('d M Y') }}</td>
-            <td style="width: 34%;">Authorized: _________________________<br>Date: _______________</td>
-            <td style="width: 33%;">Received: _________________________<br>Customer | Date: _______________</td>
-        </tr>
-    </table>
+    <div class="signature-row">
+        <div>Authorized: _________________________<br>Date: _______________</div>
+    </div>
 </body>
 
 </html>
