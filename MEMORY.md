@@ -1,5 +1,5 @@
 **Purpose**: AI's persistent knowledge base for project context and learnings
-**Last Updated**: 2026-02-25 (Purchase Payment module testing and fixes)
+**Last Updated**: 2026-03-13 (Sales Invoice item code resolution)
 
 ## Memory Maintenance Guidelines
 
@@ -26,6 +26,14 @@
 ---
 
 ## Project Memory Entries
+
+### [094] Sales Invoice Item Code & Part No. Improvements (2026-03-13) ✅ COMPLETE
+
+**Challenge**: SI lines from DO sometimes showed "—" for item code; Part No. missing on show/print; totals section used div layout instead of PO-style table.
+
+**Solution**: (1) Added Part No. column to show page and all 6 print layouts; eager load lines.partNumber, lines.deliveryOrderLine.partNumber. (2) Totals: table tfoot with Subtotal, Total VAT, Total WTax, Amount Due (PO pattern). (3) Item code display: fallback chain inventoryItem→item_code→deliveryOrderLine.inventoryItem→deliveryOrderLine.item_code. (4) Server-side resolveLineDataFromDeliveryOrder() in store/update: when delivery_order_line_id present, fetch DO line and fill item_code/item_name/inventory_item_id/part_number_id if form empty; when null but invoice from DOs, match by line index. (5) BackfillSalesInvoiceItemCodes for existing data. (6) PT CSJ dotmatrix: signature "Authorized" only, right-aligned.
+
+**Key Learning**: Form data can be lost (hidden fields, JS add-line). Server-side resolution from DO line ensures SI lines always have item_code when source exists. Index-based fallback handles missing delivery_order_line_id.
 
 ### [093] Purchase Payment Module Testing & Number Parsing Fix (2026-02-25) ✅ COMPLETE
 

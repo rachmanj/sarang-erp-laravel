@@ -1,5 +1,5 @@
 **Purpose**: Record technical decisions and rationale for future reference
-**Last Updated**: 2026-02-04 (Purchase Invoice enhancements)
+**Last Updated**: 2026-03-13 (Sales Invoice item code resolution)
 
 # Technical Decision Records
 
@@ -29,6 +29,34 @@ Decision: [Title] - [YYYY-MM-DD]
 ---
 
 ## Recent Decisions
+
+### Decision: Sales Invoice Item Code & Part Number Resolution - 2026-03-13
+
+**Context**: Sales Invoice lines created from Delivery Orders sometimes had null item_code, item_name, and delivery_order_line_id—causing "—" display on show/print. Root causes: form data loss, missing hidden fields when lines added via JS, or legacy data before proper prefill.
+
+**Options Considered**:
+
+1. **Option A**: Rely on form prefill only
+    - ✅ Pros: No server changes
+    - ❌ Cons: Form bugs or user actions (add/remove lines) can drop data; no fix for existing records
+
+2. **Option B**: Server-side resolution when creating SI from DO
+    - ✅ Pros: Defensive—always populates from DO line when delivery_order_line_id present; index-based fallback when line link missing; fixes new records regardless of form behavior
+    - ❌ Cons: Extra DB query per line when resolving
+
+3. **Option C**: Backfill command only
+    - ✅ Pros: Fixes existing data
+    - ❌ Cons: Does not prevent recurrence; manual/scheduled run required
+
+**Decision**: Adopt Option B + Option C. Implemented `resolveLineDataFromDeliveryOrder()` in SalesInvoiceController: (1) When delivery_order_line_id present, fetch DO line and fill item_code, item_name, inventory_item_id, part_number_id if form data empty; (2) When delivery_order_line_id null but invoice created from DOs, match by line index to DO lines and use their data (also sets delivery_order_line_id); (3) Used in both store() and update(). Eager load `lines.inventoryItem` on DeliveryOrder when loading for SI creation. BackfillSalesInvoiceItemCodes command remains for existing records.
+
+**Rationale**: Form-driven data can be lost; server-side resolution ensures SI lines always have item_code/item_name when source DO has them. Index fallback handles edge case where delivery_order_line_id was never submitted. Backfill fixes historical data.
+
+**Implementation**: SalesInvoiceController::resolveLineDataFromDeliveryOrder(), store() and update() call it; DeliveryOrder::with(['lines.inventoryItem']); show.blade.php display fallback chain; print views Part No. column and totals tfoot.
+
+**Review Date**: 2027-03-13.
+
+---
 
 ### Decision: Purchase Invoice Enhancements (Discount, VAT, Display, Item Selection) - 2026-02-04
 

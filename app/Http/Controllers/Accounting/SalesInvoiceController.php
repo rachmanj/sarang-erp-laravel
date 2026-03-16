@@ -8,6 +8,7 @@ use App\Models\Accounting\SalesInvoiceLine;
 use App\Models\CompanyEntity;
 use App\Models\SalesOrder;
 use App\Models\DeliveryOrder;
+use App\Models\DeliveryOrderLine;
 use App\Models\SalesQuotation;
 use App\Services\Accounting\PostingService;
 use App\Services\DocumentNumberingService;
@@ -257,6 +258,54 @@ class SalesInvoiceController extends Controller
         ];
     }
 
+    private function resolveLineDataFromDeliveryOrder(array $lineData, ?int $lineIndex = null, $deliveryOrders = null): array
+    {
+        $deliveryOrderLineId = $lineData['delivery_order_line_id'] ?? null;
+        $doLine = null;
+        if ($deliveryOrderLineId) {
+            $doLine = DeliveryOrderLine::with('inventoryItem')->find($deliveryOrderLineId);
+        } elseif ($lineIndex !== null && $deliveryOrders && $deliveryOrders->isNotEmpty()) {
+            $doLines = $deliveryOrders->flatMap(fn ($do) => $do->lines->values())->values();
+            $doLine = $doLines->get($lineIndex);
+            if ($doLine && !$doLine->relationLoaded('inventoryItem')) {
+                $doLine->load('inventoryItem');
+            }
+        }
+        if (!$doLine) {
+            return [
+                'delivery_order_line_id' => $lineData['delivery_order_line_id'] ?? null,
+                'item_code' => $lineData['item_code'] ?? $lineData['item_code_display'] ?? null,
+                'item_name' => $lineData['item_name'] ?? $lineData['item_name_display'] ?? null,
+                'inventory_item_id' => $lineData['inventory_item_id'] ?? null,
+                'part_number_id' => $lineData['part_number_id'] ?? null,
+            ];
+        }
+        $itemCode = $lineData['item_code'] ?? $lineData['item_code_display'] ?? null;
+        $itemName = $lineData['item_name'] ?? $lineData['item_name_display'] ?? null;
+        $inventoryItemId = $lineData['inventory_item_id'] ?? null;
+        $partNumberId = $lineData['part_number_id'] ?? null;
+        if (empty($itemCode)) {
+            $itemCode = $doLine->item_code ?? optional($doLine->inventoryItem)->code;
+        }
+        if (empty($itemName)) {
+            $itemName = $doLine->item_name ?? optional($doLine->inventoryItem)->name ?? $lineData['description'] ?? null;
+        }
+        if (empty($inventoryItemId)) {
+            $inventoryItemId = $doLine->inventory_item_id;
+        }
+        if (empty($partNumberId)) {
+            $partNumberId = $doLine->part_number_id;
+        }
+        $resolvedDeliveryOrderLineId = $deliveryOrderLineId ?? $doLine->id;
+        return [
+            'delivery_order_line_id' => $resolvedDeliveryOrderLineId,
+            'item_code' => $itemCode,
+            'item_name' => $itemName,
+            'inventory_item_id' => $inventoryItemId,
+            'part_number_id' => $partNumberId,
+        ];
+    }
+
     public function edit(int $id)
     {
         $invoice = SalesInvoice::with(['lines.account', 'lines.taxCode', 'lines.inventoryItem'])->findOrFail($id);
@@ -326,13 +375,14 @@ class SalesInvoiceController extends Controller
             foreach ($data['lines'] as $l) {
                 $amount = (float) $l['qty'] * (float) $l['unit_price'];
                 $total += $amount;
+                $resolved = $this->resolveLineDataFromDeliveryOrder($l);
                 SalesInvoiceLine::create([
                     'invoice_id' => $invoice->id,
                     'delivery_order_line_id' => $l['delivery_order_line_id'] ?? null,
-                    'inventory_item_id' => $l['inventory_item_id'] ?? null,
-                    'part_number_id' => $l['part_number_id'] ?? null,
-                    'item_code' => $l['item_code'] ?? $l['item_code_display'] ?? null,
-                    'item_name' => $l['item_name'] ?? $l['item_name_display'] ?? null,
+                    'inventory_item_id' => $resolved['inventory_item_id'],
+                    'part_number_id' => $resolved['part_number_id'],
+                    'item_code' => $resolved['item_code'],
+                    'item_name' => $resolved['item_name'],
                     'account_id' => $l['account_id'],
                     'description' => $l['description'] ?? null,
                     'qty' => (float) $l['qty'],
@@ -386,7 +436,7 @@ class SalesInvoiceController extends Controller
             ? SalesOrder::select('id', 'company_entity_id')->find($request->input('sales_order_id'))
             : null;
         $deliveryOrders = !empty($deliveryOrderIds)
-            ? DeliveryOrder::whereIn('id', $deliveryOrderIds)->get()
+            ? DeliveryOrder::with(['lines.inventoryItem'])->whereIn('id', $deliveryOrderIds)->get()
             : collect();
 
         if ($deliveryOrders->isNotEmpty()) {
@@ -459,16 +509,17 @@ class SalesInvoiceController extends Controller
             $invoice->update(['invoice_no' => $invoiceNo]);
 
             $total = 0;
-            foreach ($data['lines'] as $l) {
+            foreach ($data['lines'] as $idx => $l) {
                 $amount = (float) $l['qty'] * (float) $l['unit_price'];
                 $total += $amount;
+                $resolved = $this->resolveLineDataFromDeliveryOrder($l, $idx, $deliveryOrders);
                 SalesInvoiceLine::create([
                     'invoice_id' => $invoice->id,
-                    'delivery_order_line_id' => $l['delivery_order_line_id'] ?? null,
-                    'inventory_item_id' => $l['inventory_item_id'] ?? null,
-                    'part_number_id' => $l['part_number_id'] ?? null,
-                    'item_code' => $l['item_code'] ?? $l['item_code_display'] ?? null,
-                    'item_name' => $l['item_name'] ?? $l['item_name_display'] ?? null,
+                    'delivery_order_line_id' => $resolved['delivery_order_line_id'] ?? $l['delivery_order_line_id'] ?? null,
+                    'inventory_item_id' => $resolved['inventory_item_id'],
+                    'part_number_id' => $resolved['part_number_id'],
+                    'item_code' => $resolved['item_code'],
+                    'item_name' => $resolved['item_name'],
                     'account_id' => $l['account_id'],
                     'description' => $l['description'] ?? null,
                     'qty' => (float) $l['qty'],

@@ -1,6 +1,6 @@
 # Sarange ERP - Modules and Features List
 
-**Last Updated**: 2026-02-19  
+**Last Updated**: 2026-03-13  
 **System Status**: Production Ready (95% Complete)  
 **Technology Stack**: Laravel 12, PHP 8.2+, MySQL, AdminLTE 3.14
 
@@ -237,7 +237,10 @@
 - **Delivery Tracking**: Logistics cost tracking and performance metrics
 
 ### 21. Sales Invoices
-- **Print Layout Selection**: Dropdown (Standard A4/Laser | Dot Matrix) for formal vs warehouse prints.
+- **Print Layout Selection**: Dropdown (Standard A4/Laser | Dot Matrix) for formal vs warehouse prints. Six layouts: standard, dotmatrix, pt_csj, cv_saranghae, pt_csj_dotmatrix, cv_saranghae_dotmatrix.
+- **Part No. Column**: Displayed on show page and all print layouts (from part_number_id or delivery_order_line_id).
+- **Totals Section**: Table tfoot pattern (Subtotal, Total VAT, Total WTax, Amount Due) matching Purchase Order layout.
+- **Item Code Resolution**: Server-side resolution when creating from DO—`resolveLineDataFromDeliveryOrder()` fills item_code, item_name, inventory_item_id, part_number_id from DO line when form data missing; index-based fallback when delivery_order_line_id null. Backfill command `sales-invoices:backfill-item-codes` for existing records.
 - **Customer Billing**: Complete sales invoice management
 - **Automatic Numbering**: Entity-aware format `EEYYDDNNNNN` (code 08)
 - **Line Items**: Multiple line items with tax handling

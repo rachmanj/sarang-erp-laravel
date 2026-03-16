@@ -1,5 +1,5 @@
 **Purpose**: Track current work and immediate priorities
-**Last Updated**: 2026-02-25 (Purchase Payment module testing)
+**Last Updated**: 2026-03-13 (Sales Invoice improvements)
 
 ## Task Management Guidelines
 
@@ -45,6 +45,7 @@ Include relevant context in brackets to help with future AI-assisted coding:
 
 ## Recently Completed
 
+-   `[done] P1: Sales Invoice Improvements - Part No., Totals, Item Code Display [Added Part No. column to SI show page and all 6 print layouts (standard, dotmatrix, pt_csj, cv_saranghae, dotmatrix variants); changed totals from div.totals-row to table tfoot (PO pattern); improved item code display with fallback chain (inventoryItem→item_code→deliveryOrderLine); server-side resolveLineDataFromDeliveryOrder() in SalesInvoiceController when creating/updating SI from DO—resolves item_code/item_name/inventory_item_id/part_number_id from DO line when form data missing; index-based fallback when delivery_order_line_id null; BackfillSalesInvoiceItemCodes command for existing data; PT CSJ dotmatrix print: signature section "Authorized" only, right-aligned; app/Http/Controllers/Accounting/SalesInvoiceController.php, resources/views/sales_invoices/show.blade.php, print*.blade.php] (completed: 2026-03-13)`
 -   `[done] P1: Purchase Payment Module Testing & Fixes [Chrome DevTools MCP testing: Index list, Create form (vendor selection, available invoices, allocation, payment lines), Store, Show, Post; fixed number parsing bug in create.blade.php (updatePaymentLine/validateForm parsing Indonesian format incorrectly); fixed PurchasePaymentController::data() string concat bug (% . $kw + % → % . $kw . %); verified PI-PP integration (allocations shown on both sides)] (completed: 2026-02-25)`
 -   `[done] P1: Purchase Invoice (PI) Enhancements [VAT & Amount After VAT columns in list/detail; display item code/name and invoice_no instead of ID; detail page redesign (vendor info, financial summary, related documents, line items with discount); header & line discounts (Disc %, Disc Amt) with sync; VAT on net amount; print view fix (vendors→businessPartner); Select Item modal Available Qty from inventory_warehouse_stock (warehouse-specific or total); docs/manuals/purchase-invoice-manual-id.md created; docs/architecture.md, docs/decisions.md, MEMORY.md, docs/MODULES-AND-FEATURES.md updated] (completed: 2026-02-04)`
 -   `[done] P1: Print Layout Selection (Standard vs Dot Matrix) [DO, Sales Invoice, Purchase Order: dropdown on show pages; print_dotmatrix.blade.php (9.5in, Courier); ?layout=dotmatrix; added PO print (new); DeliveryJournalService COGS fallback 5.1/HPP; DO DataTables filterColumn for search; docs/architecture.md, docs/decisions.md, MEMORY.md, docs/MODULES-AND-FEATURES.md, docs/manuals/delivery-order-manual-id.md updated] (completed: 2026-02-19)`

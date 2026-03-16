@@ -79,7 +79,7 @@ Sarange ERP is a comprehensive Enterprise Resource Planning system built with La
 -   **Database**: MySQL with comprehensive schema (51 migrations)
 -   **Authentication**: Laravel Auth with Spatie Permission package
 -   **PDF Generation**: DomPDF for document printing
--   **Print Layout Selection**: Delivery Orders, Sales Invoices, and Purchase Orders support Standard (A4/Laser) and Dot Matrix print layouts via `?layout=dotmatrix`; dropdown on show pages lets users choose. Dot matrix layout: 9.5in width, Courier New, compact for 80-column printers.
+-   **Print Layout Selection**: Delivery Orders, Sales Invoices, and Purchase Orders support Standard (A4/Laser) and Dot Matrix print layouts via `?layout=dotmatrix`; dropdown on show pages lets users choose. Dot matrix layout: 9.5in width, Courier New, compact for 80-column printers. Sales Invoice has six layouts (standard, dotmatrix, pt_csj, cv_saranghae, pt_csj_dotmatrix, cv_saranghae_dotmatrix); PT CSJ dotmatrix uses "Authorized" signature only, right-aligned.
 -   **Excel Export**: Laravel Excel (Maatwebsite)
 -   **UI Framework**: AdminLTE 3 with Bootstrap 4
 -   **Timezone**: Asia/Singapore (configured)
@@ -144,7 +144,7 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 ### 2. Accounts Receivable (AR) Module
 
 -   **Sales Dashboard**: Comprehensive sales analytics dashboard with AR aging analysis, sales KPIs (Sales MTD, Outstanding AR, Pending Approvals, Open Sales Orders), sales order statistics, sales invoice statistics, delivery order statistics, top customers by outstanding AR, and recent invoices visualization.
--   **Sales Invoices**: Customer billing with line items, tax codes, and dimensions (SINV-YYYYMM-######)
+-   **Sales Invoices**: Customer billing with line items, tax codes, and dimensions (SINV-YYYYMM-######). Line items include Part No. column (from part_number_id or delivery_order_line_id). **Item Code Resolution**: When creating SI from DO, `resolveLineDataFromDeliveryOrder()` in SalesInvoiceController ensures item_code, item_name, inventory_item_id, part_number_id are populated from the DO line when form data is missing—either by delivery_order_line_id lookup or by index-based match when delivery_order_line_id is null. Eager load `lines.partNumber`, `lines.deliveryOrderLine.partNumber` for show/print.
 -   **Sales Receipts**: Payment collection with invoice-first flow and explicit allocation (SR-YYYYMM-######). Select customer → load outstanding invoices via `getAvailableInvoices` → select invoices and allocation amounts → receipt lines auto-populated. Receipt total must match allocation total. Mirrors Purchase Payment pattern.
 -   **Sales Orders**: Customer order management with entity-aware numbering (code 06)
 -   **AR Aging**: Customer payment tracking and aging analysis with buckets (Current, 1-30, 31-60, 61-90, 90+ days) calculated from sales invoices minus sales receipt allocations
