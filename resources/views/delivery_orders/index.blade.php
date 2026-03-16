@@ -78,6 +78,10 @@
                                         placeholder="To Date">
                                 </div>
                                 <div class="col-md-2">
+                                    <input type="text" class="form-control form-control-sm" id="customer-ref-filter"
+                                        placeholder="Customer Ref No">
+                                </div>
+                                <div class="col-md-2">
                                     <button class="btn btn-sm btn-secondary" onclick="applyFilters()">
                                         <i class="fas fa-filter"></i> Filter
                                     </button>
@@ -92,6 +96,7 @@
                                             <th>DO Number</th>
                                             <th>Sales Order</th>
                                             <th>Customer</th>
+                                            <th>Customer Ref No</th>
                                             <th>Planned Delivery</th>
                                             <th>Status</th>
                                             <th>Approval</th>
@@ -122,6 +127,7 @@
                         d.customer_id = $('#customer-filter').val();
                         d.date_from = $('#date-from').val();
                         d.date_to = $('#date-to').val();
+                        d.customer_ref_no = $('#customer-ref-filter').val();
                         var entityVal = $('input[name="entity-filter"]:checked').val();
                         if (entityVal) d.company_entity_id = entityVal;
                     }
@@ -137,6 +143,10 @@
                     {
                         data: 'customer',
                         name: 'customer'
+                    },
+                    {
+                        data: 'customer_ref_no',
+                        name: 'customer_ref_no'
                     },
                     {
                         data: 'planned_delivery_date',

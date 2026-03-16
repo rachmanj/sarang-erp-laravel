@@ -251,7 +251,7 @@ Route::prefix('delivery-orders')->group(function () {
             ->leftJoin('business_partners as c', 'c.id', '=', 'do.business_partner_id')
             ->leftJoin('sales_orders as so', 'so.id', '=', 'do.sales_order_id')
             ->leftJoin('users as u', 'u.id', '=', 'do.created_by')
-            ->select('do.id', 'do.created_at', 'do.do_number', 'do.business_partner_id', 'c.name as customer_name', 'so.order_no as sales_order_no', 'do.planned_delivery_date', 'do.status', 'do.approval_status', 'do.created_by', 'u.name as creator_name');
+            ->select('do.id', 'do.created_at', 'do.do_number', 'do.business_partner_id', 'c.name as customer_name', 'so.order_no as sales_order_no', 'so.reference_no as customer_ref_no', 'do.planned_delivery_date', 'do.status', 'do.approval_status', 'do.created_by', 'u.name as creator_name');
         if (request()->filled('status')) {
             $q->where('do.status', request('status'));
         }
@@ -273,8 +273,14 @@ Route::prefix('delivery-orders')->group(function () {
         if (request()->filled('q')) {
             $kw = request('q');
             $q->where(function ($w) use ($kw) {
-                $w->where('do.do_number', 'like', '%' . $kw . '%')->orWhere('so.order_no', 'like', '%' . $kw . '%')->orWhere('c.name', 'like', '%' . $kw . '%');
+                $w->where('do.do_number', 'like', '%' . $kw . '%')
+                    ->orWhere('so.order_no', 'like', '%' . $kw . '%')
+                    ->orWhere('so.reference_no', 'like', '%' . $kw . '%')
+                    ->orWhere('c.name', 'like', '%' . $kw . '%');
             });
+        }
+        if (request()->filled('customer_ref_no')) {
+            $q->where('so.reference_no', 'like', '%' . request('customer_ref_no') . '%');
         }
         return Yajra\DataTables\Facades\DataTables::of($q)
             ->filterColumn('do_number', function ($query, $keyword) {
@@ -289,10 +295,14 @@ Route::prefix('delivery-orders')->group(function () {
             ->filterColumn('created_by', function ($query, $keyword) {
                 $query->where('u.name', 'like', '%' . $keyword . '%');
             })
+            ->filterColumn('customer_ref_no', function ($query, $keyword) {
+                $query->where('so.reference_no', 'like', '%' . $keyword . '%');
+            })
             ->editColumn('planned_delivery_date', function ($r) {
                 return $r->planned_delivery_date ? \Carbon\Carbon::parse($r->planned_delivery_date)->format('d-M-Y') : '';
             })
             ->addColumn('customer', fn($r) => $r->customer_name ?: ('#' . $r->business_partner_id))
+            ->addColumn('customer_ref_no', fn($r) => $r->customer_ref_no ?? '—')
             ->addColumn('created_by', fn($r) => $r->creator_name ?: ('#' . $r->created_by))
             ->addColumn('actions', function ($r) {
                 $url = route('delivery-orders.show', $r->id);
