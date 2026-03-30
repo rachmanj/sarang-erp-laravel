@@ -181,12 +181,22 @@
         <div class="do-number">{{ $deliveryOrder->do_number }}</div>
     </div>
 
+    @php
+        $customerPhone = $deliveryOrder->delivery_phone
+            ?: ($deliveryOrder->customer?->primary_contact_phone ?? null);
+    @endphp
     <table class="info-table">
         <tr>
             <td class="label">SO:</td>
-            <td>{{ $deliveryOrder->salesOrder?->order_no ?? '-' }}</td>
+            <td colspan="3">{{ $deliveryOrder->salesOrder?->order_no ?? '-' }}</td>
+        </tr>
+        <tr>
             <td class="label">Customer:</td>
-            <td>{{ $deliveryOrder->customer?->name ?? 'N/A' }}</td>
+            <td colspan="3">{{ $deliveryOrder->customer?->name ?? 'N/A' }}</td>
+        </tr>
+        <tr>
+            <td class="label">Customer Phone:</td>
+            <td colspan="3">{{ $customerPhone ?: '—' }}</td>
         </tr>
         @if ($deliveryOrder->businessPartnerProject)
         <tr>

@@ -1,5 +1,5 @@
 Purpose: Technical reference for understanding system design and development patterns
-Last Updated: 2026-02-04 (Purchase Invoice enhancements)
+Last Updated: 2026-03-31 (PI inventory deduplication, PHPUnit test DB isolation)
 
 ## Architecture Documentation Guidelines
 
@@ -53,8 +53,8 @@ Sarange ERP is a comprehensive Enterprise Resource Planning system built with La
 ## Current System Status
 
 **Production Readiness**: 95% Complete ✅  
-**Last Comprehensive Testing**: 2025-09-21  
-**Testing Status**: Complete end-to-end validation successful
+**Last Comprehensive Testing**: 2025-09-21 (manual E2E); 2026-03-31 automated feature coverage for Purchase Invoice → inventory idempotency (`PurchaseInvoiceInventoryTransactionTest`)  
+**Testing Status**: End-to-end validation successful; PHPUnit uses dedicated MySQL database `sarang_erp_test` (see `phpunit.xml`) so `RefreshDatabase` does not wipe the development database
 
 ### Validated Functionality
 
@@ -76,7 +76,7 @@ Sarange ERP is a comprehensive Enterprise Resource Planning system built with La
 
 -   **Backend**: Laravel 12 (PHP 8.2+)
 -   **Frontend**: Blade templates with AdminLTE 3.14, jQuery, DataTables, SweetAlert2
--   **Database**: MySQL with comprehensive schema (51 migrations)
+-   **Database**: MySQL with comprehensive schema (150+ migrations)
 -   **Authentication**: Laravel Auth with Spatie Permission package
 -   **PDF Generation**: DomPDF for document printing
 -   **Print Layout Selection**: Delivery Orders, Sales Invoices, and Purchase Orders support Standard (A4/Laser) and Dot Matrix print layouts via `?layout=dotmatrix`; dropdown on show pages lets users choose. Dot matrix layout: 9.5in width, Courier New, compact for 80-column printers. Sales Invoice has six layouts (standard, dotmatrix, pt_csj, cv_saranghae, pt_csj_dotmatrix, cv_saranghae_dotmatrix); PT CSJ dotmatrix uses "Authorized" signature only, right-aligned.
@@ -773,6 +773,7 @@ graph TD
 -   **Vite**: Asset compilation and hot reloading
 -   **Queue Workers**: Background job processing
 -   **Log Monitoring**: Laravel Pail for real-time log monitoring
+-   **PHPUnit / feature tests**: `phpunit.xml` sets `DB_DATABASE` to a dedicated schema (e.g. `sarang_erp_test`) so tests using `RefreshDatabase` do not run `migrate:fresh` against the database named in `.env`. Create that database once on the same MySQL server. SQLite in-memory was not viable because at least one migration inspects MySQL `information_schema`.
 
 ### Production Considerations
 
@@ -806,7 +807,7 @@ The system has been analyzed for trading company (perusahaan dagang) operations 
 ```sql
 -- Inventory Management
 inventory_items: Product master data with trading-specific fields
-inventory_transactions: Stock movement tracking with cost allocation. All inventory-affecting documents create inventory transactions with reference_type and reference_id for audit trail.
+inventory_transactions: Stock movement tracking with cost allocation; PI lines link via purchase_invoice_line_id for idempotency. All inventory-affecting documents create inventory transactions with reference_type and reference_id for audit trail.
 inventory_valuations: Cost tracking with multiple valuation methods
 
 -- Tax Compliance

@@ -1,5 +1,5 @@
 **Purpose**: AI's persistent knowledge base for project context and learnings
-**Last Updated**: 2026-03-13 (Sales Invoice item code resolution)
+**Last Updated**: 2026-03-31 (PI inventory deduplication)
 
 ## Memory Maintenance Guidelines
 
@@ -26,6 +26,22 @@
 ---
 
 ## Project Memory Entries
+
+### [096] Purchase Invoice — one inventory row per line (2026-03-31) ✅ COMPLETE
+
+**Challenge**: Posting a PI could insert duplicate `inventory_transactions` (same invoice/item) under concurrency or repeated post paths; uniqueness on invoice+item would wrongly block two lines with the same SKU.
+
+**Solution**: `purchase_invoice_line_id` on `inventory_transactions` (FK, backfill, unique with reference scope), `lockForUpdate()` in `PurchaseInvoiceController::post()`, idempotent `createInventoryTransaction()`, Post UI single-submit; `inventory:report-purchase-invoice-duplicates` for legacy/missing-line_id checks; tests in `PurchaseInvoiceInventoryTransactionTest`.
+
+**Learning**: Key stock by document **line** id when one header has multiple lines for the same item; DB uniqueness + lock + idempotent insert is the durable fix.
+
+### [095] PHPUnit must not use dev MySQL for RefreshDatabase (2026-03-31) ✅ COMPLETE
+
+**Challenge**: Feature tests used `RefreshDatabase` while `phpunit.xml` did not override `DB_DATABASE`, so PHPUnit used `.env` MySQL (e.g. `sarang_live`) and `migrate:fresh` wiped development data.
+
+**Solution**: Set `DB_DATABASE=sarang_erp_test` in `phpunit.xml` (with comment). Create empty DB once: `CREATE DATABASE sarang_erp_test ...;` (same credentials as `.env`). Tests then only reset the test DB. SQLite `:memory:` was attempted but a migration uses MySQL `information_schema` and fails on SQLite.
+
+**Learning**: Never rely on default `.env` DB for tests when using `RefreshDatabase`; always isolate (separate MySQL schema or documented sqlite-compatible migrations).
 
 ### [094] Sales Invoice Item Code & Part No. Improvements (2026-03-13) ✅ COMPLETE
 

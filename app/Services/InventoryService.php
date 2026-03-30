@@ -6,20 +6,19 @@ use App\Models\InventoryItem;
 use App\Models\InventoryTransaction;
 use App\Models\InventoryValuation;
 use App\Models\InventoryWarehouseStock;
-use App\Services\AuditLogService;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class InventoryService
 {
-    public function processPurchaseTransaction(int $itemId, int $quantity, float $unitCost, string $referenceType = null, int $referenceId = null, string $notes = null, int $warehouseId = null)
+    public function processPurchaseTransaction(int $itemId, int $quantity, float $unitCost, ?string $referenceType = null, ?int $referenceId = null, ?string $notes = null, ?int $warehouseId = null, ?int $purchaseInvoiceLineId = null)
     {
-        return DB::transaction(function () use ($itemId, $quantity, $unitCost, $referenceType, $referenceId, $notes, $warehouseId) {
+        return DB::transaction(function () use ($itemId, $quantity, $unitCost, $referenceType, $referenceId, $notes, $warehouseId, $purchaseInvoiceLineId) {
             $item = InventoryItem::findOrFail($itemId);
             $totalCost = $quantity * $unitCost;
 
             // Use default warehouse if not specified
-            if (!$warehouseId) {
+            if (! $warehouseId) {
                 $warehouseId = $item->default_warehouse_id;
             }
 
@@ -33,6 +32,7 @@ class InventoryService
                 'total_cost' => $totalCost,
                 'reference_type' => $referenceType,
                 'reference_id' => $referenceId,
+                'purchase_invoice_line_id' => $purchaseInvoiceLineId,
                 'transaction_date' => now()->toDateString(),
                 'notes' => $notes ?? 'Purchase transaction',
                 'created_by' => Auth::id(),
@@ -59,7 +59,7 @@ class InventoryService
         });
     }
 
-    public function processSaleTransaction(int $itemId, int $quantity, float $unitCost, string $referenceType = null, int $referenceId = null, string $notes = null, ?int $warehouseId = null)
+    public function processSaleTransaction(int $itemId, int $quantity, float $unitCost, ?string $referenceType = null, ?int $referenceId = null, ?string $notes = null, ?int $warehouseId = null)
     {
         return DB::transaction(function () use ($itemId, $quantity, $unitCost, $referenceType, $referenceId, $notes, $warehouseId) {
             $item = InventoryItem::findOrFail($itemId);
@@ -91,7 +91,7 @@ class InventoryService
         });
     }
 
-    public function processAdjustmentTransaction(int $itemId, int $quantity, float $unitCost, string $notes = null)
+    public function processAdjustmentTransaction(int $itemId, int $quantity, float $unitCost, ?string $notes = null)
     {
         return DB::transaction(function () use ($itemId, $quantity, $unitCost, $notes) {
             $item = InventoryItem::findOrFail($itemId);
@@ -118,7 +118,7 @@ class InventoryService
         });
     }
 
-    public function processTransferTransaction(int $fromItemId, int $toItemId, int $quantity, float $unitCost, string $notes = null)
+    public function processTransferTransaction(int $fromItemId, int $toItemId, int $quantity, float $unitCost, ?string $notes = null)
     {
         return DB::transaction(function () use ($fromItemId, $toItemId, $quantity, $unitCost, $notes) {
             $fromItem = InventoryItem::findOrFail($fromItemId);
@@ -171,7 +171,7 @@ class InventoryService
     {
         $currentStock = $item->current_stock;
         $valuationDate = now()->toDateString();
-        
+
         // Check if valuation already exists for today
         $existingValuation = InventoryValuation::where('item_id', $item->id)
             ->where('valuation_date', $valuationDate)
@@ -243,7 +243,9 @@ class InventoryService
         $totalCost = 0;
 
         foreach ($transactions->reverse() as $transaction) {
-            if ($remainingStock <= 0) break;
+            if ($remainingStock <= 0) {
+                break;
+            }
 
             $quantityToUse = min($remainingStock, $transaction->quantity);
             $totalCost += $quantityToUse * $transaction->unit_cost;
@@ -308,7 +310,7 @@ class InventoryService
         });
     }
 
-    public function generateInventoryReport(string $startDate = null, string $endDate = null)
+    public function generateInventoryReport(?string $startDate = null, ?string $endDate = null)
     {
         $startDate = $startDate ?? now()->startOfMonth()->toDateString();
         $endDate = $endDate ?? now()->endOfMonth()->toDateString();

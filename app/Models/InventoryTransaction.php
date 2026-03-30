@@ -16,6 +16,7 @@ class InventoryTransaction extends Model
         'total_cost',
         'reference_type',
         'reference_id',
+        'purchase_invoice_line_id',
         'transfer_status',
         'transfer_out_id',
         'transfer_in_id',
@@ -50,6 +51,11 @@ class InventoryTransaction extends Model
     public function warehouse(): BelongsTo
     {
         return $this->belongsTo(Warehouse::class, 'warehouse_id');
+    }
+
+    public function purchaseInvoiceLine(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Accounting\PurchaseInvoiceLine::class, 'purchase_invoice_line_id');
     }
 
     // Scopes

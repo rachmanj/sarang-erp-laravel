@@ -4,13 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Models\DeliveryOrder;
 use App\Models\DeliveryOrderLine;
-use App\Models\SalesOrder;
 use App\Models\Master\Customer;
+use App\Models\SalesOrder;
+use App\Services\CompanyEntityService;
 use App\Services\DeliveryService;
 use App\Services\DocumentClosureService;
 use App\Services\DocumentNumberingService;
 use App\Services\SalesWorkflowAuditService;
-use App\Services\CompanyEntityService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -19,8 +19,11 @@ use Illuminate\Support\Facades\Log;
 class DeliveryOrderController extends Controller
 {
     protected $deliveryService;
+
     protected $documentClosureService;
+
     protected $documentNumberingService;
+
     protected $companyEntityService;
 
     public function __construct(
@@ -81,7 +84,7 @@ class DeliveryOrderController extends Controller
         if ($salesOrderId) {
             $salesOrder = SalesOrder::with(['customer', 'lines.inventoryItem'])->findOrFail($salesOrderId);
 
-            if (!$this->deliveryService->canCreateDeliveryOrder($salesOrder)) {
+            if (! $this->deliveryService->canCreateDeliveryOrder($salesOrder)) {
                 return redirect()->route('delivery-orders.index')
                     ->with('error', 'Sales Order cannot be converted to Delivery Order');
             }
@@ -113,7 +116,7 @@ class DeliveryOrderController extends Controller
         $date = $request->input('date', now()->toDateString());
 
         try {
-            if (!$entityId) {
+            if (! $entityId) {
                 return response()->json(['error' => 'Company entity is required'], 400);
             }
 
@@ -123,7 +126,7 @@ class DeliveryOrderController extends Controller
 
             return response()->json(['document_number' => $documentNumber]);
         } catch (\Exception $e) {
-            return response()->json(['error' => 'Error generating document number: ' . $e->getMessage()], 500);
+            return response()->json(['error' => 'Error generating document number: '.$e->getMessage()], 500);
         }
     }
 
@@ -152,13 +155,13 @@ class DeliveryOrderController extends Controller
         ]);
 
         $lines = $data['lines'] ?? [];
-        $validLines = array_values(array_filter($lines, fn($l) => ((float) ($l['qty'] ?? 0)) > 0));
+        $validLines = array_values(array_filter($lines, fn ($l) => ((float) ($l['qty'] ?? 0)) > 0));
         $data['lines'] = $validLines;
 
         try {
             Log::info('Calling DeliveryService::createDeliveryOrderFromSalesOrder', [
                 'sales_order_id' => $data['sales_order_id'],
-                'data' => $data
+                'data' => $data,
             ]);
 
             $deliveryOrder = $this->deliveryService->createDeliveryOrderFromSalesOrder(
@@ -177,7 +180,7 @@ class DeliveryOrderController extends Controller
                 Log::warning('Failed to log Delivery Order creation in Sales Order audit', [
                     'so_id' => $data['sales_order_id'],
                     'do_id' => $deliveryOrder->id,
-                    'error' => $auditException->getMessage()
+                    'error' => $auditException->getMessage(),
                 ]);
             }
 
@@ -187,7 +190,7 @@ class DeliveryOrderController extends Controller
                 Log::warning('Failed to close Sales Order after Delivery Order creation', [
                     'so_id' => $data['sales_order_id'],
                     'do_id' => $deliveryOrder->id,
-                    'error' => $closureException->getMessage()
+                    'error' => $closureException->getMessage(),
                 ]);
             }
 
@@ -206,7 +209,7 @@ class DeliveryOrderController extends Controller
      */
     public function createInvoice(DeliveryOrder $deliveryOrder)
     {
-        if (!in_array($deliveryOrder->status, ['delivered', 'completed'])) {
+        if (! in_array($deliveryOrder->status, ['delivered', 'completed'])) {
             return redirect()->back()->with('error', 'Only delivered or completed delivery orders can be converted to Sales Invoice');
         }
         if (($deliveryOrder->closure_status ?? 'open') === 'closed') {
@@ -236,7 +239,7 @@ class DeliveryOrderController extends Controller
             'lines.salesOrderLine',
             'tracking',
             'createdBy',
-            'approvedBy'
+            'approvedBy',
         ]);
         $remainQtyByLine = $this->deliveryService->getRemainQtyByLineForDeliveryOrder($deliveryOrder);
 
@@ -339,7 +342,7 @@ class DeliveryOrderController extends Controller
      */
     public function destroy(DeliveryOrder $deliveryOrder)
     {
-        if (!$deliveryOrder->canBeCancelled()) {
+        if (! $deliveryOrder->canBeCancelled()) {
             return redirect()->back()
                 ->with('error', 'Delivery Order cannot be deleted in current status');
         }
@@ -421,6 +424,7 @@ class DeliveryOrderController extends Controller
 
             if ($request->ajax() || $request->wantsJson()) {
                 $line = \App\Models\DeliveryOrderLine::find($data['line_id']);
+
                 return response()->json([
                     'success' => true,
                     'message' => 'Picking status updated successfully',
@@ -437,6 +441,7 @@ class DeliveryOrderController extends Controller
             if ($request->ajax() || $request->wantsJson()) {
                 return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
             }
+
             return redirect()->back()
                 ->withInput()
                 ->with('error', $e->getMessage());
@@ -461,6 +466,7 @@ class DeliveryOrderController extends Controller
 
             if ($request->ajax() || $request->wantsJson()) {
                 $line = \App\Models\DeliveryOrderLine::find($data['line_id']);
+
                 return response()->json([
                     'success' => true,
                     'message' => 'Delivery status updated successfully',
@@ -477,6 +483,7 @@ class DeliveryOrderController extends Controller
             if ($request->ajax() || $request->wantsJson()) {
                 return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
             }
+
             return redirect()->back()
                 ->withInput()
                 ->with('error', $e->getMessage());
@@ -489,7 +496,7 @@ class DeliveryOrderController extends Controller
     public function print(Request $request, DeliveryOrder $deliveryOrder)
     {
         $deliveryOrder->load([
-            'customer',
+            'customer.primaryContact',
             'businessPartnerProject',
             'salesOrder',
             'warehouse',
@@ -498,7 +505,7 @@ class DeliveryOrderController extends Controller
             'lines.partNumber',
             'lines.salesOrderLine.orderUnit',
             'lines.account',
-            'createdBy'
+            'createdBy',
         ]);
 
         $layout = $request->get('layout', 'standard');
@@ -511,10 +518,12 @@ class DeliveryOrderController extends Controller
                 ?? \App\Models\CompanyEntity::where('name', 'CV Cahaya Saranghae')->first();
             $useDotMatrix = $layout === 'dotmatrix' || $layout === 'cv_saranghae_dotmatrix';
             $view = $useDotMatrix ? 'delivery_orders.print_dotmatrix_cv_saranghae' : 'delivery_orders.print_cv_saranghae';
+
             return view($view, compact('deliveryOrder', 'entity'));
         }
 
         $view = $layout === 'dotmatrix' ? 'delivery_orders.print_dotmatrix' : 'delivery_orders.print';
+
         return view($view, compact('deliveryOrder'));
     }
 
@@ -542,5 +551,4 @@ class DeliveryOrderController extends Controller
                 ->with('error', $e->getMessage());
         }
     }
-
 }

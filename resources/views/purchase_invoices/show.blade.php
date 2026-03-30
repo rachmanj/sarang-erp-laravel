@@ -58,7 +58,8 @@
                                 @can('ap.invoices.post')
                                     @if ($invoice->status !== 'posted')
                                         <form method="post" action="{{ route('purchase-invoices.post', $invoice->id) }}"
-                                            class="d-inline">
+                                            class="d-inline"
+                                            onsubmit="var b=this.querySelector('button[type=submit]'); if(b.disabled) return false; b.disabled=true; b.innerHTML='<i class=\'fas fa-spinner fa-spin mr-1\'></i> Posting...';">
                                             @csrf
                                             <button class="btn btn-sm btn-success" type="submit">
                                                 <i class="fas fa-check mr-1"></i> Post

@@ -1,6 +1,6 @@
 # Sarange ERP - Modules and Features List
 
-**Last Updated**: 2026-03-13  
+**Last Updated**: 2026-03-31  
 **System Status**: Production Ready (95% Complete)  
 **Technology Stack**: Laravel 12, PHP 8.2+, MySQL, AdminLTE 3.14
 
@@ -181,6 +181,7 @@
 - **Print/PDF**: Uses businessPartner relation; Standard Print and PDF export
 - **Manual**: See `docs/manuals/purchase-invoice-manual-id.md`
 - **Line Items**: Multiple line items with tax handling
+- **Inventory idempotency (direct purchase / stock post)**: `inventory_transactions.purchase_invoice_line_id` with DB uniqueness; pessimistic lock on post; single-flight Post UI; optional `php artisan inventory:report-purchase-invoice-duplicates` for monitoring (see `docs/action-plans/inventory-transaction-deduplication-prevention.md`)
 - **Payment Allocation**: Automatic allocation to purchase payments
 - **AP UnInvoice Accounting**: Intermediate account handling for accrual accounting
 - **Multi-Currency Support**: Foreign currency invoices with exchange rate handling

@@ -2,8 +2,10 @@
 
 namespace App\Models\Accounting;
 
+use App\Models\InventoryTransaction;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class PurchaseInvoiceLine extends Model
 {
@@ -50,6 +52,11 @@ class PurchaseInvoiceLine extends Model
         return $this->belongsTo(PurchaseInvoice::class, 'invoice_id');
     }
 
+    public function inventoryTransactions(): HasMany
+    {
+        return $this->hasMany(InventoryTransaction::class, 'purchase_invoice_line_id');
+    }
+
     public function inventoryItem(): BelongsTo
     {
         return $this->belongsTo(\App\Models\InventoryItem::class, 'inventory_item_id');
@@ -83,6 +90,7 @@ class PurchaseInvoiceLine extends Model
         if ($this->unit_conversion_factor && $this->unit_conversion_factor > 0) {
             return $this->qty * $this->unit_conversion_factor;
         }
+
         return $this->qty;
     }
 
@@ -94,6 +102,7 @@ class PurchaseInvoiceLine extends Model
         if ($this->unit_conversion_factor && $this->unit_conversion_factor > 0) {
             return $this->unit_price / $this->unit_conversion_factor;
         }
+
         return $this->unit_price;
     }
 

@@ -2,13 +2,11 @@
 
 namespace App\Services;
 
-use App\Models\InventoryItem;
-use App\Models\InventoryTransaction;
+use App\Models\Accounting\Account;
 use App\Models\Accounting\PurchaseInvoice;
 use App\Models\Accounting\PurchaseInvoiceLine;
-use App\Models\Accounting\Account;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Auth;
+use App\Models\InventoryItem;
+use App\Models\InventoryTransaction;
 
 class PurchaseInvoiceService
 {
@@ -18,16 +16,16 @@ class PurchaseInvoiceService
      */
     public function getAccountForItem(InventoryItem $item): ?Account
     {
-        if (!$item->category) {
+        if (! $item->category) {
             throw new \Exception("Item '{$item->name}' has no product category assigned. Please assign a category first.");
         }
 
         $account = $item->getAccountByType('inventory');
-        
-        if (!$account) {
+
+        if (! $account) {
             throw new \Exception("No inventory account configured for item '{$item->name}' (Category: {$item->category->name}). Please configure account mapping in Product Category.");
         }
-        
+
         return $account;
     }
 
@@ -37,6 +35,7 @@ class PurchaseInvoiceService
     public function getAccountIdForItem(InventoryItem $item): int
     {
         $account = $this->getAccountForItem($item);
+
         return $account->id;
     }
 
@@ -47,13 +46,23 @@ class PurchaseInvoiceService
         PurchaseInvoiceLine $line,
         PurchaseInvoice $invoice
     ): ?InventoryTransaction {
-        if (!$line->inventory_item_id) {
+        if (! $line->inventory_item_id) {
             return null; // Service items or account-only lines don't create inventory transactions
         }
 
         $item = $line->inventoryItem;
-        if (!$item) {
+        if (! $item) {
             return null;
+        }
+
+        if ($line->id) {
+            $existing = InventoryTransaction::query()
+                ->where('purchase_invoice_line_id', $line->id)
+                ->where('transaction_type', 'purchase')
+                ->first();
+            if ($existing) {
+                return $existing;
+            }
         }
 
         // Use warehouse from line, or default warehouse from item
@@ -64,14 +73,17 @@ class PurchaseInvoiceService
             ? $line->net_amount / $line->qty
             : $line->unit_price;
 
+        $qty = (int) round((float) $line->qty);
+
         return app(InventoryService::class)->processPurchaseTransaction(
             itemId: $line->inventory_item_id,
-            quantity: $line->qty,
+            quantity: $qty,
             unitCost: $unitCost,
             referenceType: 'purchase_invoice',
             referenceId: $invoice->id,
-            notes: "Direct purchase from " . ($invoice->businessPartner->name ?? 'Unknown'),
-            warehouseId: $warehouseId
+            notes: 'Direct purchase from '.($invoice->businessPartner->name ?? 'Unknown'),
+            warehouseId: $warehouseId,
+            purchaseInvoiceLineId: $line->id
         );
     }
 
@@ -82,12 +94,12 @@ class PurchaseInvoiceService
     public function resolveAccountForLine(array $lineData): int
     {
         // If account_id is provided, use it (for accounting users or service items)
-        if (!empty($lineData['account_id'])) {
+        if (! empty($lineData['account_id'])) {
             return (int) $lineData['account_id'];
         }
 
         // If inventory_item_id is provided, auto-select account from item category
-        if (!empty($lineData['inventory_item_id'])) {
+        if (! empty($lineData['inventory_item_id'])) {
             $item = InventoryItem::find($lineData['inventory_item_id']);
             if ($item) {
                 return $this->getAccountIdForItem($item);
@@ -102,12 +114,11 @@ class PurchaseInvoiceService
      */
     public function validateWarehouseForItem(int $inventoryItemId, ?int $warehouseId): void
     {
-        if (!$warehouseId) {
+        if (! $warehouseId) {
             $item = InventoryItem::find($inventoryItemId);
-            if ($item && !$item->default_warehouse_id) {
+            if ($item && ! $item->default_warehouse_id) {
                 throw new \Exception("Warehouse is required for item '{$item->name}'. Please select a warehouse or set default warehouse for the item.");
             }
         }
     }
 }
-

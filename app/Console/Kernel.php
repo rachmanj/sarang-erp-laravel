@@ -23,6 +23,7 @@ class Kernel extends BaseKernel
         \App\Console\Commands\FixOverAllocatedDeliveryOrder::class,
         \App\Console\Commands\FixSaleTransactionWarehouseIds::class,
         \App\Console\Commands\FixDuplicateInventoryTransaction::class,
+        \App\Console\Commands\ReportPurchaseInvoiceInventoryDuplicates::class,
     ];
     
     /**

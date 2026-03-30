@@ -633,13 +633,16 @@ class PurchaseInvoiceController extends Controller
     public function post(int $id)
     {
         try {
-            $invoice = PurchaseInvoice::with(['lines.inventoryItem', 'lines.warehouse'])->findOrFail($id);
+            $outcome = DB::transaction(function () use ($id) {
+                $invoice = PurchaseInvoice::with(['lines.inventoryItem', 'lines.warehouse'])
+                    ->whereKey($id)
+                    ->lockForUpdate()
+                    ->firstOrFail();
 
-            if ($invoice->status === 'posted') {
-                return back()->with('success', 'Already posted');
-            }
+                if ($invoice->status === 'posted') {
+                    return 'already_posted';
+                }
 
-            DB::transaction(function () use ($invoice) {
                 // Create inventory transactions for direct purchases (but NOT for opening balance invoices)
                 if ($invoice->is_direct_purchase && !$invoice->is_opening_balance) {
                     foreach ($invoice->lines as $line) {
@@ -669,7 +672,13 @@ class PurchaseInvoiceController extends Controller
                 }
 
                 $invoice->update(['status' => 'posted', 'posted_at' => now()]);
+
+                return 'posted';
             });
+
+            if ($outcome === 'already_posted') {
+                return back()->with('success', 'Already posted');
+            }
 
             return back()->with('success', 'Purchase invoice posted successfully');
         } catch (\Exception $e) {

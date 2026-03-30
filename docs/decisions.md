@@ -1,5 +1,5 @@
 **Purpose**: Record technical decisions and rationale for future reference
-**Last Updated**: 2026-03-13 (Sales Invoice item code resolution)
+**Last Updated**: 2026-03-31 (PI inventory duplicate prevention plan)
 
 # Technical Decision Records
 
@@ -29,6 +29,18 @@ Decision: [Title] - [YYYY-MM-DD]
 ---
 
 ## Recent Decisions
+
+### Decision: Purchase Invoice — Prevent Duplicate Inventory Transactions - 2026-03-31
+
+**Context**: Posting a direct purchase invoice can create duplicate `inventory_transactions` for the same reference because inserts are not idempotent and there is no per-line unique key.
+
+**Decision**: Adopt a phased approach: (1) row lock on post + UI single-flight; (2) add `purchase_invoice_line_id` on `inventory_transactions` with uniqueness per line; (3) idempotent check before insert; (4) tests and optional monitoring.
+
+**Implementation**: See `docs/action-plans/inventory-transaction-deduplication-prevention.md`. **Shipped 2026-03-31:** `lockForUpdate()` + single-flight Post UI; migration `purchase_invoice_line_id` on `inventory_transactions` with FK, backfill, unique index; idempotent `createInventoryTransaction`; feature test `PurchaseInvoiceInventoryTransactionTest`; `inventory:report-purchase-invoice-duplicates` command.
+
+**Review Date**: After Phase 2 migration is deployed.
+
+---
 
 ### Decision: Sales Invoice Item Code & Part Number Resolution - 2026-03-13
 
