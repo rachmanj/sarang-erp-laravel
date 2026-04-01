@@ -1,0 +1,168 @@
+{
+    "entries": [
+        {
+            "id": "in-app-help",
+            "title_en": "In-app HELP (?)",
+            "title_id": "Bantuan dalam aplikasi (?)",
+            "menu_path_en": "Top navbar → question mark icon (?) → How-to or Report/request.",
+            "menu_path_id": "Navbar atas → ikon tanda tanya (?) → How-to atau Report/request.",
+            "keywords_en": ["help", "manual", "how to", "documentation", "support"],
+            "keywords_id": ["bantuan", "panduan", "cara", "help", "dokumentasi"],
+            "notes": "Knowledge is rebuilt with: php artisan help:reindex"
+        },
+        {
+            "id": "reports-menu",
+            "title_en": "Reports",
+            "title_id": "Laporan",
+            "menu_path_en": "Main sidebar → Reports (expand for report lists and Open Items, etc.).",
+            "menu_path_id": "Menu samping utama → Laporan (buka submenu untuk daftar laporan, Open Items, dll.).",
+            "keywords_en": ["report", "aging", "open items", "export", "excel"],
+            "keywords_id": ["laporan", "umur", "open items", "ekspor", "excel"]
+        },
+        {
+            "id": "approval-dashboard",
+            "title_en": "Approval Dashboard",
+            "title_id": "Dashboard Persetujuan",
+            "menu_path_en": "Sidebar → Approval Dashboard (under MAIN).",
+            "menu_path_id": "Menu samping → Approval Dashboard (di grup MAIN).",
+            "keywords_en": ["approval", "pending", "approve", "reject"],
+            "keywords_id": ["persetujuan", "approve", "reject", "menunggu"]
+        },
+        {
+            "id": "sales-dashboard",
+            "title_en": "Sales Dashboard",
+            "title_id": "Dashboard Penjualan",
+            "menu_path_en": "Sidebar → Sales → Dashboard.",
+            "menu_path_id": "Menu samping → Sales → Dashboard.",
+            "keywords_en": ["sales", "AR", "outstanding", "pipeline"],
+            "keywords_id": ["penjualan", "piutang", "outstanding", "pipeline"]
+        },
+        {
+            "id": "purchase-dashboard",
+            "title_en": "Purchase Dashboard",
+            "title_id": "Dashboard Pembelian",
+            "menu_path_en": "Sidebar → Purchase → Dashboard.",
+            "menu_path_id": "Menu samping → Purchase → Dashboard.",
+            "keywords_en": ["purchase", "AP", "supplier"],
+            "keywords_id": ["pembelian", "hutang", "supplier"]
+        },
+        {
+            "id": "sales-orders",
+            "title_en": "Sales Orders",
+            "title_id": "Sales Order",
+            "menu_path_en": "Sidebar → Sales → Sales Orders.",
+            "menu_path_id": "Menu samping → Sales → Sales Orders.",
+            "keywords_en": ["sales order", "SO", "order"],
+            "keywords_id": ["sales order", "SO", "pesanan penjualan"]
+        },
+        {
+            "id": "delivery-orders",
+            "title_en": "Delivery Orders (DO)",
+            "title_id": "Delivery Order / Surat Jalan",
+            "menu_path_en": "Sidebar → Sales → Delivery Orders.",
+            "menu_path_id": "Menu samping → Sales → Delivery Orders.",
+            "keywords_en": ["delivery order", "DO", "surat jalan", "shipping"],
+            "keywords_id": ["surat jalan", "DO", "pengiriman"]
+        },
+        {
+            "id": "sales-invoice",
+            "title_en": "Sales Invoice (SI)",
+            "title_id": "Faktur penjualan (SI)",
+            "menu_path_en": "Sidebar → Sales → Sales Invoices. Create from DO after delivered/completed.",
+            "menu_path_id": "Menu samping → Sales → Sales Invoices. Buat dari DO setelah delivered/completed.",
+            "keywords_en": ["sales invoice", "SINV", "invoice", "AR invoice"],
+            "keywords_id": ["faktur penjualan", "SI", "invoice", "faktur"],
+            "notes": "See sales-invoice-manual-id.md"
+        },
+        {
+            "id": "sales-receipts",
+            "title_en": "Sales Receipts",
+            "title_id": "Penerimaan penjualan",
+            "menu_path_en": "Sidebar → Sales → Sales Receipts (customer payments against invoices).",
+            "menu_path_id": "Menu samping → Sales → Sales Receipts (pelunasan faktur).",
+            "keywords_en": ["sales receipt", "SR", "payment", "collection"],
+            "keywords_id": ["sales receipt", "penerimaan", "pelunasan", "kas masuk"]
+        },
+        {
+            "id": "purchase-invoice",
+            "title_en": "Purchase Invoice (PI)",
+            "title_id": "Faktur pembelian (PI)",
+            "menu_path_en": "Sidebar → Purchase → Purchase Invoices.",
+            "menu_path_id": "Menu samping → Purchase → Purchase Invoices.",
+            "keywords_en": ["purchase invoice", "PINV", "AP"],
+            "keywords_id": ["faktur pembelian", "PI", "AP"]
+        },
+        {
+            "id": "purchase-orders",
+            "title_en": "Purchase Orders",
+            "title_id": "Purchase Order",
+            "menu_path_en": "Sidebar → Purchase → Purchase Orders.",
+            "menu_path_id": "Menu samping → Purchase → Purchase Orders.",
+            "keywords_en": ["purchase order", "PO"],
+            "keywords_id": ["PO", "pesanan pembelian"]
+        },
+        {
+            "id": "goods-receipt-po",
+            "title_en": "Goods Receipt PO (GRPO)",
+            "title_id": "Penerimaan barang PO (GRPO)",
+            "menu_path_en": "Sidebar → Purchase → Goods Receipt PO.",
+            "menu_path_id": "Menu samping → Purchase → Goods Receipt PO.",
+            "keywords_en": ["GRPO", "goods receipt", "receiving"],
+            "keywords_id": ["GRPO", "penerimaan barang"]
+        },
+        {
+            "id": "inventory-transfer",
+            "title_en": "Warehouse stock transfer",
+            "title_id": "Transfer stok gudang",
+            "menu_path_en": "Inventory module — ITO/ITI and warehouse transfer flows (see warehouse stock transfer manual).",
+            "menu_path_id": "Modul Inventory — alur ITO/ITI dan transfer antar gudang (lihat manual transfer stok).",
+            "keywords_en": ["transfer", "warehouse", "ITO", "ITI", "stock"],
+            "keywords_id": ["transfer", "gudang", "ITO", "ITI", "stok"]
+        },
+        {
+            "id": "gr-gi",
+            "title_en": "GR/GI (non-PO movements)",
+            "title_id": "GR/GI",
+            "menu_path_en": "Sidebar → Inventory → GR/GI Management.",
+            "menu_path_id": "Menu samping → Inventory → GR/GI Management.",
+            "keywords_en": ["GR", "GI", "goods issue", "adjustment"],
+            "keywords_id": ["GR", "GI", "barang masuk", "barang keluar"]
+        },
+        {
+            "id": "master-data",
+            "title_en": "Master data",
+            "title_id": "Data master",
+            "menu_path_en": "Sidebar → Master Data, Inventory (items), Business Partner, etc.",
+            "menu_path_id": "Menu samping → Master Data, Inventory (item), Business Partner, dll.",
+            "keywords_en": ["master", "item", "business partner", "warehouse"],
+            "keywords_id": ["master", "item", "partner", "gudang"]
+        },
+        {
+            "id": "accounting-menu",
+            "title_en": "Accounting",
+            "title_id": "Akuntansi",
+            "menu_path_en": "Sidebar → Accounting (Chart of Accounts, Journals, Periods, Account Statements, Cash Expenses, Currencies, etc.).",
+            "menu_path_id": "Menu samping → Accounting (COA, Jurnal, Periode, Account Statement, Kas/Bank, Mata Uang, dll.).",
+            "keywords_en": ["journal", "GL", "account", "period", "statement"],
+            "keywords_id": ["jurnal", "buku besar", "akun", "periode", "laporan"]
+        },
+        {
+            "id": "tax-menu",
+            "title_en": "Tax (Indonesia)",
+            "title_id": "Pajak",
+            "menu_path_en": "Sidebar → Taxation (if installed for your role).",
+            "menu_path_id": "Menu samping → Taxation / Pajak (sesuai izin).",
+            "keywords_en": ["tax", "PPN", "PPh", "VAT"],
+            "keywords_id": ["pajak", "PPN", "PPh"]
+        },
+        {
+            "id": "fixed-assets",
+            "title_en": "Fixed Assets",
+            "title_id": "Aset tetap",
+            "menu_path_en": "Sidebar → Fixed Assets (categories, assets, depreciation, disposal, etc.).",
+            "menu_path_id": "Menu samping → Fixed Assets (kategori, aset, penyusutan, pelepasan, dll.).",
+            "keywords_en": ["asset", "depreciation", "fixed asset"],
+            "keywords_id": ["aset", "penyusutan", "aset tetap"]
+        }
+    ]
+}
