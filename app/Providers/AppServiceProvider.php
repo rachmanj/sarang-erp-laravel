@@ -2,8 +2,9 @@
 
 namespace App\Providers;
 
-use Illuminate\Support\ServiceProvider;
 use App\Observers\AuditLogObserver;
+use App\Services\Help\HelpOpenRouterClient;
+use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -12,7 +13,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->singleton(HelpOpenRouterClient::class, function () {
+            return new HelpOpenRouterClient(
+                config('services.openrouter.api_key'),
+                (string) config('services.openrouter.site_url', config('app.url')),
+            );
+        });
     }
 
     /**
@@ -28,7 +34,7 @@ class AppServiceProvider extends ServiceProvider
      */
     protected function registerAuditLogObservers(): void
     {
-        if (!config('audit-log.enabled')) {
+        if (! config('audit-log.enabled')) {
             return;
         }
 

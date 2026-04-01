@@ -21,6 +21,13 @@
     <!-- Right navbar links -->
     <ul class="navbar-nav ml-auto">
 
+        <li class="nav-item">
+            <a class="nav-link help-nav-launch py-1" href="#" data-toggle="modal" data-target="#helpAssistantModal"
+                title="Help (Sarang ERP)" aria-label="Open help">
+                <span class="help-nav-icon-wrap"><i class="fas fa-book-open" aria-hidden="true"></i></span>
+            </a>
+        </li>
+
         <!-- User Dropdown Menu -->
         <li class="nav-item dropdown user-menu">
             <a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown">

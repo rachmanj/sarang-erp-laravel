@@ -1,5 +1,5 @@
 **Purpose**: AI's persistent knowledge base for project context and learnings
-**Last Updated**: 2026-03-31 (PI inventory deduplication)
+**Last Updated**: 2026-04-01 (HELP scroll + manuals)
 
 ## Memory Maintenance Guidelines
 
@@ -26,6 +26,14 @@
 ---
 
 ## Project Memory Entries
+
+### [097] In-app HELP — scroll UX + knowledge for RAG (2026-04-01) ✅ COMPLETE
+
+**Challenge**: Long HELP answers did not scroll reliably inside the modal (`modal-dialog-scrollable` + inner overflow caused nested scroll). Retrieval also missed Sales Invoice how-tos until dedicated manuals existed.
+
+**Solution**: Drop `modal-dialog-scrollable`; single scroll on `#help-answer` with `min-height: 0`, touch-friendly overflow, focus + `scrollTop=0` after reply. Navbar HELP uses `fa-book-open` + gradient circle (CSS in `head.blade.php`). Added `sales-invoice-manual-*.md`, `in-app-help-manual-*.md`, `docs/manuals/README.md`, expanded `help-navigation.json`, DO manual cross-link to SI manual; run `php artisan help:reindex` after doc changes.
+
+**Learning**: Never nest Bootstrap scrollable modal with another `overflow-y: auto` panel for the same content; one scroll owner. Chunked Markdown + reindex is the operational loop for HELP quality.
 
 ### [096] Purchase Invoice — one inventory row per line (2026-03-31) ✅ COMPLETE
 

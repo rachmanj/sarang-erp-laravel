@@ -1,5 +1,5 @@
 Purpose: Technical reference for understanding system design and development patterns
-Last Updated: 2026-03-31 (PI inventory deduplication, PHPUnit test DB isolation)
+Last Updated: 2026-04-01 (HELP UI scroll fix, launcher icon, manuals index + SI / in-app-help docs)
 
 ## Architecture Documentation Guidelines
 
@@ -680,6 +680,43 @@ The database schema has been consolidated from 51 to 44 migration files for impr
 
 -   `/api/menu/search`: Menu search API endpoint returning permission-filtered menu items for authenticated users with optional query parameter for server-side filtering
 -   `/admin/approval-workflows/*`: Approval workflow management with CRUD operations, workflow step configuration, and threshold management
+
+### In-app HELP (scoped assistant)
+
+-   **Routes** (authenticated, throttled): `POST /help/ask`, `POST /help/feedback`. **No** persistence of chat Q&A; only bug/feature submissions are stored (`help_feedback`).
+-   **Knowledge**: Markdown manuals under `docs/manuals/` (chunked by `##` headings), plus `docs/manuals/help-navigation.json` for menu-path hints. Vector rows live in `help_embeddings` (JSON embedding column). Rebuild index: `php artisan help:reindex` (requires `OPENROUTER_API_KEY`). Maintainer index and authoring rules: `docs/manuals/README.md`.
+-   **Manuals (high-signal additions for retrieval)**: `sales-invoice-manual-id.md` / `sales-invoice-manual-en.md`, `in-app-help-manual-id.md` / `in-app-help-manual-en.md`; `delivery-order-manual-id.md` links to the Sales Invoice manual for “buat faktur dari DO”.
+-   **External calls**: [OpenRouter](https://openrouter.ai/) for embeddings + chat completion only; API key stays **server-side** (`config/services.php` → `openrouter.*`, `App\Services\Help\HelpOpenRouterClient`).
+-   **Optional**: `HELP_FEEDBACK_NOTIFY_EMAIL` sends a plain-text email when feedback is submitted (failures are logged; DB row still created).
+-   **UI**: Navbar launcher uses **`fas fa-book-open`** in a circular gradient badge (styles in `resources/views/layouts/partials/head.blade.php`; markup in `layouts/partials/navbar.blade.php`). Help modal: **`modal-dialog-scrollable` is not used** — the answer region `#help-answer` is the scroll container (`overflow-y: auto`, `min-height: 0`, touch-friendly) to avoid nested scroll issues; after each reply the script resets `scrollTop` and focuses the answer box for keyboard scroll.
+-   **Views**: `resources/views/layouts/partials/help-panel.blade.php` (How-to + Report/request tabs, formatted answer HTML from client-side formatter).
+
+```mermaid
+flowchart LR
+    subgraph help_ui [Browser]
+        NB[Navbar book-open launcher]
+        MOD[Help modal]
+        ANS[Answer box scroll region]
+    end
+    subgraph help_api [Laravel]
+        ASK["POST /help/ask"]
+        FB["POST /help/feedback"]
+        ASK --> SVC[HelpAssistantService]
+        SVC --> DB[(help_embeddings)]
+        SVC --> ORAPI[OpenRouter API]
+        FB --> HF[(help_feedback)]
+    end
+    subgraph knowledge [Knowledge prep]
+        MD["docs/manuals/*.md"]
+        NAV[help-navigation.json]
+        MD --> REINDEX[help:reindex]
+        NAV --> REINDEX
+        REINDEX --> DB
+    end
+    NB --> MOD
+    MOD --> ASK
+    MOD --> ANS
+```
 
 ## Data Flow
 

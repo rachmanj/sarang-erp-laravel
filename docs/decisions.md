@@ -1,5 +1,5 @@
 **Purpose**: Record technical decisions and rationale for future reference
-**Last Updated**: 2026-03-31 (PI inventory duplicate prevention plan)
+**Last Updated**: 2026-04-01 (HELP modal scroll + knowledge docs)
 
 # Technical Decision Records
 
@@ -29,6 +29,20 @@ Decision: [Title] - [YYYY-MM-DD]
 ---
 
 ## Recent Decisions
+
+### Decision: In-app HELP — Answer panel scrolling and launcher affordance - 2026-04-01
+
+**Context**: Users could not scroll long HELP answers inside the modal. Bootstrap 4 `modal-dialog-scrollable` makes `.modal-body` the scroll container (flex); combining it with an inner `#help-answer { overflow-y: auto; max-height }` created **nested scroll regions** so wheel/touch often scrolled the wrong layer or the inner box expanded with content.
+
+**Decision**: Remove `modal-dialog-scrollable` from the HELP modal. Use a **single** scroll target: `#help-answer` with `max-height: min(420px, 55vh)`, `min-height: 0`, `overflow-y: auto`, `-webkit-overflow-scrolling: touch`, `overscroll-behavior: contain`, `touch-action: pan-y`. Optionally `tabindex="0"` on the answer region for keyboard scroll; reset `scrollTop` and focus after each successful ask. Navbar launcher: **`fas fa-book-open`** in a circular gradient badge; styles in `layouts/partials/head.blade.php` (not `@push` from navbar, so stacks render reliably).
+
+**Rationale**: One scroll container matches user expectation (“scroll the answer box”); flex `min-height: 0` avoids content-sized expansion blocking inner overflow.
+
+**Implementation**: `resources/views/layouts/partials/help-panel.blade.php`, `navbar.blade.php`, `head.blade.php`.
+
+**Review Date**: When upgrading Bootstrap/AdminLTE modal behavior.
+
+---
 
 ### Decision: Purchase Invoice — Prevent Duplicate Inventory Transactions - 2026-03-31
 

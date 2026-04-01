@@ -72,6 +72,8 @@
     </div>
     <!-- ./wrapper -->
 
+    @include('layouts.partials.help-panel')
+
     <!-- REQUIRED SCRIPTS -->
 
     @include('layouts.partials.scripts')

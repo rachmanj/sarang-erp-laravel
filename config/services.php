@@ -35,4 +35,15 @@ return [
         ],
     ],
 
+    'openrouter' => [
+        'api_key' => env('OPENROUTER_API_KEY'),
+        'chat_model' => env('OPENROUTER_HELP_MODEL', 'openai/gpt-4o-mini'),
+        'embedding_model' => env('OPENROUTER_EMBEDDING_MODEL', 'openai/text-embedding-3-small'),
+        'site_url' => env('OPENROUTER_HTTP_REFERER', env('APP_URL', 'http://localhost')),
+    ],
+
+    'help_feedback' => [
+        'notify_email' => env('HELP_FEEDBACK_NOTIFY_EMAIL'),
+    ],
+
 ];

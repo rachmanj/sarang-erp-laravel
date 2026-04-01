@@ -1,708 +1,385 @@
-# Manual Transfer Stok Antar Gudang
+# Panduan Transfer Stok Antar Gudang (Warehouse Stock Transfer)
 
 ## Daftar Isi
 
-1. [Pengenalan](#pengenalan)
+1. [Pengantar](#pengantar)
 2. [Prasyarat](#prasyarat)
-3. [Memahami Jenis Transfer](#memahami-jenis-transfer)
-4. [Fitur Pencarian Item yang Ditingkatkan](#fitur-pencarian-item-yang-ditingkatkan)
-5. [Metode 1: Transfer Langsung](#metode-1-transfer-langsung)
-6. [Metode 2: Transfer Dua Langkah (ITO/ITI)](#metode-2-transfer-dua-langkah-itoiti)
-7. [Melihat Riwayat Transfer](#melihat-riwayat-transfer)
-8. [Mengelola Transfer Tertunda](#mengelola-transfer-tertunda)
-9. [Best Practices](#best-practices)
-10. [Troubleshooting](#troubleshooting)
-11. [FAQ](#faq)
+3. [Jenis Transfer](#jenis-transfer)
+4. [Metode 1: Transfer Langsung (Direct Transfer)](#metode-1-transfer-langsung-direct-transfer)
+5. [Metode 2: Transfer Dua Tahap (ITO / ITI)](#metode-2-transfer-dua-tahap-ito--iti)
+6. [Melihat Riwayat Transfer](#melihat-riwayat-transfer)
+7. [Mengelola Transfer Tertunda](#mengelola-transfer-tertunda)
+8. [Praktik Terbaik](#praktik-terbaik)
+9. [Penanganan Masalah](#penanganan-masalah)
+10. [Pertanyaan Umum](#pertanyaan-umum)
 
 ---
 
-## Pengenalan
+## Pengantar
 
-### Apa itu Transfer Stok Antar Gudang?
+### Apa itu transfer stok antar gudang?
 
-Transfer Stok Antar Gudang memungkinkan Anda memindahkan item inventori dari satu gudang ke gudang lainnya. Fitur ini penting untuk:
+Fitur ini memungkinkan Anda memindahkan stok barang dari satu gudang ke gudang lain. Berguna untuk:
 
--   **Mendistribusikan stok** ke berbagai lokasi
--   **Mengisi ulang** gudang dengan stok rendah
--   **Mengkonsolidasikan inventori** dari beberapa gudang
--   **Mengelola perpindahan antar gudang** untuk logistik
+-   **Distribusi stok** ke beberapa lokasi
+-   **Penambahan stok** di gudang yang menipis
+-   **Konsolidasi** persediaan dari beberapa gudang
+-   **Pengelolaan pergerakan antar gudang** untuk keperluan logistik
 
-### Siapa yang Dapat Mentransfer Stok?
+### Siapa yang boleh melakukan transfer?
 
-Pengguna dengan izin **`warehouse.transfer`** dapat mentransfer stok antar gudang. Hubungi administrator sistem jika Anda memerlukan izin ini.
+Pengguna yang memiliki izin **`warehouse.transfer`** dapat melakukan transfer antar gudang. Hubungi administrator sistem jika Anda memerlukan izin tersebut.
 
 ---
 
 ## Prasyarat
 
-Sebelum mentransfer stok, pastikan:
+Sebelum transfer, pastikan:
 
-1. ✅ **Kedua gudang sudah ada** dan aktif
-2. ✅ **Gudang sumber memiliki stok yang cukup** untuk item tersebut
-3. ✅ **Item sudah ada** dalam sistem inventori
-4. ✅ **Anda memiliki izin transfer** (`warehouse.transfer`)
-5. ✅ **Gudang transit sudah dikonfigurasi** (jika menggunakan metode ITO/ITI)
-
----
-
-## Memahami Jenis Transfer
-
-Sistem mendukung tiga metode transfer:
-
-### 1. Transfer Langsung (Immediate)
-
--   **Kapan digunakan**: Kedua gudang dapat diakses, transfer segera diperlukan
--   **Proses**: Proses satu langkah, stok langsung pindah dari sumber ke tujuan
--   **Status**: Selesai segera
--   **Terbaik untuk**: Transfer di lokasi yang sama, pengisian ulang mendesak
-
-### 2. Inventory Transfer Out (ITO)
-
--   **Kapan digunakan**: Item perlu melalui transit (pengiriman, logistik)
--   **Proses**: Proses dua langkah
-    -   Langkah 1: Pindahkan item dari gudang sumber ke gudang transit
-    -   Langkah 2: Selesaikan transfer dengan memindahkan dari transit ke tujuan
--   **Status**: Dalam Transit → Selesai
--   **Terbaik untuk**: Transfer antar lokasi, skenario pengiriman
-
-### 3. Inventory Transfer In (ITI)
-
--   **Kapan digunakan**: Menyelesaikan transfer ITO yang tertunda
--   **Proses**: Langkah akhir dari proses ITO
--   **Status**: Menyelesaikan transfer tertunda
--   **Terbaik untuk**: Menerima item yang dikirim via ITO
+1. ✅ **Kedua gudang sudah ada** dan berstatus aktif
+2. ✅ **Gudang asal memiliki stok** yang cukup untuk barang tersebut
+3. ✅ **Barang sudah terdaftar** di master persediaan
+4. ✅ **Akun Anda memiliki izin **`warehouse.transfer`**
+5. ✅ **Gudang transit sudah dikonfigurasi** (jika menggunakan metode ITO / ITI)
 
 ---
 
-## Fitur Pencarian Item yang Ditingkatkan
+## Jenis Transfer
 
-### Pencarian Otomatis yang Cerdas
+Sistem mendukung tiga mode transfer:
 
-Halaman transfer stok menggunakan sistem pencarian otomatis yang cerdas untuk membantu Anda menemukan item dengan cepat:
+### 1. Direct Transfer (Immediate) — Transfer langsung
 
-#### Cara Kerja Pencarian
+-   **Kapan dipakai**: Kedua gudang dapat diakses dan transfer harus segera selesai
+-   **Alur**: Satu langkah; stok langsung dari gudang asal ke gudang tujuan
+-   **Status**: Langsung selesai (completed)
+-   **Cocok untuk**: Transfer cepat di lokasi yang sama atau percepatan pengisian stok
 
-1. **Mulai Ketik**: Ketik minimal 2 karakter di kolom pencarian item
-2. **Hasil Otomatis**: Sistem akan menampilkan daftar item yang cocok secara otomatis
-3. **Pencarian Fleksibel**:
-    - Cari berdasarkan **kode item** (contoh: ketik "CON" untuk menemukan CON000001, CON000002, dll.)
-    - Cari berdasarkan **nama item** (contoh: ketik "Orange" untuk menemukan semua item dengan nama mengandung "Orange")
-4. **Case-Insensitive**: Tidak perlu khawatir dengan huruf besar/kecil (ketik "co" atau "CO" akan memberikan hasil yang sama)
+### 2. Inventory Transfer Out (ITO) — Pengeluaran transfer
 
-#### Fitur Navigasi Keyboard
+-   **Kapan dipakai**: Barang melalui pengiriman / logistik (ada tahap dalam perjalanan)
+-   **Alur**: Dua tahap
+    -   Tahap 1: Stok keluar dari gudang asal ke **gudang transit**
+    -   Tahap 2: Penyelesaian dari transit ke gudang tujuan (melalui ITI)
+-   **Status**: In Transit → Completed
+-   **Cocok untuk**: Antar lokasi, skenario pengiriman
 
--   **Tombol Panah Bawah (↓)**: Navigasi ke item berikutnya
--   **Tombol Panah Atas (↑)**: Navigasi ke item sebelumnya
--   **Enter**: Pilih item yang sedang disorot
--   **Escape**: Tutup dropdown hasil pencarian
+### 3. Inventory Transfer In (ITI) — Penerimaan transfer
 
-#### Tips Pencarian Efektif
-
--   **Gunakan kode item**: Jika Anda tahu kode item, gunakan kode untuk hasil yang lebih cepat dan akurat
--   **Gunakan nama unik**: Ketik bagian nama item yang unik untuk mempersempit hasil
--   **Kata kunci spesifik**: Sistem menampilkan hingga 50 hasil teratas, jadi gunakan kata kunci yang lebih spesifik jika ada banyak item
--   **Highlighting**: Teks yang cocok akan ditandai dengan warna kuning untuk memudahkan identifikasi
-
-#### Contoh Pencarian
-
--   **Mencari dengan kode**: Ketik "CON" → Menampilkan semua item dengan kode mengandung "CON" (CON000001, CON000002, CON000006, dll.)
--   **Mencari dengan nama**: Ketik "Paint" → Menampilkan semua item dengan nama mengandung "Paint" (Avian Orange Paint, Avian Red Paint, dll.)
--   **Pencarian kombinasi**: Sistem mencari di kedua kode dan nama secara bersamaan
+-   **Kapan dipakai**: Menyelesaikan transfer ITO yang masih tertunda
+-   **Alur**: Langkah akhir dari proses ITO
+-   **Status**: Menutup transfer yang tertunda
+-   **Cocok untuk**: Menerima barang yang dikirim melalui ITO
 
 ---
 
-## Metode 1: Transfer Langsung
+## Metode 1: Transfer Langsung (Direct Transfer)
 
-### Gambaran Umum
+### Ringkasan
 
-Transfer Langsung langsung memindahkan stok dari satu gudang ke gudang lain dalam satu operasi.
+Stok dipindahkan dari gudang asal ke gudang tujuan dalam **satu kali proses**.
 
-### Instruksi Langkah demi Langkah
+### Langkah demi langkah
 
-#### Langkah 1: Akses Fungsi Transfer
+#### Langkah 1: Buka menu transfer
 
-**Opsi A: Dari Daftar Gudang**
+**Opsi A: Dari daftar gudang**
 
-1. Navigasi ke **Inventory** → **Warehouses**
-2. Klik tombol **"Transfer Stock"** di bagian atas halaman
+1. Buka **Inventory** → **Warehouses**
+2. Klik tombol **Transfer Stock** di bagian atas halaman
 
-**Opsi B: Dari Halaman Detail Gudang**
+**Opsi B: Dari detail gudang**
 
-1. Navigasi ke **Inventory** → **Warehouses**
-2. Klik nama gudang untuk melihat detail
-3. Klik tombol **"Transfer Stock"** di header
+1. Buka **Inventory** → **Warehouses**
+2. Klik nama gudang untuk membuka detail
+3. Klik **Transfer Stock** di header
 
-#### Langkah 2: Isi Form Transfer
+#### Langkah 2: Isi formulir transfer
 
-Halaman transfer stok akan terbuka. Isi field berikut:
+1. **Item** (wajib)
 
-1. **Item** (Wajib)
+    - Ketik kode atau nama barang, lalu pilih dari daftar yang muncul
+    - Format tampilan: `KODE - Nama`
+    - Contoh: `SUMATOSM05 - Sumato SM-05`
 
-    - **Pencarian Otomatis**: Mulai ketik kode atau nama item di kolom pencarian
-    - Sistem akan menampilkan daftar item yang cocok secara otomatis
-    - **Pencarian Case-Insensitive**: Tidak perlu khawatir dengan huruf besar/kecil
-    - **Pencarian Fleksibel**: Cari berdasarkan kode item (contoh: "CON") atau nama item (contoh: "Orange")
-    - **Navigasi Keyboard**: Gunakan tombol panah untuk navigasi, Enter untuk memilih, Escape untuk menutup
-    - Klik item dari hasil pencarian untuk memilih
-    - Item yang dipilih ditampilkan sebagai: `KODE - Nama`
-    - Contoh: `CON000002 - Avian Orange Paint 1 Kg`
-    - **Tombol Hapus**: Setelah memilih item, tombol X akan muncul untuk menghapus pilihan
+2. **From Warehouse** (wajib)
 
-2. **Dari Gudang** (Wajib)
+    - Pilih gudang asal (stok akan dikurangi di sini)
+    - Format: `KODE - Nama` (mis. `WH001 - Main Warehouse`)
 
-    - Pilih gudang sumber
-    - Ini adalah tempat stok akan dikurangi
-    - Format: `KODE - Nama` (contoh: `WH001 - Main Warehouse`)
+3. **To Warehouse** (wajib)
 
-3. **Ke Gudang** (Wajib)
+    - Pilih gudang tujuan (stok akan ditambah di sini)
+    - Harus **berbeda** dari gudang asal
+    - Format: `KODE - Nama` (mis. `WH002 - Branch Warehouse`)
 
-    - Pilih gudang tujuan
-    - Ini adalah tempat stok akan ditambahkan
-    - Harus berbeda dari gudang sumber
-    - Format: `KODE - Nama` (contoh: `WH002 - Branch Warehouse`)
+4. **Quantity** (wajib)
 
-4. **Jumlah** (Wajib)
+    - Masukkan jumlah yang dipindahkan
+    - Tidak boleh melebihi stok tersedia di gudang asal
+    - Sistem menampilkan informasi stok tersedia (Available)
 
-    - Masukkan jumlah unit yang akan ditransfer
-    - Harus angka positif
-    - Tidak boleh melebihi stok tersedia di gudang sumber
-    - Sistem menampilkan stok tersedia: "Available: X units"
+5. **Notes** (opsional)
 
-5. **Catatan** (Opsional)
-    - Tambahkan catatan relevan tentang transfer
-    - Contoh: "Mengisi ulang stok gudang cabang"
-    - Contoh: "Transfer untuk sales order #12345"
+    - Catatan alasan transfer, nomor referensi, dll.
+    - Contoh: `Replenishing branch warehouse stock` atau `Transfer untuk sales order #12345`
 
-#### Langkah 3: Tinjau Informasi Stok
+#### Langkah 3: Tinjau informasi stok
 
-Sistem menampilkan informasi stok real-time:
+Sistem menampilkan ringkasan stok, misalnya:
 
--   **Stok Sumber**: Stok saat ini di gudang sumber
--   **Stok Tujuan**: Stok saat ini di gudang tujuan
--   **Setelah Transfer**: Stok proyeksi di tujuan setelah transfer
+-   Stok di gudang asal
+-   Stok di gudang tujuan saat ini
+-   Proyeksi stok di gudang tujuan setelah transfer
 
-**Contoh Tampilan**:
+#### Langkah 4: Validasi dan kirim
 
-```
-Informasi Stok
-Stok Sumber:        150 unit
-Stok Tujuan:        50 unit
-Setelah Transfer:  200 unit
-```
-
-#### Langkah 4: Validasi dan Kirim
-
-1. **Verifikasi** semua informasi sudah benar
-2. **Periksa** bahwa jumlah tidak melebihi stok tersedia
-3. **Pastikan** gudang sumber dan tujuan berbeda
-4. Klik tombol **"Transfer Stock"**
+1. Pastikan semua data benar
+2. Pastikan jumlah tidak melebihi stok tersedia
+3. Pastikan gudang asal dan tujuan berbeda
+4. Klik **Process Transfer** (atau tombol setara sesuai tampilan layar)
 
 #### Langkah 5: Konfirmasi
 
--   Pesan sukses: "Stock transfer completed successfully"
--   Level stok diperbarui segera
--   Transfer muncul di riwayat transfer
--   Transaksi inventori dibuat
+-   Pesan sukses (mis. transfer berhasil)
+-   Level stok terbarui segera
+-   Transaksi tercatat di riwayat transfer
 
-### Contoh: Transfer Langsung
+### Contoh: transfer langsung
 
-**Skenario**: Transfer 50 unit "Sumato SM-05" dari Main Warehouse ke Branch Warehouse
+**Skenario**: Memindahkan 50 unit "Sumato SM-05" dari Main Warehouse ke Branch Warehouse.
 
-1. **Akses**: Pergi ke `/warehouses` → Klik "Transfer Stock"
-2. **Pilih Item**: `SUMATOSM05 - Sumato SM-05`
-3. **Dari Gudang**: `WH001 - Main Warehouse`
-4. **Ke Gudang**: `WH002 - Branch Warehouse`
-5. **Jumlah**: `50`
-6. **Catatan**: `Mengisi ulang stok cabang`
-7. **Kirim**: Klik "Transfer Stock"
+1. Buka `/warehouses` → **Transfer Stock**
+2. Item: `SUMATOSM05 - Sumato SM-05`
+3. From: `WH001 - Main Warehouse`
+4. To: `WH002 - Branch Warehouse`
+5. Quantity: `50`
+6. Notes: `Replenishing branch stock`
+7. Klik **Process Transfer**
 
 **Hasil**:
 
--   Main Warehouse: 150 → 100 unit (dikurangi 50)
--   Branch Warehouse: 50 → 100 unit (ditambah 50)
--   Transfer selesai segera
+-   Main Warehouse: 150 → 100 (berkurang 50)
+-   Branch Warehouse: 50 → 100 (bertambah 50)
+-   Transfer selesai langsung
 
 ---
 
-## Metode 2: Transfer Dua Langkah (ITO/ITI)
+## Metode 2: Transfer Dua Tahap (ITO / ITI)
 
-### Gambaran Umum
+### Ringkasan
 
-Transfer dua langkah menggunakan gudang transit untuk melacak item selama pengiriman/logistik. Ini berguna ketika item secara fisik berpindah antar lokasi.
+Transfer menggunakan **gudang transit** agar stok dapat dilacak selama pengiriman.
 
-### Bagian A: Buat Inventory Transfer Out (ITO)
+### Bagian A: Membuat ITO (Inventory Transfer Out)
 
-#### Langkah 1: Akses Fungsi Transfer
+#### Langkah 1: Buka transfer
 
-1. Navigasi ke **Inventory** → **Warehouses**
-2. Klik tombol **"Transfer Stock"**
-3. Pilih **Transfer Type**: **"Inventory Transfer Out (ITO)"**
+1. **Inventory** → **Warehouses**
+2. Klik **Transfer Stock**
+3. Pada **Transfer Type**, pilih **Inventory Transfer Out (ITO)**
 
-#### Langkah 2: Isi Form ITO
+#### Langkah 2: Isi formulir ITO
 
-1. **Item** (Wajib)
+1. **Item** — pilih barang yang akan dikirim
+2. **From Warehouse** — gudang asal (sistem akan mengaitkan gudang transit)
+3. **To Warehouse** — gudang tujuan akhir
+4. **Quantity** — jumlah (tidak boleh melebihi stok tersedia)
+5. **Notes** — mis. nomor resi pengiriman
 
-    - **Pencarian Otomatis**: Mulai ketik kode atau nama item di kolom pencarian
-    - Sistem akan menampilkan daftar item yang cocok secara otomatis
-    - Pencarian case-insensitive dan fleksibel (berdasarkan kode atau nama)
-    - Gunakan tombol panah untuk navigasi, Enter untuk memilih
-    - Hanya item dengan stok di gudang sumber yang tersedia
+#### Langkah 3: Simpan ITO
 
-2. **Dari Gudang** (Wajib)
-
-    - Pilih gudang sumber
-    - Sistem secara otomatis mengidentifikasi gudang transit
-
-3. **Ke Gudang** (Wajib)
-
-    - Pilih gudang tujuan akhir
-    - Ini adalah tempat item akan tiba
-
-4. **Jumlah** (Wajib)
-
-    - Masukkan jumlah yang akan ditransfer
-    - Tidak boleh melebihi stok tersedia
-
-5. **Catatan** (Opsional)
-    - Tambahkan catatan pengiriman, nomor tracking, dll.
-    - Contoh: "Pengiriman via kurir, tracking #ABC123"
-
-#### Langkah 3: Kirim ITO
-
-1. Klik **"Create Transfer Out"**
-2. Sistem membuat transfer dengan status: **"In Transit"**
-3. Stok pindah dari gudang sumber ke gudang transit
+1. Klik **Create Transfer Out** (atau tombol setara)
+2. Status transfer: **In Transit**
+3. Stok berkurang di gudang asal dan masuk ke gudang transit
 4. Transfer muncul di daftar **Pending Transfers**
 
-**Yang Terjadi**:
+**Yang terjadi**:
 
--   ✅ Stok dikurangi dari gudang sumber
--   ✅ Stok ditambahkan ke gudang transit
--   ✅ Status transfer: "In Transit"
--   ✅ Transfer ID dibuat untuk pelacakan
+-   Stok dikurangi di gudang asal
+-   Stok bertambah di gudang transit
+-   Status: In Transit
 
-### Bagian B: Selesaikan Inventory Transfer In (ITI)
+### Bagian B: Menyelesaikan ITI (Inventory Transfer In)
 
-#### Langkah 1: Akses Transfer Tertunda
+#### Langkah 1: Buka transfer tertunda
 
-1. Navigasi ke **Inventory** → **Warehouses**
-2. Klik tombol **"Pending Transfers"**
+1. **Inventory** → **Warehouses**
+2. Klik **Pending Transfers**
 3. Atau langsung ke `/warehouses/pending-transfers-page`
 
-#### Langkah 2: Temukan Transfer Tertunda
+#### Langkah 2: Cari transaksi
 
-Daftar transfer tertunda menampilkan:
+Daftar menampilkan antara lain: barang, gudang asal, gudang tujuan, jumlah, tanggal, status **In Transit**.
 
--   **Item**: Nama dan kode item
--   **Dari Gudang**: Gudang sumber
--   **Ke Gudang**: Gudang tujuan
--   **Jumlah**: Jumlah dalam transit
--   **Tanggal**: Tanggal pembuatan transfer
--   **Status**: "In Transit"
+#### Langkah 3: Selesaikan transfer
 
-#### Langkah 3: Selesaikan Transfer
+**Opsi A: Dari halaman Pending Transfers**
 
-**Opsi A: Selesaikan via Halaman Pending Transfers**
+1. Temukan baris transfer
+2. Klik **Receive** atau **Complete Transfer**
+3. Sesuaikan jumlah diterima jika perlu
+4. Tambahkan catatan jika ada selisih
+5. Konfirmasi penyelesaian
 
-1. Temukan transfer dalam daftar
-2. Klik tombol **"Receive"** atau **"Complete Transfer"**
-3. Verifikasi jumlah yang diterima (bisa berbeda dari jumlah dikirim)
-4. Tambahkan catatan jika jumlah berbeda
-5. Klik **"Complete Transfer"**
+**Opsi B: Dari modal Transfer Stock**
 
-**Opsi B: Selesaikan via Halaman Transfer**
-
-1. Pergi ke **Warehouses** → Klik **"Transfer Stock"**
-2. Pilih **Transfer Type**: **"Inventory Transfer In (ITI)"**
-3. Pilih **Pending Transfer** dari dropdown
-4. Masukkan **Received Quantity** (jika berbeda)
-5. Tambahkan catatan
-6. Klik **"Complete Transfer"**
+1. **Warehouses** → **Transfer Stock**
+2. **Transfer Type**: **Inventory Transfer In (ITI)**
+3. Pilih transfer tertunda dari dropdown
+4. Isi **Received Quantity** jika berbeda
+5. Klik **Complete Transfer**
 
 #### Langkah 4: Konfirmasi
 
--   Pesan sukses: "Transfer completed successfully"
--   Stok pindah dari gudang transit ke gudang tujuan
--   Status transfer berubah menjadi "Completed"
--   Transfer dihapus dari daftar tertunda
+-   Stok keluar dari gudang transit dan masuk ke gudang tujuan
+-   Status menjadi **Completed**
+-   Entri hilang dari daftar tertunda (setelah selesai)
 
-**Yang Terjadi**:
+### Contoh: transfer dua tahap
 
--   ✅ Stok dikurangi dari gudang transit
--   ✅ Stok ditambahkan ke gudang tujuan
--   ✅ Status transfer: "Completed"
--   ✅ Transfer dihapus dari transfer tertunda
+**Skenario**: Memindahkan 100 unit "Sumato SM-05" dari Main Warehouse ke Branch Warehouse via kurir.
 
-### Contoh: Transfer Dua Langkah
+**Tahap 1 — ITO**
 
-**Skenario**: Kirim 100 unit "Sumato SM-05" dari Main Warehouse ke Branch Warehouse via kurir
+1. `/warehouses` → **Transfer Stock** → tipe **ITO**
+2. Item, From `WH001`, To `WH002`, Qty `100`, catatan resi
+3. **Create Transfer Out**
 
-**Langkah 1: Buat ITO**
+**Tahap 2 — ITI (setelah barang diterima)**
 
-1. Pergi ke `/warehouses` → Klik "Transfer Stock"
-2. Pilih Type: **"Inventory Transfer Out (ITO)"**
-3. Item: `SUMATOSM05 - Sumato SM-05`
-4. Dari: `WH001 - Main Warehouse`
-5. Ke: `WH002 - Branch Warehouse`
-6. Jumlah: `100`
-7. Catatan: `Pengiriman via kurir, tracking #XYZ789`
-8. Klik **"Create Transfer Out"**
-
-**Hasil**:
-
--   Main Warehouse: 200 → 100 unit
--   Transit Warehouse: 0 → 100 unit
--   Status: In Transit
-
-**Langkah 2: Selesaikan ITI (Setelah Menerima Pengiriman)**
-
-1. Pergi ke `/warehouses/pending-transfers-page`
-2. Temukan transfer untuk Sumato SM-05
-3. Klik **"Receive"**
-4. Verifikasi jumlah: `100` (atau masukkan jumlah aktual yang diterima)
-5. Klik **"Complete Transfer"**
-
-**Hasil**:
-
--   Transit Warehouse: 100 → 0 unit
--   Branch Warehouse: 50 → 150 unit
--   Status: Completed
+1. Buka `/warehouses/pending-transfers-page`
+2. Temukan transfer tersebut
+3. **Receive** → isi jumlah diterima → **Complete Transfer**
 
 ---
 
 ## Melihat Riwayat Transfer
 
-### Akses Riwayat Transfer
+### Akses
 
-1. Navigasi ke **Inventory** → **Warehouses**
-2. Klik tombol **"Transfer History"**
-3. Atau langsung ke `/warehouses/transfer-history`
+1. **Inventory** → **Warehouses**
+2. Klik **Transfer History**
+3. Atau buka `/warehouses/transfer-history`
 
-### Memahami Riwayat Transfer
+### Isi riwayat
 
-Riwayat transfer menampilkan semua transfer yang selesai dengan:
+Biasanya mencakup: tanggal, kode/nama barang, gudang asal, gudang tujuan, kuantitas, jenis/status transfer, catatan, dan pembuat transaksi.
 
--   **Tanggal**: Tanggal transfer
--   **Item**: Kode dan nama item
--   **Dari Gudang**: Kode dan nama gudang sumber
--   **Ke Gudang**: Kode dan nama gudang tujuan
--   **Jumlah**: Jumlah yang ditransfer
--   **Tipe**: Tipe transfer (Direct, ITO, ITI)
--   **Status**: Status transfer
--   **Catatan**: Catatan transfer
+### Filter
 
-### Memfilter Riwayat Transfer
+Gunakan filter yang tersedia di layar, misalnya rentang tanggal dan gudang.
 
-Anda dapat memfilter transfer berdasarkan:
+### Ekspor
 
--   **Rentang Tanggal**: Pilih tanggal dari dan sampai
--   **Gudang**: Filter berdasarkan gudang tertentu
--   **Item**: Filter berdasarkan item tertentu
--   **Status**: Filter berdasarkan status transfer
-
-### Mengekspor Riwayat Transfer
-
-1. Terapkan filter jika diperlukan
-2. Klik tombol **"Export"**
-3. Riwayat transfer akan diekspor (format tergantung konfigurasi sistem)
+Jika tombol **Export** tersedia, Anda dapat mengekspor data sesuai konfigurasi sistem.
 
 ---
 
 ## Mengelola Transfer Tertunda
 
-### Melihat Transfer Tertunda
+### Melihat daftar
 
-1. Navigasi ke **Inventory** → **Warehouses**
-2. Klik tombol **"Pending Transfers"**
-3. Atau ke `/warehouses/pending-transfers-page`
+**Inventory** → **Warehouses** → **Pending Transfers**, atau `/warehouses/pending-transfers-page`.
 
-### Daftar Transfer Tertunda
+### Menyelesaikan transfer tertunda
 
-Menampilkan semua transfer dengan status "In Transit":
+1. Cari baris yang **In Transit**
+2. Gunakan **Receive** / **Complete Transfer**
+3. Verifikasi jumlah diterima
+4. Selesaikan
 
--   **Item**: Item yang sedang ditransfer
--   **Dari Gudang**: Gudang sumber
--   **Ke Gudang**: Gudang tujuan
--   **Jumlah**: Jumlah dalam transit
--   **Tanggal**: Tanggal pembuatan transfer
--   **Aksi**: Tombol selesaikan transfer
+### Penerimaan sebagian
 
-### Menyelesaikan Transfer Tertunda
-
-1. Temukan transfer dalam daftar
-2. Klik **"Receive"** atau **"Complete Transfer"**
-3. Verifikasi jumlah yang diterima
-4. Masukkan jumlah aktual yang diterima jika berbeda
-5. Tambahkan catatan jika diperlukan
-6. Klik **"Complete Transfer"**
-
-### Menangani Penerimaan Sebagian
-
-Jika Anda menerima kurang dari jumlah yang dikirim:
+Jika jumlah diterima lebih kecil dari yang dikirim:
 
 1. Buka transfer tertunda
-2. Masukkan **jumlah aktual yang diterima** (kurang dari dikirim)
-3. Tambahkan catatan menjelaskan perbedaan
-    - Contoh: "Diterima 95 unit, 5 unit rusak dalam transit"
+2. Masukkan **jumlah diterima riil**
+3. Catat alasan selisih di catatan
 4. Selesaikan transfer
 
-**Catatan**: Sistem akan menyesuaikan jumlah sesuai. Perbedaan akan tetap di gudang transit sampai diselesaikan.
+**Catatan**: Selisih dapat masih tercermin di gudang transit sampai ditindaklanjuti (penyesuaian atau proses lain sesuai kebijakan perusahaan).
 
-### Membatalkan Transfer Tertunda
+### Membatalkan transfer tertunda
 
-Jika transfer perlu dibatalkan:
-
-1. Hubungi administrator sistem
-2. Atau balikkan transfer secara manual:
-    - Selesaikan ITI untuk mengembalikan item ke gudang sumber
-    - Atau buat adjustment untuk memperbaiki level stok
+-   Hubungi administrator, atau
+-   Ikuti prosedur pembalikan / penyesuaian stok sesuai arahan IT.
 
 ---
 
-## Best Practices
+## Praktik Terbaik
 
-### 1. Verifikasi Stok Sebelum Transfer
-
--   Selalu periksa stok tersedia sebelum memulai transfer
--   Pastikan gudang sumber memiliki jumlah yang cukup
--   Pertimbangkan jumlah yang dipesan jika berlaku
-
-### 2. Gunakan Tipe Transfer yang Tepat
-
--   **Transfer Langsung**: Lokasi yang sama, kebutuhan segera
--   **ITO/ITI**: Pengiriman antar lokasi, perlu pelacakan
-
-### 3. Dokumentasikan Transfer dengan Benar
-
--   Selalu tambahkan catatan menjelaskan alasan transfer
--   Sertakan nomor referensi (sales orders, purchase orders)
--   Catat persyaratan penanganan khusus
-
-### 4. Selesaikan Transfer ITO Tepat Waktu
-
--   Selesaikan transfer ITI segera setelah item diterima
--   Verifikasi jumlah cocok sebelum menyelesaikan
--   Laporkan ketidaksesuaian segera
-
-### 5. Rekonsiliasi Berkala
-
--   Tinjau transfer tertunda secara berkala
--   Selesaikan atau selesaikan semua transfer tertunda
--   Rekonsiliasi stok gudang transit secara teratur
-
-### 6. Pemantauan Level Stok
-
--   Pantau level stok setelah transfer
--   Pastikan gudang tujuan memiliki stok yang memadai
--   Periksa alert stok rendah setelah transfer
-
-### 7. Audit Trail
-
--   Semua transfer dicatat dalam audit trail
--   Tinjau riwayat transfer secara teratur
--   Gunakan riwayat transfer untuk rekonsiliasi
+1. **Selalu cek stok tersedia** di gudang asal sebelum transfer.
+2. **Pilih jenis transfer** yang sesuai: langsung untuk kebutuhan cepat; ITO/ITI jika ada pengiriman antar lokasi.
+3. **Isi catatan** dengan jelas (alasan, nomor SO/PO, resi).
+4. **Segera selesaikan ITI** setelah barang diterima.
+5. **Rekonsiliasi berkala** terhadap transfer tertunda dan stok gudang transit.
+6. **Pantau level stok** setelah transfer.
+7. **Manfaatkan riwayat transfer** untuk audit dan rekonsiliasi.
 
 ---
 
-## Troubleshooting
+## Penanganan Masalah
 
-### Masalah: "Insufficient stock in source warehouse"
-
-**Penyebab**: Mencoba mentransfer lebih dari stok tersedia
-
-**Solusi**:
-
-1. Periksa stok saat ini di gudang sumber
-2. Kurangi jumlah transfer
-3. Pertimbangkan jumlah yang dipesan jika berlaku
-4. Verifikasi stok belum ditransfer ke tempat lain
-
-### Masalah: "Source and destination warehouses must be different"
-
-**Penyebab**: Memilih gudang yang sama untuk sumber dan tujuan
-
-**Solusi**:
-
-1. Pilih gudang yang berbeda
-2. Verifikasi pilihan gudang dalam form
-
-### Masalah: "Transit warehouse not found"
-
-**Penyebab**: Gudang sumber tidak memiliki gudang transit yang dikonfigurasi
-
-**Solusi**:
-
-1. Hubungi administrator sistem
-2. Konfigurasi gudang transit untuk gudang sumber
-3. Atau gunakan Transfer Langsung sebagai gantinya
-
-### Masalah: Tidak dapat menemukan transfer tertunda
-
-**Penyebab**: Transfer mungkin sudah selesai atau tidak ada
-
-**Solusi**:
-
-1. Periksa riwayat transfer sebagai gantinya
-2. Verifikasi ID transfer jika diketahui
-3. Periksa apakah transfer diselesaikan oleh pengguna lain
-4. Hubungi administrator jika diperlukan
-
-### Masalah: Ketidaksesuaian jumlah setelah ITI
-
-**Penyebab**: Jumlah yang diterima berbeda dari jumlah yang dikirim
-
-**Solusi**:
-
-1. Masukkan jumlah aktual yang diterima saat menyelesaikan ITI
-2. Tambahkan catatan menjelaskan perbedaan
-3. Buat adjustment jika diperlukan untuk rekonsiliasi
-4. Laporkan ke manajemen jika ketidaksesuaian signifikan
-
-### Masalah: Tombol transfer tidak terlihat
-
-**Penyebab**: Tidak memiliki izin `warehouse.transfer`
-
-**Solusi**:
-
-1. Hubungi administrator sistem
-2. Minta izin `warehouse.transfer`
-3. Verifikasi peran pengguna memiliki izin yang benar
-
-### Masalah: Pencarian item tidak menampilkan hasil
-
-**Penyebab**: Beberapa kemungkinan penyebab
-
-**Solusi**:
-
-1. **Pastikan mengetik minimal 2 karakter**: Sistem memerlukan minimal 2 karakter untuk memulai pencarian
-2. **Periksa koneksi internet**: Pastikan koneksi internet stabil
-3. **Coba refresh halaman**: Tekan F5 atau refresh browser
-4. **Coba kata kunci berbeda**: Coba cari dengan kode item atau nama item yang berbeda
-5. **Periksa konsol browser**: Tekan F12 untuk membuka Developer Tools dan periksa tab Console untuk pesan error
-6. Hubungi dukungan IT jika masalah berlanjut
-
-### Masalah: Hasil pencarian tidak lengkap
-
-**Penyebab**: Sistem menampilkan maksimal 50 hasil teratas
-
-**Solusi**:
-
-1. **Gunakan kata kunci yang lebih spesifik**: Ketik lebih banyak karakter untuk mempersempit hasil
-2. **Cari berdasarkan kode**: Jika Anda tahu kode item, gunakan kode untuk hasil yang lebih akurat
-3. **Cari berdasarkan nama**: Ketik bagian nama item yang unik
-
-### Masalah: Stok tidak diperbarui setelah transfer
-
-**Penyebab**: Kemungkinan masalah sistem atau cache
-
-**Solusi**:
-
-1. Refresh halaman
-2. Periksa riwayat transfer untuk memastikan transfer selesai
-3. Verifikasi level stok di halaman detail gudang
-4. Hubungi dukungan IT jika masalah berlanjut
+| Gejala / pesan | Penyebab umum | Tindakan |
+|----------------|---------------|----------|
+| Stok tidak cukup di gudang asal | Jumlah transfer melebihi stok | Kurangi qty; cek stok dan reservasi |
+| Gudang asal dan tujuan harus berbeda | Gudang asal = tujuan | Pilih gudang tujuan lain |
+| Transit warehouse not found | Gudang transit belum diatur untuk gudang asal | Hubungi admin; atau gunakan Direct Transfer |
+| Transfer tertunda tidak ditemukan | Sudah selesai atau sudah dihapus/ditutup | Cek **Transfer History** |
+| Tombol transfer tidak muncul | Tidak punya izin `warehouse.transfer` | Minta admin menambahkan izin |
+| Stok tidak berubah di layar | Cache / tampilan belum segar | Refresh halaman; cek riwayat dan detail gudang |
 
 ---
 
-## FAQ
+## Pertanyaan Umum
 
-### Q1: Bagaimana cara mencari item dengan efisien?
+**Apakah bisa banyak barang dalam satu transfer?**  
+Saat ini umumnya **satu barang per transfer**. Untuk beberapa barang, buat beberapa transaksi.
 
-**A**: Gunakan fitur pencarian otomatis:
+**Bagaimana jika salah input?**  
+Lakukan **transfer balik** ke gudang semula atau **penyesuaian stok** sesuai prosedur; konsultasikan admin jika ada keraguan.
 
--   **Ketika mengetik kode**: Sistem akan mencari semua item dengan kode yang mengandung teks yang Anda ketik (contoh: ketik "CON" untuk menemukan CON000001, CON000002, dll.)
--   **Ketika mengetik nama**: Sistem akan mencari semua item dengan nama yang mengandung teks yang Anda ketik (contoh: ketik "Orange" untuk menemukan semua item dengan nama mengandung "Orange")
--   **Pencarian case-insensitive**: Tidak perlu khawatir dengan huruf besar/kecil (ketik "co" atau "CO" akan memberikan hasil yang sama)
--   **Navigasi keyboard**: Gunakan tombol panah atas/bawah untuk navigasi, Enter untuk memilih, Escape untuk menutup dropdown
--   **Hasil maksimal**: Sistem menampilkan hingga 50 hasil teratas, jadi gunakan kata kunci yang lebih spesifik jika ada banyak item
+**Apakah transfer yang sudah selesai bisa dibatalkan?**  
+Biasanya tidak dibatalkan; gunakan transfer balik ke gudang asal.
 
-### Q2: Bisakah saya mentransfer beberapa item dalam satu transfer?
+**Perbedaan Direct vs ITO/ITI?**  
+Direct = satu langkah tanpa pelacakan transit. ITO/ITI = melalui gudang transit untuk skenario pengiriman.
 
-**A**: Saat ini, setiap transfer menangani satu item sekaligus. Buat transfer terpisah untuk setiap item.
+**Apakah sama dengan transfer stok antar barang (item berbeda)?**  
+Tidak. Transfer antar **gudang** untuk **barang yang sama** ada di menu **Warehouses** → **Transfer Stock**. Transfer antar **item** berbeda ada di fitur lain pada detail item persediaan.
 
-### Q3: Apa yang terjadi jika saya membuat kesalahan dalam transfer?
-
-**A**: Anda dapat membuat transfer balik (transfer kembali) atau menggunakan stock adjustment untuk memperbaiki. Hubungi administrator untuk bantuan.
-
-### Q4: Bisakah saya membatalkan transfer yang sudah selesai?
-
-**A**: Transfer yang sudah selesai tidak dapat dibatalkan, tetapi Anda dapat membuat transfer balik untuk memindahkan stok kembali.
-
-### Q5: Bagaimana saya tahu gudang transit mana yang digunakan?
-
-**A**: Sistem secara otomatis menggunakan gudang transit yang dikonfigurasi untuk gudang sumber. Periksa pengaturan gudang atau hubungi administrator.
-
-### Q6: Apa perbedaan antara Transfer Langsung dan ITO/ITI?
-
-**A**:
-
--   **Transfer Langsung**: Langsung, satu langkah, tanpa pelacakan transit
--   **ITO/ITI**: Dua langkah, menggunakan gudang transit, melacak item selama pengiriman
-
-### Q7: Bisakah saya mentransfer stok antar item?
-
-**A**: Fungsi transfer gudang memindahkan stok antar gudang untuk item yang sama. Untuk mentransfer antar item berbeda, gunakan fungsi "Transfer Stock" di halaman detail item inventori (fitur berbeda).
-
-### Q8: Berapa lama transfer tertunda tetap dalam sistem?
-
-**A**: Transfer tertunda tetap sampai diselesaikan. Tidak ada kedaluwarsa otomatis. Selesaikan segera setelah item diterima.
-
-### Q9: Bagaimana jika saya menerima item yang rusak?
-
-**A**: Saat menyelesaikan ITI, masukkan jumlah baik aktual yang diterima. Buat adjustment terpisah atau catat untuk item yang rusak. Dokumentasikan dalam catatan transfer.
-
-### Q9: Bisakah saya melihat siapa yang membuat transfer?
-
-**A**: Ya, riwayat transfer menyertakan informasi pengguna. Periksa audit log untuk pelacakan pengguna detail.
-
-### Q10: Apakah transfer mempengaruhi valuasi inventori?
-
-**A**: Transfer memindahkan stok antar gudang tetapi tidak mengubah total nilai inventori. Valuasi dihitung per item di semua gudang.
+**Apakah nilai persediaan total berubah?**  
+Transfer antar gudang memindahkan kuantitas; **nilai total per item** (secara agregat) tidak berubah karena hanya lokasi gudang yang berubah.
 
 ---
 
 ## Referensi Cepat
 
-### Langkah Transfer Langsung
+| Tindakan | Alur singkat |
+|----------|----------------|
+| Transfer langsung | Warehouses → **Transfer Stock** → Direct → isi form → **Process Transfer** |
+| ITO | **Transfer Stock** → pilih **ITO** → **Create Transfer Out** |
+| ITI | **Pending Transfers** → pilih transfer → **Receive** / **Complete Transfer** |
 
-1. Warehouses → Transfer Stock
-2. Pilih Item, Dari, Ke, Jumlah
-3. Tambahkan Catatan
-4. Kirim
+**URL penting (contoh):**
 
-### Langkah ITO
-
-1. Warehouses → Transfer Stock → ITO
-2. Isi form
-3. Create Transfer Out
-4. Item pindah ke transit
-
-### Langkah ITI
-
-1. Warehouses → Pending Transfers
-2. Temukan transfer
-3. Complete Transfer
-4. Item pindah ke tujuan
-
-### Rute Penting
-
--   Transfer Stock: `/warehouses` → tombol "Transfer Stock"
--   Pending Transfers: `/warehouses/pending-transfers-page`
--   Transfer History: `/warehouses/transfer-history`
--   Warehouse Detail: `/warehouses/{id}`
+-   Transfer: `/warehouses` → tombol **Transfer Stock**
+-   Tertunda: `/warehouses/pending-transfers-page`
+-   Riwayat: `/warehouses/transfer-history`
+-   Detail gudang: `/warehouses/{id}`
 
 ---
 
 ## Dukungan
 
-Untuk bantuan tambahan:
+Untuk bantuan lebih lanjut:
 
--   Periksa dokumentasi sistem
--   Hubungi administrator sistem Anda
--   Tinjau audit log untuk detail transfer
--   Periksa pengaturan dan konfigurasi gudang
+-   Dokumentasi sistem lain di folder `docs/manuals/`
+-   Administrator IT / sistem
+-   Audit log untuk jejak transaksi
 
 ---
 
-**Terakhir Diperbarui**: 2026-01-22  
-**Versi**: 1.0
+**Terakhir diperbarui**: 2026-04-01  
+**Versi**: 1.0 (Bahasa Indonesia)

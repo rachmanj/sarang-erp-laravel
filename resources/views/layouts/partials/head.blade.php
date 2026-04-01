@@ -26,8 +26,36 @@
 <link rel="stylesheet" href="{{ asset('css/menu-search.css') }}">
 
 @yield('styles')
+@stack('styles')
 
 <style>
+    /* HELP launcher in main navbar — high visibility */
+    .help-nav-launch {
+        padding-left: 0.5rem !important;
+        padding-right: 0.5rem !important;
+    }
+
+    .help-nav-icon-wrap {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 2.5rem;
+        height: 2.5rem;
+        border-radius: 50%;
+        background: linear-gradient(160deg, #ffc107 0%, #ff9800 55%, #f57c00 100%);
+        color: #1a1a1a;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        font-size: 1.28rem;
+        line-height: 1;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .help-nav-launch:hover .help-nav-icon-wrap {
+        transform: scale(1.08);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+        color: #000;
+    }
+
     /* Global page title alignment with content */
     .content-header {
         padding-left: 27.5px;

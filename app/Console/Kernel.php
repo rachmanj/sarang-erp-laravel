@@ -4,7 +4,6 @@ namespace App\Console;
 
 use Illuminate\Console\Application as Artisan;
 use Illuminate\Foundation\Console\Kernel as BaseKernel;
-use App\Console\ContainerCommandLoader;
 
 class Kernel extends BaseKernel
 {
@@ -24,8 +23,9 @@ class Kernel extends BaseKernel
         \App\Console\Commands\FixSaleTransactionWarehouseIds::class,
         \App\Console\Commands\FixDuplicateInventoryTransaction::class,
         \App\Console\Commands\ReportPurchaseInvoiceInventoryDuplicates::class,
+        \App\Console\Commands\HelpReindexCommand::class,
     ];
-    
+
     /**
      * Get the Artisan application instance.
      *
@@ -35,10 +35,10 @@ class Kernel extends BaseKernel
     {
         if (is_null($this->artisan)) {
             // Ensure commands are discovered before resolving
-            if (!$this->commandsLoaded) {
+            if (! $this->commandsLoaded) {
                 $this->discoverCommands();
             }
-            
+
             $this->artisan = (new Artisan($this->app, $this->events, $this->app->version()))
                 ->resolveCommands($this->commands);
 
@@ -47,7 +47,7 @@ class Kernel extends BaseKernel
             $property = $reflection->getProperty('commandMap');
             $property->setAccessible(true);
             $commandMap = $property->getValue($this->artisan);
-            
+
             $this->artisan->setCommandLoader(
                 new ContainerCommandLoader($this->app, $commandMap)
             );

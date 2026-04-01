@@ -1,53 +1,45 @@
 <?php
 
-use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\Reports\ReportsController;
-use App\Http\Controllers\Dev\PostingDemoController;
-use App\Http\Controllers\Accounting\ManualJournalController;
-use App\Http\Controllers\Admin\UserController as AdminUserController;
-use App\Http\Controllers\Admin\RoleController as AdminRoleController;
-use App\Http\Controllers\Admin\PermissionController as AdminPermissionController;
-use App\Http\Controllers\Admin\ApprovalWorkflowController;
-use App\Http\Controllers\Accounting\PeriodController;
-use App\Http\Controllers\Accounting\SalesInvoiceController;
-use App\Http\Controllers\Accounting\PurchaseInvoiceController;
-use App\Http\Controllers\Accounting\SalesReceiptController;
-use App\Http\Controllers\Accounting\PurchasePaymentController;
 use App\Http\Controllers\Accounting\AccountController;
+use App\Http\Controllers\Accounting\AccountStatementController;
 use App\Http\Controllers\Accounting\CashExpenseController;
-use App\Http\Controllers\ControlAccountController;
-use App\Http\Controllers\BusinessPartnerController;
-use App\Http\Controllers\BusinessPartnerProjectController;
-use App\Http\Controllers\Dimensions\ProjectController as DimProjectController;
-use App\Http\Controllers\Dimensions\DepartmentController as DimDepartmentController;
-use App\Http\Controllers\DownloadController;
-use App\Http\Controllers\Auth\PasswordController;
-use App\Http\Controllers\SalesOrderController;
-use App\Http\Controllers\PurchaseOrderController;
-use App\Http\Controllers\GoodsReceiptPOController;
-use App\Http\Controllers\WarehouseController;
-use App\Http\Controllers\AuditLogController;
+use App\Http\Controllers\Accounting\PeriodController;
 use App\Http\Controllers\ActivityDashboardController;
-use App\Http\Controllers\AssetController;
+use App\Http\Controllers\Admin\ApprovalWorkflowController;
+use App\Http\Controllers\Admin\PermissionController as AdminPermissionController;
+use App\Http\Controllers\Admin\RoleController as AdminRoleController;
+use App\Http\Controllers\Admin\UserController as AdminUserController;
+use App\Http\Controllers\AnalyticsController;
+use App\Http\Controllers\ApprovalDashboardController;
 use App\Http\Controllers\AssetCategoryController;
+use App\Http\Controllers\AssetController;
+use App\Http\Controllers\AssetDataQualityController;
 use App\Http\Controllers\AssetDepreciationController;
 use App\Http\Controllers\AssetDisposalController;
-use App\Http\Controllers\AssetMovementController;
 use App\Http\Controllers\AssetImportController;
-use App\Http\Controllers\AssetDataQualityController;
+use App\Http\Controllers\AssetMovementController;
+use App\Http\Controllers\AuditLogController;
+use App\Http\Controllers\Auth\PasswordController;
+use App\Http\Controllers\BusinessIntelligenceController;
+use App\Http\Controllers\BusinessPartnerController;
+use App\Http\Controllers\BusinessPartnerProjectController;
+use App\Http\Controllers\COGSController;
+use App\Http\Controllers\CompanyInfoController;
+use App\Http\Controllers\ControlAccountController;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\Dev\PostingDemoController;
+use App\Http\Controllers\Dimensions\DepartmentController as DimDepartmentController;
+use App\Http\Controllers\Dimensions\ProjectController as DimProjectController;
+use App\Http\Controllers\DownloadController;
+use App\Http\Controllers\HelpController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\InventoryDashboardController;
 use App\Http\Controllers\ProductCategoryController;
-use App\Http\Controllers\TaxController;
-use App\Http\Controllers\COGSController;
+use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SupplierAnalyticsController;
-use App\Http\Controllers\BusinessIntelligenceController;
-use App\Http\Controllers\AnalyticsController;
-use App\Http\Controllers\Accounting\AccountStatementController;
-use App\Http\Controllers\ApprovalDashboardController;
-use App\Http\Controllers\CompanyInfoController;
+use App\Http\Controllers\TaxController;
+use App\Http\Controllers\WarehouseController;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\DashboardController;
 
 Route::get('/', function () {
     return redirect('/login');
@@ -64,20 +56,27 @@ Route::middleware('auth')->group(function () {
     Route::put('password', [PasswordController::class, 'update'])->name('password.update');
     Route::get('/change-password', [ProfileController::class, 'changePassword'])->name('profile.change-password');
 
+    Route::post('/help/ask', [HelpController::class, 'ask'])
+        ->middleware('throttle:30,1')
+        ->name('help.ask');
+    Route::post('/help/feedback', [HelpController::class, 'storeFeedback'])
+        ->middleware('throttle:15,1')
+        ->name('help.feedback');
+
     // Approval Dashboard
     Route::get('/approvals', [ApprovalDashboardController::class, 'index'])->name('approvals.dashboard');
     Route::post('/approvals/{approval}/approve', [ApprovalDashboardController::class, 'approve'])->name('approvals.approve');
     Route::post('/approvals/{approval}/reject', [ApprovalDashboardController::class, 'reject'])->name('approvals.reject');
 
-    require __DIR__ . '/web/reports.php';
+    require __DIR__.'/web/reports.php';
 
     Route::prefix('dev')->group(function () {
         Route::post('/post-journal', [PostingDemoController::class, 'store'])->name('dev.post-journal');
     });
 
-    require __DIR__ . '/web/journals.php';
+    require __DIR__.'/web/journals.php';
 
-    require __DIR__ . '/web/orders.php';
+    require __DIR__.'/web/orders.php';
 
     // Periods
     Route::prefix('periods')->group(function () {
@@ -86,7 +85,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/open', [PeriodController::class, 'open'])->middleware('permission:periods.close')->name('periods.open');
     });
 
-    require __DIR__ . '/web/ar_ap.php';
+    require __DIR__.'/web/ar_ap.php';
 
     // Business Partners (Unified Customers & Suppliers)
     Route::prefix('business-partners')->group(function () {
@@ -641,4 +640,4 @@ Route::middleware('guest')->group(function () {
 Route::post('logout', [\App\Http\Controllers\Auth\AuthenticatedSessionController::class, 'destroy'])->name('logout');
 
 // Include master data routes
-require __DIR__ . '/web/master_data.php';
+require __DIR__.'/web/master_data.php';
