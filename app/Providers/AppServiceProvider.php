@@ -2,8 +2,12 @@
 
 namespace App\Providers;
 
+use App\Models\AssistantConversation;
 use App\Observers\AuditLogObserver;
+use App\Services\Assistant\DomainAssistantOpenRouterClient;
 use App\Services\Help\HelpOpenRouterClient;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -19,6 +23,13 @@ class AppServiceProvider extends ServiceProvider
                 (string) config('services.openrouter.site_url', config('app.url')),
             );
         });
+
+        $this->app->singleton(DomainAssistantOpenRouterClient::class, function () {
+            return new DomainAssistantOpenRouterClient(
+                config('services.openrouter.api_key'),
+                (string) config('services.openrouter.site_url', config('app.url')),
+            );
+        });
     }
 
     /**
@@ -26,6 +37,17 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Route::bind('conversation', function (string $value) {
+            if (! Auth::check()) {
+                abort(404);
+            }
+
+            return AssistantConversation::query()
+                ->where('user_id', Auth::id())
+                ->whereKey($value)
+                ->firstOrFail();
+        });
+
         $this->registerAuditLogObservers();
     }
 

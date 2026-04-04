@@ -21,6 +21,15 @@
     <!-- Right navbar links -->
     <ul class="navbar-nav ml-auto">
 
+        @can('access-domain-assistant')
+            <li class="nav-item">
+                <a class="nav-link help-nav-launch py-1" href="{{ route('assistant.index') }}"
+                    title="Domain Assistant" aria-label="Domain Assistant">
+                    <span class="help-nav-icon-wrap"><i class="fas fa-robot" aria-hidden="true"></i></span>
+                </a>
+            </li>
+        @endcan
+
         <li class="nav-item">
             <a class="nav-link help-nav-launch py-1" href="#" data-toggle="modal" data-target="#helpAssistantModal"
                 title="Help (Sarang ERP)" aria-label="Open help">

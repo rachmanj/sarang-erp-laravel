@@ -1,5 +1,5 @@
 Purpose: Technical reference for understanding system design and development patterns
-Last Updated: 2026-04-01 (HELP UI scroll fix, launcher icon, manuals index + SI / in-app-help docs)
+Last Updated: 2026-04-04 (Domain Assistant: AR invoice tools, multi-entity lookup, robot icon, HELP manuals)
 
 ## Architecture Documentation Guidelines
 
@@ -686,7 +686,7 @@ The database schema has been consolidated from 51 to 44 migration files for impr
 -   **Routes** (authenticated, throttled): `POST /help/ask`, `POST /help/feedback`. **No** persistence of chat Q&A; only bug/feature submissions are stored (`help_feedback`).
 -   **Knowledge**: Markdown manuals under `docs/manuals/` (chunked by `##` headings), plus `docs/manuals/help-navigation.json` for menu-path hints. Vector rows live in `help_embeddings` (JSON embedding column). Rebuild index: `php artisan help:reindex` (requires `OPENROUTER_API_KEY`). Maintainer index and authoring rules: `docs/manuals/README.md`.
 -   **Manuals (high-signal additions for retrieval)**: `sales-invoice-manual-id.md` / `sales-invoice-manual-en.md`, `in-app-help-manual-id.md` / `in-app-help-manual-en.md`; `delivery-order-manual-id.md` links to the Sales Invoice manual for “buat faktur dari DO”.
--   **External calls**: [OpenRouter](https://openrouter.ai/) for embeddings + chat completion only; API key stays **server-side** (`config/services.php` → `openrouter.*`, `App\Services\Help\HelpOpenRouterClient`).
+-   **External calls**: [OpenRouter](https://openrouter.ai/) for embeddings + chat completion only; API key stays **server-side** (`config/services.php` → `openrouter.*`, `App\Services\Help\HelpOpenRouterClient`). **Timeouts**: `OPENROUTER_TIMEOUT` (default 240s), `OPENROUTER_CONNECT_TIMEOUT` (30s); embedding batches retry up to `OPENROUTER_EMBEDDING_RETRIES`; `HELP_REINDEX_BATCH_SIZE` (default 6) reduces payload size when `help:reindex` hits slow networks or cURL 28.
 -   **Optional**: `HELP_FEEDBACK_NOTIFY_EMAIL` sends a plain-text email when feedback is submitted (failures are logged; DB row still created).
 -   **UI**: Navbar launcher uses **`fas fa-book-open`** in a circular gradient badge (styles in `resources/views/layouts/partials/head.blade.php`; markup in `layouts/partials/navbar.blade.php`). Help modal: **`modal-dialog-scrollable` is not used** — the answer region `#help-answer` is the scroll container (`overflow-y: auto`, `min-height: 0`, touch-friendly) to avoid nested scroll issues; after each reply the script resets `scrollTop` and focuses the answer box for keyboard scroll.
 -   **Views**: `resources/views/layouts/partials/help-panel.blade.php` (How-to + Report/request tabs, formatted answer HTML from client-side formatter).
@@ -716,6 +716,38 @@ flowchart LR
     NB --> MOD
     MOD --> ASK
     MOD --> ANS
+```
+
+### Domain Assistant (live ERP tools + threads)
+
+-   **Purpose**: Chat with OpenRouter **function calling** into `DomainAssistantDataService` (scoped Eloquent queries). **Not** the same as HELP (no manuals RAG; conversations are persisted).
+-   **Permission**: `access-domain-assistant` (migrations `access_domain_assistant_permission` + `sync_domain_assistant_roles`; `RolePermissionSeeder`). Navbar: **`fas fa-robot`** → `GET /assistant` (distinct from HELP **`fas fa-book-open`**).
+-   **Config**: `config/services.php` → `domain_assistant.*` (`DOMAIN_ASSISTANT_ENABLED`, `DOMAIN_ASSISTANT_MODEL`, daily limit, tools toggle). Requires `OPENROUTER_API_KEY` (shared with HELP embeddings/chat client registration).
+-   **Routes** (auth + permission): `assistant/*` — threads CRUD, `POST /assistant/chat`. **Admin** (`view-admin`): `GET /admin/assistant-report` — reads `assistant_request_logs`.
+-   **Tables**: `assistant_conversations`, `assistant_messages`, `assistant_request_logs`.
+-   **Core classes**: `App\Services\Assistant\DomainAssistantService` (tool loop), `DomainAssistantDataService` (tools), `DomainAssistantOpenRouterClient` (singleton in `AppServiceProvider`), `AssistantConversationManager`. Route model binding: `{conversation}` scoped to `auth()->id()` in `AppServiceProvider::boot()`.
+-   **Entity scoping (important)**: List/browse without an invoice number uses **`scopeCompanyEntity`** (default `company_entity_id` unless user has `see-all-record-switch` and sends `show_all_records`). **Sales Invoice** lookup by **`invoice_query`** or **`get_sales_invoice_detail`** uses **`scopeActiveCompanyEntities`** (`whereIn` active `company_entities`) so invoices on non-default entities (e.g. PT vs CV) are not missed.
+-   **Tools (representative)**: `get_erp_summary`, `search_sales_orders`, **`search_sales_invoices`**, **`get_sales_invoice_detail`** (header + lines from `sales_invoice_lines`), `search_purchase_orders`, `search_delivery_orders`, `search_goods_receipt_po`, `search_inventory_items`, `search_business_partners`.
+-   **UI**: `resources/views/assistant/index.blade.php` — terminal / hacker skin (JetBrains Mono, green-on-black), scoped under `.assistant-terminal`.
+-   **HELP knowledge**: User-facing how-to for Domain Assistant vs HELP lives in **`docs/manuals/domain-assistant-manual-en.md`** / **`domain-assistant-manual-id.md`**; **`help-navigation.json`** entry `domain-assistant`. After manual edits, run **`php artisan help:reindex`** (HELP pipeline only; Domain Assistant tools do not use `help_embeddings`).
+
+```mermaid
+flowchart LR
+    subgraph da_ui [Browser]
+        BOT[Navbar robot icon]
+        PG[Assistant page]
+    end
+    subgraph da_api [Laravel]
+        CHAT["POST /assistant/chat"]
+        CHAT --> SVC[DomainAssistantService]
+        SVC --> DATA[DomainAssistantDataService]
+        DATA --> DBL[(ERP tables)]
+        SVC --> OR2[OpenRouter chat+tools]
+        CHAT --> LOG[(assistant_request_logs)]
+        CHAT --> MSG[(assistant_messages)]
+    end
+    BOT --> PG
+    PG --> CHAT
 ```
 
 ## Data Flow

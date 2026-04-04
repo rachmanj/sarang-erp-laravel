@@ -23,6 +23,7 @@ File **`help-navigation.json`** holds short **menu path** and **keyword** entrie
 |-------|------------|---------|
 | First steps / onboarding | `first-things-to-do-manual-id.md` | `first-things-to-do-manual.md` |
 | In-app HELP & reindex | `in-app-help-manual-id.md` | `in-app-help-manual-en.md` |
+| **Domain Assistant** (live data chat, robot icon) | `domain-assistant-manual-id.md` | `domain-assistant-manual-en.md` |
 | Business partners | `business-partner-module-manual-id.md` | `business-partner-module-manual.md` |
 | Inventory | `inventory-module-manual-id.md` | `inventory-module-manual.md` |
 | Part numbers | `inventory-part-numbers-manual-id.md` | `inventory-part-numbers-manual-en.md` |

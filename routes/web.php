@@ -6,6 +6,7 @@ use App\Http\Controllers\Accounting\CashExpenseController;
 use App\Http\Controllers\Accounting\PeriodController;
 use App\Http\Controllers\ActivityDashboardController;
 use App\Http\Controllers\Admin\ApprovalWorkflowController;
+use App\Http\Controllers\Admin\AssistantReportController;
 use App\Http\Controllers\Admin\PermissionController as AdminPermissionController;
 use App\Http\Controllers\Admin\RoleController as AdminRoleController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
@@ -30,6 +31,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Dev\PostingDemoController;
 use App\Http\Controllers\Dimensions\DepartmentController as DimDepartmentController;
 use App\Http\Controllers\Dimensions\ProjectController as DimProjectController;
+use App\Http\Controllers\DomainAssistantController;
 use App\Http\Controllers\DownloadController;
 use App\Http\Controllers\HelpController;
 use App\Http\Controllers\InventoryController;
@@ -62,6 +64,16 @@ Route::middleware('auth')->group(function () {
     Route::post('/help/feedback', [HelpController::class, 'storeFeedback'])
         ->middleware('throttle:15,1')
         ->name('help.feedback');
+
+    Route::prefix('assistant')->middleware(['permission:access-domain-assistant'])->group(function () {
+        Route::get('/', [DomainAssistantController::class, 'index'])->name('assistant.index');
+        Route::get('/conversations', [DomainAssistantController::class, 'listConversations'])->name('assistant.conversations.index');
+        Route::post('/conversations', [DomainAssistantController::class, 'createConversation'])->name('assistant.conversations.store');
+        Route::get('/conversations/{conversation}/messages', [DomainAssistantController::class, 'loadMessages'])->name('assistant.conversations.messages');
+        Route::patch('/conversations/{conversation}/select', [DomainAssistantController::class, 'selectConversation'])->name('assistant.conversations.select');
+        Route::delete('/conversations/{conversation}', [DomainAssistantController::class, 'deleteConversation'])->name('assistant.conversations.destroy');
+        Route::post('/chat', [DomainAssistantController::class, 'chat'])->middleware('throttle:60,1')->name('assistant.chat');
+    });
 
     // Approval Dashboard
     Route::get('/approvals', [ApprovalDashboardController::class, 'index'])->name('approvals.dashboard');
@@ -152,6 +164,8 @@ Route::middleware('auth')->group(function () {
         Route::post('/permissions', [AdminPermissionController::class, 'store'])->name('admin.permissions.store');
         Route::patch('/permissions/{permission}', [AdminPermissionController::class, 'update'])->name('admin.permissions.update');
         Route::delete('/permissions/{permission}', [AdminPermissionController::class, 'destroy'])->name('admin.permissions.destroy');
+
+        Route::get('/assistant-report', [AssistantReportController::class, 'index'])->name('admin.assistant-report.index');
 
         // Approval Workflows
         Route::get('/approval-workflows', [ApprovalWorkflowController::class, 'index'])->name('admin.approval-workflows.index');

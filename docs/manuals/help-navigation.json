@@ -11,6 +11,16 @@
             "notes": "Knowledge is rebuilt with: php artisan help:reindex"
         },
         {
+            "id": "domain-assistant",
+            "title_en": "Domain Assistant (robot icon)",
+            "title_id": "Domain Assistant (ikon robot)",
+            "menu_path_en": "Top navbar → robot icon → Domain Assistant page (live ERP data; not the HELP book icon).",
+            "menu_path_id": "Navbar atas → ikon robot → halaman Domain Assistant (data ERP langsung; bukan ikon HELP).",
+            "keywords_en": ["domain assistant", "robot", "live data", "chat", "sales invoice lookup", "thread"],
+            "keywords_id": ["domain assistant", "robot", "data langsung", "chat", "cari faktur", "thread", "asisten"],
+            "notes": "Separate from HELP (?). Manuals: domain-assistant-manual-en.md / domain-assistant-manual-id.md. HELP reindex does not affect Domain Assistant tools."
+        },
+        {
             "id": "reports-menu",
             "title_en": "Reports",
             "title_id": "Laporan",

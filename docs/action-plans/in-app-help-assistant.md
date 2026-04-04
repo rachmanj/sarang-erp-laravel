@@ -158,7 +158,7 @@ Additionally, users should be able to **report bugs** or **request improvements*
 | --- | --- |
 | **Core** | `POST /help/ask`, `POST /help/feedback`; `help_embeddings`, `help_feedback`; `php artisan help:reindex`; OpenRouter client; throttling; no chat persistence. |
 | **UI** | Navbar: **`fas fa-book-open`** in gradient circle (`head.blade.php` + `navbar.blade.php`). Modal: **no** `modal-dialog-scrollable`; `#help-answer` is sole scroll area (touch-friendly, `min-height: 0`); focus + `scrollTop` reset after reply (`help-panel.blade.php`). |
-| **Knowledge** | `sales-invoice-manual-id.md` / `sales-invoice-manual-en.md`; `in-app-help-manual-id.md` / `in-app-help-manual-en.md`; `docs/manuals/README.md`; expanded `help-navigation.json`; `delivery-order-manual-id.md` cross-link to Sales Invoice manual. |
+| **Knowledge** | `sales-invoice-manual-id.md` / `sales-invoice-manual-en.md`; `in-app-help-manual-id.md` / `in-app-help-manual-en.md`; **`domain-assistant-manual-id.md` / `domain-assistant-manual-en.md`** (Domain Assistant vs HELP; robot icon; privacy); `docs/manuals/README.md`; expanded `help-navigation.json` (incl. `domain-assistant`); `delivery-order-manual-id.md` cross-link to Sales Invoice manual. |
 | **Docs** | `docs/architecture.md` (HELP section + mermaid), `docs/decisions.md`, `MEMORY.md` [097], `docs/todo.md`. |
 
 **Operational reminder:** After changing any `docs/manuals/` or `help-navigation.json`, run **`php artisan help:reindex`** on each environment.

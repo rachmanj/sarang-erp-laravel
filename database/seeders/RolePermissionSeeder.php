@@ -2,11 +2,10 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
-use Illuminate\Database\Seeder;
-use Spatie\Permission\Models\Role;
-use Spatie\Permission\Models\Permission;
 use App\Models\User;
+use Illuminate\Database\Seeder;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 
 class RolePermissionSeeder extends Seeder
 {
@@ -17,6 +16,7 @@ class RolePermissionSeeder extends Seeder
     {
         $permissions = [
             'view-admin',
+            'access-domain-assistant',
             'accounts.view',
             'accounts.manage',
             'journals.view',
@@ -265,6 +265,10 @@ class RolePermissionSeeder extends Seeder
         foreach ($roles as $roleName => $perms) {
             $role = Role::findOrCreate($roleName);
             $role->syncPermissions($perms);
+        }
+
+        if ($adminRole = Role::where('name', 'admin')->first()) {
+            $adminRole->givePermissionTo('access-domain-assistant');
         }
 
         if ($admin = User::first()) {

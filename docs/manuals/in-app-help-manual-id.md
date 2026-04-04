@@ -78,3 +78,6 @@ php artisan help:reindex
 ## Daftar manual umum di folder ini
 
 Lihat **`README.md`** di folder yang sama untuk indeks berkas panduan dan petunjuk pemeliharaan HELP.
+
+**Domain Assistant** (ikon robot, data ERP langsung — bukan HELP): lihat **`domain-assistant-manual-id.md`** di folder ini.
+

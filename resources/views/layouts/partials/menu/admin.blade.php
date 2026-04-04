@@ -9,6 +9,15 @@
     </a>
 </li>
 
+<!-- Domain Assistant audit -->
+<li class="nav-item">
+    <a href="{{ route('admin.assistant-report.index') }}"
+        class="nav-link {{ request()->routeIs('admin.assistant-report.*') ? 'active' : '' }}">
+        <i class="nav-icon fas fa-robot"></i>
+        <p>Assistant report</p>
+    </a>
+</li>
+
 <!-- Roles & Permissions -->
 <li
     class="nav-item {{ request()->routeIs('admin.roles.*') || request()->routeIs('admin.permissions.*') ? 'menu-open' : '' }}">

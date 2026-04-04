@@ -78,3 +78,5 @@ php artisan help:reindex
 ## Related
 
 - Index of manuals: **`README.md`** in this folder.
+- **Domain Assistant** (robot icon, live ERP data — not HELP): see **`domain-assistant-manual-en.md`** in this folder.
+

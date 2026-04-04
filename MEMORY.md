@@ -1,5 +1,5 @@
 **Purpose**: AI's persistent knowledge base for project context and learnings
-**Last Updated**: 2026-04-01 (HELP scroll + manuals)
+**Last Updated**: 2026-04-04 (Domain Assistant + HELP manuals)
 
 ## Memory Maintenance Guidelines
 
@@ -26,6 +26,14 @@
 ---
 
 ## Project Memory Entries
+
+### [098] Domain Assistant — live ERP chat + AR invoice lookup (2026-04-04) ✅ COMPLETE
+
+**Challenge**: Needed NL queries over live ERP data with threads + audit logs; users conflated Sales **Invoice** with Sales **Order**; default **company_entity_id** hid invoices on other active entities.
+
+**Solution**: Feature under `permission:access-domain-assistant`: tables `assistant_*`, `DomainAssistantService` tool loop + `DomainAssistantDataService` (incl. `search_sales_invoices`, `get_sales_invoice_detail` with lines). Invoice-by-number uses `scopeActiveCompanyEntities`; browse without invoice number uses `scopeCompanyEntity` + optional `see-all-record-switch`. Navbar **`fa-robot`**; terminal UI `assistant/index.blade.php`. HELP manuals `domain-assistant-manual-en/id.md`, `help-navigation.json`, reindex `help:reindex`. Docs: `docs/action-plans/domain-assistant.md`, architecture/decisions/todo.
+
+**Learning**: Document-type confusion (SO vs AR SI) is a prompt + tool surface problem; multi-entity installs need invoice lookup to span active entities, not only `getDefaultEntity()`.
 
 ### [097] In-app HELP — scroll UX + knowledge for RAG (2026-04-01) ✅ COMPLETE
 

@@ -1,5 +1,5 @@
 **Purpose**: Record technical decisions and rationale for future reference
-**Last Updated**: 2026-04-01 (HELP modal scroll + knowledge docs)
+**Last Updated**: 2026-04-04 (Domain Assistant AR invoice lookup + manuals)
 
 # Technical Decision Records
 
@@ -29,6 +29,32 @@ Decision: [Title] - [YYYY-MM-DD]
 ---
 
 ## Recent Decisions
+
+### Decision: Domain Assistant — AR Sales Invoice tools and multi-entity invoice lookup - 2026-04-04
+
+**Context**: Users asked for **Sales Invoice** numbers (e.g. faktur / AR invoice). The model initially called **`search_sales_orders`** with the number as `customer_query`, returning no rows. Separately, **`scopeCompanyEntity`** (default `company_entity_id` only) hid invoices that belonged to another active entity (e.g. invoice on entity **1** while `CompanyEntityService::getDefaultEntity()` returns entity **2**).
+
+**Decision**: (1) Add **`search_sales_invoices`** and **`get_sales_invoice_detail`** (header + `sales_invoice_lines`) on `App\Models\Accounting\SalesInvoice`. (2) For invoice **number** lookup, scope to **all active** `company_entities` (`scopeActiveCompanyEntities`); keep default-entity + `show_all_records` behaviour for non-invoice list browsing. (3) Strengthen system prompt + tool descriptions so “invoice / faktur” maps to AR tools, not sales orders. (4) Navbar icon **`fas fa-robot`** (robot head) for Domain Assistant vs HELP book icon.
+
+**Implementation**: `DomainAssistantDataService`, `DomainAssistantService`; manuals `docs/manuals/domain-assistant-manual-*.md`, `help-navigation.json` entry `domain-assistant`; cross-links from `in-app-help-manual-*.md`.
+
+**Review Date**: 2027-04-04
+
+---
+
+### Decision: Domain Assistant — separate stack from HELP, tools + audit - 2026-04-04
+
+**Context**: Users need natural-language access to **live** ERP lists (orders, inventory, partners) with the same visibility constraints as screens, plus **threaded** chat and **admin** request logs.
+
+**Decision**: Add a dedicated feature: permission `access-domain-assistant`, tables `assistant_conversations`, `assistant_messages`, `assistant_request_logs`, OpenRouter **chat completions with tools** (`DomainAssistantOpenRouterClient` + `DomainAssistantService` tool loop), and `DomainAssistantDataService` implementing one method per tool. **Do not** reuse HELP RAG or `HelpOpenRouterClient` for this flow. When `show_all_records` is requested, honour it only if the user has `see-all-record-switch`; otherwise scope document queries to the **default** `company_entity_id` via `CompanyEntityService::getDefaultEntity()`. Navbar entry: **`fas fa-robot`** (HELP remains **`fas fa-book-open`**).
+
+**Rationale**: HELP stays privacy-preserving and manual-grounded; Domain Assistant is intentionally stateful and data-backed. Entity default matches a conservative “single branch” default when the all-branches toggle is off.
+
+**Implementation**: `config/services.php` → `domain_assistant`, routes under `/assistant`, admin report `/admin/assistant-report`, UI `resources/views/assistant/index.blade.php` (terminal theme).
+
+**Review Date**: 2027-04-04
+
+---
 
 ### Decision: In-app HELP — Answer panel scrolling and launcher affordance - 2026-04-01
 

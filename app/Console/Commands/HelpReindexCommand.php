@@ -32,7 +32,8 @@ class HelpReindexCommand extends Command
         }
 
         $embeddingModel = (string) config('services.openrouter.embedding_model');
-        $batchSize = 12;
+        $batchSize = max(1, (int) config('help.reindex_batch_size', 6));
+        $this->line('Embedding batch size: '.$batchSize.' (set HELP_REINDEX_BATCH_SIZE to tune).');
 
         DB::table('help_embeddings')->truncate();
 
