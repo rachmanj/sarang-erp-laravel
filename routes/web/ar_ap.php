@@ -1,10 +1,10 @@
 <?php
 
+use App\Http\Controllers\Accounting\PurchaseInvoiceController;
+use App\Http\Controllers\Accounting\PurchasePaymentController;
 use App\Http\Controllers\Accounting\SalesInvoiceController;
 use App\Http\Controllers\Accounting\SalesInvoiceImportController;
-use App\Http\Controllers\Accounting\PurchaseInvoiceController;
 use App\Http\Controllers\Accounting\SalesReceiptController;
-use App\Http\Controllers\Accounting\PurchasePaymentController;
 use Illuminate\Support\Facades\Route;
 
 // AR - Sales Invoices
@@ -14,7 +14,7 @@ Route::prefix('sales-invoices')->group(function () {
     Route::get('/create', [SalesInvoiceController::class, 'create'])->middleware('permission:ar.invoices.create')->name('sales-invoices.create');
     Route::get('/api/document-number', [SalesInvoiceController::class, 'getDocumentNumber'])->middleware('permission:ar.invoices.create')->name('sales-invoices.api.document-number');
     Route::post('/', [SalesInvoiceController::class, 'store'])->middleware('permission:ar.invoices.create')->name('sales-invoices.store');
-    
+
     // Import routes - must come before /{id} route
     Route::prefix('import')->group(function () {
         Route::get('/', [SalesInvoiceImportController::class, 'index'])->name('sales-invoices.import.index');
@@ -22,7 +22,7 @@ Route::prefix('sales-invoices')->group(function () {
         Route::post('/validate', [SalesInvoiceImportController::class, 'validateImport'])->name('sales-invoices.import.validate');
         Route::post('/', [SalesInvoiceImportController::class, 'import'])->name('sales-invoices.import.store');
     });
-    
+
     Route::get('/{id}', [SalesInvoiceController::class, 'show'])->middleware('permission:ar.invoices.view')->name('sales-invoices.show');
     Route::get('/{id}/edit', [SalesInvoiceController::class, 'edit'])->middleware('permission:ar.invoices.create')->name('sales-invoices.edit');
     Route::put('/{id}', [SalesInvoiceController::class, 'update'])->middleware('permission:ar.invoices.create')->name('sales-invoices.update');
@@ -37,6 +37,7 @@ Route::prefix('sales-invoices')->group(function () {
 Route::prefix('purchase-invoices')->group(function () {
     Route::get('/', [PurchaseInvoiceController::class, 'index'])->middleware('permission:ap.invoices.view')->name('purchase-invoices.index');
     Route::get('/data', [PurchaseInvoiceController::class, 'data'])->middleware('permission:ap.invoices.view')->name('purchase-invoices.data');
+    Route::get('/export', [PurchaseInvoiceController::class, 'export'])->middleware('permission:ap.invoices.view')->name('purchase-invoices.export');
     Route::get('/create', [PurchaseInvoiceController::class, 'create'])->middleware('permission:ap.invoices.create')->name('purchase-invoices.create');
     Route::get('/api/document-number', [PurchaseInvoiceController::class, 'getDocumentNumber'])->middleware('permission:ap.invoices.create')->name('purchase-invoices.api.document-number');
     Route::post('/', [PurchaseInvoiceController::class, 'store'])->middleware('permission:ap.invoices.create')->name('purchase-invoices.store');
@@ -63,6 +64,7 @@ Route::prefix('sales-receipts')->group(function () {
     Route::post('/{id}/post', [SalesReceiptController::class, 'post'])->middleware('permission:ar.receipts.post')->name('sales-receipts.post');
     Route::get('/{id}/print', function ($id) {
         $receipt = \App\Models\Accounting\SalesReceipt::with('lines')->findOrFail($id);
+
         return view('sales_receipts.print', compact('receipt'));
     })->middleware('permission:ar.receipts.view')->name('sales-receipts.print');
     Route::get('/{id}/pdf', [SalesReceiptController::class, 'pdf'])->middleware('permission:ar.receipts.view')->name('sales-receipts.pdf');
@@ -82,6 +84,7 @@ Route::prefix('purchase-payments')->group(function () {
     Route::post('/{id}/post', [PurchasePaymentController::class, 'post'])->middleware('permission:ap.payments.post')->name('purchase-payments.post');
     Route::get('/{id}/print', function ($id) {
         $payment = \App\Models\Accounting\PurchasePayment::with('lines')->findOrFail($id);
+
         return view('purchase_payments.print', compact('payment'));
     })->middleware('permission:ap.payments.view')->name('purchase-payments.print');
     Route::get('/{id}/pdf', [PurchasePaymentController::class, 'pdf'])->middleware('permission:ap.payments.view')->name('purchase-payments.pdf');

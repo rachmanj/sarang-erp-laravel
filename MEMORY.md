@@ -1,5 +1,5 @@
 **Purpose**: AI's persistent knowledge base for project context and learnings
-**Last Updated**: 2026-04-04 (Domain Assistant + HELP manuals)
+**Last Updated**: 2026-04-06 (PI invoice date validation + docs)
 
 ## Memory Maintenance Guidelines
 
@@ -27,11 +27,19 @@
 
 ## Project Memory Entries
 
+### [099] Purchase Invoice — future invoice date validation (2026-04-06) ✅ COMPLETE
+
+**Challenge**: PI **Date** could be saved in the future while the business month was current, causing misleading AP and user confusion.
+
+**Solution**: `before_or_equal:today` on `store`/`update` (draft) unless **opening balance** or **`ap.invoices.future_date`**; permission in `RolePermissionSeeder`; tests `PurchaseInvoiceDateValidationTest`. Documented in `MODULES-AND-FEATURES.md`, `purchase-invoice-manual-id.md`, new `purchase-invoice-manual-en.md`, `docs/decisions.md`, `docs/architecture.md`.
+
+**Learning**: Invoice document date is a policy control surface—enforce at validation with explicit escape hatches (OB + named permission), not only in training.
+
 ### [098] Domain Assistant — live ERP chat + AR invoice lookup (2026-04-04) ✅ COMPLETE
 
 **Challenge**: Needed NL queries over live ERP data with threads + audit logs; users conflated Sales **Invoice** with Sales **Order**; default **company_entity_id** hid invoices on other active entities.
 
-**Solution**: Feature under `permission:access-domain-assistant`: tables `assistant_*`, `DomainAssistantService` tool loop + `DomainAssistantDataService` (incl. `search_sales_invoices`, `get_sales_invoice_detail` with lines). Invoice-by-number uses `scopeActiveCompanyEntities`; browse without invoice number uses `scopeCompanyEntity` + optional `see-all-record-switch`. Navbar **`fa-robot`**; terminal UI `assistant/index.blade.php`. HELP manuals `domain-assistant-manual-en/id.md`, `help-navigation.json`, reindex `help:reindex`. Docs: `docs/action-plans/domain-assistant.md`, architecture/decisions/todo.
+**Solution**: Feature under `permission:access-domain-assistant`: tables `assistant_*`, `DomainAssistantService` tool loop + `DomainAssistantDataService` (incl. AR: `search_sales_invoices`, `get_sales_invoice_detail`; AP: `search_purchase_invoices`, `get_purchase_invoice_detail` with lines). Invoice-by-number uses `scopeActiveCompanyEntities`; browse without invoice number uses `scopeCompanyEntity` + optional `see-all-record-switch`. Navbar **`fa-robot`**; terminal UI `assistant/index.blade.php`. HELP manuals `domain-assistant-manual-en/id.md`, `help-navigation.json`, reindex `help:reindex`. Docs: `docs/action-plans/domain-assistant.md`, architecture/decisions/todo.
 
 **Learning**: Document-type confusion (SO vs AR SI) is a prompt + tool surface problem; multi-entity installs need invoice lookup to span active entities, not only `getDefaultEntity()`.
 

@@ -154,6 +154,8 @@ The Purchase Management Module manages the full procure-to-pay workflow and supp
 
 ## Purchase Invoices (PI)
 
+> **Detail manual**: See `docs/manuals/purchase-invoice-manual-id.md` (full Indonesian). **Invoice date rules** (no future dates except opening balance or `ap.invoices.future_date` permission): `docs/manuals/purchase-invoice-manual-en.md`.
+
 ### Key Concepts
 
 -   **Numbering**: Uses unified format `EEYYDDNNNNN` where:

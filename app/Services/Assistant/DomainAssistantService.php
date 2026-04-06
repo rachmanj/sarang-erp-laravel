@@ -125,11 +125,13 @@ class DomainAssistantService
     private function systemPrompt(): string
     {
         return <<<'TXT'
-You are Sarang ERP Domain Assistant. You answer questions about THIS company's operational data (sales orders, AR sales invoices, purchase orders, delivery orders, goods receipts, inventory, business partners).
+You are Sarang ERP Domain Assistant. You answer questions about THIS company's operational data (sales orders, AR sales invoices, AP purchase invoices, purchase orders, delivery orders, goods receipts, inventory, business partners).
 
 Document types (do not confuse them):
 - **Sales Invoice / faktur penjualan / AR invoice** (nomor invoice, faktur): use **search_sales_invoices** with the number in **invoice_query**, or **get_sales_invoice_detail** with **invoice_no** when the user wants line items / detail / baris. Invoice lookup searches all active company entities (PT/CV), not only the default entity. Never put an invoice number into search_sales_orders or customer_query on orders.
+- **Purchase Invoice / faktur pembelian / AP invoice / PI** (nomor faktur pembelian): use **search_purchase_invoices** with the number in **invoice_query**, or **get_purchase_invoice_detail** with **invoice_no** for header + line items. Searches all active company entities when resolving by number. Never use **search_purchase_orders** or **supplier_query** for a purchase invoice document number.
 - **Sales Order** (SO, pesanan penjualan): use **search_sales_orders** with customer name/code or order context — not invoice numbers.
+- **Purchase Order** (PO, pesanan pembelian): use **search_purchase_orders** — not for faktur pembelian / purchase invoice numbers.
 
 Rules:
 - Never invent document numbers, amounts, or IDs. Use the provided tools to fetch live data from the database before stating facts.
@@ -181,7 +183,25 @@ TXT;
                     'invoice_id' => ['type' => 'integer', 'description' => 'Internal id if known'],
                 ],
             ])),
-            $this->fn('search_purchase_orders', 'Search purchase orders by supplier name/code fragment, optional status, and date range.', $props([
+            $this->fn('search_purchase_invoices', 'Search **AP purchase invoices** (faktur pembelian) by invoice number and/or supplier. Pass PI / faktur pembelian number in **invoice_query**. Searches all active company entities when invoice_query is set. Do NOT use for purchase orders.', $props([
+                'type' => 'object',
+                'properties' => [
+                    'invoice_query' => ['type' => 'string', 'description' => 'Purchase invoice number or fragment (invoice_no / description)'],
+                    'supplier_query' => ['type' => 'string', 'description' => 'Supplier name or code (optional)'],
+                    'status' => ['type' => 'string'],
+                    'date_from' => ['type' => 'string', 'description' => 'Y-m-d (optional if invoice_query is set)'],
+                    'date_to' => ['type' => 'string', 'description' => 'Y-m-d'],
+                    'limit' => ['type' => 'integer'],
+                ],
+            ])),
+            $this->fn('get_purchase_invoice_detail', 'Return **header + line items** for one Purchase Invoice (faktur pembelian). Use for “detail faktur pembelian”, PI lines. Pass invoice_no (or invoice_id). Searches all active company entities.', $props([
+                'type' => 'object',
+                'properties' => [
+                    'invoice_no' => ['type' => 'string', 'description' => 'Purchase invoice number'],
+                    'invoice_id' => ['type' => 'integer', 'description' => 'Internal id if known'],
+                ],
+            ])),
+            $this->fn('search_purchase_orders', 'Search **purchase orders** (PO) by supplier name/code fragment, optional status, and date range. Do NOT use for faktur pembelian / purchase invoice numbers — use search_purchase_invoices.', $props([
                 'type' => 'object',
                 'properties' => [
                     'supplier_query' => ['type' => 'string'],

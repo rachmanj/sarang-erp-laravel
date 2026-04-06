@@ -14,7 +14,8 @@
 10. [Integrasi dengan GRPO](#integrasi-dengan-grpo)
 11. [Direct Cash Purchase](#direct-cash-purchase)
 12. [Opening Balance Invoice](#opening-balance-invoice)
-13. [Pemecahan Masalah](#pemecahan-masalah)
+13. [Validasi tanggal invoice](#validasi-tanggal-invoice)
+14. [Pemecahan Masalah](#pemecahan-masalah)
 
 ---
 
@@ -382,6 +383,27 @@ Purchase Invoice (PI)    ← Menagih vendor, catat AP
 
 ---
 
+## Validasi tanggal invoice
+
+### Aturan
+
+Saat **membuat** PI atau **mengubah draft** (belum posted), field **Date** harus **tidak lebih dari hari ini** (sesuai **zona waktu aplikasi** / `APP_TIMEZONE`).
+
+### Pengecualian
+
+1. **Opening Balance Invoice** — centang **Opening Balance Invoice** pada form create/edit. Tanggal boleh di masa depan jika memang dibutuhkan untuk pencatatan saldo awal (misalnya selaras dokumen sumber).
+2. **Izin khusus** — pengguna dengan permission **`ap.invoices.future_date`** boleh mengisi tanggal invoice **setelah hari ini** tanpa centang opening balance. Permission ini diatur lewat **Admin → Roles** (superadmin biasanya sudah punya semua permission).
+
+### Jika validasi menolak
+
+Pesan error menjelaskan bahwa tanggal tidak boleh lebih dari hari ini kecuali salah satu pengecualian di atas. Sesuaikan tanggal, centang opening balance jika memang invoice saldo awal, atau minta admin memberi **`ap.invoices.future_date`**.
+
+### Catatan teknis
+
+Validasi di `PurchaseInvoiceController` (`store` dan `update`); posting dari draft **tidak** mengubah tanggal lewat request terpisah.
+
+---
+
 ## Pemecahan Masalah
 
 | Masalah | Solusi |
@@ -393,6 +415,7 @@ Purchase Invoice (PI)    ← Menagih vendor, catat AP
 | Amount After VAT 0 | Pastikan VAT dihitung; untuk No VAT harus sama dengan Net Amount |
 | Tidak bisa Post | Cek account item; pastikan warehouse untuk item fisik |
 | Tidak bisa Unpost | Pastikan belum ada payment allocation; belum closed |
+| Tanggal ditolak (tidak boleh masa depan) | Gunakan tanggal ≤ hari ini, centang **Opening Balance** jika memang saldo awal, atau minta permission **`ap.invoices.future_date`** |
 | Print error | Pastikan vendor (business partner) terisi |
 
 ---

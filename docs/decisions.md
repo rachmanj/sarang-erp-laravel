@@ -1,5 +1,5 @@
 **Purpose**: Record technical decisions and rationale for future reference
-**Last Updated**: 2026-04-04 (Domain Assistant AR invoice lookup + manuals)
+**Last Updated**: 2026-04-06 (Purchase Invoice future-date validation)
 
 # Technical Decision Records
 
@@ -29,6 +29,30 @@ Decision: [Title] - [YYYY-MM-DD]
 ---
 
 ## Recent Decisions
+
+### Decision: Purchase Invoice — block future invoice dates unless opening balance or permission - 2026-04-06
+
+**Context**: Users could save and post PIs with **invoice dates in the future** (e.g. April operational month with a September document date), which breaks the expectation that AP invoice date reflects document/recognition date unless intentionally opening balance or policy-approved.
+
+**Decision**: Validate **Date** on **create** and **draft update** with **`before_or_equal:today`** (app timezone). **Exceptions**: (1) **Opening Balance Invoice** checkbox; (2) permission **`ap.invoices.future_date`** for trusted roles (assigned in Admin → Roles). Seed permission via `RolePermissionSeeder`; superadmin receives all permissions from the master list.
+
+**Implementation**: `PurchaseInvoiceController::purchaseInvoiceDateRules()`; custom validation message; feature tests `PurchaseInvoiceDateValidationTest`.
+
+**Review Date**: 2027-04-06
+
+---
+
+### Decision: Domain Assistant — AP Purchase Invoice tools (parity with AR) - 2026-04-04
+
+**Context**: Users asked for **Purchase Invoice** / **faktur pembelian** detail by document number; the assistant only had AR sales invoice tools and incorrectly claimed PI was unsupported.
+
+**Decision**: Add **`search_purchase_invoices`** and **`get_purchase_invoice_detail`** on `App\Models\Accounting\PurchaseInvoice` / `PurchaseInvoiceLine`, mirroring AR: **`invoice_query`** / detail-by-number use **`scopeActiveCompanyEntities`**; browse-by-date without a number uses **`scopeCompanyEntity`**. System prompt and **`search_purchase_orders`** description distinguish **PO** from **PI**.
+
+**Implementation**: `DomainAssistantDataService`, `DomainAssistantService`; manuals `domain-assistant-manual-*.md`.
+
+**Review Date**: 2027-04-04
+
+---
 
 ### Decision: Domain Assistant — AR Sales Invoice tools and multi-entity invoice lookup - 2026-04-04
 

@@ -77,6 +77,7 @@ class RolePermissionSeeder extends Seeder
             'ap.invoices.view',
             'ap.invoices.create',
             'ap.invoices.post',
+            'ap.invoices.future_date',
             'ap.payments.view',
             'ap.payments.create',
             'ap.payments.post',

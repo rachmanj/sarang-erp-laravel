@@ -4,7 +4,7 @@
 
 **Domain Assistant** is a separate feature from **HELP** (the **?** book icon).
 
-- **Domain Assistant** — **robot icon** in the top navbar. It answers questions using **live data** from Sarang ERP (sales orders, **sales invoices**, purchase orders, delivery orders, goods receipts, inventory, business partners). It can run **multiple chat sessions** (threads) and keeps **conversation history** for your user account.
+- **Domain Assistant** — **robot icon** in the top navbar. It answers questions using **live data** from Sarang ERP (sales orders, **sales invoices**, **purchase invoices**, purchase orders, delivery orders, goods receipts, inventory, business partners). It can run **multiple chat sessions** (threads) and keeps **conversation history** for your user account.
 - **HELP** — **book icon** (`?`). It answers **how-to** questions from written manuals only; it does **not** query your company database and does **not** store chat history.
 
 Both features use the server-side **OpenRouter** API; the API key never appears in the browser.
@@ -40,6 +40,8 @@ The feature must be **enabled** in server configuration (`DOMAIN_ASSISTANT_ENABL
 
 - **Sales Invoice (AR / faktur penjualan)** — e.g. “Show details for invoice **71260800080**” or “List invoices for customer X”.  
   The assistant searches **Sales Invoices**, not the same thing as **Sales Orders**.
+- **Purchase Invoice (AP / faktur pembelian)** — e.g. “Show detail for Purchase Invoice **72260300114**”.  
+  The assistant searches **Purchase Invoices**, not the same thing as **Purchase Orders** (PO).
 - **Sales Order** — open orders, customer name, date range.
 - **Purchase Order**, **Delivery Order**, **Goods Receipt (GRPO)** — search by supplier/customer and dates where applicable.
 - **Inventory items** — by code/name, category, low stock.
@@ -55,6 +57,13 @@ Ask in **English** or **Bahasa Indonesia**; the model usually follows your langu
 - **Sales Order** = order document (**SO**), not the same as an invoice.
 
 If you use an **invoice number**, say “invoice” or “faktur” so the assistant looks in **Sales Invoices**. Asking for “detail invoice” should return **header and line items** when the system supports it.
+
+## Purchase Invoice vs Purchase Order (important)
+
+- **Purchase Invoice** = AP invoice / **faktur pembelian** (posted supplier invoice document number).
+- **Purchase Order** = **PO** — not the same as a purchase invoice.
+
+Use “faktur pembelian”, “purchase invoice”, or “PI” with the document number so the assistant queries **Purchase Invoices**, not purchase orders.
 
 Invoices may belong to different **company entities** (e.g. PT vs CV). If you have permission **“see all record switch”**, you may see an **ALL BRANCHES** style control to widen visibility; otherwise searches may follow your default entity for list views, while **lookup by invoice number** is designed to find the document across active entities.
 

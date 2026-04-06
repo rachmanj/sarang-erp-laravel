@@ -2,22 +2,26 @@
 
 namespace App\Http\Controllers\Accounting;
 
+use App\Exports\PurchaseInvoiceListExport;
 use App\Http\Controllers\Controller;
 use App\Models\Accounting\PurchaseInvoice;
 use App\Models\Accounting\PurchaseInvoiceLine;
 use App\Models\GoodsReceiptPO;
-use App\Models\PurchaseOrder;
-use App\Services\Accounting\PostingService;
-use App\Services\DocumentNumberingService;
-use App\Services\DocumentClosureService;
-use App\Services\CompanyEntityService;
-use App\Services\PurchaseWorkflowAuditService;
-use App\Services\PurchaseInvoiceService;
-use App\Services\UnitConversionService;
 use App\Models\InventoryItem;
+use App\Models\PurchaseOrder;
 use App\Models\Warehouse;
+use App\Services\Accounting\PostingService;
+use App\Services\CompanyEntityService;
+use App\Services\DocumentClosureService;
+use App\Services\DocumentNumberingService;
+use App\Services\PurchaseInvoiceService;
+use App\Services\PurchaseWorkflowAuditService;
+use App\Services\UnitConversionService;
+use Illuminate\Database\Query\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Maatwebsite\Excel\Facades\Excel;
 use Yajra\DataTables\Facades\DataTables;
 
 class PurchaseInvoiceController extends Controller
@@ -40,6 +44,7 @@ class PurchaseInvoiceController extends Controller
     {
         $ptCahaya = \App\Models\CompanyEntity::where('code', '71')->first();
         $cvCahaya = \App\Models\CompanyEntity::where('code', '72')->first();
+
         return view('purchase_invoices.index', compact('ptCahaya', 'cvCahaya'));
     }
 
@@ -88,7 +93,7 @@ class PurchaseInvoiceController extends Controller
         $date = $request->input('date', now()->toDateString());
 
         try {
-            if (!$entityId) {
+            if (! $entityId) {
                 return response()->json(['error' => 'Company entity is required'], 400);
             }
 
@@ -98,7 +103,7 @@ class PurchaseInvoiceController extends Controller
 
             return response()->json(['document_number' => $documentNumber]);
         } catch (\Exception $e) {
-            return response()->json(['error' => 'Error generating document number: ' . $e->getMessage()], 500);
+            return response()->json(['error' => 'Error generating document number: '.$e->getMessage()], 500);
         }
     }
 
@@ -107,7 +112,7 @@ class PurchaseInvoiceController extends Controller
         $isAccountingUser = auth()->user()->can('accounts.view');
 
         $validationRules = [
-            'date' => ['required', 'date'],
+            'date' => $this->purchaseInvoiceDateRules($request),
             'business_partner_id' => ['required', 'integer', 'exists:business_partners,id'],
             'company_entity_id' => ['required', 'integer', 'exists:company_entities,id'],
             'payment_method' => ['required', 'in:credit,cash'],
@@ -139,7 +144,9 @@ class PurchaseInvoiceController extends Controller
             $validationRules['lines.*.inventory_item_id'] = ['required', 'integer', 'exists:inventory_items,id'];
         }
 
-        $data = $request->validate($validationRules);
+        $data = $request->validate($validationRules, [
+            'date.before_or_equal' => 'The invoice date cannot be later than today unless this is marked as opening balance or you have permission for future-dated invoices.',
+        ]);
 
         $purchaseOrder = $request->input('purchase_order_id')
             ? PurchaseOrder::select('id', 'company_entity_id')->find($request->input('purchase_order_id'))
@@ -159,7 +166,7 @@ class PurchaseInvoiceController extends Controller
                 'business_partner_id' => $data['business_partner_id'],
                 'purchase_order_id' => $request->input('purchase_order_id'),
                 'goods_receipt_id' => $request->input('goods_receipt_id'),
-                'description' => $data['description'] ?? null
+                'description' => $data['description'] ?? null,
             ]);
 
             \Log::info('Creating Purchase Invoice with data:', [
@@ -167,11 +174,11 @@ class PurchaseInvoiceController extends Controller
                 'business_partner_id' => $data['business_partner_id'] ?? null,
                 'purchase_order_id' => $request->input('purchase_order_id'),
                 'goods_receipt_id' => $request->input('goods_receipt_id'),
-                'description' => $data['description'] ?? null
+                'description' => $data['description'] ?? null,
             ]);
 
             // Make sure business_partner_id is set
-            if (!isset($data['business_partner_id'])) {
+            if (! isset($data['business_partner_id'])) {
                 \Log::error('Missing business_partner_id in request data', $data);
                 throw new \Exception('Business partner is required');
             }
@@ -180,8 +187,8 @@ class PurchaseInvoiceController extends Controller
             $isDirectPurchase = false;
             if (
                 $data['payment_method'] === 'cash' &&
-                !$request->input('purchase_order_id') &&
-                !$request->input('goods_receipt_id')
+                ! $request->input('purchase_order_id') &&
+                ! $request->input('goods_receipt_id')
             ) {
                 $isDirectPurchase = true;
             } else {
@@ -236,7 +243,7 @@ class PurchaseInvoiceController extends Controller
                 $accountId = $l['account_id'] ?? null;
                 $inventoryItemId = $l['inventory_item_id'] ?? null;
 
-                if (!$accountId && !empty($inventoryItemId)) {
+                if (! $accountId && ! empty($inventoryItemId)) {
                     try {
                         $item = InventoryItem::find($inventoryItemId);
                         if ($item) {
@@ -251,11 +258,11 @@ class PurchaseInvoiceController extends Controller
                             }
                         }
                     } catch (\Exception $e) {
-                        throw new \Exception("Line item error: " . $e->getMessage());
+                        throw new \Exception('Line item error: '.$e->getMessage());
                     }
                 }
 
-                if (!$accountId) {
+                if (! $accountId) {
                     throw new \Exception('Account is required. Please select account or inventory item.');
                 }
 
@@ -263,7 +270,7 @@ class PurchaseInvoiceController extends Controller
                 $baseQuantity = (float) $l['qty'];
                 $conversionFactor = 1.0;
 
-                if (!empty($l['order_unit_id']) && !empty($inventoryItemId)) {
+                if (! empty($l['order_unit_id']) && ! empty($inventoryItemId)) {
                     try {
                         $processedLine = $this->unitConversionService->processOrderLine($l, $inventoryItemId);
                         $baseQuantity = $processedLine['base_quantity'] ?? $baseQuantity;
@@ -271,7 +278,7 @@ class PurchaseInvoiceController extends Controller
                     } catch (\Exception $e) {
                         \Log::warning('Unit conversion failed for line', [
                             'line' => $l,
-                            'error' => $e->getMessage()
+                            'error' => $e->getMessage(),
                         ]);
                         // Continue with original values if conversion fails
                     }
@@ -310,7 +317,7 @@ class PurchaseInvoiceController extends Controller
             }
             $total = $subtotal - $headerDiscountAmount;
             $termsDays = (int) ($request->input('terms_days') ?? 0);
-            $dueDate = $termsDays > 0 ? date('Y-m-d', strtotime($data['date'] . ' +' . $termsDays . ' days')) : null;
+            $dueDate = $termsDays > 0 ? date('Y-m-d', strtotime($data['date'].' +'.$termsDays.' days')) : null;
             $invoice->update([
                 'total_amount' => $total,
                 'discount_amount' => $totalLineDiscountAmount + $headerDiscountAmount,
@@ -333,7 +340,7 @@ class PurchaseInvoiceController extends Controller
                     \Log::warning('Failed to close Goods Receipt after PI creation', [
                         'grpo_id' => $request->input('goods_receipt_id'),
                         'pi_id' => $invoice->id,
-                        'error' => $closureException->getMessage()
+                        'error' => $closureException->getMessage(),
                     ]);
                 }
             }
@@ -354,17 +361,17 @@ class PurchaseInvoiceController extends Controller
             'companyEntity',
             'journal',
             'inventoryTransactions.item',
-            'inventoryTransactions.warehouse'
+            'inventoryTransactions.warehouse',
         ])->findOrFail($id);
-        
+
         // Calculate totals
         $totalVat = $invoice->lines->sum('vat_amount');
-        $totalAmountAfterVat = $invoice->lines->sum(function($line) {
+        $totalAmountAfterVat = $invoice->lines->sum(function ($line) {
             return ($line->amount_after_vat && $line->amount_after_vat > 0) ? $line->amount_after_vat : $line->amount;
         });
         $totalAllocated = $invoice->paymentAllocations->sum('amount');
         $remainingBalance = $invoice->total_amount - $totalAllocated;
-        
+
         // Get related documents
         $purchaseOrder = null;
         $goodsReceipt = null;
@@ -374,13 +381,13 @@ class PurchaseInvoiceController extends Controller
         if ($invoice->goods_receipt_id) {
             $goodsReceipt = DB::table('goods_receipt_pos')->find($invoice->goods_receipt_id);
         }
-        
+
         // Get cash account info if direct purchase
         $cashAccount = null;
         if ($invoice->cash_account_id) {
             $cashAccount = DB::table('accounts')->find($invoice->cash_account_id);
         }
-        
+
         return view('purchase_invoices.show', compact(
             'invoice',
             'totalVat',
@@ -454,7 +461,7 @@ class PurchaseInvoiceController extends Controller
         $isAccountingUser = auth()->user()->can('accounts.view');
 
         $validationRules = [
-            'date' => ['required', 'date'],
+            'date' => $this->purchaseInvoiceDateRules($request),
             'business_partner_id' => ['required', 'integer', 'exists:business_partners,id'],
             'company_entity_id' => ['required', 'integer', 'exists:company_entities,id'],
             'payment_method' => ['required', 'in:credit,cash'],
@@ -485,20 +492,22 @@ class PurchaseInvoiceController extends Controller
             $validationRules['lines.*.inventory_item_id'] = ['required', 'integer', 'exists:inventory_items,id'];
         }
 
-        $data = $request->validate($validationRules);
+        $data = $request->validate($validationRules, [
+            'date.before_or_equal' => 'The invoice date cannot be later than today unless this is marked as opening balance or you have permission for future-dated invoices.',
+        ]);
 
         $entity = $this->companyEntityService->resolveFromModel(
             $request->input('company_entity_id'),
             null
         );
 
-        return DB::transaction(function () use ($data, $request, $invoice, $entity, $isAccountingUser) {
+        return DB::transaction(function () use ($data, $request, $invoice, $entity) {
             // Auto-set is_direct_purchase: Cash payment without PO/GRPO = Direct Purchase
             $isDirectPurchase = false;
             if (
                 $data['payment_method'] === 'cash' &&
-                !$invoice->purchase_order_id &&
-                !$invoice->goods_receipt_id
+                ! $invoice->purchase_order_id &&
+                ! $invoice->goods_receipt_id
             ) {
                 $isDirectPurchase = true;
             } else {
@@ -543,7 +552,7 @@ class PurchaseInvoiceController extends Controller
                 $accountId = $l['account_id'] ?? null;
                 $inventoryItemId = $l['inventory_item_id'] ?? null;
 
-                if (!$accountId && !empty($inventoryItemId)) {
+                if (! $accountId && ! empty($inventoryItemId)) {
                     try {
                         $item = InventoryItem::find($inventoryItemId);
                         if ($item) {
@@ -558,11 +567,11 @@ class PurchaseInvoiceController extends Controller
                             }
                         }
                     } catch (\Exception $e) {
-                        throw new \Exception("Line item error: " . $e->getMessage());
+                        throw new \Exception('Line item error: '.$e->getMessage());
                     }
                 }
 
-                if (!$accountId) {
+                if (! $accountId) {
                     throw new \Exception('Account is required. Please select account or inventory item.');
                 }
 
@@ -570,7 +579,7 @@ class PurchaseInvoiceController extends Controller
                 $baseQuantity = (float) $l['qty'];
                 $conversionFactor = 1.0;
 
-                if (!empty($l['order_unit_id']) && !empty($inventoryItemId)) {
+                if (! empty($l['order_unit_id']) && ! empty($inventoryItemId)) {
                     try {
                         $processedLine = $this->unitConversionService->processOrderLine($l, $inventoryItemId);
                         $baseQuantity = $processedLine['base_quantity'] ?? $baseQuantity;
@@ -578,7 +587,7 @@ class PurchaseInvoiceController extends Controller
                     } catch (\Exception $e) {
                         \Log::warning('Unit conversion failed for line', [
                             'line' => $l,
-                            'error' => $e->getMessage()
+                            'error' => $e->getMessage(),
                         ]);
                         // Continue with original values if conversion fails
                     }
@@ -617,7 +626,7 @@ class PurchaseInvoiceController extends Controller
             }
             $total = $subtotal - $headerDiscountAmount;
             $termsDays = (int) ($request->input('terms_days') ?? 0);
-            $dueDate = $termsDays > 0 ? date('Y-m-d', strtotime($data['date'] . ' +' . $termsDays . ' days')) : null;
+            $dueDate = $termsDays > 0 ? date('Y-m-d', strtotime($data['date'].' +'.$termsDays.' days')) : null;
             $invoice->update([
                 'total_amount' => $total,
                 'discount_amount' => $totalLineDiscountAmount + $headerDiscountAmount,
@@ -644,7 +653,7 @@ class PurchaseInvoiceController extends Controller
                 }
 
                 // Create inventory transactions for direct purchases (but NOT for opening balance invoices)
-                if ($invoice->is_direct_purchase && !$invoice->is_opening_balance) {
+                if ($invoice->is_direct_purchase && ! $invoice->is_opening_balance) {
                     foreach ($invoice->lines as $line) {
                         if ($line->inventory_item_id) {
                             try {
@@ -653,9 +662,9 @@ class PurchaseInvoiceController extends Controller
                                 \Log::error('Failed to create inventory transaction for Purchase Invoice', [
                                     'invoice_id' => $invoice->id,
                                     'line_id' => $line->id,
-                                    'error' => $e->getMessage()
+                                    'error' => $e->getMessage(),
                                 ]);
-                                throw new \Exception("Failed to create inventory transaction: " . $e->getMessage());
+                                throw new \Exception('Failed to create inventory transaction: '.$e->getMessage());
                             }
                         }
                     }
@@ -685,9 +694,10 @@ class PurchaseInvoiceController extends Controller
             \Log::error('Failed to post Purchase Invoice', [
                 'invoice_id' => $id,
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
-            return back()->with('error', 'Failed to post invoice: ' . $e->getMessage());
+
+            return back()->with('error', 'Failed to post invoice: '.$e->getMessage());
         }
     }
 
@@ -699,19 +709,19 @@ class PurchaseInvoiceController extends Controller
     {
         $invoice = PurchaseInvoice::with(['lines', 'paymentAllocations'])->findOrFail($id);
 
-        if (!$invoice->canBeUnposted()) {
+        if (! $invoice->canBeUnposted()) {
             $reasons = [];
             if ($invoice->status !== 'posted') {
                 $reasons[] = 'Invoice is not posted';
             }
             if ($invoice->total_allocated > 0) {
-                $reasons[] = 'Invoice has payment allocations (Rp ' . number_format($invoice->total_allocated, 2) . ')';
+                $reasons[] = 'Invoice has payment allocations (Rp '.number_format($invoice->total_allocated, 2).')';
             }
             if ($invoice->closure_status === 'closed') {
                 $reasons[] = 'Invoice has been closed';
             }
 
-            return back()->with('error', 'Cannot unpost invoice: ' . implode(', ', $reasons));
+            return back()->with('error', 'Cannot unpost invoice: '.implode(', ', $reasons));
         }
 
         return DB::transaction(function () use ($invoice) {
@@ -732,21 +742,21 @@ class PurchaseInvoiceController extends Controller
                     \Log::error('Failed to reverse journal for Purchase Invoice', [
                         'invoice_id' => $invoice->id,
                         'journal_id' => $journal->id,
-                        'error' => $e->getMessage()
+                        'error' => $e->getMessage(),
                     ]);
-                    throw new \Exception("Failed to reverse journal entries: " . $e->getMessage());
+                    throw new \Exception('Failed to reverse journal entries: '.$e->getMessage());
                 }
             }
 
             // Delete inventory transactions if any (for direct purchases, but not opening balance)
-            if ($invoice->is_direct_purchase && !$invoice->is_opening_balance) {
+            if ($invoice->is_direct_purchase && ! $invoice->is_opening_balance) {
                 $inventoryTransactions = $invoice->inventoryTransactions;
                 $itemsToUpdate = [];
 
                 foreach ($inventoryTransactions as $transaction) {
                     try {
                         // Track items that need valuation updates
-                        if (!in_array($transaction->item_id, $itemsToUpdate)) {
+                        if (! in_array($transaction->item_id, $itemsToUpdate)) {
                             $itemsToUpdate[] = $transaction->item_id;
                         }
 
@@ -760,7 +770,7 @@ class PurchaseInvoiceController extends Controller
                             'reference_type' => 'purchase_invoice',
                             'reference_id' => $invoice->id,
                             'transaction_date' => now()->toDateString(),
-                            'notes' => 'Reversal of purchase invoice #' . $invoice->invoice_no,
+                            'notes' => 'Reversal of purchase invoice #'.$invoice->invoice_no,
                             'warehouse_id' => $transaction->warehouse_id,
                             'created_by' => auth()->id(),
                         ]);
@@ -771,7 +781,7 @@ class PurchaseInvoiceController extends Controller
                         \Log::error('Failed to reverse inventory transaction for Purchase Invoice', [
                             'invoice_id' => $invoice->id,
                             'transaction_id' => $transaction->id,
-                            'error' => $e->getMessage()
+                            'error' => $e->getMessage(),
                         ]);
                         // Continue even if inventory reversal fails
                     }
@@ -788,7 +798,7 @@ class PurchaseInvoiceController extends Controller
                         \Log::warning('Failed to update valuation after unposting Purchase Invoice', [
                             'invoice_id' => $invoice->id,
                             'item_id' => $itemId,
-                            'error' => $e->getMessage()
+                            'error' => $e->getMessage(),
                         ]);
                         // Continue even if valuation update fails
                     }
@@ -815,18 +825,18 @@ class PurchaseInvoiceController extends Controller
      */
     private function calculateVatAmount(float $amount, ?int $taxCodeId): float
     {
-        if (!$taxCodeId) {
+        if (! $taxCodeId) {
             return 0.0;
         }
 
         $tax = DB::table('tax_codes')->where('id', $taxCodeId)->first();
-        if (!$tax) {
+        if (! $tax) {
             return 0.0;
         }
 
         $rate = (float) $tax->rate;
         // Check if this is a VAT/PPN tax code
-        if (str_contains(strtolower((string)$tax->name), 'ppn') || strtolower((string)$tax->type) === 'ppn_input') {
+        if (str_contains(strtolower((string) $tax->name), 'ppn') || strtolower((string) $tax->type) === 'ppn_input') {
             return round($amount * ($rate / 100), 2);
         }
 
@@ -837,7 +847,7 @@ class PurchaseInvoiceController extends Controller
     {
         // Use selected cash account, or fallback to default (Kas di Tangan)
         $cashAccountId = $invoice->cash_account_id;
-        if (!$cashAccountId) {
+        if (! $cashAccountId) {
             $cashAccountId = (int) DB::table('accounts')->where('code', '1.1.1.01')->value('id'); // Default: Kas di Tangan
         }
         $ppnInputId = (int) (DB::table('accounts')->where('code', '1.1.4.01')->value('id') ?? DB::table('accounts')->where('code', '1.1.6')->value('id') ?? 0);
@@ -846,7 +856,7 @@ class PurchaseInvoiceController extends Controller
         $ppnTotal = 0.0;
         $withholdingTotal = 0.0;
         $journalLines = [];
-        
+
         // Group by account for opening balance invoices
         $expenseByAccount = [];
 
@@ -857,7 +867,7 @@ class PurchaseInvoiceController extends Controller
             // Group by account for opening balance invoices
             if ($invoice->is_opening_balance) {
                 $accountId = (int) $line->account_id;
-                if (!isset($expenseByAccount[$accountId])) {
+                if (! isset($expenseByAccount[$accountId])) {
                     $expenseByAccount[$accountId] = [
                         'amount' => 0,
                         'project_id' => $line->project_id,
@@ -868,14 +878,14 @@ class PurchaseInvoiceController extends Controller
             }
 
             // Calculate taxes (VAT on net amount - use stored vat_amount from line)
-            if (!empty($line->tax_code_id)) {
+            if (! empty($line->tax_code_id)) {
                 $tax = DB::table('tax_codes')->where('id', $line->tax_code_id)->first();
                 if ($tax) {
                     $rate = (float) $tax->rate;
-                    if (str_contains(strtolower((string)$tax->name), 'ppn') || strtolower((string)$tax->type) === 'ppn_input') {
+                    if (str_contains(strtolower((string) $tax->name), 'ppn') || strtolower((string) $tax->type) === 'ppn_input') {
                         $ppnTotal += round($lineAmount * ($rate / 100), 2);
                     }
-                    if (strtolower((string)$tax->type) === 'withholding') {
+                    if (strtolower((string) $tax->type) === 'withholding') {
                         $withholdingTotal += round($lineAmount * ($rate / 100), 2);
                     }
                 }
@@ -883,7 +893,7 @@ class PurchaseInvoiceController extends Controller
 
             // For normal invoices: Debit Inventory Account (from line's account_id or resolve from inventory item)
             // For opening balance: Will be handled separately below
-            if (!$invoice->is_opening_balance) {
+            if (! $invoice->is_opening_balance) {
                 $accountId = $line->account_id;
                 if (empty($accountId) && $line->inventory_item_id && $line->inventoryItem) {
                     $accountId = $this->purchaseInvoiceService->getAccountIdForItem($line->inventoryItem);
@@ -918,7 +928,7 @@ class PurchaseInvoiceController extends Controller
 
         // PPN Input (if any)
         if ($ppnTotal > 0) {
-            if (!$ppnInputId) {
+            if (! $ppnInputId) {
                 throw new \Exception('PPN Input account (1.1.4.01 or 1.1.6) not found. Please create the account in Chart of Accounts.');
             }
             $journalLines[] = [
@@ -954,16 +964,16 @@ class PurchaseInvoiceController extends Controller
             'credit' => $totalCashCredit,
             'project_id' => null,
             'dept_id' => null,
-            'memo' => $invoice->is_opening_balance 
-                ? 'Cash payment for opening balance invoice #' . $invoice->invoice_no
-                : 'Cash payment for purchase invoice #' . $invoice->invoice_no,
+            'memo' => $invoice->is_opening_balance
+                ? 'Cash payment for opening balance invoice #'.$invoice->invoice_no
+                : 'Cash payment for purchase invoice #'.$invoice->invoice_no,
         ];
 
         $this->posting->postJournal([
             'date' => $invoice->date->toDateString(),
             'description' => $invoice->is_opening_balance
-                ? 'Direct Cash Purchase Invoice (Opening Balance) #' . $invoice->invoice_no
-                : 'Direct Cash Purchase Invoice #' . $invoice->invoice_no,
+                ? 'Direct Cash Purchase Invoice (Opening Balance) #'.$invoice->invoice_no
+                : 'Direct Cash Purchase Invoice #'.$invoice->invoice_no,
             'source_type' => 'purchase_invoice',
             'source_id' => $invoice->id,
             'lines' => $journalLines,
@@ -988,27 +998,27 @@ class PurchaseInvoiceController extends Controller
 
         // Calculate totals and group by account for opening balance or direct credit (no GRPO)
         $expenseByAccount = [];
-        $useLineAccounts = $invoice->is_opening_balance || !$invoice->goods_receipt_id;
+        $useLineAccounts = $invoice->is_opening_balance || ! $invoice->goods_receipt_id;
         foreach ($invoice->lines as $l) {
             $lineAmount = ($l->net_amount > 0) ? (float) $l->net_amount : (float) $l->amount;
             $expenseTotal += $lineAmount;
-            
+
             if ($useLineAccounts) {
                 $accountId = (int) $l->account_id;
-                if (!isset($expenseByAccount[$accountId])) {
+                if (! isset($expenseByAccount[$accountId])) {
                     $expenseByAccount[$accountId] = 0;
                 }
                 $expenseByAccount[$accountId] += $lineAmount;
             }
-            
-            if (!empty($l->tax_code_id)) {
+
+            if (! empty($l->tax_code_id)) {
                 $tax = DB::table('tax_codes')->where('id', $l->tax_code_id)->first();
                 if ($tax) {
                     $rate = (float) $tax->rate;
-                    if (str_contains(strtolower((string)$tax->name), 'ppn') || strtolower((string)$tax->type) === 'ppn_input') {
+                    if (str_contains(strtolower((string) $tax->name), 'ppn') || strtolower((string) $tax->type) === 'ppn_input') {
                         $ppnTotal += round($lineAmount * ($rate / 100), 2);
                     }
-                    if (strtolower((string)$tax->type) === 'withholding') {
+                    if (strtolower((string) $tax->type) === 'withholding') {
                         $withholdingTotal += round($lineAmount * ($rate / 100), 2);
                     }
                 }
@@ -1016,7 +1026,7 @@ class PurchaseInvoiceController extends Controller
         }
 
         if ($ppnTotal > 0) {
-            if (!$ppnInputId) {
+            if (! $ppnInputId) {
                 throw new \Exception('PPN Input account (1.1.4.01 or 1.1.6) not found. Please create the account in Chart of Accounts.');
             }
             $lines[] = [
@@ -1077,9 +1087,9 @@ class PurchaseInvoiceController extends Controller
 
         $this->posting->postJournal([
             'date' => $invoice->date->toDateString(),
-            'description' => $invoice->is_opening_balance 
-                ? 'Post AP Invoice (Opening Balance) #' . $invoice->invoice_no
-                : 'Post AP Invoice #' . $invoice->invoice_no,
+            'description' => $invoice->is_opening_balance
+                ? 'Post AP Invoice (Opening Balance) #'.$invoice->invoice_no
+                : 'Post AP Invoice #'.$invoice->invoice_no,
             'source_type' => 'purchase_invoice',
             'source_id' => $invoice->id,
             'lines' => $lines,
@@ -1089,6 +1099,7 @@ class PurchaseInvoiceController extends Controller
     public function print(int $id)
     {
         $invoice = PurchaseInvoice::with(['lines', 'businessPartner'])->findOrFail($id);
+
         return view('purchase_invoices.print', compact('invoice'));
     }
 
@@ -1098,24 +1109,111 @@ class PurchaseInvoiceController extends Controller
         $pdf = app(\App\Services\PdfService::class)->renderViewToString('purchase_invoices.print', [
             'invoice' => $invoice,
         ]);
+
         return response($pdf, 200, [
             'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'inline; filename="purchase-invoice-' . $id . '.pdf"'
+            'Content-Disposition' => 'inline; filename="purchase-invoice-'.$id.'.pdf"',
         ]);
     }
 
     public function queuePdf(int $id)
     {
         $invoice = PurchaseInvoice::with('lines')->findOrFail($id);
-        $path = 'public/pdfs/purchase-invoice-' . $invoice->id . '.pdf';
+        $path = 'public/pdfs/purchase-invoice-'.$invoice->id.'.pdf';
         \App\Jobs\GeneratePdfJob::dispatch('purchase_invoices.print', ['invoice' => $invoice], $path);
         $url = \Illuminate\Support\Facades\Storage::url($path);
+
         return back()->with('success', 'PDF generation started')->with('pdf_url', $url);
     }
 
     public function data(Request $request)
     {
-        $q = DB::table('purchase_invoices as pi')
+        $q = $this->buildPurchaseInvoiceListQuery();
+        $this->applyPurchaseInvoiceListFilters($q, $request);
+
+        $totalsRow = DB::query()->fromSub($q->clone(), 'inv')
+            ->selectRaw('COALESCE(SUM(inv.total_amount), 0) as sum_total_amount')
+            ->selectRaw('COALESCE(SUM(inv.total_amount_after_vat), 0) as sum_amount_after_vat')
+            ->first();
+
+        return DataTables::of($q)
+            ->with('sum_total_amount', (float) $totalsRow->sum_total_amount)
+            ->with('sum_amount_after_vat', (float) $totalsRow->sum_amount_after_vat)
+            ->editColumn('date', function ($row) {
+                return $this->formatPurchaseInvoiceListDate($row->date);
+            })
+            ->editColumn('total_amount', function ($row) {
+                return number_format((float) $row->total_amount, 2);
+            })
+            ->editColumn('total_vat', function ($row) {
+                return number_format((float) $row->total_vat, 2);
+            })
+            ->editColumn('total_amount_after_vat', function ($row) {
+                return number_format((float) $row->total_amount_after_vat, 2);
+            })
+            ->editColumn('status', function ($row) {
+                return strtoupper($row->status);
+            })
+            ->addColumn('vendor', function ($row) {
+                return $row->vendor_name ?: ('#'.$row->business_partner_id);
+            })
+            ->addColumn('actions', function ($row) {
+                $url = route('purchase-invoices.show', $row->id);
+
+                return '<a href="'.$url.'" class="btn btn-xs btn-info">View</a>';
+            })
+            ->rawColumns(['actions'])
+            ->toJson();
+    }
+
+    public function export(Request $request)
+    {
+        $q = $this->buildPurchaseInvoiceListQuery();
+        $this->applyPurchaseInvoiceListFilters($q, $request);
+
+        $totalsRow = DB::query()->fromSub($q->clone(), 'inv')
+            ->selectRaw('COALESCE(SUM(inv.total_amount), 0) as sum_total_amount')
+            ->selectRaw('COALESCE(SUM(inv.total_vat), 0) as sum_vat')
+            ->selectRaw('COALESCE(SUM(inv.total_amount_after_vat), 0) as sum_amount_after_vat')
+            ->first();
+
+        $rows = $q->clone()->orderByDesc('pi.date')->orderByDesc('pi.id')->get();
+
+        $sheet = [
+            ['Date', 'Invoice No', 'Vendor', 'Total', 'VAT', 'Amount After VAT', 'Status'],
+        ];
+
+        foreach ($rows as $row) {
+            $sheet[] = [
+                $this->formatPurchaseInvoiceListDate($row->date),
+                $row->invoice_no,
+                $row->vendor_name ?: ('#'.$row->business_partner_id),
+                round((float) $row->total_amount, 2),
+                round((float) $row->total_vat, 2),
+                round((float) $row->total_amount_after_vat, 2),
+                strtoupper((string) $row->status),
+            ];
+        }
+
+        $sheet[] = [];
+        $sheet[] = [
+            '',
+            '',
+            'Totals (filtered)',
+            round((float) $totalsRow->sum_total_amount, 2),
+            round((float) $totalsRow->sum_vat, 2),
+            round((float) $totalsRow->sum_amount_after_vat, 2),
+            '',
+        ];
+
+        $filename = 'purchase-invoices-'.now()->format('Y-m-d_His').'.xlsx';
+
+        return Excel::download(new PurchaseInvoiceListExport($sheet), $filename);
+    }
+
+    private function buildPurchaseInvoiceListQuery(): Builder
+    {
+        return DB::table('purchase_invoices as pi')
             ->leftJoin('business_partners as v', 'v.id', '=', 'pi.business_partner_id')
             ->leftJoin('purchase_invoice_lines as pil', 'pil.invoice_id', '=', 'pi.id')
             ->select(
@@ -1136,49 +1234,52 @@ class PurchaseInvoiceController extends Controller
                 END as total_amount_after_vat')
             )
             ->groupBy('pi.id', 'pi.date', 'pi.invoice_no', 'pi.business_partner_id', 'v.name', 'pi.total_amount', 'pi.status');
+    }
 
+    private function formatPurchaseInvoiceListDate(mixed $date): string
+    {
+        if ($date === null || $date === '') {
+            return '';
+        }
+
+        return Carbon::parse($date)->format('d-M-Y');
+    }
+
+    private function applyPurchaseInvoiceListFilters(Builder $query, Request $request): void
+    {
         if ($request->filled('status')) {
-            $q->where('pi.status', $request->input('status'));
+            $query->where('pi.status', $request->input('status'));
         }
         if ($request->filled('from')) {
-            $q->whereDate('pi.date', '>=', $request->input('from'));
+            $query->whereDate('pi.date', '>=', $request->input('from'));
         }
         if ($request->filled('to')) {
-            $q->whereDate('pi.date', '<=', $request->input('to'));
+            $query->whereDate('pi.date', '<=', $request->input('to'));
         }
         if ($request->filled('q')) {
             $kw = $request->input('q');
-            $q->where(function ($w) use ($kw) {
-                $w->where('pi.invoice_no', 'like', '%' . $kw . '%')
-                    ->orWhere('pi.description', 'like', '%' . $kw . '%')
-                    ->orWhere('v.name', 'like', '%' . $kw . '%');
+            $query->where(function ($w) use ($kw) {
+                $w->where('pi.invoice_no', 'like', '%'.$kw.'%')
+                    ->orWhere('pi.description', 'like', '%'.$kw.'%')
+                    ->orWhere('v.name', 'like', '%'.$kw.'%');
             });
         }
         if ($request->filled('company_entity_id')) {
-            $q->where('pi.company_entity_id', (int) $request->company_entity_id);
+            $query->where('pi.company_entity_id', (int) $request->company_entity_id);
+        }
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function purchaseInvoiceDateRules(Request $request): array
+    {
+        $rules = ['required', 'date'];
+        $isOpeningBalance = $request->boolean('is_opening_balance', false);
+        if (! $isOpeningBalance && ! auth()->user()->can('ap.invoices.future_date')) {
+            $rules[] = 'before_or_equal:today';
         }
 
-        return DataTables::of($q)
-            ->editColumn('total_amount', function ($row) {
-                return number_format((float)$row->total_amount, 2);
-            })
-            ->editColumn('total_vat', function ($row) {
-                return number_format((float)$row->total_vat, 2);
-            })
-            ->editColumn('total_amount_after_vat', function ($row) {
-                return number_format((float)$row->total_amount_after_vat, 2);
-            })
-            ->editColumn('status', function ($row) {
-                return strtoupper($row->status);
-            })
-            ->addColumn('vendor', function ($row) {
-                return $row->vendor_name ?: ('#' . $row->business_partner_id);
-            })
-            ->addColumn('actions', function ($row) {
-                $url = route('purchase-invoices.show', $row->id);
-                return '<a href="' . $url . '" class="btn btn-xs btn-info">View</a>';
-            })
-            ->rawColumns(['actions'])
-            ->toJson();
+        return $rules;
     }
 }

@@ -2,6 +2,8 @@
 
 namespace App\Services\Assistant;
 
+use App\Models\Accounting\PurchaseInvoice;
+use App\Models\Accounting\PurchaseInvoiceLine;
 use App\Models\Accounting\SalesInvoice;
 use App\Models\Accounting\SalesInvoiceLine;
 use App\Models\BusinessPartner;
@@ -230,6 +232,128 @@ class DomainAssistantDataService
                 'date' => $inv->date?->toDateString(),
                 'due_date' => $inv->due_date?->toDateString(),
                 'customer' => $inv->businessPartner?->name,
+                'company_entity' => $inv->companyEntity?->name,
+                'total_amount' => (string) $inv->total_amount,
+                'status' => $inv->status,
+                'posted_at' => $inv->posted_at?->toAtomString(),
+                'description' => $inv->description,
+            ],
+            'lines' => $lines,
+        ];
+    }
+
+    /**
+     * AP Purchase Invoices (faktur pembelian). When the user gives a PI / purchase invoice number, pass it as invoice_query — not as supplier_query on purchase orders.
+     *
+     * @return array<string, mixed>
+     */
+    public function searchPurchaseInvoices(array $arguments, bool $showAllRecords): array
+    {
+        $limit = $this->capLimit($arguments['limit'] ?? null);
+
+        $q = PurchaseInvoice::query()->with(['businessPartner:id,name,code', 'companyEntity:id,code,name']);
+
+        $hasInvoiceQuery = ! empty($arguments['invoice_query']);
+        if ($hasInvoiceQuery) {
+            $this->scopeActiveCompanyEntities($q);
+            $needle = $this->escapeLike((string) $arguments['invoice_query']);
+            $q->where(function (Builder $w) use ($needle) {
+                $w->where('invoice_no', 'like', '%'.$needle.'%')
+                    ->orWhere('description', 'like', '%'.$needle.'%');
+            });
+        } else {
+            $this->scopeCompanyEntity($q, $showAllRecords);
+            [$from, $to] = $this->parseDateRange($arguments['date_from'] ?? null, $arguments['date_to'] ?? null);
+            $q->whereBetween('date', [$from, $to]);
+        }
+
+        $status = $arguments['status'] ?? null;
+        if (is_string($status) && $status !== '') {
+            $q->where('status', $status);
+        }
+
+        if (! empty($arguments['supplier_query'])) {
+            $needle = $this->escapeLike((string) $arguments['supplier_query']);
+            $q->whereHas('businessPartner', function (Builder $bp) use ($needle) {
+                $bp->where('name', 'like', '%'.$needle.'%')
+                    ->orWhere('code', 'like', '%'.$needle.'%');
+            });
+        }
+
+        $q->orderByDesc('date')->orderByDesc('id')->limit($limit);
+
+        return [
+            'rows' => $q->get()->map(fn (PurchaseInvoice $row) => [
+                'id' => $row->id,
+                'invoice_no' => $row->invoice_no,
+                'date' => $row->date?->toDateString(),
+                'due_date' => $row->due_date?->toDateString(),
+                'supplier' => $row->businessPartner?->name,
+                'total_amount' => (string) $row->total_amount,
+                'status' => $row->status,
+                'posted_at' => $row->posted_at?->toAtomString(),
+                'company_entity' => $row->companyEntity?->name,
+            ])->all(),
+        ];
+    }
+
+    /**
+     * Full header + line items for one AP Purchase Invoice.
+     *
+     * @return array<string, mixed>
+     */
+    public function getPurchaseInvoiceDetail(array $arguments, bool $showAllRecords): array
+    {
+        unset($showAllRecords);
+
+        $id = isset($arguments['invoice_id']) ? (int) $arguments['invoice_id'] : null;
+        $no = isset($arguments['invoice_no']) ? trim((string) $arguments['invoice_no']) : '';
+
+        if ($id === null && $no === '') {
+            return ['error' => 'Provide invoice_no or invoice_id'];
+        }
+
+        $q = PurchaseInvoice::query()
+            ->with([
+                'businessPartner:id,name,code',
+                'companyEntity:id,code,name',
+                'lines' => fn ($lines) => $lines->with(['inventoryItem:id,code,name'])->orderBy('id')->limit(100),
+            ]);
+
+        $this->scopeActiveCompanyEntities($q);
+
+        if ($id !== null) {
+            $inv = $q->whereKey($id)->first();
+        } else {
+            $needle = $this->escapeLike($no);
+            $inv = $q->where(function (Builder $w) use ($needle) {
+                $w->where('invoice_no', 'like', '%'.$needle.'%')
+                    ->orWhere('description', 'like', '%'.$needle.'%');
+            })->orderByDesc('id')->first();
+        }
+
+        if ($inv === null) {
+            return ['error' => 'Purchase invoice not found'];
+        }
+
+        $lines = $inv->lines->map(fn (PurchaseInvoiceLine $line) => [
+            'line_id' => $line->id,
+            'item_code' => $line->inventoryItem?->code,
+            'item_name' => $line->inventoryItem?->name,
+            'description' => $line->description,
+            'qty' => (string) $line->qty,
+            'unit_price' => (string) $line->unit_price,
+            'amount' => (string) $line->amount,
+            'amount_after_vat' => $line->amount_after_vat !== null ? (string) $line->amount_after_vat : null,
+        ])->values()->all();
+
+        return [
+            'header' => [
+                'id' => $inv->id,
+                'invoice_no' => $inv->invoice_no,
+                'date' => $inv->date?->toDateString(),
+                'due_date' => $inv->due_date?->toDateString(),
+                'supplier' => $inv->businessPartner?->name,
                 'company_entity' => $inv->companyEntity?->name,
                 'total_amount' => (string) $inv->total_amount,
                 'status' => $inv->status,

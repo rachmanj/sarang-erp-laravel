@@ -1,6 +1,6 @@
 # Sarange ERP - Modules and Features List
 
-**Last Updated**: 2026-03-31  
+**Last Updated**: 2026-04-06  
 **System Status**: Production Ready (95% Complete)  
 **Technology Stack**: Laravel 12, PHP 8.2+, MySQL, AdminLTE 3.14
 
@@ -179,7 +179,8 @@
 - **Detail Page**: Vendor info, financial summary, related documents (PO, GRPO), line items with item code/name
 - **Select Item Modal**: Available Qty from `inventory_warehouse_stock` (warehouse-specific or total)
 - **Print/PDF**: Uses businessPartner relation; Standard Print and PDF export
-- **Manual**: See `docs/manuals/purchase-invoice-manual-id.md`
+- **Manual**: See `docs/manuals/purchase-invoice-manual-id.md` and `docs/manuals/purchase-invoice-manual-en.md`
+- **Invoice date validation**: On create and draft update, **Date** must be **on or before today** (application timezone), unless **Opening Balance Invoice** is checked or the user has permission **`ap.invoices.future_date`** (assign via Admin → Roles)
 - **Line Items**: Multiple line items with tax handling
 - **Inventory idempotency (direct purchase / stock post)**: `inventory_transactions.purchase_invoice_line_id` with DB uniqueness; pessimistic lock on post; single-flight Post UI; optional `php artisan inventory:report-purchase-invoice-duplicates` for monitoring (see `docs/action-plans/inventory-transaction-deduplication-prevention.md`)
 - **Payment Allocation**: Automatic allocation to purchase payments

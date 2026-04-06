@@ -1,5 +1,5 @@
 Purpose: Technical reference for understanding system design and development patterns
-Last Updated: 2026-04-04 (Domain Assistant: AR invoice tools, multi-entity lookup, robot icon, HELP manuals)
+Last Updated: 2026-04-04 (Domain Assistant: AR + AP invoice tools, multi-entity lookup, robot icon, HELP manuals)
 
 ## Architecture Documentation Guidelines
 
@@ -53,7 +53,7 @@ Sarange ERP is a comprehensive Enterprise Resource Planning system built with La
 ## Current System Status
 
 **Production Readiness**: 95% Complete ✅  
-**Last Comprehensive Testing**: 2025-09-21 (manual E2E); 2026-03-31 automated feature coverage for Purchase Invoice → inventory idempotency (`PurchaseInvoiceInventoryTransactionTest`)  
+**Last Comprehensive Testing**: 2025-09-21 (manual E2E); 2026-03-31 Purchase Invoice inventory idempotency (`PurchaseInvoiceInventoryTransactionTest`); 2026-04-06 PI invoice date validation (`PurchaseInvoiceDateValidationTest`)  
 **Testing Status**: End-to-end validation successful; PHPUnit uses dedicated MySQL database `sarang_erp_test` (see `phpunit.xml`) so `RefreshDatabase` does not wipe the development database
 
 ### Validated Functionality
@@ -153,7 +153,7 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 ### 3. Accounts Payable (AP) Module
 
 -   **Purchase Dashboard**: Comprehensive purchase analytics dashboard with AP aging analysis, purchase KPIs (Purchases MTD, Outstanding AP, Pending Approvals, Open Purchase Orders), purchase order statistics, purchase invoice statistics, goods receipt statistics, top suppliers by outstanding AP, and recent invoices visualization.
--   **Purchase Invoices**: Vendor billing with line items, tax handling (PINV-YYYYMM-######), VAT and Amount After VAT columns in list/detail, header and line discounts (percentage or amount), VAT calculated on net amount after line discount, detail page with vendor info/financial summary/related documents, Select Item modal with accurate Available Qty from `inventory_warehouse_stock` (warehouse-specific or total), print view uses `businessPartner` relation (not vendors table). See `docs/manuals/purchase-invoice-manual-id.md`.
+-   **Purchase Invoices**: Vendor billing with line items, tax handling (PINV-YYYYMM-######), VAT and Amount After VAT columns in list/detail, header and line discounts (percentage or amount), VAT calculated on net amount after line discount, detail page with vendor info/financial summary/related documents, Select Item modal with accurate Available Qty from `inventory_warehouse_stock` (warehouse-specific or total), print view uses `businessPartner` relation (not vendors table). **Invoice date** on create/draft update is validated **`before_or_equal:today`** (app timezone) unless **Opening Balance Invoice** or permission **`ap.invoices.future_date`**. See `docs/manuals/purchase-invoice-manual-id.md` and `docs/manuals/purchase-invoice-manual-en.md`.
 -   **Purchase Payments**: Vendor payment processing with allocation (PP-YYYYMM-######)
 -   **Purchase Orders**: Vendor order management with automatic numbering (PO-YYYYMM-######)
 -   **Goods Receipt PO**: Purchase Order-based inventory receipt processing with automatic numbering (GR-YYYYMM-######)
@@ -726,8 +726,8 @@ flowchart LR
 -   **Routes** (auth + permission): `assistant/*` — threads CRUD, `POST /assistant/chat`. **Admin** (`view-admin`): `GET /admin/assistant-report` — reads `assistant_request_logs`.
 -   **Tables**: `assistant_conversations`, `assistant_messages`, `assistant_request_logs`.
 -   **Core classes**: `App\Services\Assistant\DomainAssistantService` (tool loop), `DomainAssistantDataService` (tools), `DomainAssistantOpenRouterClient` (singleton in `AppServiceProvider`), `AssistantConversationManager`. Route model binding: `{conversation}` scoped to `auth()->id()` in `AppServiceProvider::boot()`.
--   **Entity scoping (important)**: List/browse without an invoice number uses **`scopeCompanyEntity`** (default `company_entity_id` unless user has `see-all-record-switch` and sends `show_all_records`). **Sales Invoice** lookup by **`invoice_query`** or **`get_sales_invoice_detail`** uses **`scopeActiveCompanyEntities`** (`whereIn` active `company_entities`) so invoices on non-default entities (e.g. PT vs CV) are not missed.
--   **Tools (representative)**: `get_erp_summary`, `search_sales_orders`, **`search_sales_invoices`**, **`get_sales_invoice_detail`** (header + lines from `sales_invoice_lines`), `search_purchase_orders`, `search_delivery_orders`, `search_goods_receipt_po`, `search_inventory_items`, `search_business_partners`.
+-   **Entity scoping (important)**: List/browse without an invoice number uses **`scopeCompanyEntity`** (default `company_entity_id` unless user has `see-all-record-switch` and sends `show_all_records`). **Sales Invoice** and **Purchase Invoice** lookup by **`invoice_query`** or **`get_*_invoice_detail`** use **`scopeActiveCompanyEntities`** (`whereIn` active `company_entities`) so invoices on non-default entities (e.g. PT vs CV) are not missed.
+-   **Tools (representative)**: `get_erp_summary`, `search_sales_orders`, **`search_sales_invoices`**, **`get_sales_invoice_detail`** (header + lines from `sales_invoice_lines`), **`search_purchase_invoices`**, **`get_purchase_invoice_detail`** (header + lines from `purchase_invoice_lines`), `search_purchase_orders`, `search_delivery_orders`, `search_goods_receipt_po`, `search_inventory_items`, `search_business_partners`.
 -   **UI**: `resources/views/assistant/index.blade.php` — terminal / hacker skin (JetBrains Mono, green-on-black), scoped under `.assistant-terminal`.
 -   **HELP knowledge**: User-facing how-to for Domain Assistant vs HELP lives in **`docs/manuals/domain-assistant-manual-en.md`** / **`domain-assistant-manual-id.md`**; **`help-navigation.json`** entry `domain-assistant`. After manual edits, run **`php artisan help:reindex`** (HELP pipeline only; Domain Assistant tools do not use `help_embeddings`).
 

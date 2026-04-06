@@ -4,7 +4,7 @@
 
 **Domain Assistant** adalah fitur **terpisah** dari **HELP** (ikon **?** / buku).
 
-- **Domain Assistant** — ikon **robot** di navbar atas. Fitur ini menjawab pertanyaan memakai **data langsung** dari Sarang ERP (sales order, **sales invoice**, purchase order, delivery order, penerimaan barang, stok inventori, mitra bisnis). Mendukung **beberapa percakapan** (thread) dan **riwayat chat** disimpan per pengguna.
+- **Domain Assistant** — ikon **robot** di navbar atas. Fitur ini menjawab pertanyaan memakai **data langsung** dari Sarang ERP (sales order, **sales invoice**, **purchase invoice**, purchase order, delivery order, penerimaan barang, stok inventori, mitra bisnis). Mendukung **beberapa percakapan** (thread) dan **riwayat chat** disimpan per pengguna.
 - **HELP** — ikon **buku** (`?`). Menjawab pertanyaan **cara pakai** dari **manual** tertulis; **tidak** meng-query database perusahaan dan **tidak** menyimpan riwayat chat.
 
 Keduanya memakai API **OpenRouter** di server; kunci API tidak tampil di browser.
@@ -40,6 +40,8 @@ Fitur harus **diaktifkan** di konfigurasi server (`DOMAIN_ASSISTANT_ENABLED`) da
 
 - **Sales Invoice (AR / faktur penjualan)** — mis. “Tampilkan detail invoice **71260800080**” atau “Daftar faktur untuk pelanggan X”.  
   Asisten mencari di **Sales Invoice**, bukan dokumen **Sales Order**.
+- **Purchase Invoice (AP / faktur pembelian)** — mis. “Tampilkan detail Purchase Invoice **72260300114**”.  
+  Asisten mencari di **Purchase Invoice**, bukan **Purchase Order** (PO).
 - **Sales Order** — pesanan terbuka, nama pelanggan, rentang tanggal.
 - **Purchase Order**, **Delivery Order**, **Goods Receipt (GRPO)** — sesuai filter pemasok/pelanggan dan tanggal.
 - **Item inventori** — kode/nama, kategori, stok rendah.
@@ -55,6 +57,13 @@ Boleh bertanya dalam **Bahasa Indonesia** atau **English**; model biasanya mengi
 - **Sales Order** = dokumen pesanan (**SO**), **bukan** faktur.
 
 Jika Anda memberi **nomor faktur**, sebut “invoice” atau “faktur” agar pencarian ke **Sales Invoice**. Pertanyaan “detail faktur” seharusnya mengembalikan **header dan baris** jika sistem mendukung.
+
+## Bedanya Purchase Invoice dan Purchase Order (penting)
+
+- **Purchase Invoice** = faktur pembelian / AP (nomor dokumen invoice dari pemasok yang diposting di sistem).
+- **Purchase Order** = **PO** — bukan faktur pembelian.
+
+Sebut “faktur pembelian”, “purchase invoice”, atau “PI” beserta nomor dokumen agar asisten meng-query **Purchase Invoice**, bukan purchase order.
 
 Faktur bisa berbeda **entitas perusahaan** (mis. PT vs CV). Jika Anda punya izin **see all record switch**, mungkin ada opsi semacam **ALL BRANCHES**; tanpa itu, tampilan daftar bisa mengikuti entitas default, sedangkan **pencarian nomor faktur** dirancang agar dokumen tetap ditemukan di entitas aktif yang relevan.
 

@@ -31,7 +31,7 @@ File **`help-navigation.json`** holds short **menu path** and **keyword** entrie
 | Delete inventory items | `delete-inventory-items-guide.md` | — |
 | Document numbering | `document-numbering-system-manual-id.md` | `document-numbering-system-manual-en.md` |
 | Purchase (module) | `purchase-module-manual-id.md` | `purchase-module-manual.md` |
-| Purchase Invoice | `purchase-invoice-manual-id.md` | — |
+| Purchase Invoice | `purchase-invoice-manual-id.md` | `purchase-invoice-manual-en.md` |
 | Purchase Payment | `purchase-payment-manual-id.md` | — |
 | Delivery Order | `delivery-order-manual-id.md` | — |
 | **Sales Invoice** | `sales-invoice-manual-id.md` | `sales-invoice-manual-en.md` |

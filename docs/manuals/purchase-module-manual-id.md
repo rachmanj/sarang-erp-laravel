@@ -154,7 +154,7 @@ Modul Manajemen Pembelian mengelola alur procure-to-pay lengkap dan mendukung mu
 
 ## Purchase Invoice (PI)
 
-> **Manual Lengkap**: Untuk panduan detail Purchase Invoice termasuk diskon, VAT, modal pilih item, dan integrasi GRPO, lihat [Manual Purchase Invoice](purchase-invoice-manual-id.md).
+> **Manual Lengkap**: Untuk panduan detail Purchase Invoice termasuk diskon, VAT, modal pilih item, dan integrasi GRPO, lihat [Manual Purchase Invoice](purchase-invoice-manual-id.md). Aturan **tanggal invoice** (tidak boleh masa depan kecuali saldo awal atau izin khusus): [Validasi tanggal invoice](purchase-invoice-manual-id.md#validasi-tanggal-invoice). Ringkasan bahasa Inggris: [purchase-invoice-manual-en.md](purchase-invoice-manual-en.md).
 
 ### Konsep Utama
 

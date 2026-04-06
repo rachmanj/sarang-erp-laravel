@@ -99,8 +99,8 @@
             "title_id": "Faktur pembelian (PI)",
             "menu_path_en": "Sidebar → Purchase → Purchase Invoices.",
             "menu_path_id": "Menu samping → Purchase → Purchase Invoices.",
-            "keywords_en": ["purchase invoice", "PINV", "AP"],
-            "keywords_id": ["faktur pembelian", "PI", "AP"]
+            "keywords_en": ["purchase invoice", "PINV", "AP", "future date", "invoice date", "opening balance"],
+            "keywords_id": ["faktur pembelian", "PI", "AP", "tanggal faktur", "tanggal masa depan", "saldo awal"]
         },
         {
             "id": "purchase-orders",

@@ -16,11 +16,6 @@
         <div class="container-fluid">
             <div class="row">
                 <div class="col-12">
-                    @if (session('success'))
-                        <script>
-                            toastr.success(@json(session('success')));
-                        </script>
-                    @endif
                     <div class="card">
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <h3 class="card-title">Purchase Invoices</h3>
@@ -57,6 +52,9 @@
                                     <option value="posted">Posted</option>
                                 </select>
                                 <button id="apply_filters" class="btn btn-sm btn-info">Apply</button>
+                                <a id="export_excel" href="#" class="btn btn-sm btn-success">
+                                    <i class="fas fa-file-excel mr-1"></i>Export Excel
+                                </a>
                                 @can('ap.invoices.create')
                                     <a href="{{ route('purchase-invoices.create') }}" class="btn btn-sm btn-primary">Create</a>
                                 @endcan
@@ -77,6 +75,15 @@
                                     </tr>
                                 </thead>
                                 <tbody></tbody>
+                                <tfoot class="bg-light">
+                                    <tr>
+                                        <th colspan="3" class="text-right">Totals (filtered)</th>
+                                        <th class="text-right font-weight-bold" id="pi-sum-total">—</th>
+                                        <th></th>
+                                        <th class="text-right font-weight-bold" id="pi-sum-after-vat">—</th>
+                                        <th colspan="2"></th>
+                                    </tr>
+                                </tfoot>
                             </table>
                         </div>
                         <div class="card-footer"></div>
@@ -89,6 +96,33 @@
     @push('scripts')
         <script>
             $(function() {
+                function formatPiMoney(n) {
+                    return new Intl.NumberFormat('id-ID', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                    }).format(Number(n) || 0);
+                }
+
+                function piExportUrl() {
+                    var p = new URLSearchParams();
+                    var from = $('#filter_from').val();
+                    var to = $('#filter_to').val();
+                    var q = $('#filter_q').val();
+                    var status = $('#filter_status').val();
+                    var entity = $('input[name="entity_filter"]:checked').val();
+                    if (from) p.set('from', from);
+                    if (to) p.set('to', to);
+                    if (q) p.set('q', q);
+                    if (status) p.set('status', status);
+                    if (entity) p.set('company_entity_id', entity);
+                    return '{{ route('purchase-invoices.export') }}' + (p.toString() ? '?' + p.toString() : '');
+                }
+
+                $('#export_excel').on('click', function(e) {
+                    e.preventDefault();
+                    window.location.href = piExportUrl();
+                });
+
                 var table = $('#pi-table').DataTable({
                     processing: true,
                     serverSide: true,
@@ -99,6 +133,16 @@
                             d.to = $('#filter_to').val();
                             d.q = $('#filter_q').val();
                             d.status = $('#filter_status').val();
+                            d.company_entity_id = $('input[name="entity_filter"]:checked').val() || '';
+                        },
+                        dataSrc: function(json) {
+                            if (json.sum_total_amount !== undefined) {
+                                $('#pi-sum-total').text(formatPiMoney(json.sum_total_amount));
+                            }
+                            if (json.sum_amount_after_vat !== undefined) {
+                                $('#pi-sum-after-vat').text(formatPiMoney(json.sum_amount_after_vat));
+                            }
+                            return json.data;
                         }
                     },
                     columns: [{
