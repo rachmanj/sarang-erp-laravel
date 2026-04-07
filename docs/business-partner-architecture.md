@@ -110,6 +110,13 @@ The Business Partner module uses a tabbed interface for better organization:
     - Recent invoices and payments (conditionally displayed if tables exist)
     - Views check both table existence and relationship loading status before displaying data
 
+7. **Account Statement Tab** (in detail view)
+    - **GL-based** list: one row per **posted journal** (aggregated lines) affecting this partner’s **trade AP/AR control accounts** (by account code) and/or the partner’s optional **mapped `account_id`**, with journals scoped via `source_type` / `source_id` to partner documents where applicable
+    - **Not the same list** as **Transactions**; the UI states that posted GL activity on trade accounts may differ from the Transactions tab
+    - Date display and CSV/PDF exports use **dd/mm/yyyy** where applicable
+    - Implemented by **`App\Services\BusinessPartnerAccountStatementService`** and **`BusinessPartnerController::accountStatement` / `exportAccountStatement`**
+    - See **[`docs/BUSINESS-PARTNER-ACCOUNT-STATEMENT.md`](./BUSINESS-PARTNER-ACCOUNT-STATEMENT.md)** for full behaviour and routes
+
 ## Integration Points
 
 The Business Partner module integrates with several other modules:

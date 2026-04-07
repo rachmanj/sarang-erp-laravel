@@ -12,7 +12,7 @@
 8. [Managing Addresses](#managing-addresses)
 9. [Taxation & Terms](#taxation--terms)
 10. [Banking Information](#banking-information)
-11. [Journal History](#journal-history)
+11. [Account Statement](#account-statement)
 12. [Common Tasks](#common-tasks)
 13. [Troubleshooting](#troubleshooting)
 14. [Quick Reference](#quick-reference)
@@ -44,9 +44,9 @@ The Business Partner Module is a unified system that helps you manage all your c
 
 - **Unified Management**: Single interface for both customers and suppliers
 - **Complete Information**: All partner data in one place with tabbed organization
-- **Financial Integration**: Automatic account mapping and journal history tracking
+- **Financial Integration**: Automatic account mapping and GL account statement (posted activity)
 - **Flexible Data Storage**: Custom fields for specific business requirements
-- **Transaction Visibility**: Complete transaction history with running balances
+- **Transaction Visibility**: Transactions tab and Account statement tab (different purposes; statement uses posted GL rules)
 
 ---
 
@@ -115,9 +115,8 @@ The Business Partner Module includes these main features:
 
 ### 6. **Financial Integration**
 - Automatic account mapping (Customer→AR, Supplier→AP)
-- Journal history with running balances
-- Transaction consolidation from multiple sources
-- Multi-dimensional accounting support (projects/departments)
+- **Account statement** tab: posted GL lines on trade accounts with running balance (may differ from Transactions)
+- Multi-dimensional accounting support (projects/departments) where applicable on journals
 
 ### 7. **Transaction Tracking**
 - Recent purchase orders
@@ -241,7 +240,7 @@ The search is case-insensitive and searches across all three fields.
    - **Taxation & Terms**: Tax info, account mapping, payment terms
    - **Banking**: Bank account details
    - **Transactions**: Recent orders, invoices, and payments
-   - **Journal History**: Complete financial transaction history
+   - **Account statement**: Posted GL activity on trade accounts (may differ from Transactions)
 
 ---
 
@@ -448,62 +447,51 @@ Partners can have multiple bank accounts. Add each account as a separate entry i
 
 ---
 
-## Journal History
+## Account Statement
 
-### What is Journal History?
+### What is the Account statement tab?
 
-Journal History provides a complete financial transaction record for a business partner, showing:
+The **Account statement** tab shows **posted general ledger** activity for the partner: journal lines that hit the system’s **trade AP/AR control accounts** (and/or the partner’s mapped sub-account when used), with journals linked to partner documents where applicable. It is **not** a copy of the **Transactions** tab.
 
-- All transactions affecting the partner's account
-- Running balance calculations
-- Transaction details (date, type, document number, amount)
-- Multi-dimensional accounting information (projects/departments)
+The tab includes a short note:
 
-### Accessing Journal History
+> Shows posted GL activity on trade accounts; may differ from Transactions.
 
-1. Open partner detail page
-2. Click **"Journal History"** tab
-3. Set date range (optional, defaults to current year)
-4. View transactions with running balances
+Posting and document dates in the grid use **dd/mm/yyyy**. **CSV** and **PDF** exports use the same date style for consistency.
 
-### Understanding Journal History
+### Accessing Account statement
 
-**Summary Cards:**
-- **Opening Balance**: Balance at the start of the date range
-- **Total Debits**: Sum of all debit transactions
-- **Total Credits**: Sum of all credit transactions
-- **Closing Balance**: Balance at the end of the date range
+1. Open the partner detail page
+2. Click the **Account statement** tab
+3. Set **Start Date** and **End Date** (often defaults to the current year)
+4. Click **Filter** or **Refresh**
+5. Use **CSV** or **PDF** to download the report for the selected period
 
-**Transaction Table:**
-- **Date**: Transaction posting date
-- **Type**: Transaction type (Journal Entry, Sales Invoice, Purchase Invoice, etc.)
-- **Document No**: Document number
-- **Description**: Transaction description
-- **Debit**: Debit amount
-- **Credit**: Credit amount
-- **Balance**: Running balance after this transaction
-- **Project/Dept**: Project and department information
-- **Created By**: User who created the transaction
+### Understanding the summary and grid
 
-### Transaction Sources
+**Summary cards:**
+- **Opening Balance**: Balance at the start of the range (based on statement-scoped journal lines)
+- **Total Debits** / **Total Credits**: Period totals
+- **Closing Balance**: Ending balance
 
-Journal History consolidates transactions from:
+**Main columns:**
+- **Posting Date** / **Document Date**: Journal posting date and document date (**dd/mm/yyyy**)
+- **Document Type**, **Document No.**, **Journal No.**, **Description**
+- **Debit**, **Credit**, **Balance** (running balance)
+- **Posted By**: As recorded on the journal/posting flow
 
-1. **Journal Entries**: Direct journal entries affecting the partner's account
-2. **Sales Invoices**: For customers
-3. **Sales Receipts**: For customers
-4. **Purchase Invoices**: For suppliers
-5. **Purchase Payments**: For suppliers
+### How this differs from the Transactions tab
 
-### Filtering and Pagination
+The **Transactions** tab lists operational activity (orders, invoices, payments, etc.) as implemented in the detail view. The **Account statement** tab only includes **posted** GL lines that match the trade-account and partner-linking rules. You may see rows on **Transactions** with **no** rows on **Account statement** (for example, not yet posted to the GL in scope), or the reverse depending on accounting flow.
 
-- **Date Range**: Filter transactions by start and end date
-- **Pagination**: View transactions in pages (25 per page by default)
-- **Sorting**: Transactions sorted by date and creation time
+### Filtering and pagination
 
-### Exporting Journal History
+- **Date range**: Limits opening balance, totals, and detail rows
+- **Pagination**: Rows per page (for example, 25)
 
-Journal history can be exported for reporting purposes. Contact your system administrator for export functionality.
+### Export (CSV and PDF)
+
+Use **CSV** or **PDF** on the tab to download the report for the **same** start/end dates selected in the filter.
 
 ---
 
@@ -567,7 +555,7 @@ Journal history can be exported for reporting purposes. Contact your system admi
 1. Go to Business Partners → Find and open partner
 2. Click "Transactions" tab
 3. View recent purchase orders, sales orders, invoices, and payments
-4. Click "Journal History" tab for complete financial history
+4. Click the **Account statement** tab for posted GL activity (not identical to Transactions)
 
 ### Task: Deactivate a Partner
 
@@ -632,18 +620,17 @@ Journal history can be exported for reporting purposes. Contact your system admi
 3. Ensure account type matches partner type (AR for customers, AP for suppliers)
 4. Contact administrator to create account
 
-### Problem: Journal History Not Showing Transactions
+### Problem: Account Statement Empty While Transactions Shows Data
 
-**Possible Causes:**
-- No transactions exist for the partner
-- Date range is incorrect
-- Account not assigned to partner
+**Possible causes:**
+- GL postings for the partner use **central trade control accounts** and document-linked journals; **Transactions** may list documents that are not yet in scope for the statement
+- Date filter does not include journal posting dates
+- Documents not posted to the GL
 
 **Solutions:**
-1. Check date range covers transaction dates
-2. Verify partner has transactions in the system
-3. Ensure account is assigned to partner
-4. Check transactions are posted/approved
+1. Check the statement date range
+2. Confirm relevant documents are **posted** to the general ledger
+3. Remember **Transactions** and **Account statement** are **not** the same list — read the hint above the Account statement tab
 
 ### Problem: Can't Delete a Partner
 
@@ -686,7 +673,7 @@ Journal history can be exported for reporting purposes. Contact your system admi
 - **Primary Contact**: Main contact person for the partner
 - **Primary Address**: Main address for the partner
 - **Account Mapping**: GL account assignment for financial tracking
-- **Journal History**: Complete financial transaction record
+- **Account statement**: Posted GL activity on trade accounts (may differ from Transactions)
 - **Running Balance**: Cumulative balance after each transaction
 
 ### Partner Status Colors
@@ -764,7 +751,7 @@ If you need additional assistance:
 - ✅ Set appropriate credit limits for customers
 - ✅ Configure payment terms accurately
 - ✅ Review account mappings periodically
-- ✅ Ensure journal history is accessible
+- ✅ Ensure the Account statement tab is available when GL reconciliation is needed
 
 ### When Managing Partner Status
 
@@ -780,7 +767,7 @@ If you need additional assistance:
 - ✅ Use notes to document important changes
 - ✅ Review partner information regularly
 - ✅ Keep contact and address information current
-- ✅ Monitor journal history for financial accuracy
+- ✅ Compare Transactions vs Account statement when you need to reconcile operational vs GL views
 - ✅ Use consistent naming and coding conventions
 - ✅ Document special terms or agreements in notes
 

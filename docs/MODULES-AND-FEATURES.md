@@ -319,7 +319,7 @@
 - **Unified Management**: Single interface for managing customers and suppliers
 - **Partner Types**: Customer and Supplier classification
 - **Account Mapping**: Business partners can be assigned specific GL accounts
-- **Journal History**: Comprehensive transaction history with running balance calculation
+- **Account Statement (detail view)**: Posted **GL** activity on trade AP/AR control accounts (and optional partner sub-account), one row per posted journal with running balance; CSV/PDF export; dates shown as **dd/mm/yyyy**; scoped differently from the **Transactions** tab (see `docs/BUSINESS-PARTNER-ACCOUNT-STATEMENT.md`)
 - **Tabbed Interface**: Organized partner data across multiple tabs:
   - General Information
   - Contact Details (multiple contacts)
@@ -327,15 +327,14 @@
   - Taxation & Terms (with Accounting section)
   - Banking & Financial
   - Transactions
-  - Account Balance - Journal History
+  - Account statement
 
 **Features**:
 - Multiple contacts per partner (primary, billing, shipping, technical, sales, support)
 - Multiple addresses per partner (billing, shipping, registered, warehouse, office)
 - Flexible data storage (custom fields)
-- Transaction consolidation from multiple sources
-- Running balance calculation
-- Pagination and filtering
+- Partner detail **Transactions** tab lists recent operational documents (orders, invoices, payments) where implemented
+- Partner detail **Account statement** tab: posted journal lines matching trade-account and partner-link rules; running balance; pagination and filtering
 
 ---
 

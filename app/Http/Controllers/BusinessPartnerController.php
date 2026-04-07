@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\BusinessPartner;
+use App\Services\BusinessPartnerAccountStatementService;
 use App\Services\BusinessPartnerService;
-use App\Services\BusinessPartnerJournalService;
+use App\Services\PdfService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Yajra\DataTables\Facades\DataTables;
 
 class BusinessPartnerController extends Controller
@@ -85,7 +87,7 @@ class BusinessPartnerController extends Controller
                 return response()->json([
                     'success' => true,
                     'message' => 'Business Partner created successfully',
-                    'data' => $businessPartner
+                    'data' => $businessPartner,
                 ]);
             }
 
@@ -95,12 +97,12 @@ class BusinessPartnerController extends Controller
             if ($request->wantsJson()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Error creating Business Partner: ' . $e->getMessage()
+                    'message' => 'Error creating Business Partner: '.$e->getMessage(),
                 ], 500);
             }
 
             return back()->withInput()
-                ->with('error', 'Error creating Business Partner: ' . $e->getMessage());
+                ->with('error', 'Error creating Business Partner: '.$e->getMessage());
         }
     }
 
@@ -121,7 +123,7 @@ class BusinessPartnerController extends Controller
     public function update(Request $request, BusinessPartner $businessPartner)
     {
         $data = $request->validate([
-            'code' => ['required', 'string', 'max:50', 'unique:business_partners,code,' . $businessPartner->id],
+            'code' => ['required', 'string', 'max:50', 'unique:business_partners,code,'.$businessPartner->id],
             'name' => ['required', 'string', 'max:150'],
             'partner_type' => ['required', 'in:customer,supplier'],
             'status' => ['nullable', 'in:active,inactive,suspended'],
@@ -171,7 +173,7 @@ class BusinessPartnerController extends Controller
                 return response()->json([
                     'success' => true,
                     'message' => 'Business Partner updated successfully',
-                    'data' => $businessPartner
+                    'data' => $businessPartner,
                 ]);
             }
 
@@ -181,12 +183,12 @@ class BusinessPartnerController extends Controller
             if ($request->wantsJson()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Error updating Business Partner: ' . $e->getMessage()
+                    'message' => 'Error updating Business Partner: '.$e->getMessage(),
                 ], 500);
             }
 
             return back()->withInput()
-                ->with('error', 'Error updating Business Partner: ' . $e->getMessage());
+                ->with('error', 'Error updating Business Partner: '.$e->getMessage());
         }
     }
 
@@ -199,22 +201,23 @@ class BusinessPartnerController extends Controller
                 return response()->json([
                     'success' => true,
                     'message' => $hardDelete ? 'Business Partner deleted successfully' : 'Business Partner deactivated successfully',
-                    'hard_delete' => $hardDelete
+                    'hard_delete' => $hardDelete,
                 ]);
             }
 
             $message = $hardDelete ? 'Business Partner deleted successfully' : 'Business Partner deactivated successfully';
+
             return redirect()->route('business_partners.index')
                 ->with('success', $message);
         } catch (\Exception $e) {
             if ($request->wantsJson()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Error deleting Business Partner: ' . $e->getMessage()
+                    'message' => 'Error deleting Business Partner: '.$e->getMessage(),
                 ], 500);
             }
 
-            return back()->with('error', 'Error deleting Business Partner: ' . $e->getMessage());
+            return back()->with('error', 'Error deleting Business Partner: '.$e->getMessage());
         }
     }
 
@@ -240,6 +243,7 @@ class BusinessPartnerController extends Controller
                     'customer' => '<span class="badge badge-info">Customer</span>',
                     'supplier' => '<span class="badge badge-warning">Supplier</span>',
                 ];
+
                 return $badges[$businessPartner->partner_type] ?? '';
             })
             ->addColumn('status_badge', function ($businessPartner) {
@@ -248,14 +252,17 @@ class BusinessPartnerController extends Controller
                     'inactive' => '<span class="badge badge-secondary">Inactive</span>',
                     'suspended' => '<span class="badge badge-danger">Suspended</span>',
                 ];
+
                 return $badges[$businessPartner->status] ?? '';
             })
             ->addColumn('primary_contact', function ($businessPartner) {
                 $contact = $businessPartner->primaryContact;
+
                 return $contact ? $contact->full_contact : '-';
             })
             ->addColumn('primary_address', function ($businessPartner) {
                 $address = $businessPartner->primaryAddress;
+
                 return $address ? $address->short_address : '-';
             })
             ->addColumn('actions', function ($businessPartner) {
@@ -283,29 +290,137 @@ class BusinessPartnerController extends Controller
         return response()->json($businessPartners);
     }
 
-    public function journalHistory(Request $request, BusinessPartner $businessPartner)
+    public function accountStatement(Request $request, BusinessPartner $businessPartner)
     {
-        $this->middleware('can:business_partners.journal_history');
-
         $startDate = $request->get('start_date');
         $endDate = $request->get('end_date');
-        $page = $request->get('page', 1);
-        $perPage = $request->get('per_page', 25);
+        $page = (int) $request->get('page', 1);
+        $perPage = (int) $request->get('per_page', 25);
 
-        $journalService = new BusinessPartnerJournalService($businessPartner);
-        $journalData = $journalService->getJournalHistory($startDate, $endDate, $page, $perPage);
+        $statementService = new BusinessPartnerAccountStatementService($businessPartner);
+        $statementData = $statementService->getStatement($startDate, $endDate, $page, $perPage);
 
-        if ($request->wantsJson()) {
-            return response()->json($journalData);
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json($statementData);
         }
 
-        return view('business_partners.journal_history', compact('businessPartner', 'journalData'));
+        return redirect()
+            ->route('business_partners.show', $businessPartner)
+            ->fragment('account-statement');
+    }
+
+    public function exportAccountStatement(Request $request, BusinessPartner $businessPartner)
+    {
+        $startDate = $request->get('start_date');
+        $endDate = $request->get('end_date');
+        $format = strtolower((string) $request->query('format', 'csv'));
+
+        $statementService = new BusinessPartnerAccountStatementService($businessPartner);
+        $data = $statementService->getExportData($startDate, $endDate);
+
+        $account = $businessPartner->getAccountOrDefault();
+        $safeCode = preg_replace('/[^A-Za-z0-9_-]+/', '_', $businessPartner->code) ?: 'partner';
+
+        if ($format === 'pdf') {
+            $pdf = app(PdfService::class)->renderViewToString('business_partners.pdf.account-statement', [
+                'partner' => $businessPartner,
+                'account' => $account,
+                'statement' => $data,
+                'periodStart' => $startDate,
+                'periodEnd' => $endDate,
+            ]);
+
+            return response($pdf, 200, [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => 'inline; filename="account-statement-'.$safeCode.'.pdf"',
+            ]);
+        }
+
+        $csv = $this->accountStatementToCsv($businessPartner, $data);
+
+        return response("\xEF\xBB\xBF".$csv, 200, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="account-statement-'.$safeCode.'.csv"',
+        ]);
+    }
+
+    protected function accountStatementToCsv(BusinessPartner $businessPartner, array $data): string
+    {
+        $lines = [];
+        $lines[] = $this->csvLine(['Partner Code', $businessPartner->code]);
+        $lines[] = $this->csvLine(['Partner Name', $businessPartner->name]);
+        $lines[] = $this->csvLine(['Opening Balance', number_format((float) $data['opening_balance'], 2, '.', '')]);
+        $lines[] = $this->csvLine(['Closing Balance', number_format((float) $data['closing_balance'], 2, '.', '')]);
+        $lines[] = $this->csvLine(['Total Debits', number_format((float) $data['total_debits'], 2, '.', '')]);
+        $lines[] = $this->csvLine(['Total Credits', number_format((float) $data['total_credits'], 2, '.', '')]);
+        $lines[] = '';
+
+        $lines[] = $this->csvLine([
+            'Posting Date',
+            'Document Date',
+            'Document Type',
+            'Document No.',
+            'Journal No.',
+            'Description',
+            'Debit',
+            'Credit',
+            'Balance',
+            'Posted By',
+        ]);
+
+        foreach ($data['transactions'] as $row) {
+            $r = is_object($row) ? json_decode(json_encode($row), true) : $row;
+            $lines[] = $this->csvLine([
+                $this->formatStatementCsvDate($r['posting_date'] ?? null),
+                $this->formatStatementCsvDate($r['document_date'] ?? null),
+                (string) ($r['document_type'] ?? ''),
+                (string) ($r['document_no'] ?? ''),
+                (string) ($r['journal_no'] ?? ''),
+                (string) ($r['description'] ?? ''),
+                number_format((float) ($r['debit'] ?? 0), 2, '.', ''),
+                number_format((float) ($r['credit'] ?? 0), 2, '.', ''),
+                number_format((float) ($r['cumulative_balance'] ?? 0), 2, '.', ''),
+                (string) ($r['created_by'] ?? ''),
+            ]);
+        }
+
+        return implode("\r\n", $lines);
+    }
+
+    /**
+     * @param  array<int, string>  $fields
+     */
+    protected function csvLine(array $fields): string
+    {
+        return implode(',', array_map(fn (string $v) => $this->csvEscapeField($v), $fields));
+    }
+
+    protected function csvEscapeField(string $value): string
+    {
+        if (str_contains($value, ',') || str_contains($value, '"') || str_contains($value, "\r") || str_contains($value, "\n")) {
+            return '"'.str_replace('"', '""', $value).'"';
+        }
+
+        return $value;
+    }
+
+    protected function formatStatementCsvDate(mixed $value): string
+    {
+        if ($value === null || $value === '') {
+            return '';
+        }
+
+        try {
+            return Carbon::parse($value)->format('d/m/Y');
+        } catch (\Throwable) {
+            return is_string($value) ? substr($value, 0, 10) : (string) $value;
+        }
     }
 
     public function getPaymentTerms(BusinessPartner $businessPartner)
     {
         $paymentTermsDays = $businessPartner->getPaymentTermsDays();
-        
+
         return response()->json([
             'success' => true,
             'payment_terms_days' => $paymentTermsDays,

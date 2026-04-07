@@ -431,12 +431,12 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 -   **Account Mapping**: Business partners can be assigned specific GL accounts with automatic default assignment (Customer→AR, Supplier→AP)
 -   **Conditional Relationship Loading**: BusinessPartnerService conditionally loads relationships (purchaseOrders, salesOrders, purchaseInvoices, salesInvoices) only if corresponding database tables exist, preventing errors during schema evolution or partial migrations
 -   **Defensive View Logic**: Blade views verify both table existence (`Schema::hasTable()`) and relationship loading status (`relationLoaded()`) before accessing relationship data, ensuring graceful handling of missing tables or relationships
--   **Journal History**: Comprehensive transaction history with running balance calculation, multi-source data consolidation, and pagination
--   **Tabbed Interface**: Organized partner data across General Information, Contact Details, Addresses, Taxation & Terms (with Accounting section), Banking & Financial, Transactions, and Account Balance - Journal History sections
+-   **Account Statement (detail tab)**: **`BusinessPartnerAccountStatementService`** builds the partner **Account statement** tab from **posted** `journal_lines` on trade AP/AR **control accounts** (by account `code`) and journals linked to partner documents via `source_type` / `source_id`, plus lines on the partner’s optional **`account_id`**; see **`docs/BUSINESS-PARTNER-ACCOUNT-STATEMENT.md`**
+-   **Tabbed Interface**: Organized partner data across General Information, Contact Details, Addresses, Taxation & Terms (with Accounting section), Banking & Financial, Transactions, and **Account statement**
 -   **Flexible Data Storage**: BusinessPartnerDetail model enables custom field storage without schema changes
 -   **Multiple Contacts**: Support for multiple contact persons per partner with different contact types (primary, billing, shipping, technical, sales, support)
 -   **Multiple Addresses**: Support for multiple addresses per partner with different address types (billing, shipping, registered, warehouse, office)
--   **Transaction Consolidation**: BusinessPartnerJournalService consolidates transactions from journal lines, sales/purchase invoices/receipts
+-   **Transactions tab**: Shows recent operational activity (e.g. orders, invoices) as implemented in the partner detail view; this is **not** identical to the GL-based Account statement tab
 -   **Backward Compatibility**: Maintained compatibility with existing PurchaseOrder, SalesOrder, and DeliveryOrder models
 -   **Data Migration**: Comprehensive migration from separate customers and vendors tables to unified business_partners structure
 -   **Field Mapping Consistency**: All controllers, services, forms, and JavaScript use business_partner_id consistently across the entire ERP system

@@ -12,7 +12,7 @@
 8. [Mengelola Alamat](#mengelola-alamat)
 9. [Pajak & Syarat](#pajak--syarat)
 10. [Informasi Perbankan](#informasi-perbankan)
-11. [Riwayat Jurnal](#riwayat-jurnal)
+11. [Laporan Rekening (Account Statement)](#laporan-rekening-account-statement)
 12. [Tugas Umum](#tugas-umum)
 13. [Pemecahan Masalah](#pemecahan-masalah)
 14. [Referensi Cepat](#referensi-cepat)
@@ -44,9 +44,9 @@ Modul Business Partner adalah sistem terpadu yang membantu Anda mengelola semua 
 
 - **Manajemen Terpadu**: Satu antarmuka untuk pelanggan dan supplier
 - **Informasi Lengkap**: Semua data partner di satu tempat dengan organisasi berbasis tab
-- **Integrasi Keuangan**: Pemetaan akun otomatis dan pelacakan riwayat jurnal
+- **Integrasi Keuangan**: Pemetaan akun otomatis dan laporan rekening GL (Account Statement)
 - **Penyimpanan Data Fleksibel**: Field khusus untuk kebutuhan bisnis tertentu
-- **Visibilitas Transaksi**: Riwayat transaksi lengkap dengan saldo berjalan
+- **Visibilitas Transaksi**: Tab Transactions dan Account statement (masing-masing dengan tujuan berbeda)
 
 ---
 
@@ -115,7 +115,7 @@ Modul Business Partner mencakup fitur-fitur utama berikut:
 
 ### 6. **Integrasi Keuangan**
 - Pemetaan akun otomatis (Customer→AR, Supplier→AP)
-- Riwayat jurnal dengan saldo berjalan
+- Laporan rekening (Account Statement) dengan saldo berjalan pada aktivitas GL yang diposting
 - Konsolidasi transaksi dari beberapa sumber
 - Dukungan akuntansi multi-dimensi (proyek/departemen)
 
@@ -241,7 +241,7 @@ Pencarian tidak peka huruf besar/kecil dan mencari di ketiga field tersebut.
    - **Taxation & Terms**: Info pajak, pemetaan akun, syarat pembayaran
    - **Banking**: Detail rekening bank
    - **Transactions**: Order, invoice, dan pembayaran terkini
-   - **Journal History**: Riwayat transaksi keuangan lengkap
+   - **Account statement**: Aktivitas GL yang diposting pada akun dagang (bisa berbeda dari tab Transactions)
 
 ---
 
@@ -448,62 +448,51 @@ Partner dapat memiliki beberapa rekening bank. Tambahkan setiap rekening sebagai
 
 ---
 
-## Riwayat Jurnal
+## Laporan Rekening (Account Statement)
 
-### Apa itu Riwayat Jurnal?
+### Apa itu tab Account statement?
 
-Riwayat Jurnal menyediakan catatan transaksi keuangan lengkap untuk business partner, menampilkan:
+Tab **Account statement** menampilkan aktivitas **jurnal yang sudah diposting** ke **buku besar (GL)** untuk partner tersebut, dengan fokus pada akun **piutang/hutang dagang** (akun kontrol sesuai pengaturan sistem) dan baris jurnal yang terhubung ke dokumen partner (faktur, pembayaran, penerimaan, dan sejenisnya). Tab ini **bukan** salinan tab **Transactions**.
 
-- Semua transaksi yang mempengaruhi akun partner
-- Perhitungan saldo berjalan
-- Detail transaksi (tanggal, tipe, nomor dokumen, jumlah)
-- Informasi akuntansi multi-dimensi (proyek/departemen)
+Di bagian atas tab terdapat petunjuk:
 
-### Mengakses Riwayat Jurnal
+> Menampilkan aktivitas GL yang diposting pada akun dagang; dapat berbeda dari tab Transactions.
+
+Tanggal pada tabel (posting dan dokumen) ditampilkan dalam format **dd/mm/yyyy**. Ekspor **CSV** dan **PDF** memakai format tanggal yang konsisten.
+
+### Mengakses Account statement
 
 1. Buka halaman detail partner
-2. Klik tab **"Journal History"**
-3. Tetapkan rentang tanggal (opsional, default ke tahun berjalan)
-4. Lihat transaksi dengan saldo berjalan
+2. Klik tab **Account statement**
+3. Atur **Start Date** dan **End Date** (default umumnya tahun berjalan)
+4. Klik **Filter** atau **Refresh** untuk memuat ulang data
+5. Gunakan **CSV** atau **PDF** untuk mengunduh laporan periode yang dipilih
 
-### Memahami Riwayat Jurnal
+### Memahami ringkasan dan tabel
 
-**Kartu Ringkasan:**
-- **Opening Balance**: Saldo di awal rentang tanggal
-- **Total Debits**: Jumlah semua transaksi debit
-- **Total Credits**: Jumlah semua transaksi kredit
-- **Closing Balance**: Saldo di akhir rentang tanggal
+**Kartu ringkasan:**
+- **Opening Balance**: Saldo di awal rentang tanggal (berdasarkan baris jurnal yang masuk ruang lingkup statement)
+- **Total Debits** / **Total Credits**: Jumlah debit/kredit dalam periode
+- **Closing Balance**: Saldo akhir periode
 
-**Tabel Transaksi:**
-- **Date**: Tanggal posting transaksi
-- **Type**: Tipe transaksi (Journal Entry, Sales Invoice, Purchase Invoice, dll.)
-- **Document No**: Nomor dokumen
-- **Description**: Deskripsi transaksi
-- **Debit**: Jumlah debit
-- **Credit**: Jumlah kredit
-- **Balance**: Saldo berjalan setelah transaksi ini
-- **Project/Dept**: Informasi proyek dan departemen
-- **Created By**: Pengguna yang membuat transaksi
+**Kolom tabel (utama):**
+- **Posting Date** / **Document Date**: Tanggal posting jurnal dan tanggal dokumen (tampilan **dd/mm/yyyy**)
+- **Document Type**, **Document No.**, **Journal No.**, **Description**
+- **Debit** / **Credit** / **Balance** (saldo berjalan)
+- **Posted By**: Pengguna terkait posting (sesuai data jurnal)
 
-### Sumber Transaksi
+### Perbedaan dengan tab Transactions
 
-Riwayat Jurnal mengkonsolidasikan transaksi dari:
+Tab **Transactions** menampilkan aktivitas operasional (order, faktur, pembayaran, dll.) sesuai tampilan modul. Tab **Account statement** hanya mencakup baris GL yang **sudah diposting** dan memenuhi aturan akun/sumber jurnal untuk partner ini. Karena itu, **bisa ada** transaksi di tab Transactions **tanpa** baris di Account statement (misalnya belum diposting ke GL sesuai ruang lingkup), atau sebaliknya tergantung alur akuntansi.
 
-1. **Journal Entries**: Entri jurnal langsung yang mempengaruhi akun partner
-2. **Sales Invoices**: Untuk pelanggan
-3. **Sales Receipts**: Untuk pelanggan
-4. **Purchase Invoices**: Untuk supplier
-5. **Purchase Payments**: Untuk supplier
+### Filter dan pagination
 
-### Filter dan Pagination
+- **Rentang tanggal**: Membatasi periode saldo pembuka, total, dan baris tabel
+- **Pagination**: Baris ditampilkan per halaman (misalnya 25 entri per halaman)
 
-- **Rentang Tanggal**: Filter transaksi berdasarkan tanggal mulai dan akhir
-- **Pagination**: Lihat transaksi dalam halaman (25 per halaman secara default)
-- **Sorting**: Transaksi diurutkan berdasarkan tanggal dan waktu pembuatan
+### Mengekspor (CSV dan PDF)
 
-### Mengekspor Riwayat Jurnal
-
-Riwayat jurnal dapat diekspor untuk keperluan pelaporan. Hubungi administrator sistem Anda untuk fungsi ekspor.
+Gunakan tombol **CSV** atau **PDF** pada tab untuk mengunduh laporan **periode yang sama** dengan tanggal mulai/akhir yang dipilih di filter.
 
 ---
 
@@ -567,7 +556,7 @@ Riwayat jurnal dapat diekspor untuk keperluan pelaporan. Hubungi administrator s
 1. Buka Business Partners → Temukan dan buka partner
 2. Klik tab "Transactions"
 3. Lihat purchase order, sales order, invoice, dan pembayaran terkini
-4. Klik tab "Journal History" untuk riwayat keuangan lengkap
+4. Klik tab **Account statement** untuk aktivitas GL yang diposting (bukan daftar yang sama persis dengan Transactions)
 
 ### Tugas: Menonaktifkan Partner
 
@@ -632,18 +621,17 @@ Riwayat jurnal dapat diekspor untuk keperluan pelaporan. Hubungi administrator s
 3. Pastikan tipe akun sesuai dengan tipe partner (AR untuk pelanggan, AP untuk supplier)
 4. Hubungi administrator untuk membuat akun
 
-### Masalah: Riwayat Jurnal Tidak Menampilkan Transaksi
+### Masalah: Account Statement Kosong Padahal Tab Transactions Ada Data
 
-**Kemungkinan Penyebab:**
-- Tidak ada transaksi untuk partner
-- Rentang tanggal salah
-- Akun tidak ditugaskan ke partner
+**Kemungkinan penyebab:**
+- Baris jurnal untuk partner diposting ke **akun kontrol** (hutang/piutang dagang) dan/atau memerlukan **jurnal terhubung dokumen**; aktivitas di Transactions belum tentu membentuk baris GL dalam ruang lingkup statement
+- Rentang tanggal filter tidak mencakup tanggal posting jurnal
+- Dokumen belum diposting ke GL
 
 **Solusi:**
-1. Periksa rentang tanggal mencakup tanggal transaksi
-2. Verifikasi partner memiliki transaksi di sistem
-3. Pastikan akun ditugaskan ke partner
-4. Periksa transaksi diposting/disetujui
+1. Periksa rentang tanggal filter
+2. Konfirmasi dokumen relevan **sudah diposting** ke jurnal umum
+3. Ingat: tab **Transactions** dan **Account statement** sumber datanya **tidak identik** — baca petunjuk di atas tab Account statement
 
 ### Masalah: Tidak Dapat Menghapus Partner
 
@@ -686,7 +674,7 @@ Riwayat jurnal dapat diekspor untuk keperluan pelaporan. Hubungi administrator s
 - **Primary Contact**: Kontak utama untuk partner
 - **Primary Address**: Alamat utama untuk partner
 - **Account Mapping**: Penugasan akun GL untuk pelacakan keuangan
-- **Journal History**: Catatan transaksi keuangan lengkap
+- **Account statement**: Aktivitas GL terposting pada akun dagang (dapat berbeda dari Transactions)
 - **Running Balance**: Saldo kumulatif setelah setiap transaksi
 
 ### Warna Status Partner
@@ -764,7 +752,7 @@ Jika Anda memerlukan bantuan tambahan:
 - ✅ Tetapkan batas kredit yang sesuai untuk pelanggan
 - ✅ Konfigurasi syarat pembayaran secara akurat
 - ✅ Tinjau pemetaan akun secara berkala
-- ✅ Pastikan riwayat jurnal dapat diakses
+- ✅ Pastikan tab Account statement dapat diakses bila diperlukan rekonsiliasi GL
 
 ### Saat Mengelola Status Partner
 
@@ -780,7 +768,7 @@ Jika Anda memerlukan bantuan tambahan:
 - ✅ Gunakan catatan untuk mendokumentasikan perubahan penting
 - ✅ Tinjau informasi partner secara teratur
 - ✅ Jaga informasi kontak dan alamat tetap terkini
-- ✅ Pantau riwayat jurnal untuk akurasi keuangan
+- ✅ Bandingkan Transactions dengan Account statement bila perlu memahami perbedaan operasional vs GL
 - ✅ Gunakan konvensi penamaan dan pengkodean yang konsisten
 - ✅ Dokumentasikan syarat atau perjanjian khusus dalam catatan
 

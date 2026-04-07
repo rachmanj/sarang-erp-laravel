@@ -1,12 +1,16 @@
 # Account Statements System Implementation
 
 **Purpose**: Comprehensive documentation of the Account Statements functionality implementation
-**Last Updated**: 2025-01-19
+**Last Updated**: 2025-01-19 · **Related note**: 2026-04-07 — partner detail GL tab: [`docs/BUSINESS-PARTNER-ACCOUNT-STATEMENT.md`](./BUSINESS-PARTNER-ACCOUNT-STATEMENT.md)
 **Status**: ✅ COMPLETE
 
 ## Overview
 
 The Account Statements system provides comprehensive financial statement generation for both General Ledger (GL) accounts and Business Partners. This system enables users to generate detailed transaction reports with running balances, supporting both internal accounting needs and external business partner communications.
+
+## See also (partner detail — GL account statement tab)
+
+The **Business Partner** record screen has a separate **Account statement** tab (not stored in `account_statements`). It shows **posted GL activity** scoped to trade control accounts and partner-linked journal sources. That feature is documented in **[`docs/BUSINESS-PARTNER-ACCOUNT-STATEMENT.md`](./BUSINESS-PARTNER-ACCOUNT-STATEMENT.md)**. Do not confuse it with the **Account Statements** module described in *this* file (`account_statements`, `AST-…` numbering, `AccountStatementController`).
 
 ## Key Features
 

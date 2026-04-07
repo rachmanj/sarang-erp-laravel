@@ -106,9 +106,9 @@
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" id="journal-history-tab" data-toggle="tab" href="#journal-history"
-                                role="tab" aria-controls="journal-history" aria-selected="false">
-                                <i class="fas fa-book"></i> Account Balance - Journal History
+                            <a class="nav-link" id="account-statement-tab" data-toggle="tab" href="#account-statement"
+                                role="tab" aria-controls="account-statement" aria-selected="false">
+                                <i class="fas fa-file-invoice-dollar"></i> Account statement
                             </a>
                         </li>
                     </ul>
@@ -707,39 +707,50 @@
                             </div>
                         </div>
 
-                        <!-- Journal History Tab -->
-                        <div class="tab-pane fade" id="journal-history" role="tabpanel"
-                            aria-labelledby="journal-history-tab">
+                        <!-- Account statement (GL, one row per posted journal) -->
+                        <div class="tab-pane fade" id="account-statement" role="tabpanel"
+                            aria-labelledby="account-statement-tab">
                             <div class="row mb-3">
                                 <div class="col-md-12">
                                     <div class="card">
                                         <div class="card-header">
-                                            <h3 class="card-title">Account Balance - Journal History</h3>
+                                            <h3 class="card-title">Account statement</h3>
                                             <div class="card-tools">
+                                                <a class="btn btn-sm btn-success" href="#" id="export-account-statement-csv"
+                                                    title="Download CSV for the selected period">
+                                                    <i class="fas fa-file-csv"></i> CSV
+                                                </a>
+                                                <a class="btn btn-sm btn-danger" href="#" id="export-account-statement-pdf"
+                                                    target="_blank" rel="noopener" title="Open PDF for the selected period">
+                                                    <i class="fas fa-file-pdf"></i> PDF
+                                                </a>
                                                 <button type="button" class="btn btn-sm btn-primary"
-                                                    id="refresh-journal-history">
+                                                    id="refresh-account-statement">
                                                     <i class="fas fa-sync"></i> Refresh
                                                 </button>
                                             </div>
                                         </div>
                                         <div class="card-body">
+                                            <p class="text-muted small mb-3">
+                                                Shows posted GL activity on trade accounts; may differ from Transactions.
+                                            </p>
                                             <!-- Date Range Filter -->
                                             <div class="row mb-3">
                                                 <div class="col-md-3">
-                                                    <label for="start-date">Start Date</label>
-                                                    <input type="date" class="form-control" id="start-date"
+                                                    <label for="statement-start-date">Start Date</label>
+                                                    <input type="date" class="form-control" id="statement-start-date"
                                                         value="{{ \Carbon\Carbon::now()->startOfYear()->format('Y-m-d') }}">
                                                 </div>
                                                 <div class="col-md-3">
-                                                    <label for="end-date">End Date</label>
-                                                    <input type="date" class="form-control" id="end-date"
+                                                    <label for="statement-end-date">End Date</label>
+                                                    <input type="date" class="form-control" id="statement-end-date"
                                                         value="{{ \Carbon\Carbon::now()->endOfYear()->format('Y-m-d') }}">
                                                 </div>
                                                 <div class="col-md-3">
                                                     <label>&nbsp;</label>
                                                     <div>
                                                         <button type="button" class="btn btn-primary"
-                                                            id="filter-journal-history">
+                                                            id="filter-account-statement">
                                                             <i class="fas fa-filter"></i> Filter
                                                         </button>
                                                     </div>
@@ -747,7 +758,7 @@
                                             </div>
 
                                             <!-- Summary Cards -->
-                                            <div class="row mb-3" id="journal-summary">
+                                            <div class="row mb-3" id="account-statement-summary">
                                                 <div class="col-md-3">
                                                     <div class="info-box">
                                                         <span class="info-box-icon bg-info"><i
@@ -790,26 +801,22 @@
                                                 </div>
                                             </div>
 
-                                            <!-- Transactions Table -->
+                                            <!-- Statement lines -->
                                             <div class="table-responsive">
                                                 <table class="table table-bordered table-striped"
-                                                    id="journal-history-table">
+                                                    id="account-statement-table">
                                                     <thead>
                                                         <tr>
                                                             <th>Posting Date</th>
-                                                            <th>Create Date</th>
                                                             <th>Document Date</th>
-                                                            <th>Type</th>
-                                                            <th>Document No</th>
-                                                            <th>Journal No</th>
+                                                            <th>Document Type</th>
+                                                            <th>Document No.</th>
+                                                            <th>Journal No.</th>
                                                             <th>Description</th>
-                                                            <th>Offset Account</th>
-                                                            <th>Account Name</th>
                                                             <th>Debit</th>
                                                             <th>Credit</th>
-                                                            <th>Cumulative Balance</th>
-                                                            <th>Project</th>
-                                                            <th>Created By</th>
+                                                            <th>Balance</th>
+                                                            <th>Posted By</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody>
@@ -821,12 +828,12 @@
                                             <!-- Pagination -->
                                             <div class="row mt-3">
                                                 <div class="col-md-6">
-                                                    <div id="journal-pagination-info"></div>
+                                                    <div id="account-statement-pagination-info"></div>
                                                 </div>
                                                 <div class="col-md-6">
-                                                    <nav aria-label="Journal History Pagination">
+                                                    <nav aria-label="Account statement pagination">
                                                         <ul class="pagination justify-content-end"
-                                                            id="journal-pagination">
+                                                            id="account-statement-pagination">
                                                             <!-- Pagination will be loaded via AJAX -->
                                                         </ul>
                                                     </nav>
@@ -877,103 +884,138 @@
                 var target = $(e.target).attr("href");
                 console.log('Switched to tab:', target);
 
-                // Load journal history when tab is shown
-                if (target === '#journal-history') {
-                    loadJournalHistory();
+                // Load account statement when tab is shown
+                if (target === '#account-statement') {
+                    loadAccountStatement();
                 }
             });
 
-            // Journal History functionality
-            let currentPage = 1;
-            const perPage = 25;
+            let accountStatementPage = 1;
+            const accountStatementPerPage = 25;
+            const accountStatementExportBase =
+                @json(route('business_partners.account_statement.export', $businessPartner));
 
-            function loadJournalHistory(page = 1) {
-                const startDate = $('#start-date').val();
-                const endDate = $('#end-date').val();
+            function accountStatementExportUrl(format) {
+                const params = new URLSearchParams({
+                    start_date: $('#statement-start-date').val(),
+                    end_date: $('#statement-end-date').val(),
+                    format: format
+                });
+                return accountStatementExportBase + '?' + params.toString();
+            }
+
+            $('#export-account-statement-csv').on('click', function(e) {
+                e.preventDefault();
+                window.location.href = accountStatementExportUrl('csv');
+            });
+
+            $('#export-account-statement-pdf').on('click', function(e) {
+                e.preventDefault();
+                window.open(accountStatementExportUrl('pdf'), '_blank', 'noopener');
+            });
+
+            function loadAccountStatement(page = 1) {
+                const startDate = $('#statement-start-date').val();
+                const endDate = $('#statement-end-date').val();
 
                 $.ajax({
-                    url: '{{ route('business_partners.journal_history', $businessPartner->id) }}',
+                    url: '{{ route('business_partners.account_statement', $businessPartner->id) }}',
                     method: 'GET',
+                    dataType: 'json',
                     data: {
                         start_date: startDate,
                         end_date: endDate,
                         page: page,
-                        per_page: perPage
+                        per_page: accountStatementPerPage
                     },
                     beforeSend: function() {
-                        $('#journal-history-table tbody').html(
-                            '<tr><td colspan="14" class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading...</td></tr>'
+                        $('#account-statement-table tbody').html(
+                            '<tr><td colspan="10" class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading...</td></tr>'
                             );
                     },
                     success: function(response) {
-                        updateSummaryCards(response);
-                        updateTransactionsTable(response.transactions);
-                        updatePagination(response.pagination);
-                        currentPage = page;
+                        updateAccountStatementSummary(response);
+                        updateAccountStatementTable(response.transactions);
+                        updateAccountStatementPagination(response.pagination);
+                        accountStatementPage = page;
                     },
                     error: function(xhr) {
-                        console.error('Error loading journal history:', xhr);
-                        $('#journal-history-table tbody').html(
-                            '<tr><td colspan="14" class="text-center text-danger">Error loading data</td></tr>'
+                        console.error('Error loading account statement:', xhr);
+                        $('#account-statement-table tbody').html(
+                            '<tr><td colspan="10" class="text-center text-danger">Error loading data</td></tr>'
                             );
                     }
                 });
             }
 
-            function updateSummaryCards(data) {
+            function updateAccountStatementSummary(data) {
                 $('#opening-balance').text(formatCurrency(data.opening_balance));
                 $('#total-debits').text(formatCurrency(data.total_debits));
                 $('#total-credits').text(formatCurrency(data.total_credits));
                 $('#closing-balance').text(formatCurrency(data.closing_balance));
             }
 
-            function updateTransactionsTable(transactions) {
-                let tbody = $('#journal-history-table tbody');
+            function updateAccountStatementTable(transactions) {
+                let tbody = $('#account-statement-table tbody');
                 tbody.empty();
 
                 if (transactions.length === 0) {
                     tbody.html(
-                        '<tr><td colspan="14" class="text-center text-muted">No transactions found</td></tr>');
+                        '<tr><td colspan="10" class="text-center text-muted">No activity in this period</td></tr>');
                     return;
                 }
 
-                transactions.forEach(function(transaction) {
-                    const row = `
+                transactions.forEach(function(row) {
+                    const docNo = row.document_no ? escapeHtml(String(row.document_no)) : '-';
+                    const desc = row.description ? escapeHtml(String(row.description)) : '-';
+                    tbody.append(`
                         <tr>
-                            <td>${formatDate(transaction.posting_date)}</td>
-                            <td>${formatDateTime(transaction.create_date)}</td>
-                            <td>${formatDate(transaction.document_date)}</td>
-                            <td><span class="badge badge-info">${transaction.type}</span></td>
-                            <td>${transaction.document_no || '-'}</td>
-                            <td>${transaction.journal_no || '-'}</td>
-                            <td>${transaction.description || '-'}</td>
-                            <td>${transaction.offset_account || '-'}</td>
-                            <td>${transaction.account_name || '-'}</td>
-                            <td class="text-right">${transaction.debit > 0 ? formatCurrency(transaction.debit) : '-'}</td>
-                            <td class="text-right">${transaction.credit > 0 ? formatCurrency(transaction.credit) : '-'}</td>
-                            <td class="text-right font-weight-bold">${formatCurrency(transaction.cumulative_balance)}</td>
-                            <td>${transaction.project_dept || '-'}</td>
-                            <td>${transaction.created_by || '-'}</td>
+                            <td>${formatDate(row.posting_date)}</td>
+                            <td>${formatDate(row.document_date)}</td>
+                            <td><span class="badge badge-info">${escapeHtml(String(row.document_type || ''))}</span></td>
+                            <td>${docNo}</td>
+                            <td>${row.journal_no ? escapeHtml(String(row.journal_no)) : '-'}</td>
+                            <td>${desc}</td>
+                            <td class="text-right">${row.debit > 0 ? formatCurrency(row.debit) : '-'}</td>
+                            <td class="text-right">${row.credit > 0 ? formatCurrency(row.credit) : '-'}</td>
+                            <td class="text-right font-weight-bold">${formatCurrency(row.cumulative_balance)}</td>
+                            <td>${row.created_by ? escapeHtml(String(row.created_by)) : '-'}</td>
                         </tr>
-                    `;
-                    tbody.append(row);
+                    `);
                 });
             }
 
-            function updatePagination(pagination) {
-                const info =
-                    `Showing ${((pagination.current_page - 1) * pagination.per_page) + 1} to ${Math.min(pagination.current_page * pagination.per_page, pagination.total_records)} of ${pagination.total_records} entries`;
-                $('#journal-pagination-info').text(info);
+            function escapeHtml(text) {
+                const map = {
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#039;'
+                };
+                return text.replace(/[&<>"']/g, function(m) {
+                    return map[m];
+                });
+            }
+
+            function updateAccountStatementPagination(pagination) {
+                let info;
+                if (!pagination.total_records) {
+                    info = 'Showing 0 of 0 entries';
+                } else {
+                    const from = ((pagination.current_page - 1) * pagination.per_page) + 1;
+                    const to = Math.min(pagination.current_page * pagination.per_page, pagination.total_records);
+                    info = `Showing ${from} to ${to} of ${pagination.total_records} entries`;
+                }
+                $('#account-statement-pagination-info').text(info);
 
                 let paginationHtml = '';
 
-                // Previous button
                 if (pagination.current_page > 1) {
                     paginationHtml +=
                         `<li class="page-item"><a class="page-link" href="#" data-page="${pagination.current_page - 1}">Previous</a></li>`;
                 }
 
-                // Page numbers
                 const startPage = Math.max(1, pagination.current_page - 2);
                 const endPage = Math.min(pagination.total_pages, pagination.current_page + 2);
 
@@ -983,13 +1025,12 @@
                         `<li class="page-item ${activeClass}"><a class="page-link" href="#" data-page="${i}">${i}</a></li>`;
                 }
 
-                // Next button
                 if (pagination.current_page < pagination.total_pages) {
                     paginationHtml +=
                         `<li class="page-item"><a class="page-link" href="#" data-page="${pagination.current_page + 1}">Next</a></li>`;
                 }
 
-                $('#journal-pagination').html(paginationHtml);
+                $('#account-statement-pagination').html(paginationHtml);
             }
 
             function formatCurrency(amount) {
@@ -1002,27 +1043,33 @@
 
             function formatDate(dateString) {
                 if (!dateString) return '-';
-                return new Date(dateString).toLocaleDateString('id-ID');
+                const s = String(dateString);
+                const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+                if (m) {
+                    return m[3] + '/' + m[2] + '/' + m[1];
+                }
+                const d = new Date(s);
+                if (Number.isNaN(d.getTime())) {
+                    return '-';
+                }
+                const dd = String(d.getDate()).padStart(2, '0');
+                const mm = String(d.getMonth() + 1).padStart(2, '0');
+                const yyyy = d.getFullYear();
+                return dd + '/' + mm + '/' + yyyy;
             }
 
-            function formatDateTime(dateString) {
-                if (!dateString) return '-';
-                return new Date(dateString).toLocaleString('id-ID');
-            }
-
-            // Event handlers
-            $('#filter-journal-history').click(function() {
-                loadJournalHistory(1);
+            $('#filter-account-statement').click(function() {
+                loadAccountStatement(1);
             });
 
-            $('#refresh-journal-history').click(function() {
-                loadJournalHistory(currentPage);
+            $('#refresh-account-statement').click(function() {
+                loadAccountStatement(accountStatementPage);
             });
 
-            $(document).on('click', '#journal-pagination a', function(e) {
+            $(document).on('click', '#account-statement-pagination a', function(e) {
                 e.preventDefault();
                 const page = $(this).data('page');
-                loadJournalHistory(page);
+                loadAccountStatement(page);
             });
         });
     </script>

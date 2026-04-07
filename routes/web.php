@@ -41,6 +41,8 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SupplierAnalyticsController;
 use App\Http\Controllers\TaxController;
 use App\Http\Controllers\WarehouseController;
+use App\Models\BusinessPartner;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -115,7 +117,18 @@ Route::middleware('auth')->group(function () {
         Route::delete('/{businessPartner}', [BusinessPartnerController::class, 'destroy'])->name('business_partners.destroy');
         Route::get('/search', [BusinessPartnerController::class, 'search'])->name('business_partners.search');
         Route::get('/by-type', [BusinessPartnerController::class, 'getByType'])->name('business_partners.by-type');
-        Route::get('/{businessPartner}/journal-history', [BusinessPartnerController::class, 'journalHistory'])->name('business_partners.journal_history');
+        Route::get('/{businessPartner}/account-statement', [BusinessPartnerController::class, 'accountStatement'])
+            ->name('business_partners.account_statement');
+        Route::get('/{businessPartner}/account-statement/export', [BusinessPartnerController::class, 'exportAccountStatement'])
+            ->name('business_partners.account_statement.export');
+        Route::get('/{businessPartner}/journal-history', function (Request $request, BusinessPartner $businessPartner) {
+            $url = route('business_partners.account_statement', $businessPartner);
+            if ($request->getQueryString()) {
+                $url .= '?'.$request->getQueryString();
+            }
+
+            return redirect()->to($url);
+        })->name('business_partners.journal_history');
         Route::get('/{businessPartner}/payment-terms', [BusinessPartnerController::class, 'getPaymentTerms'])->name('business_partners.payment_terms');
     });
 

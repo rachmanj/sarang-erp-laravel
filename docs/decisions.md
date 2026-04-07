@@ -1,5 +1,5 @@
 **Purpose**: Record technical decisions and rationale for future reference
-**Last Updated**: 2026-04-07 (Document Creation Logs + `created_by` on trade documents)
+**Last Updated**: 2026-04-07 (Business Partner Account Statement documentation)
 
 # Technical Decision Records
 
@@ -29,6 +29,25 @@ Decision: [Title] - [YYYY-MM-DD]
 ---
 
 ## Recent Decisions
+
+### Decision: Business Partner detail — GL-based Account statement tab (scope and docs) - 2026-04-07
+
+**Context**: Users expected the partner **Transactions** tab and **Account statement** tab to list the same activity. Posting uses **central AP/AR control accounts** and `journals.source_type` / `source_id`, not only `business_partners.account_id`, so a partner-specific GL view must filter **journal lines** accordingly.
+
+**Decision**:
+
+1. Implement (and document) **`BusinessPartnerAccountStatementService`** so the statement includes lines on **trade control account IDs** (from `accounts.code`, supplier vs customer) **and** partner-linked document journals **or** lines on the partner’s **`account_id`** when set.
+2. Surface an explicit UI hint that the tab shows **posted GL activity on trade accounts** and **may differ from Transactions**.
+3. Standardise visible and export **dates** as **dd/mm/yyyy** on the tab, CSV, and PDF.
+4. Maintain technical documentation in **`docs/BUSINESS-PARTNER-ACCOUNT-STATEMENT.md`** and distinguish this tab from the separate **`account_statements`** module (`docs/ACCOUNT-STATEMENTS-IMPLEMENTATION.md`).
+
+**Rationale**: Aligns the partner statement with how AP/AR is actually posted; avoids false “empty statement” bugs when activity exists only on control accounts; sets user expectations vs the Transactions tab.
+
+**Implementation**: `App\Services\BusinessPartnerAccountStatementService`, `BusinessPartnerController::accountStatement` / `exportAccountStatement`, views under `resources/views/business_partners/` and `pdf/account-statement.blade.php`; feature tests in `tests/Feature/BusinessPartnerAccountStatementTest.php`.
+
+**Review Date**: 2027-04-07
+
+---
 
 ### Decision: Document Creation Logs report + `created_by` coverage on core trade documents - 2026-04-07
 
