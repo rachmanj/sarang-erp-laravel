@@ -1,5 +1,5 @@
 **Purpose**: AI's persistent knowledge base for project context and learnings
-**Last Updated**: 2026-04-06 (PI invoice date validation + docs)
+**Last Updated**: 2026-04-07 (Document Creation Logs + `created_by`)
 
 ## Memory Maintenance Guidelines
 
@@ -26,6 +26,14 @@
 ---
 
 ## Project Memory Entries
+
+### [100] Document Creation Logs + `created_by` on GRPO/PP/SR (2026-04-07) ✅ COMPLETE
+
+**Challenge**: Needed a cross-module **creation-time** report (not only “open” items) and consistent **creator** storage on documents that previously lacked `created_by` (GRPO, Purchase Payment, Sales Receipt).
+
+**Solution**: **Document Creation Logs** (`/reports/document-creation-logs`, permission `reports.open-items`) via `DocumentCreationLogsService` + `DocumentCreationLogsController`. Nullable `created_by` FK migrations for `goods_receipt_po`, `purchase_payments`, `sales_receipts`; set on create/copy paths (`GoodsReceiptPOController`, `GRPOCopyService`, `PurchasePaymentController`, `SalesReceiptController`). PI/SI column from earlier migration. Schema test `TradeDocumentCreatedBySchemaTest`. Docs: `docs/decisions.md`, `docs/architecture.md`, `docs/MODULES-AND-FEATURES.md`, `docs/todo.md`, `docs/comprehensive-training/training-module-9-reporting.md`.
+
+**Learning**: Treat “document modules” as a checklist: header tables need both **`created_at`** (system) and **`created_by`** (user) for audit UIs; journals use **`posted_by`** for the posting user instead of duplicating `created_by` on `journals`.
 
 ### [099] Purchase Invoice — future invoice date validation (2026-04-06) ✅ COMPLETE
 

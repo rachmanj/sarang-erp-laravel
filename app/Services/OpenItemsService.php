@@ -2,17 +2,14 @@
 
 namespace App\Services;
 
-use App\Models\PurchaseOrder;
-use App\Models\GoodsReceiptPO;
 use App\Models\Accounting\PurchaseInvoice;
-use App\Models\Accounting\PurchasePayment;
-use App\Models\SalesOrder;
-use App\Models\DeliveryOrder;
 use App\Models\Accounting\SalesInvoice;
-use App\Models\Accounting\SalesReceipt;
+use App\Models\DeliveryOrder;
 use App\Models\ErpParameter;
+use App\Models\GoodsReceiptPO;
+use App\Models\PurchaseOrder;
+use App\Models\SalesOrder;
 use Illuminate\Support\Facades\DB;
-use Carbon\Carbon;
 
 class OpenItemsService
 {
@@ -45,13 +42,13 @@ class OpenItemsService
             ->select('*', DB::raw('DATEDIFF(NOW(), created_at) as days_open'));
 
         // Apply filters
-        if (!empty($filters['date_from'])) {
+        if (! empty($filters['date_from'])) {
             $query->where('created_at', '>=', $filters['date_from']);
         }
-        if (!empty($filters['date_to'])) {
+        if (! empty($filters['date_to'])) {
             $query->where('created_at', '<=', $filters['date_to']);
         }
-        if (!empty($filters['supplier_id'])) {
+        if (! empty($filters['supplier_id'])) {
             $query->where('business_partner_id', $filters['supplier_id']);
         }
 
@@ -77,13 +74,13 @@ class OpenItemsService
             ->select('*', DB::raw('DATEDIFF(NOW(), created_at) as days_open'));
 
         // Apply filters
-        if (!empty($filters['date_from'])) {
+        if (! empty($filters['date_from'])) {
             $query->where('created_at', '>=', $filters['date_from']);
         }
-        if (!empty($filters['date_to'])) {
+        if (! empty($filters['date_to'])) {
             $query->where('created_at', '<=', $filters['date_to']);
         }
-        if (!empty($filters['supplier_id'])) {
+        if (! empty($filters['supplier_id'])) {
             $query->where('business_partner_id', $filters['supplier_id']);
         }
 
@@ -109,13 +106,13 @@ class OpenItemsService
             ->select('*', DB::raw('DATEDIFF(NOW(), created_at) as days_open'));
 
         // Apply filters
-        if (!empty($filters['date_from'])) {
+        if (! empty($filters['date_from'])) {
             $query->where('created_at', '>=', $filters['date_from']);
         }
-        if (!empty($filters['date_to'])) {
+        if (! empty($filters['date_to'])) {
             $query->where('created_at', '<=', $filters['date_to']);
         }
-        if (!empty($filters['supplier_id'])) {
+        if (! empty($filters['supplier_id'])) {
             $query->where('business_partner_id', $filters['supplier_id']);
         }
 
@@ -141,13 +138,13 @@ class OpenItemsService
             ->select('*', DB::raw('DATEDIFF(NOW(), created_at) as days_open'));
 
         // Apply filters
-        if (!empty($filters['date_from'])) {
+        if (! empty($filters['date_from'])) {
             $query->where('created_at', '>=', $filters['date_from']);
         }
-        if (!empty($filters['date_to'])) {
+        if (! empty($filters['date_to'])) {
             $query->where('created_at', '<=', $filters['date_to']);
         }
-        if (!empty($filters['customer_id'])) {
+        if (! empty($filters['customer_id'])) {
             $query->where('business_partner_id', $filters['customer_id']);
         }
 
@@ -173,13 +170,13 @@ class OpenItemsService
             ->select('*', DB::raw('DATEDIFF(NOW(), created_at) as days_open'));
 
         // Apply filters
-        if (!empty($filters['date_from'])) {
+        if (! empty($filters['date_from'])) {
             $query->where('created_at', '>=', $filters['date_from']);
         }
-        if (!empty($filters['date_to'])) {
+        if (! empty($filters['date_to'])) {
             $query->where('created_at', '<=', $filters['date_to']);
         }
-        if (!empty($filters['customer_id'])) {
+        if (! empty($filters['customer_id'])) {
             $query->where('business_partner_id', $filters['customer_id']);
         }
 
@@ -205,13 +202,13 @@ class OpenItemsService
             ->select('*', DB::raw('DATEDIFF(NOW(), created_at) as days_open'));
 
         // Apply filters
-        if (!empty($filters['date_from'])) {
+        if (! empty($filters['date_from'])) {
             $query->where('created_at', '>=', $filters['date_from']);
         }
-        if (!empty($filters['date_to'])) {
+        if (! empty($filters['date_to'])) {
             $query->where('created_at', '<=', $filters['date_to']);
         }
-        if (!empty($filters['customer_id'])) {
+        if (! empty($filters['customer_id'])) {
             $query->where('business_partner_id', $filters['customer_id']);
         }
 
@@ -259,7 +256,7 @@ class OpenItemsService
             'total_overdue_documents' => 0,
             'total_open_amount' => 0,
             'total_overdue_amount' => 0,
-            'by_type' => []
+            'by_type' => [],
         ];
 
         $documentTypes = [
@@ -272,7 +269,7 @@ class OpenItemsService
         ];
 
         foreach ($documentTypes as $type => $label) {
-            $method = 'getOpen' . str_replace('_', '', ucwords($type, '_'));
+            $method = 'getOpen'.str_replace('_', '', ucwords($type, '_'));
             $documents = $this->$method($filters, $overdueThresholds);
 
             $openCount = $documents->count();

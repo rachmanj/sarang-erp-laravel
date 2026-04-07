@@ -3,8 +3,8 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class GoodsReceiptPO extends Model
 {
@@ -15,6 +15,7 @@ class GoodsReceiptPO extends Model
         'date',
         'business_partner_id',
         'company_entity_id',
+        'created_by',
         'warehouse_id',
         'purchase_order_id',
         'source_po_id',
@@ -24,7 +25,7 @@ class GoodsReceiptPO extends Model
         'status',
         'journal_id',
         'journal_posted_at',
-        'journal_posted_by'
+        'journal_posted_by',
     ];
 
     protected $casts = [
@@ -34,6 +35,7 @@ class GoodsReceiptPO extends Model
     ];
 
     protected $auditLogIgnore = ['updated_at', 'created_at'];
+
     protected $auditEntityType = 'goods_receipt_po';
 
     public function lines(): HasMany
@@ -49,6 +51,11 @@ class GoodsReceiptPO extends Model
     public function companyEntity(): BelongsTo
     {
         return $this->belongsTo(CompanyEntity::class);
+    }
+
+    public function createdBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
     }
 
     public function warehouse(): BelongsTo
@@ -81,7 +88,7 @@ class GoodsReceiptPO extends Model
      */
     public function isJournalized(): bool
     {
-        return !is_null($this->journal_id);
+        return ! is_null($this->journal_id);
     }
 
     /**
@@ -89,6 +96,6 @@ class GoodsReceiptPO extends Model
      */
     public function canBeJournalized(): bool
     {
-        return $this->status === 'received' && !$this->isJournalized();
+        return $this->status === 'received' && ! $this->isJournalized();
     }
 }

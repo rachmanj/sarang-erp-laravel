@@ -3,19 +3,16 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Route;
 
 class MenuSearchService
 {
     /**
      * Get all searchable menu items for the current user
-     * 
-     * @return array
      */
     public function getSearchableMenuItems(): array
     {
         $user = Auth::user();
-        if (!$user) {
+        if (! $user) {
             return [];
         }
 
@@ -527,6 +524,14 @@ class MenuSearchService
                     'REPORTS > Open Items',
                     ['open items', 'reports']
                 );
+                $items[] = $this->buildMenuItem(
+                    'Document Creation Logs',
+                    route('reports.document-creation-logs.index'),
+                    'fas fa-chart-bar',
+                    'Reports',
+                    'REPORTS > Document Creation Logs',
+                    ['document creation', 'document logs', 'created at', 'reports']
+                );
             }
             if ($user->hasAnyPermission(['assets.view', 'assets.disposal.view', 'assets.movement.view'])) {
                 $items[] = $this->buildMenuItem(
@@ -605,18 +610,10 @@ class MenuSearchService
 
     /**
      * Build a menu item array
-     * 
-     * @param string $title
-     * @param string $route
-     * @param string $icon
-     * @param string $category
-     * @param string $breadcrumb
-     * @param array $keywords
-     * @return array
      */
     private function buildMenuItem(string $title, string $route, string $icon, string $category, string $breadcrumb, array $keywords = []): array
     {
-        $searchText = strtolower($title . ' ' . $breadcrumb . ' ' . implode(' ', $keywords));
+        $searchText = strtolower($title.' '.$breadcrumb.' '.implode(' ', $keywords));
 
         return [
             'title' => $title,

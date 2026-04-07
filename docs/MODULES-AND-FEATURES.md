@@ -1,6 +1,6 @@
 # Sarange ERP - Modules and Features List
 
-**Last Updated**: 2026-04-06  
+**Last Updated**: 2026-04-07  
 **System Status**: Production Ready (95% Complete)  
 **Technology Stack**: Laravel 12, PHP 8.2+, MySQL, AdminLTE 3.14
 
@@ -380,6 +380,7 @@
 - **AP Aging Report**: Vendor payment tracking and aging analysis
 - **AR/AP Balances**: Customer and vendor account balance reporting
 - **Open Items Report**: Comprehensive outstanding document monitoring
+- **Document Creation Logs**: Single report listing core trade documents (Purchase Order, Goods Receipt PO, Purchase Invoice, Purchase Payment, Sales Order, Delivery Order, Sales Invoice, Sales Receipt) by **system record creation time** (`created_at`), with optional filters (creation date range, document type, supplier, customer). Permission: **`reports.open-items`** (same as Open Items). **Creator** column uses **`created_by`** when populated; legacy rows may remain null until backfilled
 
 ### 34. Inventory Reports
 - **Inventory Valuation Report**: Real-time inventory valuation

@@ -4,19 +4,19 @@ namespace App\Http\Controllers;
 
 use App\Models\GoodsReceiptPO;
 use App\Models\GoodsReceiptPOLine;
-use App\Models\PurchaseOrder;
 use App\Models\InventoryItem;
+use App\Models\PurchaseOrder;
+use App\Services\Accounting\PostingService;
+use App\Services\CompanyEntityService;
+use App\Services\DocumentClosureService;
 use App\Services\DocumentNumberingService;
 use App\Services\GRPOCopyService;
-use App\Services\DocumentClosureService;
 use App\Services\GRPOJournalService;
-use App\Services\Accounting\PostingService;
-use App\Services\PurchaseWorkflowAuditService;
-use App\Services\CompanyEntityService;
 use App\Services\InventoryService;
+use App\Services\PurchaseWorkflowAuditService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class GoodsReceiptPOController extends Controller
 {
@@ -34,6 +34,7 @@ class GoodsReceiptPOController extends Controller
     {
         $ptCahaya = \App\Models\CompanyEntity::where('code', '71')->first();
         $cvCahaya = \App\Models\CompanyEntity::where('code', '72')->first();
+
         return view('goods_receipt_pos.index', compact('ptCahaya', 'cvCahaya'));
     }
 
@@ -46,6 +47,7 @@ class GoodsReceiptPOController extends Controller
         $warehouses = DB::table('warehouses')->where('is_active', 1)->where('name', 'not like', '%Transit%')->orderBy('name')->get();
         $entities = $this->companyEntityService->getActiveEntities();
         $defaultEntity = $this->companyEntityService->getDefaultEntity();
+
         // Don't load POs initially - will be loaded via AJAX based on vendor selection
         return view('goods_receipt_pos.create', compact('vendors', 'accounts', 'taxCodes', 'categories', 'warehouses', 'entities', 'defaultEntity'));
     }
@@ -56,7 +58,7 @@ class GoodsReceiptPOController extends Controller
         $date = $request->input('date', now()->toDateString());
 
         try {
-            if (!$entityId) {
+            if (! $entityId) {
                 return response()->json(['error' => 'Company entity is required'], 400);
             }
 
@@ -66,7 +68,7 @@ class GoodsReceiptPOController extends Controller
 
             return response()->json(['document_number' => $documentNumber]);
         } catch (\Exception $e) {
-            return response()->json(['error' => 'Error generating document number: ' . $e->getMessage()], 500);
+            return response()->json(['error' => 'Error generating document number: '.$e->getMessage()], 500);
         }
     }
 
@@ -86,7 +88,7 @@ class GoodsReceiptPOController extends Controller
         ]);
 
         $purchaseOrder = null;
-        if (!empty($data['purchase_order_id'])) {
+        if (! empty($data['purchase_order_id'])) {
             $purchaseOrder = PurchaseOrder::select('id', 'company_entity_id')->find($data['purchase_order_id']);
         }
         $entityId = $this->companyEntityService->resolveEntityId($request->input('company_entity_id'), $purchaseOrder);
@@ -97,6 +99,7 @@ class GoodsReceiptPOController extends Controller
                 'date' => $data['date'],
                 'business_partner_id' => $data['business_partner_id'],
                 'company_entity_id' => $entityId,
+                'created_by' => Auth::id(),
                 'warehouse_id' => $data['warehouse_id'],
                 'purchase_order_id' => $data['purchase_order_id'] ?? null,
                 'description' => $data['description'] ?? null,
@@ -112,7 +115,7 @@ class GoodsReceiptPOController extends Controller
                 // Get item details to set unit_price
                 $item = InventoryItem::find($l['item_id']);
                 $unitPrice = $item ? $item->purchase_price : 0;
-                $amount = $unitPrice * (float)$l['qty'];
+                $amount = $unitPrice * (float) $l['qty'];
                 $totalAmount += $amount;
 
                 GoodsReceiptPOLine::create([
@@ -120,7 +123,7 @@ class GoodsReceiptPOController extends Controller
                     'item_id' => $l['item_id'],
                     'account_id' => 0, // Set a default account_id to avoid the error
                     'description' => $l['description'] ?? null,
-                    'qty' => (float)$l['qty'],
+                    'qty' => (float) $l['qty'],
                     'unit_price' => $unitPrice,
                     'amount' => $amount,
                 ]);
@@ -137,7 +140,7 @@ class GoodsReceiptPOController extends Controller
                         $description = $l['description'] ?? $item->name;
                         $this->inventoryService->processPurchaseTransaction(
                             $l['item_id'],
-                            (float)$l['qty'],
+                            (float) $l['qty'],
                             $item->purchase_price,
                             'goods_receipt_po',
                             $grpo->id,
@@ -148,9 +151,9 @@ class GoodsReceiptPOController extends Controller
                         \Log::error('Failed to create inventory transaction for GRPO', [
                             'grpo_id' => $grpo->id,
                             'item_id' => $l['item_id'],
-                            'error' => $e->getMessage()
+                            'error' => $e->getMessage(),
                         ]);
-                        throw new \Exception("Failed to create inventory transaction: " . $e->getMessage());
+                        throw new \Exception('Failed to create inventory transaction: '.$e->getMessage());
                     }
                 }
             }
@@ -180,14 +183,14 @@ class GoodsReceiptPOController extends Controller
                             'project_id' => $line->project_id,
                             'dept_id' => $line->dept_id,
                         ];
-                    })->toArray()
+                    })->toArray(),
                 ];
 
                 $this->postingService->postJournal($journalPayload);
 
                 return redirect()->route('goods-receipt-pos.index')->with('success', 'Goods Receipt PO created, goods received, and journal entries posted');
             } catch (\Exception $e) {
-                return redirect()->route('goods-receipt-pos.index')->with('error', 'Goods Receipt PO created but journal posting failed: ' . $e->getMessage());
+                return redirect()->route('goods-receipt-pos.index')->with('error', 'Goods Receipt PO created but journal posting failed: '.$e->getMessage());
             }
         });
     }
@@ -227,12 +230,12 @@ class GoodsReceiptPOController extends Controller
                             ->where('item_id', $line->item_id)
                             ->first();
 
-                        if (!$existingTransaction) {
+                        if (! $existingTransaction) {
                             try {
                                 $transactionDescription = $line->description ?? $item->name;
                                 $this->inventoryService->processPurchaseTransaction(
                                     $line->item_id,
-                                    (float)$line->qty,
+                                    (float) $line->qty,
                                     $line->unit_price ?? $item->purchase_price,
                                     'goods_receipt_po',
                                     $grpo->id,
@@ -243,9 +246,9 @@ class GoodsReceiptPOController extends Controller
                                 \Log::error('Failed to create inventory transaction for GRPO receive', [
                                     'grpo_id' => $grpo->id,
                                     'item_id' => $line->item_id,
-                                    'error' => $e->getMessage()
+                                    'error' => $e->getMessage(),
                                 ]);
-                                throw new \Exception("Failed to create inventory transaction: " . $e->getMessage());
+                                throw new \Exception('Failed to create inventory transaction: '.$e->getMessage());
                             }
                         }
                     }
@@ -257,7 +260,7 @@ class GoodsReceiptPOController extends Controller
 
             return back()->with('success', 'Goods Receipt PO marked as received and journal entries created');
         } catch (\Exception $e) {
-            return back()->with('error', 'Error processing GRPO: ' . $e->getMessage());
+            return back()->with('error', 'Error processing GRPO: '.$e->getMessage());
         }
     }
 
@@ -285,19 +288,20 @@ class GoodsReceiptPOController extends Controller
             'date' => now()->toDateString(),
             'business_partner_id' => $grpo->business_partner_id,
             'company_entity_id' => $grpo->company_entity_id,
-            'description' => 'From GRPO ' . ($grpo->grn_no ?: ('#' . $grpo->id)),
+            'description' => 'From GRPO '.($grpo->grn_no ?: ('#'.$grpo->id)),
             'lines' => $grpo->lines->map(function ($l) {
                 return [
-                    'account_id' => (int)$l->account_id,
+                    'account_id' => (int) $l->account_id,
                     'inventory_item_id' => $l->item_id,
                     'warehouse_id' => $grpo->warehouse_id,
                     'description' => $l->description,
-                    'qty' => (float)$l->qty,
-                    'unit_price' => (float)$l->unit_price,
+                    'qty' => (float) $l->qty,
+                    'unit_price' => (float) $l->unit_price,
                     'tax_code_id' => $l->tax_code_id,
                 ];
             })->toArray(),
         ];
+
         return view('purchase_invoices.create', compact('accounts', 'vendors', 'taxCodes', 'projects', 'departments', 'warehouses', 'entities', 'defaultEntity', 'showAccounts', 'cashAccounts') + ['prefill' => $prefill, 'goods_receipt_id' => $grpo->id]);
     }
 
@@ -308,7 +312,7 @@ class GoodsReceiptPOController extends Controller
     {
         $po = PurchaseOrder::with(['lines.inventoryItem', 'vendor'])->findOrFail($poId);
 
-        if (!$this->grpoCopyService->canCopyToGRPO($po)) {
+        if (! $this->grpoCopyService->canCopyToGRPO($po)) {
             return back()->with('error', 'Purchase Order cannot be copied to GRPO. Only approved Item Purchase Orders are allowed.');
         }
 
@@ -324,7 +328,7 @@ class GoodsReceiptPOController extends Controller
     {
         $po = PurchaseOrder::findOrFail($poId);
 
-        if (!$this->grpoCopyService->canCopyToGRPO($po)) {
+        if (! $this->grpoCopyService->canCopyToGRPO($po)) {
             return back()->with('error', 'Purchase Order cannot be copied to GRPO. Only approved Item Purchase Orders are allowed.');
         }
 
@@ -336,7 +340,7 @@ class GoodsReceiptPOController extends Controller
             return redirect()->route('goods-receipt-pos.show', $grpo->id)
                 ->with('success', 'GRPO created from Purchase Order successfully');
         } catch (\Exception $e) {
-            return back()->with('error', 'Error creating GRPO: ' . $e->getMessage());
+            return back()->with('error', 'Error creating GRPO: '.$e->getMessage());
         }
     }
 
@@ -385,7 +389,7 @@ class GoodsReceiptPOController extends Controller
     {
         $vendorId = $request->input('business_partner_id');
 
-        if (!$vendorId) {
+        if (! $vendorId) {
             return response()->json(['purchase_orders' => []]);
         }
 
@@ -399,6 +403,7 @@ class GoodsReceiptPOController extends Controller
                 // Calculate pending_qty on the fly: qty - received_qty
                 return $po->lines->filter(function ($line) {
                     $pendingQty = $line->qty - $line->received_qty;
+
                     return $pendingQty > 0;
                 })->count() > 0;
             })
@@ -406,6 +411,7 @@ class GoodsReceiptPOController extends Controller
                 // Calculate remaining lines count on the fly
                 $remainingLines = $po->lines->filter(function ($line) {
                     $pendingQty = $line->qty - $line->received_qty;
+
                     return $pendingQty > 0;
                 });
 
@@ -428,7 +434,7 @@ class GoodsReceiptPOController extends Controller
     {
         $poId = $request->input('purchase_order_id');
 
-        if (!$poId) {
+        if (! $poId) {
             return response()->json(['lines' => []]);
         }
 
@@ -438,6 +444,7 @@ class GoodsReceiptPOController extends Controller
             ->filter(function ($line) {
                 // Calculate pending_qty on the fly: qty - received_qty
                 $pendingQty = $line->qty - $line->received_qty;
+
                 return $pendingQty > 0;
             })
             ->map(function ($line) {
@@ -469,15 +476,16 @@ class GoodsReceiptPOController extends Controller
     {
         $grpo = GoodsReceiptPO::with('lines.item')->findOrFail($id);
 
-        if (!$grpo->canBeJournalized()) {
+        if (! $grpo->canBeJournalized()) {
             return back()->with('error', 'GRPO cannot be journalized. Status must be "received" and not already journalized.');
         }
 
         try {
             $journal = $this->grpoJournalService->createJournalEntries($grpo);
+
             return back()->with('success', "Journal entries created successfully. Journal #{$journal->journal_no}");
         } catch (\Exception $e) {
-            return back()->with('error', 'Error creating journal entries: ' . $e->getMessage());
+            return back()->with('error', 'Error creating journal entries: '.$e->getMessage());
         }
     }
 
@@ -488,15 +496,16 @@ class GoodsReceiptPOController extends Controller
     {
         $grpo = GoodsReceiptPO::findOrFail($id);
 
-        if (!$grpo->isJournalized()) {
+        if (! $grpo->isJournalized()) {
             return back()->with('error', 'GRPO has not been journalized yet.');
         }
 
         try {
             $reversalJournal = $this->grpoJournalService->reverseJournalEntries($grpo);
+
             return back()->with('success', "Journal entries reversed successfully. Reversal Journal #{$reversalJournal->journal_no}");
         } catch (\Exception $e) {
-            return back()->with('error', 'Error reversing journal entries: ' . $e->getMessage());
+            return back()->with('error', 'Error reversing journal entries: '.$e->getMessage());
         }
     }
 
@@ -507,7 +516,7 @@ class GoodsReceiptPOController extends Controller
     {
         $grpo = GoodsReceiptPO::with(['lines.item', 'journal.lines.account'])->findOrFail($id);
 
-        if (!$grpo->isJournalized()) {
+        if (! $grpo->isJournalized()) {
             return back()->with('error', 'GRPO has not been journalized yet.');
         }
 
@@ -532,7 +541,7 @@ class GoodsReceiptPOController extends Controller
                 $count = 0;
                 foreach ($grpo->lines as $line) {
                     $item = $line->item;
-                    if (!$item) {
+                    if (! $item) {
                         continue;
                     }
 
@@ -542,12 +551,12 @@ class GoodsReceiptPOController extends Controller
                         ->where('item_id', $line->item_id)
                         ->first();
 
-                    if (!$existingTransaction) {
+                    if (! $existingTransaction) {
                         try {
                             $transactionDescription = $line->description ?? $item->name;
                             $this->inventoryService->processPurchaseTransaction(
                                 $line->item_id,
-                                (float)$line->qty,
+                                (float) $line->qty,
                                 $line->unit_price ?? $item->purchase_price,
                                 'goods_receipt_po',
                                 $grpo->id,
@@ -559,12 +568,13 @@ class GoodsReceiptPOController extends Controller
                             \Log::error('Failed to create inventory transaction for GRPO fix', [
                                 'grpo_id' => $grpo->id,
                                 'item_id' => $line->item_id,
-                                'error' => $e->getMessage()
+                                'error' => $e->getMessage(),
                             ]);
-                            throw new \Exception("Failed to create inventory transaction for item {$item->name}: " . $e->getMessage());
+                            throw new \Exception("Failed to create inventory transaction for item {$item->name}: ".$e->getMessage());
                         }
                     }
                 }
+
                 return $count;
             });
 
@@ -574,7 +584,7 @@ class GoodsReceiptPOController extends Controller
                 return back()->with('info', 'All inventory transactions already exist for this GRPO');
             }
         } catch (\Exception $e) {
-            return back()->with('error', 'Error fixing inventory transactions: ' . $e->getMessage());
+            return back()->with('error', 'Error fixing inventory transactions: '.$e->getMessage());
         }
     }
 }

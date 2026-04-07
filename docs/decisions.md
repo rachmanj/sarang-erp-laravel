@@ -1,5 +1,5 @@
 **Purpose**: Record technical decisions and rationale for future reference
-**Last Updated**: 2026-04-06 (Purchase Invoice future-date validation)
+**Last Updated**: 2026-04-07 (Document Creation Logs + `created_by` on trade documents)
 
 # Technical Decision Records
 
@@ -29,6 +29,23 @@ Decision: [Title] - [YYYY-MM-DD]
 ---
 
 ## Recent Decisions
+
+### Decision: Document Creation Logs report + `created_by` coverage on core trade documents - 2026-04-07
+
+**Context**: Operations needed a **single report** listing operational documents by **system creation time** (`created_at`), aligned with Open Items document families. Separately, **Goods Receipt PO**, **Purchase Payment**, and **Sales Receipt** lacked a **`created_by`** column, so “Created by” could not be stored or shown consistently (including on Document Creation Logs).
+
+**Decision**:
+
+1. **Document Creation Logs** (under **Reports**): Route `GET /reports/document-creation-logs` (`reports.document-creation-logs.index`), permission **`reports.open-items`** (same audience as Open Items). **Service**: `App\Services\DocumentCreationLogsService` merges PO, GRPO, PI, PP, SO, DO, SI, SR; filters by created date range, supplier/customer, document type; paginated list sorted by `created_at` descending. **Controller**: `App\Http\Controllers\Reports\DocumentCreationLogsController`. **UI**: `resources/views/reports/document-creation-logs.blade.php`; sidebar + `MenuSearchService` entry.
+2. **Schema**: Add nullable **`created_by`** → `users` on **`goods_receipt_po`** (migration `2026_04_07_152435_add_created_by_to_goods_receipt_po_table`), **`purchase_payments`** and **`sales_receipts`** (migration `2026_04_07_153759_add_created_by_to_purchase_payments_and_sales_receipts_tables`). **PI/SI** already received **`created_by`** in `2026_04_07_134340_add_created_by_to_purchase_invoices_and_sales_invoices_tables`. **PO/SO/DO** already had nullable `created_by` from trading enhancements; **journals** use **`posted_by`** for the posting user (no separate `created_by` on `journals`).
+
+**Rationale**: One report for cross-module audit of “when was this record created” without mixing Open Items “open only” rules; `created_by` makes creator attribution explicit for GRPO, PP, and SR on create/copy paths.
+
+**Implementation**: Set `created_by` to `Auth::id()` in `GoodsReceiptPOController::store`, `GRPOCopyService::copyFromPurchaseOrder`, `PurchasePaymentController` (store), `SalesReceiptController` (store). Models: `GoodsReceiptPO`, `PurchasePayment`, `SalesReceipt` — `createdBy()` relationship. **Tests**: `tests/Feature/TradeDocumentCreatedBySchemaTest.php` asserts `created_by` column on core trade tables (+ `gr_gi_headers`).
+
+**Review Date**: 2027-04-07
+
+---
 
 ### Decision: Purchase Invoice — block future invoice dates unless opening balance or permission - 2026-04-06
 

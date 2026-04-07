@@ -2,13 +2,12 @@
 
 namespace App\Services;
 
-use App\Models\GoodsReceipt;
 use App\Models\Accounting\SalesInvoice;
 use App\Models\Accounting\SalesInvoiceLine;
+use App\Models\GoodsReceipt;
 use App\Models\SalesInvoiceGrpoCombination;
-use App\Services\DocumentNumberingService;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class SalesInvoiceService
 {
@@ -53,17 +52,18 @@ class SalesInvoiceService
             }
         }
 
-        return DB::transaction(function () use ($grpos, $data, $poIds) {
+        return DB::transaction(function () use ($grpos, $data) {
             // Create sales invoice with combined data
             $salesInvoice = SalesInvoice::create([
                 'invoice_no' => null, // Will be generated
                 'date' => $data['date'],
                 'business_partner_id' => $data['business_partner_id'],
                 'sales_order_id' => $data['sales_order_id'] ?? null,
-                'description' => 'From GRPOs: ' . implode(', ', $grpos->pluck('grn_no')->toArray()),
+                'description' => 'From GRPOs: '.implode(', ', $grpos->pluck('grn_no')->toArray()),
                 'status' => 'draft',
                 'total_amount' => 0,
                 'posted_at' => null,
+                'created_by' => Auth::id(),
             ]);
 
             // Generate invoice number
@@ -161,7 +161,7 @@ class SalesInvoiceService
         $grouped = [];
         foreach ($grpos as $grpo) {
             $poId = $grpo['source_po_id'];
-            if (!isset($grouped[$poId])) {
+            if (! isset($grouped[$poId])) {
                 $grouped[$poId] = [
                     'po_id' => $poId,
                     'grpos' => [],
@@ -219,6 +219,7 @@ class SalesInvoiceService
 
         if ($grpos->isEmpty()) {
             $errors[] = 'No valid GRPOs found';
+
             return $errors;
         }
 

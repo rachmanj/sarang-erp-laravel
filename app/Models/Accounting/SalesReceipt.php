@@ -2,7 +2,9 @@
 
 namespace App\Models\Accounting;
 
+use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class SalesReceipt extends Model
@@ -14,6 +16,7 @@ class SalesReceipt extends Model
         'date',
         'business_partner_id',
         'company_entity_id',
+        'created_by',
         'currency_id',
         'description',
         'total_amount',
@@ -28,6 +31,7 @@ class SalesReceipt extends Model
     ];
 
     protected $auditLogIgnore = ['updated_at', 'created_at'];
+
     protected $auditEntityType = 'sales_receipt';
 
     public function lines(): HasMany
@@ -35,8 +39,18 @@ class SalesReceipt extends Model
         return $this->hasMany(SalesReceiptLine::class, 'receipt_id');
     }
 
+    public function businessPartner(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\BusinessPartner::class, 'business_partner_id');
+    }
+
     public function companyEntity()
     {
         return $this->belongsTo(\App\Models\CompanyEntity::class, 'company_entity_id');
+    }
+
+    public function createdBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
     }
 }

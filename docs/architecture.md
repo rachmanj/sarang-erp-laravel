@@ -1,5 +1,5 @@
 Purpose: Technical reference for understanding system design and development patterns
-Last Updated: 2026-04-04 (Domain Assistant: AR + AP invoice tools, multi-entity lookup, robot icon, HELP manuals)
+Last Updated: 2026-04-07 (Document Creation Logs; `created_by` on GRPO/PP/SR + decision record)
 
 ## Architecture Documentation Guidelines
 
@@ -388,6 +388,7 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 -   **Asset Reports**: Comprehensive asset reporting suite
 -   **AR/AP Reports**: Customer and vendor analysis
 -   **Withholding Tax**: Tax reporting and compliance
+-   **Document Creation Logs**: Unified list of core trade documents (PO, GRPO, PI, PP, SO, DO, SI, SR) ordered by **`created_at`**, with filters (date range, document type, supplier/customer). Route: `GET /reports/document-creation-logs` (`reports.document-creation-logs.index`). Permission: **`reports.open-items`** (same as Open Items). Service: `App\Services\DocumentCreationLogsService`; controller: `App\Http\Controllers\Reports\DocumentCreationLogsController`
 
 ### 10. Indonesian Tax Compliance System
 
@@ -481,6 +482,7 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 -   **Closure Tracking**: Complete audit trail of closure events including closing document type, ID, timestamp, and user attribution
 -   **ERP Parameters Configuration**: User-configurable business rules including overdue thresholds, auto-closure settings, and price difference handling
 -   **Open Items Reporting**: Comprehensive reporting system for monitoring outstanding documents with aging analysis and exception identification
+-   **Document creator attribution (`created_by`)**: Core trade document tables expose nullable **`created_by`** → `users` where applicable: **purchase_orders**, **sales_orders**, **goods_receipt_po**, **purchase_invoices**, **sales_invoices**, **delivery_orders**, **purchase_payments**, **sales_receipts** (see migrations `2026_04_07_*` and earlier trading-enhancement migrations). **GR/GI** headers (`gr_gi_headers`) use required **`created_by`**. **Accounting journals** (`journals`) record the posting user via **`posted_by`** (manual journal flow sets `posted_by` at post time). Legacy rows may have `created_by` null until backfilled; new creates set `Auth::id()` where implemented.
 -   **Database Schema Enhancement**: Added closure_status, closed_by_document_type, closed_by_document_id, closed_at, and closed_by_user_id fields to all document tables
 -   **Service Layer Architecture**: DocumentClosureService for closure logic and OpenItemsService for reporting with comprehensive business rule validation
 -   **UI Integration**: Status indicators in DataTables, closure information in document views, and dedicated Open Items report interface
@@ -673,6 +675,7 @@ The database schema has been consolidated from 51 to 44 migration files for impr
 -   `/departments/*`: Department management with CRUD operations and SweetAlert2 integration
 -   `/erp-parameters/*`: ERP Parameters management with CRUD operations, category-based organization, and bulk updates
 -   `/reports/open-items/*`: Open Items reporting with comprehensive document status monitoring, aging analysis, and Excel export
+-   `/reports/document-creation-logs`: Document Creation Logs — merged list of PO, GRPO, PI, PP, SO, DO, SI, SR by `created_at` (permission `reports.open-items`)
 -   `/reports/*`: Comprehensive reporting suite
 -   `/admin/*`: User and role management
 
@@ -803,7 +806,7 @@ graph TD
 -   **Role-Based Access**: Predefined roles (admin, manager, user) with custom roles
 -   **Module-Level Security**: Each module has view/create/update/delete permissions
 -   **Analytics Permissions**: COGS, supplier analytics, business intelligence, and unified analytics access control
--   **Document Closure Permissions**: manage-erp-parameters for ERP Parameters management, reports.open-items for Open Items reporting access
+-   **Document Closure Permissions**: manage-erp-parameters for ERP Parameters management, **reports.open-items** for Open Items reporting and **Document Creation Logs** (same permission)
 -   **GR/GI Permissions**: gr-gi.view/create/update/delete/approve for comprehensive GR/GI management access control
 -   **Approval Workflow Permissions**: admin.approval-workflows for approval workflow configuration and management
 -   **Data-Level Security**: Dimension-based data access control

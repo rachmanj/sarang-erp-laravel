@@ -2,12 +2,11 @@
 
 namespace App\Services;
 
-use App\Models\PurchaseOrder;
 use App\Models\GoodsReceiptPO;
 use App\Models\GoodsReceiptPOLine;
-use App\Services\DocumentNumberingService;
-use Illuminate\Support\Facades\DB;
+use App\Models\PurchaseOrder;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class GRPOCopyService
 {
@@ -18,7 +17,7 @@ class GRPOCopyService
     /**
      * Copy Purchase Order to GRPO with selective line copying
      */
-    public function copyFromPurchaseOrder(PurchaseOrder $po, array $selectedLines = null): GoodsReceiptPO
+    public function copyFromPurchaseOrder(PurchaseOrder $po, ?array $selectedLines = null): GoodsReceiptPO
     {
         // Validate PO type
         if ($po->order_type !== 'item') {
@@ -37,11 +36,12 @@ class GRPOCopyService
                 'date' => now()->toDateString(),
                 'business_partner_id' => $po->business_partner_id,
                 'company_entity_id' => $po->company_entity_id,
+                'created_by' => Auth::id(),
                 'warehouse_id' => $po->warehouse_id,
                 'purchase_order_id' => $po->id,
                 'source_po_id' => $po->id,
                 'source_type' => 'copy',
-                'description' => 'Copied from PO: ' . $po->order_no,
+                'description' => 'Copied from PO: '.$po->order_no,
                 'status' => 'draft',
                 'total_amount' => 0,
             ]);

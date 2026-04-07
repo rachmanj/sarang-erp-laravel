@@ -3,16 +3,17 @@
 namespace App\Http\Controllers\Accounting;
 
 use App\Http\Controllers\Controller;
+use App\Models\Accounting\SalesInvoice;
 use App\Models\Accounting\SalesReceipt;
 use App\Models\Accounting\SalesReceiptLine;
-use App\Models\Accounting\SalesInvoice;
 use App\Models\SalesOrder;
 use App\Services\Accounting\PostingService;
-use App\Services\DocumentNumberingService;
-use App\Services\DocumentClosureService;
 use App\Services\CompanyEntityService;
+use App\Services\DocumentClosureService;
+use App\Services\DocumentNumberingService;
 use App\Services\SalesWorkflowAuditService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Yajra\DataTables\Facades\DataTables;
@@ -35,6 +36,7 @@ class SalesReceiptController extends Controller
     {
         $ptCahaya = \App\Models\CompanyEntity::where('code', '71')->first();
         $cvCahaya = \App\Models\CompanyEntity::where('code', '72')->first();
+
         return view('sales_receipts.index', compact('ptCahaya', 'cvCahaya'));
     }
 
@@ -44,6 +46,7 @@ class SalesReceiptController extends Controller
         $accounts = DB::table('accounts')->where('is_postable', 1)->orderBy('code')->get();
         $entities = $this->companyEntityService->getActiveEntities();
         $defaultEntity = $this->companyEntityService->getDefaultEntity();
+
         return view('sales_receipts.create', compact('customers', 'accounts', 'entities', 'defaultEntity'));
     }
 
@@ -53,7 +56,7 @@ class SalesReceiptController extends Controller
         $date = $request->input('date', now()->toDateString());
 
         try {
-            if (!$entityId) {
+            if (! $entityId) {
                 return response()->json(['error' => 'Company entity is required'], 400);
             }
 
@@ -63,7 +66,7 @@ class SalesReceiptController extends Controller
 
             return response()->json(['document_number' => $documentNumber]);
         } catch (\Exception $e) {
-            return response()->json(['error' => 'Error generating document number: ' . $e->getMessage()], 500);
+            return response()->json(['error' => 'Error generating document number: '.$e->getMessage()], 500);
         }
     }
 
@@ -85,7 +88,7 @@ class SalesReceiptController extends Controller
 
         $entity = $this->companyEntityService->getEntity($data['company_entity_id']);
 
-        return DB::transaction(function () use ($data, $entity, $request) {
+        return DB::transaction(function () use ($data, $entity) {
             $totalReceipt = 0;
             foreach ($data['lines'] as $l) {
                 $totalReceipt += (float) $l['amount'];
@@ -130,6 +133,7 @@ class SalesReceiptController extends Controller
                 'date' => $data['date'],
                 'business_partner_id' => $data['business_partner_id'],
                 'company_entity_id' => $entity->id,
+                'created_by' => Auth::id(),
                 'currency_id' => $currencyId,
                 'description' => $data['description'] ?? null,
                 'status' => 'draft',
@@ -167,7 +171,7 @@ class SalesReceiptController extends Controller
                 // Log closure failure but don't fail the receipt creation
                 Log::warning('Failed to close Sales Invoices after receipt creation', [
                     'receipt_id' => $receipt->id,
-                    'error' => $closureException->getMessage()
+                    'error' => $closureException->getMessage(),
                 ]);
             }
 
@@ -178,7 +182,7 @@ class SalesReceiptController extends Controller
                 ->pluck('invoice_id')
                 ->toArray();
 
-            if (!empty($allocatedInvoiceIds)) {
+            if (! empty($allocatedInvoiceIds)) {
                 $salesOrderIds = SalesInvoice::whereIn('id', $allocatedInvoiceIds)
                     ->whereNotNull('sales_order_id')
                     ->pluck('sales_order_id')
@@ -240,18 +244,20 @@ class SalesReceiptController extends Controller
         $pdf = app(\App\Services\PdfService::class)->renderViewToString('sales_receipts.print', [
             'receipt' => $receipt,
         ]);
+
         return response($pdf, 200, [
             'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'inline; filename="receipt-' . $id . '.pdf"'
+            'Content-Disposition' => 'inline; filename="receipt-'.$id.'.pdf"',
         ]);
     }
 
     public function queuePdf(int $id)
     {
         $receipt = SalesReceipt::with('lines')->findOrFail($id);
-        $path = 'public/pdfs/receipt-' . $receipt->id . '.pdf';
+        $path = 'public/pdfs/receipt-'.$receipt->id.'.pdf';
         \App\Jobs\GeneratePdfJob::dispatch('sales_receipts.print', ['receipt' => $receipt], $path);
         $url = \Illuminate\Support\Facades\Storage::url($path);
+
         return back()->with('success', 'PDF generation started')->with('pdf_url', $url);
     }
 
@@ -291,7 +297,7 @@ class SalesReceiptController extends Controller
         DB::transaction(function () use ($receipt, $lines) {
             $jid = $this->posting->postJournal([
                 'date' => $receipt->date->toDateString(),
-                'description' => 'Post Sales Receipt #' . $receipt->id,
+                'description' => 'Post Sales Receipt #'.$receipt->id,
                 'source_type' => 'sales_receipt',
                 'source_id' => $receipt->id,
                 'lines' => $lines,
@@ -321,9 +327,9 @@ class SalesReceiptController extends Controller
         if ($request->filled('q')) {
             $kw = $request->input('q');
             $q->where(function ($w) use ($kw) {
-                $w->where('sr.receipt_no', 'like', '%' . $kw . '%')
-                    ->orWhere('sr.description', 'like', '%' . $kw . '%')
-                    ->orWhere('c.name', 'like', '%' . $kw . '%');
+                $w->where('sr.receipt_no', 'like', '%'.$kw.'%')
+                    ->orWhere('sr.description', 'like', '%'.$kw.'%')
+                    ->orWhere('c.name', 'like', '%'.$kw.'%');
             });
         }
         if ($request->filled('company_entity_id')) {
@@ -332,17 +338,18 @@ class SalesReceiptController extends Controller
 
         return DataTables::of($q)
             ->editColumn('total_amount', function ($row) {
-                return number_format((float)$row->total_amount, 2);
+                return number_format((float) $row->total_amount, 2);
             })
             ->editColumn('status', function ($row) {
                 return strtoupper($row->status);
             })
             ->addColumn('customer', function ($row) {
-                return $row->customer_name ?: ('#' . $row->business_partner_id);
+                return $row->customer_name ?: ('#'.$row->business_partner_id);
             })
             ->addColumn('actions', function ($row) {
                 $url = route('sales-receipts.show', $row->id);
-                return '<a href="' . $url . '" class="btn btn-xs btn-info">View</a>';
+
+                return '<a href="'.$url.'" class="btn btn-xs btn-info">View</a>';
             })
             ->rawColumns(['actions'])
             ->toJson();
@@ -367,7 +374,9 @@ class SalesReceiptController extends Controller
             ->get();
         foreach ($open as $inv) {
             $remainingInv = (float) $inv->total_amount - (float) $inv->allocated;
-            if ($remainingInv <= 0) continue;
+            if ($remainingInv <= 0) {
+                continue;
+            }
             $alloc = $pool > 0 ? min($remainingInv, $pool) : 0;
             $pool -= $alloc;
             $rows[] = [
@@ -377,6 +386,7 @@ class SalesReceiptController extends Controller
                 'allocate' => round($alloc, 2),
             ];
         }
+
         return response()->json(['rows' => $rows]);
     }
 

@@ -2,10 +2,10 @@
 
 namespace Tests\Feature;
 
-use Illuminate\Foundation\Testing\RefreshDatabase;
-use Tests\TestCase;
-use Illuminate\Support\Facades\DB;
 use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
+use Tests\TestCase;
 
 class ReportsTest extends TestCase
 {
@@ -17,7 +17,7 @@ class ReportsTest extends TestCase
         $this->artisan('migrate');
         $this->seed();
         $user = User::factory()->create();
-        $user->givePermissionTo('reports.view');
+        $user->givePermissionTo(['reports.view', 'reports.open-items']);
         $this->actingAs($user);
     }
 
@@ -33,7 +33,7 @@ class ReportsTest extends TestCase
     {
         $accountId = (int) DB::table('accounts')->where('code', '1.1.2.01')->value('id');
         $from = now()->toDateString();
-        $response = $this->getJson('/reports/gl-detail?account_id=' . $accountId . '&from=' . $from);
+        $response = $this->getJson('/reports/gl-detail?account_id='.$accountId.'&from='.$from);
         $response->assertOk();
         $data = $response->json();
         $this->assertArrayHasKey('rows', $data);
@@ -50,7 +50,7 @@ class ReportsTest extends TestCase
         $this->assertArrayHasKey('rows', $data);
         $this->assertArrayHasKey('totals', $data);
         // Rows may be empty, but structure must include keys
-        if (!empty($data['rows'])) {
+        if (! empty($data['rows'])) {
             $row = $data['rows'][0];
             $this->assertArrayHasKey('customer_id', $row);
             $this->assertArrayHasKey('total', $row);
@@ -62,11 +62,32 @@ class ReportsTest extends TestCase
         $accountId = (int) DB::table('accounts')->where('code', '1.1.2.01')->value('id');
         $from = now()->startOfMonth()->toDateString();
         $to = now()->toDateString();
-        $response = $this->getJson('/reports/cash-ledger?account_id=' . $accountId . '&from=' . $from . '&to=' . $to);
+        $response = $this->getJson('/reports/cash-ledger?account_id='.$accountId.'&from='.$from.'&to='.$to);
         $response->assertOk();
         $data = $response->json();
         $this->assertArrayHasKey('rows', $data);
         $this->assertArrayHasKey('opening_balance', $data);
+    }
+
+    public function test_open_items_index_loads_without_error(): void
+    {
+        $response = $this->get('/reports/open-items');
+        $response->assertOk();
+        $response->assertSee('Open Items', false);
+    }
+
+    public function test_document_creation_logs_index_loads_without_error(): void
+    {
+        $response = $this->get('/reports/document-creation-logs');
+        $response->assertOk();
+        $response->assertSee('Document Creation Logs', false);
+    }
+
+    public function test_open_items_export_route_is_not_shadowed_by_document_type(): void
+    {
+        $response = $this->getJson('/reports/open-items/export/excel');
+        $response->assertOk();
+        $response->assertJsonPath('success', true);
     }
 
     public function test_withholding_recap_structure_and_csv_pdf(): void

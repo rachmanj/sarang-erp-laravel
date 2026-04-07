@@ -3,16 +3,17 @@
 namespace App\Http\Controllers\Accounting;
 
 use App\Http\Controllers\Controller;
+use App\Models\Accounting\PurchaseInvoice;
 use App\Models\Accounting\PurchasePayment;
 use App\Models\Accounting\PurchasePaymentLine;
-use App\Models\Accounting\PurchaseInvoice;
 use App\Models\PurchaseOrder;
 use App\Services\Accounting\PostingService;
-use App\Services\DocumentNumberingService;
-use App\Services\DocumentClosureService;
 use App\Services\CompanyEntityService;
+use App\Services\DocumentClosureService;
+use App\Services\DocumentNumberingService;
 use App\Services\PurchaseWorkflowAuditService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Yajra\DataTables\Facades\DataTables;
@@ -35,6 +36,7 @@ class PurchasePaymentController extends Controller
     {
         $ptCahaya = \App\Models\CompanyEntity::where('code', '71')->first();
         $cvCahaya = \App\Models\CompanyEntity::where('code', '72')->first();
+
         return view('purchase_payments.index', compact('ptCahaya', 'cvCahaya'));
     }
 
@@ -44,6 +46,7 @@ class PurchasePaymentController extends Controller
         $accounts = DB::table('accounts')->where('is_postable', 1)->orderBy('code')->get();
         $entities = $this->companyEntityService->getActiveEntities();
         $defaultEntity = $this->companyEntityService->getDefaultEntity();
+
         return view('purchase_payments.create', compact('vendors', 'accounts', 'entities', 'defaultEntity'));
     }
 
@@ -53,7 +56,7 @@ class PurchasePaymentController extends Controller
         $date = $request->input('date', now()->toDateString());
 
         try {
-            if (!$entityId) {
+            if (! $entityId) {
                 return response()->json(['error' => 'Company entity is required'], 400);
             }
 
@@ -63,7 +66,7 @@ class PurchasePaymentController extends Controller
 
             return response()->json(['document_number' => $documentNumber]);
         } catch (\Exception $e) {
-            return response()->json(['error' => 'Error generating document number: ' . $e->getMessage()], 500);
+            return response()->json(['error' => 'Error generating document number: '.$e->getMessage()], 500);
         }
     }
 
@@ -85,17 +88,17 @@ class PurchasePaymentController extends Controller
 
         $entity = $this->companyEntityService->getEntity($request->input('company_entity_id'));
 
-        return DB::transaction(function () use ($data, $entity, $request) {
+        return DB::transaction(function () use ($data, $entity) {
             // Calculate total payment amount
             $totalPayment = 0;
             foreach ($data['lines'] as $l) {
-                $totalPayment += (float)$l['amount'];
+                $totalPayment += (float) $l['amount'];
             }
 
             // Calculate total allocation amount
             $totalAllocation = 0;
             foreach ($data['allocations'] as $alloc) {
-                $totalAllocation += (float)$alloc['amount'];
+                $totalAllocation += (float) $alloc['amount'];
             }
 
             // Validate that payment total matches allocation total
@@ -121,8 +124,8 @@ class PurchasePaymentController extends Controller
                 $allocated = DB::table('purchase_payment_allocations')
                     ->where('invoice_id', $invoice->id)
                     ->sum('amount');
-                $remaining = (float)$invoice->total_amount - (float)$allocated;
-                $allocAmount = (float)$alloc['amount'];
+                $remaining = (float) $invoice->total_amount - (float) $allocated;
+                $allocAmount = (float) $alloc['amount'];
 
                 if ($allocAmount > $remaining + 0.01) {
                     return back()->withErrors(['allocations' => "Allocation amount for invoice {$invoice->invoice_no} exceeds remaining balance."])->withInput();
@@ -134,6 +137,7 @@ class PurchasePaymentController extends Controller
                 'date' => $data['date'],
                 'business_partner_id' => $data['business_partner_id'],
                 'company_entity_id' => $entity->id,
+                'created_by' => Auth::id(),
                 'description' => $data['description'] ?? null,
                 'status' => 'draft',
                 'total_amount' => $totalPayment,
@@ -150,7 +154,7 @@ class PurchasePaymentController extends Controller
                     'payment_id' => $payment->id,
                     'account_id' => $l['account_id'],
                     'description' => $l['description'] ?? null,
-                    'amount' => (float)$l['amount'],
+                    'amount' => (float) $l['amount'],
                 ]);
             }
 
@@ -159,7 +163,7 @@ class PurchasePaymentController extends Controller
                 DB::table('purchase_payment_allocations')->insert([
                     'payment_id' => $payment->id,
                     'invoice_id' => $alloc['invoice_id'],
-                    'amount' => (float)$alloc['amount'],
+                    'amount' => (float) $alloc['amount'],
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);
@@ -172,7 +176,7 @@ class PurchasePaymentController extends Controller
                 // Log closure failure but don't fail the payment creation
                 Log::warning('Failed to close Purchase Invoices after payment creation', [
                     'payment_id' => $payment->id,
-                    'error' => $closureException->getMessage()
+                    'error' => $closureException->getMessage(),
                 ]);
             }
 
@@ -183,7 +187,7 @@ class PurchasePaymentController extends Controller
                 ->pluck('invoice_id')
                 ->toArray();
 
-            if (!empty($allocatedInvoiceIds)) {
+            if (! empty($allocatedInvoiceIds)) {
                 $purchaseOrderIds = PurchaseInvoice::whereIn('id', $allocatedInvoiceIds)
                     ->whereNotNull('purchase_order_id')
                     ->pluck('purchase_order_id')
@@ -248,18 +252,20 @@ class PurchasePaymentController extends Controller
         $pdf = app(\App\Services\PdfService::class)->renderViewToString('purchase_payments.print', [
             'payment' => $payment,
         ]);
+
         return response($pdf, 200, [
             'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'inline; filename="purchase-payment-' . $id . '.pdf"'
+            'Content-Disposition' => 'inline; filename="purchase-payment-'.$id.'.pdf"',
         ]);
     }
 
     public function queuePdf(int $id)
     {
         $payment = PurchasePayment::with('lines')->findOrFail($id);
-        $path = 'public/pdfs/purchase-payment-' . $payment->id . '.pdf';
+        $path = 'public/pdfs/purchase-payment-'.$payment->id.'.pdf';
         \App\Jobs\GeneratePdfJob::dispatch('purchase_payments.print', ['payment' => $payment], $path);
         $url = \Illuminate\Support\Facades\Storage::url($path);
+
         return back()->with('success', 'PDF generation started')->with('pdf_url', $url);
     }
 
@@ -299,7 +305,7 @@ class PurchasePaymentController extends Controller
         DB::transaction(function () use ($payment, $lines) {
             $jid = $this->posting->postJournal([
                 'date' => $payment->date->toDateString(),
-                'description' => 'Post Purchase Payment #' . $payment->id,
+                'description' => 'Post Purchase Payment #'.$payment->id,
                 'source_type' => 'purchase_payment',
                 'source_id' => $payment->id,
                 'lines' => $lines,
@@ -329,9 +335,9 @@ class PurchasePaymentController extends Controller
         if ($request->filled('q')) {
             $kw = $request->input('q');
             $q->where(function ($w) use ($kw) {
-                $w->where('pp.payment_no', 'like', '%' . $kw . '%')
-                    ->orWhere('pp.description', 'like', '%' . $kw . '%')
-                    ->orWhere('v.name', 'like', '%' . $kw . '%');
+                $w->where('pp.payment_no', 'like', '%'.$kw.'%')
+                    ->orWhere('pp.description', 'like', '%'.$kw.'%')
+                    ->orWhere('v.name', 'like', '%'.$kw.'%');
             });
         }
         if ($request->filled('company_entity_id')) {
@@ -340,17 +346,18 @@ class PurchasePaymentController extends Controller
 
         return DataTables::of($q)
             ->editColumn('total_amount', function ($row) {
-                return number_format((float)$row->total_amount, 2);
+                return number_format((float) $row->total_amount, 2);
             })
             ->editColumn('status', function ($row) {
                 return strtoupper($row->status);
             })
             ->addColumn('vendor', function ($row) {
-                return $row->vendor_name ?: ('#' . $row->business_partner_id);
+                return $row->vendor_name ?: ('#'.$row->business_partner_id);
             })
             ->addColumn('actions', function ($row) {
                 $url = route('purchase-payments.show', $row->id);
-                return '<a href="' . $url . '" class="btn btn-xs btn-info">View</a>';
+
+                return '<a href="'.$url.'" class="btn btn-xs btn-info">View</a>';
             })
             ->rawColumns(['actions'])
             ->toJson();
@@ -375,7 +382,7 @@ class PurchasePaymentController extends Controller
                 DB::raw('COALESCE(pi.due_date, pi.date) as effective_due_date'),
                 DB::raw('DATEDIFF(CURDATE(), COALESCE(pi.due_date, pi.date)) as days_overdue')
             )
-            ->where('pi.business_partner_id', (int)$request->input('business_partner_id'))
+            ->where('pi.business_partner_id', (int) $request->input('business_partner_id'))
             ->where('pi.status', 'posted')
             ->where(function ($query) {
                 $query->where('pi.payment_method', '!=', 'cash')
@@ -398,13 +405,13 @@ class PurchasePaymentController extends Controller
                     'invoice_no' => $inv->invoice_no,
                     'date' => $inv->date,
                     'due_date' => $inv->due_date,
-                    'total_amount' => (float)$inv->total_amount,
-                    'allocated_amount' => (float)$inv->allocated_amount,
-                    'remaining_balance' => (float)$inv->remaining_balance,
-                    'days_overdue' => (int)$inv->days_overdue,
-                    'is_overdue' => (int)$inv->days_overdue > 0,
+                    'total_amount' => (float) $inv->total_amount,
+                    'allocated_amount' => (float) $inv->allocated_amount,
+                    'remaining_balance' => (float) $inv->remaining_balance,
+                    'days_overdue' => (int) $inv->days_overdue,
+                    'is_overdue' => (int) $inv->days_overdue > 0,
                 ];
-            })
+            }),
         ]);
     }
 
@@ -414,23 +421,27 @@ class PurchasePaymentController extends Controller
             'business_partner_id' => ['required', 'integer'],
             'amount' => ['required', 'numeric', 'min:0'],
         ]);
-        $pool = (float)$request->input('amount');
+        $pool = (float) $request->input('amount');
         $rows = [];
         if ($pool > 0) {
             $open = DB::table('purchase_invoices as pi')
                 ->leftJoin('purchase_payment_allocations as ppa', 'ppa.invoice_id', '=', 'pi.id')
                 ->leftJoin('business_partners as v', 'v.id', '=', 'pi.business_partner_id')
                 ->select('pi.id', 'pi.invoice_no', 'pi.total_amount', DB::raw('COALESCE(SUM(ppa.amount),0) as allocated'), DB::raw('COALESCE(pi.due_date, pi.date) as eff_date'))
-                ->where('pi.business_partner_id', (int)$request->input('business_partner_id'))
+                ->where('pi.business_partner_id', (int) $request->input('business_partner_id'))
                 ->where('pi.status', 'posted')
                 ->groupBy('pi.id', 'pi.invoice_no', 'pi.total_amount', 'eff_date')
                 ->orderBy('eff_date')
                 ->orderBy('pi.id')
                 ->get();
             foreach ($open as $inv) {
-                $remainingInv = (float)$inv->total_amount - (float)$inv->allocated;
-                if ($remainingInv <= 0) continue;
-                if ($pool <= 0) break;
+                $remainingInv = (float) $inv->total_amount - (float) $inv->allocated;
+                if ($remainingInv <= 0) {
+                    continue;
+                }
+                if ($pool <= 0) {
+                    break;
+                }
                 $alloc = min($remainingInv, $pool);
                 $rows[] = [
                     'invoice_id' => $inv->id,
@@ -441,6 +452,7 @@ class PurchasePaymentController extends Controller
                 $pool -= $alloc;
             }
         }
+
         return response()->json(['rows' => $rows]);
     }
 }

@@ -2,9 +2,10 @@
 
 namespace App\Models\Accounting;
 
+use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class PurchaseInvoice extends Model
@@ -30,6 +31,7 @@ class PurchaseInvoice extends Model
         'is_direct_purchase',
         'is_opening_balance',
         'cash_account_id',
+        'created_by',
     ];
 
     protected $casts = [
@@ -44,6 +46,7 @@ class PurchaseInvoice extends Model
     ];
 
     protected $auditLogIgnore = ['updated_at', 'created_at'];
+
     protected $auditEntityType = 'purchase_invoice';
 
     public function lines(): HasMany
@@ -64,6 +67,11 @@ class PurchaseInvoice extends Model
     public function supplier(): BelongsTo
     {
         return $this->businessPartner();
+    }
+
+    public function createdBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
     }
 
     public function inventoryTransactions(): MorphMany

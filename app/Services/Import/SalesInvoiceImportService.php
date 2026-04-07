@@ -2,24 +2,29 @@
 
 namespace App\Services\Import;
 
+use App\Models\Accounting\Account;
 use App\Models\Accounting\SalesInvoice;
 use App\Models\Accounting\SalesInvoiceLine;
-use App\Models\Accounting\Account;
 use App\Models\BusinessPartner;
 use App\Models\Master\TaxCode;
-use App\Services\DocumentNumberingService;
 use App\Services\CompanyEntityService;
+use App\Services\DocumentNumberingService;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Maatwebsite\Excel\Facades\Excel;
-use Carbon\Carbon;
 
 class SalesInvoiceImportService
 {
     protected $errors = [];
+
     protected $warnings = [];
+
     protected $importedCount = 0;
+
     protected $skippedCount = 0;
+
     protected $postingDate;
 
     public function __construct(
@@ -61,7 +66,8 @@ class SalesInvoiceImportService
 
             return $this->createSalesInvoices($processedData);
         } catch (\Exception $e) {
-            $this->errors[] = "Import failed: " . $e->getMessage();
+            $this->errors[] = 'Import failed: '.$e->getMessage();
+
             return false;
         }
     }
@@ -86,7 +92,9 @@ class SalesInvoiceImportService
             }
 
             // Skip empty rows
-            if (empty(array_filter($normalizedRow, function($v) { return $v !== null && $v !== ''; }))) {
+            if (empty(array_filter($normalizedRow, function ($v) {
+                return $v !== null && $v !== '';
+            }))) {
                 continue;
             }
 
@@ -100,8 +108,9 @@ class SalesInvoiceImportService
             $validator = Validator::make($normalizedRow, $rules, $this->getValidationMessages());
 
             if ($validator->fails()) {
-                $this->errors[] = "Row {$rowNumber}: " . implode(', ', $validator->errors()->all());
+                $this->errors[] = "Row {$rowNumber}: ".implode(', ', $validator->errors()->all());
                 $this->skippedCount++;
+
                 continue;
             }
 
@@ -163,7 +172,7 @@ class SalesInvoiceImportService
                 $row['delivery_order_no'] ?? ''
             );
 
-            if (!isset($grouped[$key])) {
+            if (! isset($grouped[$key])) {
                 $grouped[$key] = [
                     'customer_code' => $row['customer_code'],
                     'document_date' => $row['document_date'],
@@ -196,16 +205,17 @@ class SalesInvoiceImportService
                         ->where('partner_type', 'customer')
                         ->first();
 
-                    if (!$customer) {
+                    if (! $customer) {
                         $this->errors[] = "Customer with code '{$invoiceData['customer_code']}' not found or is not a customer";
                         $this->skippedCount++;
+
                         continue;
                     }
 
                     // Build description with delivery order no if provided
                     $description = null;
-                    if (!empty($invoiceData['delivery_order_no'])) {
-                        $description = 'DO: ' . $invoiceData['delivery_order_no'];
+                    if (! empty($invoiceData['delivery_order_no'])) {
+                        $description = 'DO: '.$invoiceData['delivery_order_no'];
                     }
 
                     // Create invoice
@@ -220,6 +230,7 @@ class SalesInvoiceImportService
                         'description' => $description,
                         'status' => 'draft',
                         'total_amount' => 0,
+                        'created_by' => Auth::id(),
                     ]);
 
                     // Generate invoice number
@@ -232,15 +243,16 @@ class SalesInvoiceImportService
                     $total = 0;
                     foreach ($invoiceData['lines'] as $lineData) {
                         $account = Account::where('code', $lineData['account_code'])->first();
-                        if (!$account) {
+                        if (! $account) {
                             $this->errors[] = "Account with code '{$lineData['account_code']}' not found for invoice {$invoiceNo}";
+
                             continue;
                         }
 
                         $taxCode = null;
-                        if (!empty($lineData['tax_code'])) {
+                        if (! empty($lineData['tax_code'])) {
                             $taxCode = TaxCode::where('code', $lineData['tax_code'])->first();
-                            if (!$taxCode) {
+                            if (! $taxCode) {
                                 $this->warnings[] = "Tax code '{$lineData['tax_code']}' not found for invoice {$invoiceNo}, line will be created without tax";
                             }
                         }
@@ -271,7 +283,7 @@ class SalesInvoiceImportService
 
                     $this->importedCount++;
                 } catch (\Exception $e) {
-                    $this->errors[] = "Failed to create invoice for customer '{$invoiceData['customer_code']}': " . $e->getMessage();
+                    $this->errors[] = "Failed to create invoice for customer '{$invoiceData['customer_code']}': ".$e->getMessage();
                     $this->skippedCount++;
                 }
             }

@@ -2,12 +2,11 @@
 
 namespace App\Services;
 
-use App\Models\PurchaseOrder;
 use App\Models\Accounting\PurchaseInvoice;
 use App\Models\Accounting\PurchaseInvoiceLine;
-use App\Services\DocumentNumberingService;
-use Illuminate\Support\Facades\DB;
+use App\Models\PurchaseOrder;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class PurchaseInvoiceCopyService
 {
@@ -38,7 +37,7 @@ class PurchaseInvoiceCopyService
                 'business_partner_id' => $po->business_partner_id,
                 'company_entity_id' => $po->company_entity_id,
                 'purchase_order_id' => $po->id,
-                'description' => 'From Service PO: ' . $po->order_no,
+                'description' => 'From Service PO: '.$po->order_no,
                 'status' => 'draft',
                 'total_amount' => 0,
                 'discount_amount' => $po->discount_amount ?? 0,
@@ -50,6 +49,7 @@ class PurchaseInvoiceCopyService
                 'terms_conditions' => $po->terms_conditions,
                 'payment_terms' => $po->payment_terms,
                 'delivery_method' => $po->delivery_method,
+                'created_by' => Auth::id(),
             ]);
 
             // Generate invoice number

@@ -2,7 +2,9 @@
 
 namespace App\Models\Accounting;
 
+use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class PurchasePayment extends Model
 {
@@ -11,6 +13,7 @@ class PurchasePayment extends Model
         'date',
         'business_partner_id',
         'company_entity_id',
+        'created_by',
         'description',
         'total_amount',
         'status',
@@ -24,6 +27,7 @@ class PurchasePayment extends Model
     ];
 
     protected $auditLogIgnore = ['updated_at', 'created_at'];
+
     protected $auditEntityType = 'purchase_payment';
 
     public function lines()
@@ -39,6 +43,11 @@ class PurchasePayment extends Model
     public function companyEntity()
     {
         return $this->belongsTo(\App\Models\CompanyEntity::class, 'company_entity_id');
+    }
+
+    public function createdBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
     }
 
     public function allocations()

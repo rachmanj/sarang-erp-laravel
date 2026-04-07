@@ -78,6 +78,13 @@
                         <p>Open Items</p>
                     </a>
                 </li>
+                <li class="nav-item">
+                    <a href="{{ route('reports.document-creation-logs.index') }}"
+                        class="nav-link {{ request()->routeIs('reports.document-creation-logs.*') ? 'active' : '' }}">
+                        <i class="far fa-circle nav-icon"></i>
+                        <p>Document Creation Logs</p>
+                    </a>
+                </li>
             @endcan
 
             <!-- Asset Reports -->

@@ -6,17 +6,18 @@ use App\Http\Controllers\Controller;
 use App\Models\Accounting\SalesInvoice;
 use App\Models\Accounting\SalesInvoiceLine;
 use App\Models\CompanyEntity;
-use App\Models\SalesOrder;
 use App\Models\DeliveryOrder;
 use App\Models\DeliveryOrderLine;
+use App\Models\SalesOrder;
 use App\Models\SalesQuotation;
 use App\Services\Accounting\PostingService;
-use App\Services\DocumentNumberingService;
+use App\Services\CompanyEntityService;
 use App\Services\DocumentClosureService;
+use App\Services\DocumentNumberingService;
 use App\Services\DocumentRelationshipService;
 use App\Services\SalesWorkflowAuditService;
-use App\Services\CompanyEntityService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Yajra\DataTables\Facades\DataTables;
@@ -41,6 +42,7 @@ class SalesInvoiceController extends Controller
     {
         $ptCahaya = \App\Models\CompanyEntity::where('code', '71')->first();
         $cvCahaya = \App\Models\CompanyEntity::where('code', '72')->first();
+
         return view('sales_invoices.index', compact('ptCahaya', 'cvCahaya'));
     }
 
@@ -81,7 +83,7 @@ class SalesInvoiceController extends Controller
             $ids = array_merge($ids, $idsParam);
         }
         $deliveryOrderIds = array_filter(array_unique(array_map('intval', $ids)));
-        if (!empty($deliveryOrderIds)) {
+        if (! empty($deliveryOrderIds)) {
             $deliveryOrders = DeliveryOrder::with(['salesOrder', 'lines.inventoryItem.category', 'lines.account', 'lines.salesOrderLine'])
                 ->whereIn('id', $deliveryOrderIds)
                 ->get();
@@ -92,13 +94,13 @@ class SalesInvoiceController extends Controller
             }
 
             foreach ($deliveryOrders as $do) {
-                if (!in_array($do->status, ['delivered', 'completed'])) {
+                if (! in_array($do->status, ['delivered', 'completed'])) {
                     return redirect()->route('sales-invoices.create')
-                        ->with('error', 'Only delivered or completed delivery orders can be converted. DO ' . ($do->do_number ?? '#' . $do->id) . ' is not ready.');
+                        ->with('error', 'Only delivered or completed delivery orders can be converted. DO '.($do->do_number ?? '#'.$do->id).' is not ready.');
                 }
                 if (($do->closure_status ?? 'open') === 'closed') {
                     return redirect()->route('sales-invoices.create')
-                        ->with('error', 'Delivery order ' . ($do->do_number ?? '#' . $do->id) . ' has already been invoiced.');
+                        ->with('error', 'Delivery order '.($do->do_number ?? '#'.$do->id).' has already been invoiced.');
                 }
             }
 
@@ -120,8 +122,9 @@ class SalesInvoiceController extends Controller
                     ->whereIn('delivery_order_id', $deliveryOrderIds)
                     ->first();
                 $existingSi = SalesInvoice::find($existing->sales_invoice_id);
+
                 return redirect()->route('sales-invoices.create')
-                    ->with('error', 'A Sales Invoice (#' . ($existingSi?->invoice_no ?? $existing->sales_invoice_id) . ') already exists for one or more of these Delivery Orders.');
+                    ->with('error', 'A Sales Invoice (#'.($existingSi?->invoice_no ?? $existing->sales_invoice_id).') already exists for one or more of these Delivery Orders.');
             }
 
             $deliveryOrder = $deliveryOrders->count() === 1 ? $deliveryOrders->first() : null;
@@ -133,25 +136,26 @@ class SalesInvoiceController extends Controller
                 'date' => now()->toDateString(),
                 'business_partner_id' => $salesQuotation->business_partner_id,
                 'company_entity_id' => $salesQuotation->company_entity_id ?? $defaultEntity->id,
-                'description' => 'From Quotation ' . ($salesQuotation->quotation_no ?: ('#' . $salesQuotation->id)),
+                'description' => 'From Quotation '.($salesQuotation->quotation_no ?: ('#'.$salesQuotation->id)),
                 'lines' => $salesQuotation->lines->map(function ($line) {
-                    $accountId = (int)$line->account_id;
+                    $accountId = (int) $line->account_id;
                     $accountDisplay = null;
-                    $hasInventoryItem = !empty($line->inventory_item_id);
+                    $hasInventoryItem = ! empty($line->inventory_item_id);
                     if ($hasInventoryItem && $line->inventoryItem) {
                         $salesAccount = $line->inventoryItem->getAccountByType('sales');
                         if ($salesAccount) {
                             $accountId = $salesAccount->id;
-                            $accountDisplay = $salesAccount->code . ' - ' . $salesAccount->name;
+                            $accountDisplay = $salesAccount->code.' - '.$salesAccount->name;
                         } else {
                             $acc = $line->account;
-                            $accountDisplay = $acc ? ($acc->code . ' - ' . $acc->name) : null;
+                            $accountDisplay = $acc ? ($acc->code.' - '.$acc->name) : null;
                         }
                     }
-                    if (!$accountDisplay && $line->account_id) {
+                    if (! $accountDisplay && $line->account_id) {
                         $acc = \App\Models\Accounting\Account::find($line->account_id);
-                        $accountDisplay = $acc ? ($acc->code . ' - ' . $acc->name) : null;
+                        $accountDisplay = $acc ? ($acc->code.' - '.$acc->name) : null;
                     }
+
                     return [
                         'inventory_item_id' => $line->inventory_item_id,
                         'item_code' => optional($line->inventoryItem)->code ?? $line->item_code,
@@ -160,10 +164,10 @@ class SalesInvoiceController extends Controller
                         'account_display' => $accountDisplay,
                         'has_inventory_item' => $hasInventoryItem,
                         'description' => $line->description ?? $line->item_name,
-                        'qty' => (float)$line->qty,
-                        'unit_price' => (float)$line->unit_price,
-                        'tax_code_id' => $line->tax_code_id ? (int)$line->tax_code_id : null,
-                        'wtax_rate' => (float)($line->wtax_rate ?? 0),
+                        'qty' => (float) $line->qty,
+                        'unit_price' => (float) $line->unit_price,
+                        'tax_code_id' => $line->tax_code_id ? (int) $line->tax_code_id : null,
+                        'wtax_rate' => (float) ($line->wtax_rate ?? 0),
                         'project_id' => null,
                         'dept_id' => null,
                     ];
@@ -172,6 +176,7 @@ class SalesInvoiceController extends Controller
         }
 
         $vatTaxCodes = DB::table('tax_codes')->where('type', 'ppn_output')->whereIn('rate', [11, 12])->orderBy('rate')->get(['id', 'code', 'rate']);
+
         return view('sales_invoices.create', compact('accounts', 'customers', 'taxCodes', 'vatTaxCodes', 'projects', 'departments', 'entities', 'defaultEntity', 'prefill', 'salesQuotation', 'deliveryOrder', 'invoicableDeliveryOrders', 'fromDo'));
     }
 
@@ -181,7 +186,7 @@ class SalesInvoiceController extends Controller
         $date = $request->input('date', now()->toDateString());
 
         try {
-            if (!$entityId) {
+            if (! $entityId) {
                 return response()->json(['error' => 'Company entity is required'], 400);
             }
 
@@ -191,7 +196,7 @@ class SalesInvoiceController extends Controller
 
             return response()->json(['document_number' => $documentNumber]);
         } catch (\Exception $e) {
-            return response()->json(['error' => 'Error generating document number: ' . $e->getMessage()], 500);
+            return response()->json(['error' => 'Error generating document number: '.$e->getMessage()], 500);
         }
     }
 
@@ -201,31 +206,31 @@ class SalesInvoiceController extends Controller
         $firstDo = $deliveryOrders->first();
         $refs = $deliveryOrders->map(fn ($d) => $d->salesOrder?->reference_no)->filter()->unique()->values();
         $referenceNo = $refs->isEmpty() ? null : $refs->implode(', ');
-        $doNumbers = $deliveryOrders->map(fn ($d) => $d->do_number ?: ('#' . $d->id))->implode(', ');
+        $doNumbers = $deliveryOrders->map(fn ($d) => $d->do_number ?: ('#'.$d->id))->implode(', ');
 
         $lines = collect();
         foreach ($deliveryOrders as $deliveryOrder) {
             $salesOrder = $deliveryOrder->salesOrder;
             foreach ($deliveryOrder->lines as $l) {
-                $accountId = (int)$l->account_id;
+                $accountId = (int) $l->account_id;
                 $accountDisplay = null;
                 if ($l->inventory_item_id && $l->inventoryItem) {
                     $salesAccount = $l->inventoryItem->getAccountByType('sales');
                     if ($salesAccount) {
                         $accountId = $salesAccount->id;
-                        $accountDisplay = $salesAccount->code . ' - ' . $salesAccount->name;
+                        $accountDisplay = $salesAccount->code.' - '.$salesAccount->name;
                     } else {
                         $acc = $l->account;
-                        $accountDisplay = $acc ? ($acc->code . ' - ' . $acc->name) : null;
+                        $accountDisplay = $acc ? ($acc->code.' - '.$acc->name) : null;
                     }
                 }
-                if (!$accountDisplay && $l->account_id) {
+                if (! $accountDisplay && $l->account_id) {
                     $acc = \App\Models\Accounting\Account::find($l->account_id);
-                    $accountDisplay = $acc ? ($acc->code . ' - ' . $acc->name) : null;
+                    $accountDisplay = $acc ? ($acc->code.' - '.$acc->name) : null;
                 }
                 $soLine = $l->salesOrderLine;
                 $taxCodeId = $l->tax_code_id ?? ($soLine?->tax_code_id);
-                $wtaxRate = $soLine ? (float)($soLine->wtax_rate ?? 0) : 0;
+                $wtaxRate = $soLine ? (float) ($soLine->wtax_rate ?? 0) : 0;
                 $lines->push([
                     'delivery_order_line_id' => $l->id,
                     'delivery_order_id' => $deliveryOrder->id,
@@ -235,11 +240,11 @@ class SalesInvoiceController extends Controller
                     'item_name' => optional($l->inventoryItem)->name ?? $l->item_name ?? $l->description,
                     'account_id' => $accountId,
                     'account_display' => $accountDisplay,
-                    'has_inventory_item' => !empty($l->inventory_item_id),
+                    'has_inventory_item' => ! empty($l->inventory_item_id),
                     'description' => $l->description ?? optional($l->inventoryItem)->description ?? $l->item_name,
-                    'qty' => (float)$l->delivered_qty,
-                    'unit_price' => (float)$l->unit_price,
-                    'tax_code_id' => $taxCodeId ? (int)$taxCodeId : null,
+                    'qty' => (float) $l->delivered_qty,
+                    'unit_price' => (float) $l->unit_price,
+                    'tax_code_id' => $taxCodeId ? (int) $taxCodeId : null,
                     'wtax_rate' => $wtaxRate,
                     'total_amount' => $l->delivered_qty * $l->unit_price,
                 ]);
@@ -251,7 +256,7 @@ class SalesInvoiceController extends Controller
             'business_partner_id' => $firstDo->business_partner_id,
             'business_partner_project_id' => $firstDo->business_partner_project_id,
             'company_entity_id' => $firstDo->company_entity_id ?? $defaultEntityId,
-            'description' => 'From DO ' . $doNumbers,
+            'description' => 'From DO '.$doNumbers,
             'reference_no' => $referenceNo,
             'delivery_order_ids' => $deliveryOrders->pluck('id')->values()->all(),
             'lines' => $lines->all(),
@@ -267,11 +272,11 @@ class SalesInvoiceController extends Controller
         } elseif ($lineIndex !== null && $deliveryOrders && $deliveryOrders->isNotEmpty()) {
             $doLines = $deliveryOrders->flatMap(fn ($do) => $do->lines->values())->values();
             $doLine = $doLines->get($lineIndex);
-            if ($doLine && !$doLine->relationLoaded('inventoryItem')) {
+            if ($doLine && ! $doLine->relationLoaded('inventoryItem')) {
                 $doLine->load('inventoryItem');
             }
         }
-        if (!$doLine) {
+        if (! $doLine) {
             return [
                 'delivery_order_line_id' => $lineData['delivery_order_line_id'] ?? null,
                 'item_code' => $lineData['item_code'] ?? $lineData['item_code_display'] ?? null,
@@ -297,6 +302,7 @@ class SalesInvoiceController extends Controller
             $partNumberId = $doLine->part_number_id;
         }
         $resolvedDeliveryOrderLineId = $deliveryOrderLineId ?? $doLine->id;
+
         return [
             'delivery_order_line_id' => $resolvedDeliveryOrderLineId,
             'item_code' => $itemCode,
@@ -396,7 +402,7 @@ class SalesInvoiceController extends Controller
             }
 
             $termsDays = (int) ($request->input('terms_days') ?? 0);
-            $dueDate = $termsDays > 0 ? date('Y-m-d', strtotime($data['date'] . ' +' . $termsDays . ' days')) : null;
+            $dueDate = $termsDays > 0 ? date('Y-m-d', strtotime($data['date'].' +'.$termsDays.' days')) : null;
             $invoice->update(['total_amount' => $total, 'terms_days' => $termsDays ?: null, 'due_date' => $dueDate]);
 
             return redirect()->route('sales-invoices.show', $invoice->id)
@@ -435,7 +441,7 @@ class SalesInvoiceController extends Controller
         $salesOrder = $request->input('sales_order_id')
             ? SalesOrder::select('id', 'company_entity_id')->find($request->input('sales_order_id'))
             : null;
-        $deliveryOrders = !empty($deliveryOrderIds)
+        $deliveryOrders = ! empty($deliveryOrderIds)
             ? DeliveryOrder::with(['lines.inventoryItem'])->whereIn('id', $deliveryOrderIds)->get()
             : collect();
 
@@ -448,9 +454,10 @@ class SalesInvoiceController extends Controller
                     ->whereIn('delivery_order_id', $deliveryOrderIds)
                     ->first();
                 $existingSi = SalesInvoice::find($existing->sales_invoice_id);
+
                 return redirect()->route('sales-invoices.create')
                     ->withInput()
-                    ->with('error', 'A Sales Invoice (#' . ($existingSi?->invoice_no ?? $existing->sales_invoice_id) . ') already exists for one or more of these Delivery Orders.');
+                    ->with('error', 'A Sales Invoice (#'.($existingSi?->invoice_no ?? $existing->sales_invoice_id).') already exists for one or more of these Delivery Orders.');
             }
         }
 
@@ -475,6 +482,7 @@ class SalesInvoiceController extends Controller
                 'status' => 'draft',
                 'total_amount' => 0,
                 'company_entity_id' => $entity->id,
+                'created_by' => Auth::id(),
             ]);
 
             if ($deliveryOrders->isNotEmpty()) {
@@ -494,11 +502,11 @@ class SalesInvoiceController extends Controller
             }
 
             if ($salesQuotation && $salesQuotation->quotation_no) {
-                $quotationRef = 'From Quotation: ' . $salesQuotation->quotation_no;
+                $quotationRef = 'From Quotation: '.$salesQuotation->quotation_no;
                 $currentDesc = $data['description'] ?? '';
                 if ($currentDesc && strpos($currentDesc, $quotationRef) === false) {
-                    $invoice->update(['description' => $currentDesc . ' (' . $quotationRef . ')']);
-                } elseif (!$currentDesc) {
+                    $invoice->update(['description' => $currentDesc.' ('.$quotationRef.')']);
+                } elseif (! $currentDesc) {
                     $invoice->update(['description' => $quotationRef]);
                 }
             }
@@ -533,7 +541,7 @@ class SalesInvoiceController extends Controller
             }
 
             $termsDays = (int) ($request->input('terms_days') ?? 0);
-            $dueDate = $termsDays > 0 ? date('Y-m-d', strtotime($data['date'] . ' +' . $termsDays . ' days')) : null;
+            $dueDate = $termsDays > 0 ? date('Y-m-d', strtotime($data['date'].' +'.$termsDays.' days')) : null;
             $invoice->update(['total_amount' => $total, 'terms_days' => $termsDays ?: null, 'due_date' => $dueDate]);
 
             if ($salesOrder) {
@@ -547,7 +555,7 @@ class SalesInvoiceController extends Controller
                     Log::warning('Failed to close Delivery Order after SI creation', [
                         'do_id' => $do->id,
                         'si_id' => $invoice->id,
-                        'error' => $closureException->getMessage()
+                        'error' => $closureException->getMessage(),
                     ]);
                 }
             }
@@ -584,6 +592,7 @@ class SalesInvoiceController extends Controller
                 ]);
             }
         }
+
         return redirect()->route('sales-invoices.index')->with('success', 'Sales Invoice deleted.');
     }
 
@@ -602,6 +611,7 @@ class SalesInvoiceController extends Controller
             'lines.deliveryOrderLine.inventoryItem',
             'lines.deliveryOrderLine.partNumber',
         ])->findOrFail($id);
+
         return view('sales_invoices.show', compact('invoice'));
     }
 
@@ -647,18 +657,20 @@ class SalesInvoiceController extends Controller
         $pdf = app(\App\Services\PdfService::class)->renderViewToString('sales_invoices.print', [
             'invoice' => $invoice,
         ]);
+
         return response($pdf, 200, [
             'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'inline; filename="invoice-' . $id . '.pdf"'
+            'Content-Disposition' => 'inline; filename="invoice-'.$id.'.pdf"',
         ]);
     }
 
     public function queuePdf(int $id)
     {
         $invoice = SalesInvoice::with(['lines', 'lines.account', 'lines.taxCode', 'lines.inventoryItem', 'businessPartner', 'businessPartner.primaryAddress', 'businessPartnerProject', 'companyEntity', 'deliveryOrders'])->findOrFail($id);
-        $path = 'public/pdfs/invoice-' . $invoice->id . '.pdf';
+        $path = 'public/pdfs/invoice-'.$invoice->id.'.pdf';
         \App\Jobs\GeneratePdfJob::dispatch('sales_invoices.print', ['invoice' => $invoice], $path);
         $url = \Illuminate\Support\Facades\Storage::url($path);
+
         return back()->with('success', 'PDF generation started')->with('pdf_url', $url);
     }
 
@@ -680,7 +692,7 @@ class SalesInvoiceController extends Controller
         // Calculate totals first
         foreach ($invoice->lines as $l) {
             $revenueTotal += (float) $l->amount;
-            if (!empty($l->tax_code_id)) {
+            if (! empty($l->tax_code_id)) {
                 $rate = (float) DB::table('tax_codes')->where('id', $l->tax_code_id)->value('rate');
                 $ppnTotal += round($l->amount * $rate, 2);
             }
@@ -693,8 +705,8 @@ class SalesInvoiceController extends Controller
         if ($isOpeningBalance) {
             // Opening balance invoice: Post directly to AR and Retained Earnings Opening Balance (3.3.1)
             $retainedEarningsAccountId = (int) DB::table('accounts')->where('code', '3.3.1')->value('id'); // Saldo Awal Laba Ditahan
-            
-            if (!$retainedEarningsAccountId) {
+
+            if (! $retainedEarningsAccountId) {
                 throw new \Exception('Retained Earnings Opening Balance account (3.3.1) not found. Please ensure this account exists in the chart of accounts.');
             }
 
@@ -768,9 +780,9 @@ class SalesInvoiceController extends Controller
         DB::transaction(function () use ($invoice, $lines) {
             $jid = $this->posting->postJournal([
                 'date' => $invoice->date->toDateString(),
-                'description' => $invoice->is_opening_balance 
-                    ? 'Post AR Invoice (Opening Balance) #' . $invoice->invoice_no
-                    : 'Post AR Invoice #' . $invoice->invoice_no,
+                'description' => $invoice->is_opening_balance
+                    ? 'Post AR Invoice (Opening Balance) #'.$invoice->invoice_no
+                    : 'Post AR Invoice #'.$invoice->invoice_no,
                 'source_type' => 'sales_invoice',
                 'source_id' => $invoice->id,
                 'lines' => $lines,
@@ -800,10 +812,10 @@ class SalesInvoiceController extends Controller
         if ($request->filled('q')) {
             $kw = $request->input('q');
             $q->where(function ($w) use ($kw) {
-                $w->where('si.invoice_no', 'like', '%' . $kw . '%')
-                    ->orWhere('si.reference_no', 'like', '%' . $kw . '%')
-                    ->orWhere('si.description', 'like', '%' . $kw . '%')
-                    ->orWhere('c.name', 'like', '%' . $kw . '%');
+                $w->where('si.invoice_no', 'like', '%'.$kw.'%')
+                    ->orWhere('si.reference_no', 'like', '%'.$kw.'%')
+                    ->orWhere('si.description', 'like', '%'.$kw.'%')
+                    ->orWhere('c.name', 'like', '%'.$kw.'%');
             });
         }
         if ($request->filled('company_entity_id')) {
@@ -812,20 +824,21 @@ class SalesInvoiceController extends Controller
 
         return DataTables::of($q)
             ->editColumn('total_amount', function ($row) {
-                return number_format((float)$row->total_amount, 2);
+                return number_format((float) $row->total_amount, 2);
             })
             ->editColumn('status', function ($row) {
                 return strtoupper($row->status);
             })
             ->addColumn('customer', function ($row) {
-                return $row->customer_name ?: ('#' . $row->business_partner_id);
+                return $row->customer_name ?: ('#'.$row->business_partner_id);
             })
             ->addColumn('reference_no', function ($row) {
                 return $row->reference_no ?? '—';
             })
             ->addColumn('actions', function ($row) {
                 $url = route('sales-invoices.show', $row->id);
-                return '<a href="' . $url . '" class="btn btn-xs btn-info">View</a>';
+
+                return '<a href="'.$url.'" class="btn btn-xs btn-info">View</a>';
             })
             ->rawColumns(['actions'])
             ->toJson();

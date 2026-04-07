@@ -20,6 +20,7 @@ use App\Services\UnitConversionService;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Facades\Excel;
 use Yajra\DataTables\Facades\DataTables;
@@ -211,6 +212,7 @@ class PurchaseInvoiceController extends Controller
                 'is_direct_purchase' => $isDirectPurchase,
                 'is_opening_balance' => $request->boolean('is_opening_balance', false),
                 'cash_account_id' => $request->input('cash_account_id'),
+                'created_by' => Auth::id(),
             ];
 
             \Log::info('Creating invoice with data:', $invoiceData);

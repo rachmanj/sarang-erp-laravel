@@ -2,6 +2,7 @@
 
 namespace App\Models\Accounting;
 
+use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -26,6 +27,7 @@ class SalesInvoice extends Model
         'total_amount',
         'status',
         'posted_at',
+        'created_by',
     ];
 
     protected $casts = [
@@ -37,6 +39,7 @@ class SalesInvoice extends Model
     ];
 
     protected $auditLogIgnore = ['updated_at', 'created_at'];
+
     protected $auditEntityType = 'sales_invoice';
 
     public function lines(): HasMany
@@ -78,5 +81,10 @@ class SalesInvoice extends Model
     public function customer(): BelongsTo
     {
         return $this->businessPartner();
+    }
+
+    public function createdBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
     }
 }
