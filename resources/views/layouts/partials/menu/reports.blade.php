@@ -15,6 +15,27 @@
                 </a>
             </li>
             <li class="nav-item">
+                <a href="{{ route('reports.balance-sheet') }}"
+                    class="nav-link {{ request()->routeIs('reports.balance-sheet') ? 'active' : '' }}">
+                    <i class="far fa-circle nav-icon"></i>
+                    <p>Balance Sheet</p>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="{{ route('reports.profit-loss') }}"
+                    class="nav-link {{ request()->routeIs('reports.profit-loss') ? 'active' : '' }}">
+                    <i class="far fa-circle nav-icon"></i>
+                    <p>Profit &amp; Loss</p>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="{{ route('reports.cash-flow-statement') }}"
+                    class="nav-link {{ request()->routeIs('reports.cash-flow-statement') ? 'active' : '' }}">
+                    <i class="far fa-circle nav-icon"></i>
+                    <p>Cash Flow Statement</p>
+                </a>
+            </li>
+            <li class="nav-item">
                 <a href="{{ route('reports.gl-detail') }}"
                     class="nav-link {{ request()->routeIs('reports.gl-detail') ? 'active' : '' }}">
                     <i class="far fa-circle nav-icon"></i>

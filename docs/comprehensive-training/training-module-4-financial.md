@@ -486,6 +486,8 @@ By the end of this module, participants will be able to:
 
 ### Financial Reporting
 
+**ERP reference (implementation)**: Balance Sheet, P&L, and indirect Cash Flow behaviour (hierarchy, tie-out, `config/cash_flow.php`) are documented in **`docs/financial-statements-reports.md`**.
+
 **Balance Sheet Generation**
 
 -   **Scenario**: Generate monthly balance sheet

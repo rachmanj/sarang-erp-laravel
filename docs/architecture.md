@@ -1,5 +1,5 @@
 Purpose: Technical reference for understanding system design and development patterns
-Last Updated: 2026-04-07 (Document Creation Logs; `created_by` on GRPO/PP/SR + decision record)
+Last Updated: 2026-04-08 (Financial statements: Balance Sheet, P&L, Cash Flow indirect; hierarchical COA; `config/cash_flow.php`)
 
 ## Architecture Documentation Guidelines
 
@@ -676,7 +676,11 @@ The database schema has been consolidated from 51 to 44 migration files for impr
 -   `/erp-parameters/*`: ERP Parameters management with CRUD operations, category-based organization, and bulk updates
 -   `/reports/open-items/*`: Open Items reporting with comprehensive document status monitoring, aging analysis, and Excel export
 -   `/reports/document-creation-logs`: Document Creation Logs — merged list of PO, GRPO, PI, PP, SO, DO, SI, SR by `created_at` (permission `reports.open-items`)
--   `/reports/*`: Comprehensive reporting suite
+-   `/reports/*`: Comprehensive reporting suite (permission `reports.view` unless noted). **Core financial statements** (see `App\Services\Reports\ReportService`, `App\Http\Controllers\Reports\ReportsController`, `routes/web/reports.php`):
+    -   **Trial Balance** & **GL Detail**: Posted journals by default; `include_unposted=1` includes drafts. Exports: `export=csv`, `export=pdf` (Dompdf views under `resources/views/reports/pdf/`).
+    -   **Balance Sheet**: Asset / liability / `net_assets` only; hierarchical rows from COA `parent_id` with parent **rollup** (child sums). JSON includes `totals.unclosed_pnl_cumulative` and `difference_vs_unclosed_pnl` (tie-out to cumulative P&amp;L in TB). UI/PDF corporate header (`entity_name` = `config('app.name')`). **Reference**: `docs/financial-statements-reports.md`.
+    -   **Profit & Loss**: Period P&amp;L by COA buckets (4 revenue, 5 COGS, 6 operating, 7 other); same hierarchy/rollup pattern as BS within each section.
+    -   **Cash Flow (indirect)**: Starts from net income + depreciation add-back + working capital deltas from **balance sheet display** balances by **prefix** lists in `config/cash_flow.php` (`tax_payables`, `input_vat_prepaid_assets`, `short_term_borrowings`, `equity_financing_prefixes`, etc.). Financing excludes `3.3` retained earnings by default to avoid double-counting net income. `ReportService::balanceSheetDisplayTotalForPrefixes()` supports reconciliation tests.
 -   `/admin/*`: User and role management
 
 ### API Endpoints

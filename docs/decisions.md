@@ -1,5 +1,5 @@
 **Purpose**: Record technical decisions and rationale for future reference
-**Last Updated**: 2026-04-07 (Business Partner Account Statement documentation)
+**Last Updated**: 2026-04-08 (Financial statements & indirect cash flow configuration)
 
 # Technical Decision Records
 
@@ -29,6 +29,26 @@ Decision: [Title] - [YYYY-MM-DD]
 ---
 
 ## Recent Decisions
+
+### Decision: Financial statements (BS / P&L hierarchy) and indirect cash flow prefix configuration - 2026-04-08
+
+**Context**: Users needed **published-quality** Balance Sheet and P&L with **parent/child COA** rollups, and a **Statement of Cash Flows (indirect)** that reconciles closer to Indonesian **Trading** COA (tax payables, input VAT, short-term debt, equity capital) without double-counting net income in financing.
+
+**Decision**:
+
+1. **Hierarchy**: Build statement rows from `accounts.parent_id` per section; **parent `amount`** = rollup of descendants + own postings; **section totals** remain sums of **underlying journal-derived** balances (not summing parent lines), preserving TB reconciliation.
+2. **Balance sheet explanation**: Expose `unclosed_pnl_cumulative` and `difference_vs_unclosed_pnl` so “difference” is understood as cumulative P&L not yet closed to equity.
+3. **Cash flow**: Drive WC and non-operating sections via **`config/cash_flow.php`** prefix lists; add **tax payables** (`2.1.2`), **input VAT / prepaid tax assets** (`1.1.4`), **short-term borrowings** (`2.1.3`), **long-term liabilities** (`2.2`), **equity financing** (`3.1`, `3.2`) — **exclude `3.3`** from equity financing lines by default so **net income** in operating is not duplicated.
+4. **UI/PDF**: Corporate-style headers (`entity_name` from `config('app.name')`); CSV includes `depth` and `is_parent`.
+5. **Verification**: `ReportAccuracyTest` compares report totals to TB/journal math; `balanceSheetDisplayTotalForPrefixes()` is public for reconciliation.
+
+**Rationale**: Indirect cash flow is inherently mapping-dependent; configuration over hard-coded IDs allows nonprofit or custom COA overrides. Hierarchy matches how accountants read the COA tree.
+
+**Implementation**: `App\Services\Reports\ReportService`, `config/cash_flow.php`, `ReportsController` CSV/PDF, views under `resources/views/reports/` and `reports/pdf/`, tests `tests/Feature/ReportsTest.php`, `tests/Feature/ReportAccuracyTest.php`. **Doc**: `docs/financial-statements-reports.md`.
+
+**Review Date**: 2027-04-08
+
+---
 
 ### Decision: Business Partner detail — GL-based Account statement tab (scope and docs) - 2026-04-07
 

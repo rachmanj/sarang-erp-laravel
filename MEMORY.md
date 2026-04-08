@@ -1,5 +1,5 @@
 **Purpose**: AI's persistent knowledge base for project context and learnings
-**Last Updated**: 2026-04-07 (Document Creation Logs + `created_by`)
+**Last Updated**: 2026-04-08 (Financial statements + indirect cash flow)
 
 ## Memory Maintenance Guidelines
 
@@ -26,6 +26,14 @@
 ---
 
 ## Project Memory Entries
+
+### [101] Financial statements (BS / P&L hierarchy) + indirect cash flow prefixes (2026-04-08) ✅ COMPLETE
+
+**Challenge**: Need **statement-quality** BS/P&L with **parent/child rollups** from `accounts.parent_id`, and an **indirect cash flow** that maps **Trading COA** tax/VAT/ST borrowings/equity without double-counting net income.
+
+**Solution**: `ReportService` hierarchy builders + rollup visibility; BS totals unchanged vs TB; `unclosed_pnl_cumulative` tie-out; `config/cash_flow.php` drives WC/financing (`tax_payables`, `input_vat_prepaid_assets`, `short_term_borrowings`, `equity_financing_prefixes`, etc.); `balanceSheetDisplayTotalForPrefixes()` for tests. UI/PDF/CSV per `docs/financial-statements-reports.md`; tests `ReportsTest`, `ReportAccuracyTest`.
+
+**Learning**: Indirect CF is only as complete as **prefix coverage**—document reconciliation gaps; keep **`3.3` out of equity financing** when NI is already in operating.
 
 ### [100] Document Creation Logs + `created_by` on GRPO/PP/SR (2026-04-07) ✅ COMPLETE
 

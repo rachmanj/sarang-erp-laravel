@@ -1,5 +1,5 @@
 **Purpose**: Track current work and immediate priorities
-**Last Updated**: 2026-04-07 (Document Creation Logs + `created_by` documentation)
+**Last Updated**: 2026-04-08 (Financial statements documentation)
 
 ## Task Management Guidelines
 
@@ -45,6 +45,7 @@ Include relevant context in brackets to help with future AI-assisted coding:
 
 ## Recently Completed
 
+-   `[done] P1: Financial statements (Balance Sheet, P&L, indirect Cash Flow) — hierarchy, config, docs [ReportService hierarchical BS/P&L from accounts.parent_id with parent rollups; BS unclosed P&L tie-out; config/cash_flow.php tax/VAT/ST borrowings/equity financing; TB/GL CSV/PDF parity; corporate UI + PDF headers; ReportAccuracyTest; docs/financial-statements-reports.md, architecture.md, decisions.md, MODULES-AND-FEATURES.md, MEMORY [101], training-module-9-reporting.md] (completed: 2026-04-08)`
 -   `[done] P1: Document Creation Logs report and created_by on GRPO/PP/SR [Route reports.document-creation-logs.index, DocumentCreationLogsService (PO/GRPO/PI/PP/SO/DO/SI/SR), DocumentCreationLogsController, view reports/document-creation-logs, sidebar + MenuSearchService; migrations 2026_04_07_152435 GRPO, 2026_04_07_153759 PP+SR, 2026_04_07_134340 PI+SI; controllers/services set Auth::id(); TradeDocumentCreatedBySchemaTest; docs: architecture, decisions, MODULES-AND-FEATURES, MEMORY [100], training-module-9-reporting] (completed: 2026-04-07)`
 -   `[done] P1: Domain Assistant (live ERP tools + threads) + docs + HELP manuals [permission access-domain-assistant; assistant_conversations/messages/request_logs; DomainAssistantService + DomainAssistantDataService + DomainAssistantOpenRouterClient + AssistantConversationManager; routes /assistant/*, /admin/assistant-report; AR tools search_sales_invoices + get_sales_invoice_detail; scopeActiveCompanyEntities for invoice number vs default entity for browse; navbar fa-robot; UI assistant/index terminal theme; manuals domain-assistant-manual-en/id, help-navigation domain-assistant, in-app-help cross-links; migrations permission sync; docs architecture/decisions/MEMORY [098]/todo/action-plans domain-assistant + in-app-help shipped table; test DomainAssistantTest guest redirect] (completed: 2026-04-04)`
 -   `[done] P1: In-app HELP assistant (RAG + OpenRouter) + bug/feature intake + follow-up UX/docs [Core: POST /help/ask + /help/feedback; help_embeddings + help_feedback; HelpManualChunker + HelpAssistantService + HelpOpenRouterClient; php artisan help:reindex; modal how-to + feedback; fa-book-open navbar launcher (head.blade.php); answer box scroll fix (no modal-dialog-scrollable; #help-answer; focus after reply); manuals: sales-invoice + in-app-help EN/ID, README, help-navigation.json, DO→SI link; tests HelpVector/ManualChunker/Feedback guest; docs: architecture mermaid, decisions, MEMORY [097], action-plan] (completed: 2026-04-01)`

@@ -1,6 +1,6 @@
 # Sarange ERP - Modules and Features List
 
-**Last Updated**: 2026-04-07  
+**Last Updated**: 2026-04-08  
 **System Status**: Production Ready (95% Complete)  
 **Technology Stack**: Laravel 12, PHP 8.2+, MySQL, AdminLTE 3.14
 
@@ -368,11 +368,16 @@
 ## Reporting & Analytics
 
 ### 32. Financial Reports
-- **Trial Balance**: Real-time financial position reporting
-- **GL Detail**: Detailed general ledger with filtering
-- **Cash Ledger**: Cash flow tracking and reporting
+- **Trial Balance**: Real-time financial position reporting; CSV/PDF export; posted journals by default (`include_unposted` optional)
+- **GL Detail**: Detailed general ledger with filtering; CSV/PDF export
+- **Balance Sheet**: Statement of financial position (asset / liability / net_assets); **hierarchical COA** with parent rollups and corporate-style UI/PDF; tie-out lines for unclosed P&L vs accounting equation; CSV includes `depth` / `is_parent`
+- **Profit & Loss**: Period P&L by COA buckets (revenue, COGS, operating, other); **same hierarchy/rollup** pattern as Balance Sheet within each section; highlighted net income summary
+- **Cash Flow (indirect)**: Net income + depreciation + working capital and financing deltas from **configurable account prefixes** (`config/cash_flow.php`) — includes tax payables, input VAT/prepaid tax assets, short-term borrowings, long-term debt, equity capital (excludes `3.3` retained earnings by default to avoid double-counting NI); reconciliation vs cash & bank balances
+- **Cash Ledger**: Transaction-level cash account activity (distinct from indirect cash flow statement)
 - **Account Statements**: GL account and business partner statements
 - **Control Account Reconciliation**: Reconciliation reports with variance detection
+
+**Developer reference**: `docs/financial-statements-reports.md`
 
 ### 33. AR/AP Reports
 - **AR Aging Report**: Customer payment tracking and aging analysis

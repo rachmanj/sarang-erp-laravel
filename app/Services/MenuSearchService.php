@@ -452,6 +452,30 @@ class MenuSearchService
                 ['trial balance', 'reports', 'financial']
             );
             $items[] = $this->buildMenuItem(
+                'Balance Sheet',
+                route('reports.balance-sheet'),
+                'fas fa-chart-bar',
+                'Reports',
+                'REPORTS > Balance Sheet',
+                ['balance sheet', 'reports', 'financial', 'assets', 'liabilities', 'equity']
+            );
+            $items[] = $this->buildMenuItem(
+                'Profit & Loss',
+                route('reports.profit-loss'),
+                'fas fa-chart-bar',
+                'Reports',
+                'REPORTS > Profit & Loss',
+                ['profit loss', 'p&l', 'income statement', 'reports', 'financial', 'revenue', 'expense']
+            );
+            $items[] = $this->buildMenuItem(
+                'Cash Flow Statement',
+                route('reports.cash-flow-statement'),
+                'fas fa-chart-bar',
+                'Reports',
+                'REPORTS > Cash Flow Statement',
+                ['cash flow', 'statement of cash flows', 'scf', 'reports', 'financial', 'indirect']
+            );
+            $items[] = $this->buildMenuItem(
                 'GL Detail',
                 route('reports.gl-detail'),
                 'fas fa-chart-bar',

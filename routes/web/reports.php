@@ -8,6 +8,9 @@ use Illuminate\Support\Facades\Route;
 
 Route::prefix('reports')->group(function () {
     Route::get('/trial-balance', [ReportsController::class, 'trialBalance'])->name('reports.trial-balance');
+    Route::get('/balance-sheet', [ReportsController::class, 'balanceSheet'])->name('reports.balance-sheet');
+    Route::get('/profit-loss', [ReportsController::class, 'profitLoss'])->name('reports.profit-loss');
+    Route::get('/cash-flow-statement', [ReportsController::class, 'cashFlowStatement'])->name('reports.cash-flow-statement');
     Route::get('/gl-detail', [ReportsController::class, 'glDetail'])->name('reports.gl-detail');
     Route::get('/ar-aging', [ReportsController::class, 'arAging'])->name('reports.ar-aging');
     Route::get('/ap-aging', [ReportsController::class, 'apAging'])->name('reports.ap-aging');

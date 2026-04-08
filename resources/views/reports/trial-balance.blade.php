@@ -13,14 +13,20 @@
     <div class="row">
         <div class="col-12">
             <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center">
+                <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
                     <div>
                         <h3 class="card-title">Trial Balance Report</h3>
                     </div>
-                    <form class="form-inline" id="form">
+                    <form class="form-inline align-items-end" id="form">
                         <input type="date" name="date" class="form-control form-control-sm mr-1"
                             value="{{ now()->toDateString() }}" />
-                        <button class="btn btn-primary btn-sm" type="submit">Load</button>
+                        <label class="mr-2 mb-0 small">
+                            <input type="checkbox" name="include_unposted" id="tb_include_unposted" value="1">
+                            Include unposted journals
+                        </label>
+                        <button class="btn btn-primary btn-sm mr-2" type="submit">Load</button>
+                        <a class="btn btn-sm btn-outline-success mr-2" id="tb-csv-link" href="#">CSV</a>
+                        <a class="btn btn-sm btn-outline-primary" id="tb-pdf-link" href="#" target="_blank">PDF</a>
                     </form>
                 </div>
                 <div class="card-body">
@@ -52,9 +58,27 @@
     <script>
         const form = document.getElementById('form');
         const tbody = document.querySelector('#tb tbody');
+
+        function tbQuery() {
+            const p = new URLSearchParams();
+            p.set('date', form.date.value);
+            if (document.getElementById('tb_include_unposted').checked) p.set('include_unposted', '1');
+            return p.toString();
+        }
+
+        function tbUpdateExports() {
+            const q = tbQuery();
+            document.getElementById('tb-csv-link').href = '/reports/trial-balance?' + q + '&export=csv';
+            document.getElementById('tb-pdf-link').href = '/reports/trial-balance?' + q + '&export=pdf';
+        }
+
         async function load() {
-            const date = form.date.value;
-            const res = await fetch(`/reports/trial-balance?date=${date}`);
+            tbUpdateExports();
+            const res = await fetch('/reports/trial-balance?' + tbQuery(), {
+                headers: {
+                    'Accept': 'application/json'
+                }
+            });
             const data = await res.json();
             tbody.innerHTML = '';
             let tdebit = 0,
@@ -74,6 +98,8 @@
             e.preventDefault();
             load();
         });
+        document.getElementById('tb_include_unposted').addEventListener('change', tbUpdateExports);
+        form.date.addEventListener('change', tbUpdateExports);
         load();
     </script>
 @endsection
