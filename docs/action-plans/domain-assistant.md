@@ -151,7 +151,7 @@ One method per tool. Every query scoped to current user's visibility (mirroring 
 | `get_erp_summary` | `getErpSummary()` | SO/PO/DO/GRPO counts | *(none)* |
 | `search_sales_orders` | `searchSalesOrders()` | `SalesOrder` | `customer_query`, `status`, `date_from`, `date_to`, `limit` ≤ 20 |
 | `search_purchase_orders` | `searchPurchaseOrders()` | `PurchaseOrder` | `supplier_query`, `status`, `date_from`, `date_to`, `limit` |
-| `search_delivery_orders` | `searchDeliveryOrders()` | `DeliveryOrder` | `customer_query`, `status`, `date_from`, `date_to`, `limit` |
+| `search_delivery_orders` | `searchDeliveryOrders()` | `DeliveryOrder` | `do_number_query` (DO/SJ by number, all active entities), `customer_query`, `status`, `date_from`, `date_to`, `limit` |
 | `search_goods_receipt_po` | `searchGoodsReceiptPO()` | `GoodsReceiptPO` | `supplier_query`, `status`, `date_from`, `date_to`, `limit` |
 | `search_inventory_items` | `searchInventoryItems()` | `InventoryItem` | `name_query`, `category`, `warehouse_id`, `low_stock_only`, `limit` |
 | `search_business_partners` | `searchBusinessPartners()` | `BusinessPartner` | `name_query`, `type` (customer/supplier/both), `limit` |

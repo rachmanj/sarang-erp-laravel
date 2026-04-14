@@ -43,7 +43,8 @@ Fitur harus **diaktifkan** di konfigurasi server (`DOMAIN_ASSISTANT_ENABLED`) da
 - **Purchase Invoice (AP / faktur pembelian)** — mis. “Tampilkan detail Purchase Invoice **72260300114**”.  
   Asisten mencari di **Purchase Invoice**, bukan **Purchase Order** (PO).
 - **Sales Order** — pesanan terbuka, nama pelanggan, rentang tanggal.
-- **Purchase Order**, **Delivery Order**, **Goods Receipt (GRPO)** — sesuai filter pemasok/pelanggan dan tanggal.
+- **Delivery Order (DO / surat jalan)** — mis. “Cek status DO **71260700222**” atau “Status SJ nomor …”. Asisten mencari berdasarkan **nomor DO** di database (bukan hanya nama pelanggan).
+- **Purchase Order**, **Goods Receipt (GRPO)** — sesuai filter pemasok/pelanggan dan tanggal.
 - **Item inventori** — kode/nama, kategori, stok rendah.
 - **Mitra bisnis** — pelanggan dan pemasok.
 

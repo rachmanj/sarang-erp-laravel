@@ -822,7 +822,12 @@ class SalesInvoiceController extends Controller
             $q->where('si.company_entity_id', (int) $request->company_entity_id);
         }
 
+        $totalsRow = DB::query()->fromSub($q->clone(), 'inv')
+            ->selectRaw('COALESCE(SUM(inv.total_amount), 0) as sum_total_amount')
+            ->first();
+
         return DataTables::of($q)
+            ->with('sum_total_amount', (float) $totalsRow->sum_total_amount)
             ->editColumn('total_amount', function ($row) {
                 return number_format((float) $row->total_amount, 2);
             })

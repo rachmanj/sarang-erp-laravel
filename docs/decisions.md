@@ -1,5 +1,5 @@
 **Purpose**: Record technical decisions and rationale for future reference
-**Last Updated**: 2026-04-08 (Financial statements & indirect cash flow configuration)
+**Last Updated**: 2026-04-14 (DO cancel + SI totals + HELP manual)
 
 # Technical Decision Records
 
@@ -29,6 +29,24 @@ Decision: [Title] - [YYYY-MM-DD]
 ---
 
 ## Recent Decisions
+
+### Decision: Delivery Order cancel button + Sales Invoice list filtered totals + HELP manual (DO partial shipment) - 2026-04-14
+
+**Context**: Users could not find a way to cancel a Delivery Order from the UI (route existed but no form). Sales Invoice index lacked the same **Totals (filtered)** footer as Purchase Invoices. HELP / manuals needed an explicit learning note: **partial shipment** mistakes should be fixed by **cancel DO + new DO**, not by shrinking Sales Order quantities.
+
+**Decision**:
+
+1. **DO**: Show **Cancel delivery order** on `delivery_orders/show.blade.php` when `canBeCancelled()`; `DELETE` → `cancelDeliveryOrder()`.
+2. **SI list**: `SalesInvoiceController::data()` attaches `sum_total_amount` over the filtered query (subquery clone); index view `tfoot` + `dataSrc` + **entity** filter on AJAX (aligned with PI).
+3. **Docs**: Expand `docs/manuals/delivery-order-manual-id.md` (Cancel vs Reject, partial shipment, `help:reindex`); `help-navigation.json` keywords/notes for delivery-orders.
+
+**Rationale**: Discoverability and parity with PI reporting; RAG needs explicit business rules so users are not told to edit SO lines when only the first DO qty was wrong.
+
+**Implementation**: `resources/views/delivery_orders/show.blade.php`, `SalesInvoiceController::data`, `resources/views/sales_invoices/index.blade.php`, manuals + navigation JSON; `docs/architecture.md`, `MEMORY.md`.
+
+**Review Date**: 2027-04-14
+
+---
 
 ### Decision: Financial statements (BS / P&L hierarchy) and indirect cash flow prefix configuration - 2026-04-08
 

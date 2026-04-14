@@ -82,6 +82,13 @@
                                     </tr>
                                 </thead>
                                 <tbody></tbody>
+                                <tfoot class="bg-light">
+                                    <tr>
+                                        <th colspan="4" class="text-right">Totals (filtered)</th>
+                                        <th class="text-right font-weight-bold" id="si-sum-total">—</th>
+                                        <th colspan="2"></th>
+                                    </tr>
+                                </tfoot>
                             </table>
                         </div>
                         <div class="card-footer"></div>
@@ -94,6 +101,13 @@
     @push('scripts')
         <script>
             $(function() {
+                function formatSiMoney(n) {
+                    return new Intl.NumberFormat('id-ID', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                    }).format(Number(n) || 0);
+                }
+
                 var table = $('#si-table').DataTable({
                     processing: true,
                     serverSide: true,
@@ -104,6 +118,13 @@
                             d.to = $('#filter_to').val();
                             d.q = $('#filter_q').val();
                             d.status = $('#filter_status').val();
+                            d.company_entity_id = $('input[name="entity_filter"]:checked').val() || '';
+                        },
+                        dataSrc: function(json) {
+                            if (json.sum_total_amount !== undefined) {
+                                $('#si-sum-total').text(formatSiMoney(json.sum_total_amount));
+                            }
+                            return json.data;
                         }
                     },
                     columns: [{

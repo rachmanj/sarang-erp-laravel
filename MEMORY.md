@@ -1,5 +1,5 @@
 **Purpose**: AI's persistent knowledge base for project context and learnings
-**Last Updated**: 2026-04-08 (Financial statements + indirect cash flow)
+**Last Updated**: 2026-04-14 (DO cancel UI + SI list totals + manual)
 
 ## Memory Maintenance Guidelines
 
@@ -26,6 +26,14 @@
 ---
 
 ## Project Memory Entries
+
+### [102] Delivery Order cancel UI + SI filtered totals + DO manual (partial shipment) (2026-04-14) ✅ COMPLETE
+
+**Challenge**: `delivery-orders.destroy` / `cancelDeliveryOrder()` had **no** detail-page control; SI list had no **Totals (filtered)** unlike PI; users and HELP needed clarity: wrong **first DO qty** with a correct **SO** should use **Cancel DO → new DO**, not SO line shrink.
+
+**Solution**: **Cancel delivery order** button when `canBeCancelled()`; `SalesInvoiceController::data()` adds `sum_total_amount` + index `tfoot` + entity on AJAX; `delivery-order-manual-id.md` section on Cancel vs Reject, partial shipment, troubleshooting missing button; `help-navigation.json` keywords/notes. Docs: `architecture.md`, `decisions.md`, `todo.md`.
+
+**Learning**: Expose destructive/recovery actions in UI when the backend exists; list **sum** keys must use the **same filtered** query clone as DataTables; encode **partial vs SO** rules in manuals for RAG—run **`php artisan help:reindex`** after manual edits.
 
 ### [101] Financial statements (BS / P&L hierarchy) + indirect cash flow prefixes (2026-04-08) ✅ COMPLETE
 

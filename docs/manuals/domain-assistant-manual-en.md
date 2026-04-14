@@ -43,7 +43,8 @@ The feature must be **enabled** in server configuration (`DOMAIN_ASSISTANT_ENABL
 - **Purchase Invoice (AP / faktur pembelian)** — e.g. “Show detail for Purchase Invoice **72260300114**”.  
   The assistant searches **Purchase Invoices**, not the same thing as **Purchase Orders** (PO).
 - **Sales Order** — open orders, customer name, date range.
-- **Purchase Order**, **Delivery Order**, **Goods Receipt (GRPO)** — search by supplier/customer and dates where applicable.
+- **Delivery Order (DO / delivery note)** — e.g. “Check status of DO **71260700222**”. The assistant looks up by **DO document number** (not only customer name).
+- **Purchase Order**, **Goods Receipt (GRPO)** — search by supplier/customer and dates where applicable.
 - **Inventory items** — by code/name, category, low stock.
 - **Business partners** — customers and suppliers by name or code.
 

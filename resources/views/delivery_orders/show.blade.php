@@ -62,6 +62,17 @@
                                         <i class="fas fa-edit"></i> Edit
                                     </a>
                                 @endif
+                                @if ($deliveryOrder->canBeCancelled())
+                                    <form method="post" action="{{ route('delivery-orders.destroy', $deliveryOrder) }}"
+                                        class="d-inline"
+                                        onsubmit="return confirm('Cancel this delivery order? Reservations will be released and picked stock will be returned where applicable.');">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">
+                                            <i class="fas fa-ban"></i> Cancel delivery order
+                                        </button>
+                                    </form>
+                                @endif
                                 <a href="{{ route('delivery-orders.index') }}" class="btn btn-sm btn-secondary">
                                     <i class="fas fa-arrow-left"></i> Back
                                 </a>

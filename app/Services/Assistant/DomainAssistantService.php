@@ -132,6 +132,7 @@ Document types (do not confuse them):
 - **Purchase Invoice / faktur pembelian / AP invoice / PI** (nomor faktur pembelian): use **search_purchase_invoices** with the number in **invoice_query**, or **get_purchase_invoice_detail** with **invoice_no** for header + line items. Searches all active company entities when resolving by number. Never use **search_purchase_orders** or **supplier_query** for a purchase invoice document number.
 - **Sales Order** (SO, pesanan penjualan): use **search_sales_orders** with customer name/code or order context — not invoice numbers.
 - **Purchase Order** (PO, pesanan pembelian): use **search_purchase_orders** — not for faktur pembelian / purchase invoice numbers.
+- **Delivery Order** (DO, SJ, surat jalan, pengiriman): use **search_delivery_orders**. When the user gives a **DO number** / nomor DO / nomor SJ, put it in **do_number_query** (not customer_query). Lookup by number searches all active company entities and ignores the 90-day date window. For browse-by-customer or by date only, omit do_number_query.
 
 Rules:
 - Never invent document numbers, amounts, or IDs. Use the provided tools to fetch live data from the database before stating facts.
@@ -211,13 +212,14 @@ TXT;
                     'limit' => ['type' => 'integer'],
                 ],
             ])),
-            $this->fn('search_delivery_orders', 'Search delivery orders by customer and planned delivery date range.', $props([
+            $this->fn('search_delivery_orders', 'Search **delivery orders** (DO / surat jalan). Pass **do_number_query** when the user gives a DO/SJ document number (status check, “cek DO …”). Searches all active company entities when do_number_query is set; date filters are optional in that case. Otherwise filter by customer_query and planned delivery date range.', $props([
                 'type' => 'object',
                 'properties' => [
-                    'customer_query' => ['type' => 'string'],
+                    'do_number_query' => ['type' => 'string', 'description' => 'DO / SJ document number or fragment (do_number). Use when user asks by number.'],
+                    'customer_query' => ['type' => 'string', 'description' => 'Customer name or code fragment (when not searching by DO number)'],
                     'status' => ['type' => 'string'],
-                    'date_from' => ['type' => 'string'],
-                    'date_to' => ['type' => 'string'],
+                    'date_from' => ['type' => 'string', 'description' => 'Y-m-d (optional if do_number_query is set)'],
+                    'date_to' => ['type' => 'string', 'description' => 'Y-m-d'],
                     'limit' => ['type' => 'integer'],
                 ],
             ])),

@@ -404,16 +404,31 @@ class DomainAssistantDataService
     }
 
     /**
+     * Delivery Orders (DO / SJ). When the user gives a DO number, pass it in **do_number_query** — searches all active company entities and ignores the date window (like invoice lookup).
+     *
      * @return array<string, mixed>
      */
     public function searchDeliveryOrders(array $arguments, bool $showAllRecords): array
     {
         $limit = $this->capLimit($arguments['limit'] ?? null);
-        [$from, $to] = $this->parseDateRange($arguments['date_from'] ?? null, $arguments['date_to'] ?? null);
+        $doRaw = isset($arguments['do_number_query']) ? trim((string) $arguments['do_number_query']) : '';
+        $hasDoQuery = $doRaw !== '';
 
-        $q = DeliveryOrder::query()->with(['customer:id,name,code']);
-        $this->scopeCompanyEntity($q, $showAllRecords);
-        $q->whereBetween('planned_delivery_date', [$from, $to]);
+        $q = DeliveryOrder::query()->with([
+            'customer:id,name,code',
+            'companyEntity:id,code,name',
+            'salesOrder:id,order_no',
+        ]);
+
+        if ($hasDoQuery) {
+            $this->scopeActiveCompanyEntities($q);
+            $needle = $this->escapeLike($doRaw);
+            $q->where('do_number', 'like', '%'.$needle.'%');
+        } else {
+            $this->scopeCompanyEntity($q, $showAllRecords);
+            [$from, $to] = $this->parseDateRange($arguments['date_from'] ?? null, $arguments['date_to'] ?? null);
+            $q->whereBetween('planned_delivery_date', [$from, $to]);
+        }
 
         $status = $arguments['status'] ?? null;
         if (is_string($status) && $status !== '') {
@@ -435,8 +450,12 @@ class DomainAssistantDataService
                 'id' => $row->id,
                 'do_number' => $row->do_number,
                 'planned_delivery_date' => $row->planned_delivery_date?->toDateString(),
+                'actual_delivery_date' => $row->actual_delivery_date?->toDateString(),
                 'customer' => $row->customer?->name,
+                'sales_order_no' => $row->salesOrder?->order_no,
                 'status' => $row->status,
+                'approval_status' => $row->approval_status,
+                'company_entity' => $row->companyEntity?->name,
             ])->all(),
         ];
     }

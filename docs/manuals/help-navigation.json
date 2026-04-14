@@ -71,8 +71,9 @@
             "title_id": "Delivery Order / Surat Jalan",
             "menu_path_en": "Sidebar → Sales → Delivery Orders.",
             "menu_path_id": "Menu samping → Sales → Delivery Orders.",
-            "keywords_en": ["delivery order", "DO", "surat jalan", "shipping"],
-            "keywords_id": ["surat jalan", "DO", "pengiriman"]
+            "keywords_en": ["delivery order", "DO", "surat jalan", "shipping", "cancel delivery order", "delete DO", "partial shipment", "split delivery"],
+            "keywords_id": ["surat jalan", "DO", "pengiriman", "batalkan DO", "cancel delivery order", "hapus surat jalan", "pengiriman sebagian", "split delivery"],
+            "notes": "Cancel DO: detail page button when status allows; do not shrink SO qty to fix wrong first DO — cancel DO and create new DO with correct Delivery Qty. Reindex: php artisan help:reindex after manual edits."
         },
         {
             "id": "sales-invoice",

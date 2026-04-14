@@ -9,13 +9,14 @@
 5. [Membuat Delivery Order](#membuat-delivery-order)
 6. [Halaman Daftar Delivery Order](#halaman-daftar-delivery-order)
 7. [Halaman Detail Delivery Order](#halaman-detail-delivery-order)
-8. [Tabel Delivery Items](#tabel-delivery-items)
-9. [Persetujuan dan Penolakan](#persetujuan-dan-penolakan)
-10. [Mark as Delivered (Tandai Terkirim)](#mark-as-delivered-tandai-terkirim)
-11. [Membuat Faktur dari Delivery Order](#membuat-faktur-dari-delivery-order)
-12. [Fitur Tambahan](#fitur-tambahan)
-13. [Pemecahan Masalah](#pemecahan-masalah)
-14. [Referensi Cepat](#referensi-cepat)
+8. [Membatalkan Delivery Order (Cancel DO)](#membatalkan-delivery-order-cancel-do)
+9. [Tabel Delivery Items](#tabel-delivery-items)
+10. [Persetujuan dan Penolakan](#persetujuan-dan-penolakan)
+11. [Mark as Delivered (Tandai Terkirim)](#mark-as-delivered-tandai-terkirim)
+12. [Membuat Faktur dari Delivery Order](#membuat-faktur-dari-delivery-order)
+13. [Fitur Tambahan](#fitur-tambahan)
+14. [Pemecahan Masalah](#pemecahan-masalah)
+15. [Referensi Cepat](#referensi-cepat)
 
 ---
 
@@ -216,11 +217,55 @@ Tombol **Create Delivery Order** tersedia saat status SO = **Confirmed** atau **
 - **Relationship Map**: Menampilkan peta hubungan dokumen (SO, DO, Faktur)
 - **Print**: Mencetak surat jalan (pilih Standard atau Dot Matrix)
 - **Edit**: Hanya tampil saat status **Draft**
+- **Cancel delivery order**: Tampil jika DO **boleh dibatalkan** (lihat [Membatalkan Delivery Order](#membatalkan-delivery-order-cancel-do)). Mengonfirmasi sebelum mengirim permintaan pembatalan.
 - **Back**: Kembali ke daftar DO
 
 ### Document Navigation
 
 Komponen navigasi dokumen menampilkan tautan ke dokumen terkait (Base Documents dan Target Documents) berdasarkan Relationship Map.
+
+---
+
+## Membatalkan Delivery Order (Cancel DO)
+
+### Siapa yang membutuhkan ini?
+
+- DO dibuat atau disetujui dengan **Delivery Qty salah**, padahal **Sales Order sudah benar** (misalnya seharusnya pengiriman **sebagian** dulu, sisanya nanti).
+- DO perlu dibatalkan sebelum **Mark as Delivered**, agar stok dan alokasi kembali konsisten.
+
+### Syarat teknis (kapan boleh Cancel)
+
+Sistem mengizinkan pembatalan hanya jika status DO salah satu dari: **Draft**, **Picking**, **Packed**, atau **In Transit** (method `canBeCancelled()` pada model Delivery Order). Setelah **Delivered**, **Completed**, atau sudah **Cancelled**, pembatalan lewat tombol ini **tidak** tersedia — gunakan prosedur bisnis lain (retur, nota kredit, konsultasi admin).
+
+### Di mana tombolnya?
+
+Pada **halaman detail DO** (bukan di daftar): tombol **Cancel delivery order** di area header (dekat Print / Back). Aksi ini memanggil route hapus/cancel server yang menjalankan `cancelDeliveryOrder()` (bukan sekadar menghapus baris tampilan).
+
+### Beda **Cancel** vs **Reject**
+
+| Aksi | Kapan | Arti |
+|------|--------|------|
+| **Reject** | Approval masih **Pending** | Menolak pengajuan persetujuan; isi alasan wajib. |
+| **Cancel delivery order** | DO sudah melewati draft / sudah **Approved** dan masih dalam rentang status di atas | Membatalkan dokumen DO; mengembalikan reservasi/stok sesuai logika pembatalan di sistem. |
+
+Jangan menyamakan kedua tombol ini saat menjawab pengguna di bantuan (HELP).
+
+### Kasus pembelajaran: pengiriman sebagian — **SO jangan diubah** kecilkan hanya karena DO salah
+
+- **Sales Order** menyimpan **total pesanan** pelanggan (Ordered Qty per baris). **Beberapa DO** dari satu SO adalah pola normal (**split delivery**).
+- Jika **qty pada SO sudah benar** tetapi **Delivery Qty pada DO salah** (misal seharusnya kirim **21,5** dan **30** pada pengiriman pertama, bukan **24** dan **32**):
+  - **Jangan** menurunkan qty baris SO menjadi 21,5 / 30 hanya untuk “mencocokkan” pengiriman pertama — itu akan mengubah kontrak pesanan.
+  - Langkah yang selaras sistem: **Cancel** DO yang salah → buat **DO baru** dari SO yang sama, isi **Delivery Qty** sesuai pengiriman ini (≤ **Remain Qty**). Sisa qty tetap pada SO untuk **DO berikutnya**.
+
+### Apa yang dilakukan sistem saat Cancel (ringkas)
+
+- Status DO menjadi **cancelled**.
+- Reservasi/stok dikembalikan sesuai implementasi `cancelDeliveryOrder` (termasuk penyesuaian inventory untuk qty yang sudah dianggap keluar pada DO yang disetujui).
+- Baris DO tidak lagi dihitung sebagai pengiriman aktif untuk sinkronisasi SO.
+
+### Untuk pengurus HELP (RAG)
+
+Setelah mengubah manual ini, jalankan **`php artisan help:reindex`** agar potongan teks ini masuk indeks pencarian bantuan.
 
 ---
 
@@ -382,9 +427,15 @@ Tombol **Edit** hanya tersedia saat status DO = **Draft**. Setelah diapprove, DO
 - Delivery Qty yang diisi melebihi Remain Qty (sisa qty SO yang belum terkirim)
 - Kurangi Delivery Qty atau periksa DO lain yang sudah mengirim barang dari SO yang sama
 
+### Tombol "Cancel delivery order" tidak muncul
+
+- Pastikan status DO masih salah satu: **Draft**, **Picking**, **Packed**, atau **In Transit**
+- Jika status sudah **Delivered** / **Completed** / **Cancelled**, pembatalan lewat tombol ini tidak didukung
+- Buka **halaman detail** DO (bukan hanya daftar)
+
 ### Syarat Cancel DO
 
-- Status DO = **Draft**, **Picking**, **Packed**, atau **In Transit**
+- Lihat bagian [Membatalkan Delivery Order (Cancel DO)](#membatalkan-delivery-order-cancel-do). Ringkas: status **Draft / Picking / Packed / In Transit**; tombol **Cancel delivery order** pada halaman detail.
 
 ---
 
@@ -412,7 +463,7 @@ Tombol **Edit** hanya tersedia saat status DO = **Draft**. Setelah diapprove, DO
 
 ### Syarat Cancel DO
 
-- Status DO = **Draft**, **Picking**, **Packed**, atau **In Transit**
+- Status DO = **Draft**, **Picking**, **Packed**, atau **In Transit**; gunakan tombol **Cancel delivery order** di halaman detail (bukan mengubah SO untuk “memperbaiki” salah kirim pertama — lihat [Membatalkan Delivery Order](#membatalkan-delivery-order-cancel-do)).
 
 ### Jurnal yang Dihasilkan
 
