@@ -84,7 +84,8 @@ Modul Inventory mencakup fitur-fitur utama berikut:
 - **FIFO** (First In, First Out): Stok tertua dijual terlebih dahulu
 - **LIFO** (Last In, First Out): Stok terbaru dijual terlebih dahulu
 - **Rata-rata Tertimbang**: Rata-rata biaya dari semua stok
-- **Manual**: Menetapkan biaya secara manual untuk setiap transaksi
+
+**Referensi HELP (penjelasan detail, perbedaan Unit Cost vs harga dokumen, ganti metode setelah go-live):** lihat `inventory-valuation-and-costing-manual-id.md` di folder `docs/manuals/` (setelah edit, jalankan `php artisan help:reindex`).
 
 ### 4. **Manajemen Harga**
 - Menetapkan harga beli (yang Anda bayar)

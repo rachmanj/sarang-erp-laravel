@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Accounting\PurchaseInvoiceLine;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -55,7 +56,66 @@ class InventoryTransaction extends Model
 
     public function purchaseInvoiceLine(): BelongsTo
     {
-        return $this->belongsTo(\App\Models\Accounting\PurchaseInvoiceLine::class, 'purchase_invoice_line_id');
+        return $this->belongsTo(PurchaseInvoiceLine::class, 'purchase_invoice_line_id');
+    }
+
+    /**
+     * Commercial unit price from the source document: purchase line (harga beli) or DO/SO line (harga jual).
+     * This is distinct from inventory valuation unit_cost (FIFO/WAC layer cost).
+     */
+    public function documentUnitPrice(): ?float
+    {
+        if ($this->transaction_type === 'purchase') {
+            if ($this->purchaseInvoiceLine) {
+                $line = $this->purchaseInvoiceLine;
+                if ((float) $line->net_amount > 0 && (float) $line->qty > 0) {
+                    return round(((float) $line->net_amount) / ((float) $line->qty), 2);
+                }
+
+                return (float) $line->unit_price;
+            }
+
+            if ($this->relationLoaded('goodsReceiptPoLine') && $this->goodsReceiptPoLine) {
+                return (float) $this->goodsReceiptPoLine->unit_price;
+            }
+
+            if ($this->reference_type === 'goods_receipt_po' && $this->reference_id) {
+                $line = GoodsReceiptPOLine::query()
+                    ->where('grpo_id', $this->reference_id)
+                    ->where('item_id', $this->item_id)
+                    ->orderBy('id')
+                    ->first();
+
+                return $line ? (float) $line->unit_price : null;
+            }
+
+            return null;
+        }
+
+        if ($this->transaction_type === 'sale') {
+            if ($this->reference_type === 'delivery_order_line' && $this->reference_id) {
+                $line = $this->relationLoaded('saleDeliveryOrderLine')
+                    ? $this->saleDeliveryOrderLine
+                    : DeliveryOrderLine::query()->find($this->reference_id);
+
+                return $line ? (float) $line->unit_price : null;
+            }
+
+            if ($this->reference_type === 'sales_order' && $this->reference_id) {
+                $line = $this->relationLoaded('salesOrderLine')
+                    ? $this->salesOrderLine
+                    : SalesOrderLine::query()
+                        ->where('order_id', $this->reference_id)
+                        ->where('inventory_item_id', $this->item_id)
+                        ->first();
+
+                return $line ? (float) $line->unit_price : null;
+            }
+
+            return null;
+        }
+
+        return null;
     }
 
     // Scopes

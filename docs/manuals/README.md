@@ -26,6 +26,7 @@ File **`help-navigation.json`** holds short **menu path** and **keyword** entrie
 | **Domain Assistant** (live data chat, robot icon) | `domain-assistant-manual-id.md` | `domain-assistant-manual-en.md` |
 | Business partners (incl. **Account statement** tab vs Transactions) | `business-partner-module-manual-id.md` | `business-partner-module-manual.md` |
 | Inventory | `inventory-module-manual-id.md` | `inventory-module-manual.md` |
+| **Inventory valuation & costing** (FIFO/WAC, Unit Cost vs document price, go-live change) | `inventory-valuation-and-costing-manual-id.md` | `inventory-valuation-and-costing-manual-en.md` |
 | Part numbers | `inventory-part-numbers-manual-id.md` | `inventory-part-numbers-manual-en.md` |
 | Multi-UOM & pricing | `multi-measures-and-pricing-manual-id.md` | `multi-measures-and-pricing-manual.md` |
 | Delete inventory items | `delete-inventory-items-guide.md` | — |

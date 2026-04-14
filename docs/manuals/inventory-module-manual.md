@@ -84,7 +84,8 @@ The Inventory Module includes these main features:
 - **FIFO** (First In, First Out): Oldest stock is sold first
 - **LIFO** (Last In, First Out): Newest stock is sold first
 - **Weighted Average**: Average cost of all stock
-- **Manual**: Manually set cost per transaction
+
+**HELP reference (implementation notes, Unit Cost vs document price, changing method after go-live):** see `inventory-valuation-and-costing-manual-en.md` in `docs/manuals/` (after edits, run `php artisan help:reindex`).
 
 ### 4. **Price Management**
 - Set purchase prices (what you pay)

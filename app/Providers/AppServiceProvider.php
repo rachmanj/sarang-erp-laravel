@@ -6,6 +6,7 @@ use App\Models\AssistantConversation;
 use App\Observers\AuditLogObserver;
 use App\Services\Assistant\DomainAssistantOpenRouterClient;
 use App\Services\Help\HelpOpenRouterClient;
+use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
@@ -37,6 +38,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Paginator::useBootstrapFour();
+
         Route::bind('conversation', function (string $value) {
             if (! Auth::check()) {
                 abort(404);

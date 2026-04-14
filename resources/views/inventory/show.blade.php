@@ -309,6 +309,9 @@
                                         <th>Type</th>
                                         <th>Quantity</th>
                                         <th>Unit Cost</th>
+                                        <th class="text-right" title="Harga dari dokumen sumber (faktur pembelian / baris pengiriman); berbeda dari biaya persediaan di Unit Cost.">
+                                            Harga beli / jual
+                                        </th>
                                         <th>Total Cost</th>
                                         <th>Reference</th>
                                         <th>Notes</th>
@@ -335,6 +338,16 @@
                                                 {{ $transaction->quantity > 0 ? '+' : '' }}{{ $transaction->quantity }}
                                             </td>
                                             <td>Rp {{ number_format($transaction->unit_cost, 2) }}</td>
+                                            <td class="text-right">
+                                                @php
+                                                    $documentUnitPrice = $transaction->documentUnitPrice();
+                                                @endphp
+                                                @if ($documentUnitPrice !== null)
+                                                    Rp {{ number_format($documentUnitPrice, 2) }}
+                                                @else
+                                                    <span class="text-muted">—</span>
+                                                @endif
+                                            </td>
                                             <td
                                                 class="{{ $transaction->total_cost < 0 ? 'text-danger' : 'text-success' }}">
                                                 {{ $transaction->total_cost > 0 ? '+' : '' }}Rp

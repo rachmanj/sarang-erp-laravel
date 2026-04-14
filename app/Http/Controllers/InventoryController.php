@@ -3,31 +3,37 @@
 namespace App\Http\Controllers;
 
 use App\Exports\InventoryDetailReportExport;
+use App\Models\DeliveryOrderLine;
+use App\Models\GoodsReceiptPOLine;
 use App\Models\InventoryItem;
 use App\Models\InventoryItemPartNumber;
+use App\Models\InventoryItemUnit;
 use App\Models\InventoryTransaction;
 use App\Models\InventoryValuation;
-use App\Models\InventoryItemUnit;
-use App\Models\UnitOfMeasure;
-use App\Models\ProductCategory;
-use App\Models\Warehouse;
 use App\Models\InventoryWarehouseStock;
+use App\Models\ProductCategory;
+use App\Models\SalesOrderLine;
+use App\Models\UnitOfMeasure;
+use App\Models\Warehouse;
 use App\Services\AuditLogService;
-use App\Services\PriceLevelService;
-use App\Services\UnitConversionService;
-use App\Services\PurchaseInvoiceService;
 use App\Services\InventoryService;
+use App\Services\PriceLevelService;
+use App\Services\PurchaseInvoiceService;
+use App\Services\UnitConversionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Maatwebsite\Excel\Facades\Excel;
 
 class InventoryController extends Controller
 {
     protected $unitConversionService;
+
     protected $purchaseInvoiceService;
+
     protected $inventoryService;
 
     public function __construct(
@@ -39,6 +45,7 @@ class InventoryController extends Controller
         $this->inventoryService = $inventoryService;
         $this->purchaseInvoiceService = $purchaseInvoiceService;
     }
+
     public function index()
     {
         $items = InventoryItem::with('category')
@@ -53,10 +60,10 @@ class InventoryController extends Controller
     {
         try {
             $warehouseId = $request->filled('warehouse_id') ? $request->warehouse_id : null;
-            
+
             $query = InventoryItem::with(['category', 'partNumbers'])
                 ->active();
-            
+
             // Always load warehouse stock for accurate available quantity
             $query->with('warehouseStock');
 
@@ -74,13 +81,13 @@ class InventoryController extends Controller
             }
 
             // If we have any search terms, search in both code and name (case-insensitive)
-            if (!empty($searchTerms)) {
+            if (! empty($searchTerms)) {
                 // Use the first search term (or combine them)
                 $searchTerm = trim($searchTerms[0]);
-                if (!empty($searchTerm)) {
+                if (! empty($searchTerm)) {
                     $query->where(function ($q) use ($searchTerm) {
-                        $q->whereRaw('LOWER(code) LIKE ?', ['%' . strtolower($searchTerm) . '%'])
-                            ->orWhereRaw('LOWER(name) LIKE ?', ['%' . strtolower($searchTerm) . '%']);
+                        $q->whereRaw('LOWER(code) LIKE ?', ['%'.strtolower($searchTerm).'%'])
+                            ->orWhereRaw('LOWER(name) LIKE ?', ['%'.strtolower($searchTerm).'%']);
                     });
                 }
             }
@@ -97,9 +104,9 @@ class InventoryController extends Controller
 
             // Order by relevance: items matching code first, then by name
             // This helps users find items by code faster
-            if (!empty($searchTerms)) {
+            if (! empty($searchTerms)) {
                 $searchTerm = trim($searchTerms[0]);
-                $query->orderByRaw("CASE WHEN LOWER(code) LIKE ? THEN 0 ELSE 1 END", ['%' . strtolower($searchTerm) . '%'])
+                $query->orderByRaw('CASE WHEN LOWER(code) LIKE ? THEN 0 ELSE 1 END', ['%'.strtolower($searchTerm).'%'])
                     ->orderBy('name');
             } else {
                 $query->orderBy('name');
@@ -171,12 +178,13 @@ class InventoryController extends Controller
                     'last_page' => $items->lastPage(),
                     'per_page' => $items->perPage(),
                     'total' => $items->total(),
-                    'has_more' => $items->hasMorePages()
-                ]
+                    'has_more' => $items->hasMorePages(),
+                ],
             ]);
         } catch (\Exception $e) {
-            Log::error('Error in inventory search: ' . $e->getMessage());
+            Log::error('Error in inventory search: '.$e->getMessage());
             Log::error($e->getTraceAsString());
+
             return response()->json([
                 'items' => [],
                 'pagination' => [
@@ -184,9 +192,9 @@ class InventoryController extends Controller
                     'last_page' => 1,
                     'per_page' => 20,
                     'total' => 0,
-                    'has_more' => false
+                    'has_more' => false,
                 ],
-                'error' => 'An error occurred while searching items'
+                'error' => 'An error occurred while searching items',
             ], 500);
         }
     }
@@ -260,7 +268,7 @@ class InventoryController extends Controller
             return DB::transaction(function () use ($data, $request, $baseUnitId) {
                 Log::info('Starting DB transaction to create inventory item');
                 $item = InventoryItem::create($data);
-                Log::info('Inventory item created with ID: ' . ($item->id ?? 'null'));
+                Log::info('Inventory item created with ID: '.($item->id ?? 'null'));
 
                 // Create base unit relationship for this item (1 = base unit)
                 app(UnitConversionService::class)->createItemUnit($item->id, $baseUnitId, [
@@ -316,13 +324,15 @@ class InventoryController extends Controller
                 }
 
                 Log::info('Transaction completed successfully, redirecting to show page');
+
                 return redirect()->route('inventory.show', $item->id)
                     ->with('success', 'Inventory item created successfully');
             });
         } catch (\Exception $e) {
-            Log::error('Error creating inventory item: ' . $e->getMessage());
+            Log::error('Error creating inventory item: '.$e->getMessage());
             Log::error($e->getTraceAsString());
-            return back()->withInput()->withErrors(['error' => 'Failed to create inventory item: ' . $e->getMessage()]);
+
+            return back()->withInput()->withErrors(['error' => 'Failed to create inventory item: '.$e->getMessage()]);
         }
     }
 
@@ -376,6 +386,7 @@ class InventoryController extends Controller
                     $item->getAttributes(),
                     "Inventory item '{$item->name}' created (quick-add)"
                 );
+
                 return $item;
             });
 
@@ -390,7 +401,8 @@ class InventoryController extends Controller
                 ],
             ]);
         } catch (\Exception $e) {
-            Log::error('Quick store inventory item failed: ' . $e->getMessage());
+            Log::error('Quick store inventory item failed: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
                 'message' => $e->getMessage(),
@@ -404,10 +416,12 @@ class InventoryController extends Controller
             ->findOrFail($id);
 
         $transactions = $item->transactions()
-            ->with('warehouse')
+            ->with(['warehouse', 'purchaseInvoiceLine'])
             ->orderBy('transaction_date', 'desc')
             ->orderBy('created_at', 'desc')
             ->paginate(10);
+
+        $this->hydrateInventoryTransactionDocumentPrices($transactions);
 
         $valuations = $item->valuations()
             ->orderBy('valuation_date', 'desc')
@@ -423,6 +437,77 @@ class InventoryController extends Controller
         $auditTrail = app(AuditLogService::class)->getAuditTrail('inventory_item', $id);
 
         return view('inventory.show', compact('item', 'transactions', 'valuations', 'auditTrail', 'warehouses'));
+    }
+
+    /**
+     * Eager-load commercial document lines so {@see InventoryTransaction::documentUnitPrice} avoids N+1 queries.
+     */
+    protected function hydrateInventoryTransactionDocumentPrices(LengthAwarePaginator $transactions): void
+    {
+        $collection = $transactions->getCollection();
+        if ($collection->isEmpty()) {
+            return;
+        }
+
+        $deliveryOrderLineIds = $collection
+            ->filter(fn (InventoryTransaction $t) => $t->reference_type === 'delivery_order_line' && $t->reference_id)
+            ->pluck('reference_id')
+            ->unique()
+            ->filter()
+            ->values();
+        if ($deliveryOrderLineIds->isNotEmpty()) {
+            $linesById = DeliveryOrderLine::query()
+                ->whereIn('id', $deliveryOrderLineIds)
+                ->get()
+                ->keyBy('id');
+            $collection->each(function (InventoryTransaction $t) use ($linesById) {
+                if ($t->reference_type === 'delivery_order_line' && $t->reference_id && isset($linesById[$t->reference_id])) {
+                    $t->setRelation('saleDeliveryOrderLine', $linesById[$t->reference_id]);
+                }
+            });
+        }
+
+        $salesOrderTuples = $collection->filter(
+            fn (InventoryTransaction $t) => $t->reference_type === 'sales_order' && $t->reference_id
+        );
+        if ($salesOrderTuples->isNotEmpty()) {
+            $query = SalesOrderLine::query()->where(function ($q) use ($salesOrderTuples) {
+                foreach ($salesOrderTuples as $t) {
+                    $q->orWhere(function ($q2) use ($t) {
+                        $q2->where('order_id', $t->reference_id)
+                            ->where('inventory_item_id', $t->item_id);
+                    });
+                }
+            });
+            $keyed = $query->get()->keyBy(fn (SalesOrderLine $l) => $l->order_id.'-'.$l->inventory_item_id);
+            $collection->each(function (InventoryTransaction $t) use ($keyed) {
+                if ($t->reference_type === 'sales_order' && $t->reference_id) {
+                    $k = $t->reference_id.'-'.$t->item_id;
+                    if (isset($keyed[$k])) {
+                        $t->setRelation('salesOrderLine', $keyed[$k]);
+                    }
+                }
+            });
+        }
+
+        $grpoTuples = $collection->filter(
+            fn (InventoryTransaction $t) => $t->reference_type === 'goods_receipt_po' && $t->reference_id
+        );
+        if ($grpoTuples->isNotEmpty()) {
+            $grpoIds = $grpoTuples->pluck('reference_id')->unique()->filter()->values();
+            $keyed = GoodsReceiptPOLine::query()
+                ->whereIn('grpo_id', $grpoIds)
+                ->get()
+                ->keyBy(fn (GoodsReceiptPOLine $l) => $l->grpo_id.'-'.$l->item_id);
+            $collection->each(function (InventoryTransaction $t) use ($keyed) {
+                if ($t->reference_type === 'goods_receipt_po' && $t->reference_id) {
+                    $k = $t->reference_id.'-'.$t->item_id;
+                    if (isset($keyed[$k])) {
+                        $t->setRelation('goodsReceiptPoLine', $keyed[$k]);
+                    }
+                }
+            });
+        }
     }
 
     public function edit(int $id)
@@ -441,7 +526,7 @@ class InventoryController extends Controller
         $item = InventoryItem::findOrFail($id);
 
         $data = $request->validate([
-            'code' => ['required', 'string', 'max:50', 'unique:inventory_items,code,' . $id],
+            'code' => ['required', 'string', 'max:50', 'unique:inventory_items,code,'.$id],
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
             'category_id' => ['required', 'integer', 'exists:product_categories,id'],
@@ -469,9 +554,9 @@ class InventoryController extends Controller
             $pnData = [
                 'part_number' => trim($pn['part_number']),
                 'description' => trim($pn['description'] ?? ''),
-                'is_default' => !empty($pn['is_default']),
+                'is_default' => ! empty($pn['is_default']),
             ];
-            if (!empty($pn['id'])) {
+            if (! empty($pn['id'])) {
                 $partNumber = InventoryItemPartNumber::where('inventory_item_id', $item->id)->find($pn['id']);
                 if ($partNumber) {
                     $partNumber->update($pnData);
@@ -551,7 +636,7 @@ class InventoryController extends Controller
             if ($request->ajax()) {
                 return response()->json([
                     'success' => true,
-                    'message' => 'Stock adjustment recorded successfully'
+                    'message' => 'Stock adjustment recorded successfully',
                 ]);
             }
 
@@ -628,7 +713,7 @@ class InventoryController extends Controller
         $item = InventoryItem::findOrFail($id);
 
         $data = $request->validate([
-            'to_item_id' => ['required', 'integer', 'exists:inventory_items,id', 'different:' . $id],
+            'to_item_id' => ['required', 'integer', 'exists:inventory_items,id', 'different:'.$id],
             'quantity' => ['required', 'integer', 'min:1'],
             'unit_cost' => ['required', 'numeric', 'min:0'],
             'notes' => ['nullable', 'string', 'max:500'],
@@ -647,7 +732,7 @@ class InventoryController extends Controller
                 'reference_type' => 'stock_transfer',
                 'reference_id' => $data['to_item_id'],
                 'transaction_date' => now()->toDateString(),
-                'notes' => 'Transfer to ' . ($data['notes'] ?? 'another item'),
+                'notes' => 'Transfer to '.($data['notes'] ?? 'another item'),
                 'created_by' => Auth::id(),
             ]);
 
@@ -661,7 +746,7 @@ class InventoryController extends Controller
                 'reference_type' => 'stock_transfer',
                 'reference_id' => $item->id,
                 'transaction_date' => now()->toDateString(),
-                'notes' => 'Transfer from ' . $item->name,
+                'notes' => 'Transfer from '.$item->name,
                 'created_by' => Auth::id(),
             ]);
 
@@ -711,6 +796,7 @@ class InventoryController extends Controller
 
         $reportData = $items->map(function ($item) use ($latestValuations) {
             $valuation = $latestValuations->get($item->id);
+
             return (object) [
                 'item' => $item,
                 'valuation' => $valuation,
@@ -731,7 +817,7 @@ class InventoryController extends Controller
     public function exportDetailReport(Request $request)
     {
         $reportDate = $request->input('date', now()->toDateString());
-        $filename = 'inventory_detail_report_' . $reportDate . '.xlsx';
+        $filename = 'inventory_detail_report_'.$reportDate.'.xlsx';
 
         return Excel::download(new InventoryDetailReportExport($reportDate), $filename);
     }
@@ -801,8 +887,8 @@ class InventoryController extends Controller
         // Apply filters
         if ($request->filled('q')) {
             $query->where(function ($q) use ($request) {
-                $q->where('name', 'like', '%' . $request->q . '%')
-                    ->orWhere('code', 'like', '%' . $request->q . '%');
+                $q->where('name', 'like', '%'.$request->q.'%')
+                    ->orWhere('code', 'like', '%'.$request->q.'%');
             });
         }
 
@@ -833,7 +919,7 @@ class InventoryController extends Controller
 
         // Apply sorting
         $order = $request->get('order', []);
-        if (!empty($order) && isset($order[0])) {
+        if (! empty($order) && isset($order[0])) {
             $orderColumn = $order[0]['column'] ?? 0;
             $orderDir = $order[0]['dir'] ?? 'asc';
 
@@ -847,7 +933,7 @@ class InventoryController extends Controller
                 'selling_price',
                 'current_stock', // Calculated field, may need special handling
                 'min_stock_level',
-                'is_active'
+                'is_active',
             ];
 
             $orderBy = $columns[$orderColumn] ?? 'name';
@@ -860,7 +946,7 @@ class InventoryController extends Controller
                     ->select('inventory_items.*');
             } else {
                 // Use table prefix to avoid ambiguity
-                $query->orderBy('inventory_items.' . $orderBy, $orderDir);
+                $query->orderBy('inventory_items.'.$orderBy, $orderDir);
             }
         } else {
             // Default sorting
@@ -893,7 +979,7 @@ class InventoryController extends Controller
                     'is_active' => $item->is_active,
                     'actions' => view('inventory.partials.actions', compact('item'))->render(),
                 ];
-            })
+            }),
         ]);
     }
 
@@ -1032,7 +1118,9 @@ class InventoryController extends Controller
         $totalCost = 0;
 
         foreach ($transactions->reverse() as $transaction) {
-            if ($remainingStock <= 0) break;
+            if ($remainingStock <= 0) {
+                break;
+            }
 
             $quantityToUse = min($remainingStock, $transaction->quantity);
             $totalCost += $quantityToUse * $transaction->unit_cost;
@@ -1117,7 +1205,7 @@ class InventoryController extends Controller
             'selling_price',
             'selling_price_level_2',
             'selling_price_level_3',
-            'is_active'
+            'is_active',
         ]));
 
         return redirect()->route('inventory-items.units.index', $inventoryItem)
@@ -1145,7 +1233,7 @@ class InventoryController extends Controller
     public function setBaseUnit(Request $request, InventoryItem $inventoryItem)
     {
         $request->validate([
-            'unit_id' => 'required|exists:inventory_item_units,unit_id,id,' . $inventoryItem->id,
+            'unit_id' => 'required|exists:inventory_item_units,unit_id,id,'.$inventoryItem->id,
         ]);
 
         $this->unitConversionService->setBaseUnit($inventoryItem->id, $request->unit_id);

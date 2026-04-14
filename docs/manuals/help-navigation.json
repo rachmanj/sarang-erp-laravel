@@ -122,6 +122,16 @@
             "keywords_id": ["GRPO", "penerimaan barang"]
         },
         {
+            "id": "inventory-valuation",
+            "title_en": "Inventory valuation & costing (FIFO, unit cost)",
+            "title_id": "Valuasi persediaan & biaya (FIFO, unit cost)",
+            "menu_path_en": "Inventory → item detail: Recent Transactions (Unit Cost vs document price); item edit: valuation method.",
+            "menu_path_id": "Inventory → detail item: Recent Transactions (Unit Cost vs harga dokumen); edit item: metode valuasi.",
+            "keywords_en": ["FIFO", "LIFO", "weighted average", "valuation", "unit cost", "COGS", "inventory cost", "purchase price", "selling price", "change valuation method"],
+            "keywords_id": ["FIFO", "LIFO", "rata-rata", "valuasi", "unit cost", "HPP", "biaya persediaan", "harga beli", "harga jual", "ganti metode valuasi", "persediaan"],
+            "notes": "Manuals: inventory-valuation-and-costing-manual-en.md / inventory-valuation-and-costing-manual-id.md. Reindex: php artisan help:reindex"
+        },
+        {
             "id": "inventory-transfer",
             "title_en": "Warehouse stock transfer",
             "title_id": "Transfer stok gudang",
