@@ -422,6 +422,7 @@ class InventoryController extends Controller
             ->paginate(10);
 
         $this->hydrateInventoryTransactionDocumentPrices($transactions);
+        InventoryTransaction::hydrateReferenceDocumentLabels($transactions);
 
         $valuations = $item->valuations()
             ->orderBy('valuation_date', 'desc')

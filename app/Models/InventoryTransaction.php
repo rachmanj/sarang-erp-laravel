@@ -2,9 +2,11 @@
 
 namespace App\Models;
 
+use App\Models\Accounting\PurchaseInvoice;
 use App\Models\Accounting\PurchaseInvoiceLine;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 class InventoryTransaction extends Model
 {
@@ -116,6 +118,106 @@ class InventoryTransaction extends Model
         }
 
         return null;
+    }
+
+    /**
+     * Batch-load human-readable document numbers (PI, DO, etc.) onto each transaction as
+     * attribute {@see $reference_document_label} for list views (avoids N+1 queries).
+     */
+    public static function hydrateReferenceDocumentLabels(LengthAwarePaginator $paginator): void
+    {
+        $collection = $paginator->getCollection();
+        if ($collection->isEmpty()) {
+            return;
+        }
+
+        $purchaseInvoiceIds = $collection
+            ->where('reference_type', 'purchase_invoice')
+            ->pluck('reference_id')
+            ->filter()
+            ->unique();
+        $invoiceNoById = $purchaseInvoiceIds->isNotEmpty()
+            ? PurchaseInvoice::query()->whereIn('id', $purchaseInvoiceIds)->pluck('invoice_no', 'id')
+            : collect();
+
+        $deliveryOrderLineIds = $collection
+            ->where('reference_type', 'delivery_order_line')
+            ->pluck('reference_id')
+            ->filter()
+            ->unique();
+        $doNumberByLineId = collect();
+        if ($deliveryOrderLineIds->isNotEmpty()) {
+            $lines = DeliveryOrderLine::query()
+                ->whereIn('id', $deliveryOrderLineIds)
+                ->with('deliveryOrder:id,do_number')
+                ->get(['id', 'delivery_order_id']);
+            foreach ($lines as $line) {
+                $doNumberByLineId[$line->id] = $line->deliveryOrder?->do_number;
+            }
+        }
+
+        $grpoIds = $collection
+            ->where('reference_type', 'goods_receipt_po')
+            ->pluck('reference_id')
+            ->filter()
+            ->unique();
+        $grnNoById = $grpoIds->isNotEmpty()
+            ? GoodsReceiptPO::query()->whereIn('id', $grpoIds)->pluck('grn_no', 'id')
+            : collect();
+
+        $grGiHeaderIds = $collection
+            ->where('reference_type', 'gr_gi')
+            ->pluck('reference_id')
+            ->filter()
+            ->unique();
+        $grGiDocById = $grGiHeaderIds->isNotEmpty()
+            ? GRGIHeader::query()->whereIn('id', $grGiHeaderIds)->pluck('document_number', 'id')
+            : collect();
+
+        $salesOrderIds = $collection
+            ->where('reference_type', 'sales_order')
+            ->pluck('reference_id')
+            ->filter()
+            ->unique();
+        $soNoById = $salesOrderIds->isNotEmpty()
+            ? SalesOrder::query()->whereIn('id', $salesOrderIds)->pluck('order_no', 'id')
+            : collect();
+
+        foreach ($collection as $transaction) {
+            $label = null;
+            $type = $transaction->reference_type;
+            $rid = $transaction->reference_id;
+            if (! $type || ! $rid) {
+                $transaction->setAttribute('reference_document_label', null);
+
+                continue;
+            }
+            switch ($type) {
+                case 'purchase_invoice':
+                    $no = $invoiceNoById[$rid] ?? null;
+                    $label = $no ? 'PI '.$no : null;
+                    break;
+                case 'delivery_order_line':
+                    $no = $doNumberByLineId[$rid] ?? null;
+                    $label = $no ? 'DO '.$no : null;
+                    break;
+                case 'goods_receipt_po':
+                    $no = $grnNoById[$rid] ?? null;
+                    $label = $no ? 'GRPO '.$no : null;
+                    break;
+                case 'gr_gi':
+                    $no = $grGiDocById[$rid] ?? null;
+                    $label = $no ? 'GR/GI '.$no : null;
+                    break;
+                case 'sales_order':
+                    $no = $soNoById[$rid] ?? null;
+                    $label = $no ? 'SO '.$no : null;
+                    break;
+                default:
+                    $label = null;
+            }
+            $transaction->setAttribute('reference_document_label', $label);
+        }
     }
 
     // Scopes

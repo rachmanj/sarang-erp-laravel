@@ -355,8 +355,16 @@
                                             </td>
                                             <td>
                                                 @if ($transaction->reference_type && $transaction->reference_id)
-                                                    {{ ucfirst(str_replace('_', ' ', $transaction->reference_type)) }}
-                                                    #{{ $transaction->reference_id }}
+                                                    @if (! empty($transaction->reference_document_label))
+                                                        <span
+                                                            class="d-block font-weight-bold">{{ $transaction->reference_document_label }}</span>
+                                                        <span
+                                                            class="text-muted small">{{ ucfirst(str_replace('_', ' ', $transaction->reference_type)) }}
+                                                            #{{ $transaction->reference_id }}</span>
+                                                    @else
+                                                        {{ ucfirst(str_replace('_', ' ', $transaction->reference_type)) }}
+                                                        #{{ $transaction->reference_id }}
+                                                    @endif
                                                 @else
                                                     -
                                                 @endif
