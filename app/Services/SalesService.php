@@ -2,30 +2,28 @@
 
 namespace App\Services;
 
-use App\Models\SalesOrder;
-use App\Models\SalesOrderLine;
-use App\Models\SalesOrderApproval;
-use App\Models\SalesCommission;
-use App\Models\InventoryItem;
 use App\Models\CustomerCreditLimit;
-use App\Models\CustomerPricingTier;
 use App\Models\CustomerPerformance;
-use App\Services\InventoryService;
-use App\Services\DocumentNumberingService;
-use App\Services\ApprovalWorkflowService;
-use App\Services\SalesWorkflowAuditService;
-use App\Services\CompanyEntityService;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Log;
+use App\Models\InventoryItem;
+use App\Models\SalesCommission;
+use App\Models\SalesOrder;
+use App\Models\SalesOrderApproval;
+use App\Models\SalesOrderLine;
 use Exception;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class SalesService
 {
     protected $inventoryService;
+
     protected $documentNumberingService;
+
     protected $approvalWorkflowService;
+
     protected $workflowAuditService;
+
     protected $companyEntityService;
 
     public function __construct(
@@ -87,10 +85,12 @@ class SalesService
             $totalDiscountAmount = 0;
 
             foreach ($data['lines'] as $lineData) {
-                $originalAmount = $lineData['qty'] * $lineData['unit_price'];
-                $vatAmount = $originalAmount * ($lineData['vat_rate'] / 100);
-                $wtaxAmount = $originalAmount * ($lineData['wtax_rate'] / 100);
-                $amount = $originalAmount + $vatAmount - $wtaxAmount;
+                $amount = SalesOrderLine::computeAmountFromPricing(
+                    (float) $lineData['qty'],
+                    (float) $lineData['unit_price'],
+                    $lineData['vat_rate'] ?? 0,
+                    $lineData['wtax_rate'] ?? 0
+                );
 
                 $totalAmount += $amount;
 
@@ -225,10 +225,12 @@ class SalesService
 
             // Create new lines
             foreach ($data['lines'] as $lineData) {
-                $originalAmount = $lineData['qty'] * $lineData['unit_price'];
-                $vatAmount = $originalAmount * ($lineData['vat_rate'] / 100);
-                $wtaxAmount = $originalAmount * ($lineData['wtax_rate'] / 100);
-                $amount = $originalAmount + $vatAmount - $wtaxAmount;
+                $amount = SalesOrderLine::computeAmountFromPricing(
+                    (float) $lineData['qty'],
+                    (float) $lineData['unit_price'],
+                    $lineData['vat_rate'] ?? 0,
+                    $lineData['wtax_rate'] ?? 0
+                );
 
                 $totalAmount += $amount;
 
@@ -333,7 +335,7 @@ class SalesService
                 ->where('status', 'pending')
                 ->first();
 
-            if (!$approval) {
+            if (! $approval) {
                 throw new \Exception('No pending approval found for this user');
             }
 
@@ -379,7 +381,7 @@ class SalesService
                 ->where('status', 'pending')
                 ->first();
 
-            if (!$approval) {
+            if (! $approval) {
                 throw new \Exception('No pending approval found for this user');
             }
 
@@ -408,7 +410,7 @@ class SalesService
         $so = SalesOrder::findOrFail($salesOrderId);
         $oldStatus = $so->status;
 
-        if (!$so->canBeConfirmed()) {
+        if (! $so->canBeConfirmed()) {
             throw new \Exception('Sales order cannot be confirmed in current status');
         }
 
@@ -417,7 +419,7 @@ class SalesService
 
         // Log status change
         if ($oldStatus != $so->status) {
-            $this->workflowAuditService->logStatusChange($so, $oldStatus, $so->status, "Sales order confirmed");
+            $this->workflowAuditService->logStatusChange($so, $oldStatus, $so->status, 'Sales order confirmed');
         }
 
         return $so;
@@ -428,20 +430,20 @@ class SalesService
         return DB::transaction(function () use ($salesOrderId, $deliveryData) {
             $so = SalesOrder::with('lines')->findOrFail($salesOrderId);
 
-            if (!$so->canBeDelivered()) {
+            if (! $so->canBeDelivered()) {
                 throw new \Exception('Sales order cannot be delivered in current status');
             }
 
             foreach ($deliveryData['lines'] as $lineData) {
                 $line = $so->lines()->find($lineData['line_id']);
 
-                if (!$line) {
+                if (! $line) {
                     continue;
                 }
 
                 $deliveredQty = $lineData['delivered_qty'];
 
-                if (!$line->canDeliverQuantity($deliveredQty)) {
+                if (! $line->canDeliverQuantity($deliveredQty)) {
                     throw new \Exception("Cannot deliver {$deliveredQty} for line {$line->id}. Pending quantity: {$line->pending_qty}");
                 }
 
@@ -479,7 +481,7 @@ class SalesService
 
             // Log status change
             if ($oldStatus != $so->status) {
-                $this->workflowAuditService->logStatusChange($so, $oldStatus, $so->status, "Goods delivered");
+                $this->workflowAuditService->logStatusChange($so, $oldStatus, $so->status, 'Goods delivered');
             }
 
             // Update customer performance metrics
@@ -494,7 +496,7 @@ class SalesService
         $so = SalesOrder::findOrFail($salesOrderId);
         $oldStatus = $so->status;
 
-        if (!$so->canBeClosed()) {
+        if (! $so->canBeClosed()) {
             throw new \Exception('Sales order cannot be closed in current status');
         }
 
@@ -503,7 +505,7 @@ class SalesService
 
         // Log status change
         if ($oldStatus != $so->status) {
-            $this->workflowAuditService->logStatusChange($so, $oldStatus, $so->status, "Sales order closed");
+            $this->workflowAuditService->logStatusChange($so, $oldStatus, $so->status, 'Sales order closed');
         }
 
         return $so;
@@ -513,7 +515,7 @@ class SalesService
     {
         $creditLimit = CustomerCreditLimit::where('business_partner_id', $customerId)->first();
 
-        if (!$creditLimit) {
+        if (! $creditLimit) {
             return true; // No credit limit set
         }
 
@@ -534,7 +536,7 @@ class SalesService
     {
         $pricingTier = $salesOrder->getCustomerPricingTier();
 
-        if (!$pricingTier) {
+        if (! $pricingTier) {
             return;
         }
 
@@ -616,9 +618,9 @@ class SalesService
                 ]);
             }
 
-            \Log::info("Approval workflow created successfully for SO {$salesOrder->order_no} with " . count($approvalRecords) . " approval records");
+            \Log::info("Approval workflow created successfully for SO {$salesOrder->order_no} with ".count($approvalRecords).' approval records');
         } catch (\Exception $e) {
-            \Log::error("Error creating approval workflow: " . $e->getMessage());
+            \Log::error('Error creating approval workflow: '.$e->getMessage());
             throw $e;
         }
     }
@@ -668,7 +670,7 @@ class SalesService
                     $itemId = $line->inventory_item_id;
                     $itemName = $line->item_name;
 
-                    if (!isset($itemProfits[$itemId])) {
+                    if (! isset($itemProfits[$itemId])) {
                         $itemProfits[$itemId] = [
                             'item_name' => $itemName,
                             'total_revenue' => 0,
@@ -701,6 +703,7 @@ class SalesService
     {
         try {
             $salesOrder->validateOrderTypeConsistency();
+
             return true;
         } catch (\Exception $e) {
             throw new \Exception($e->getMessage());
@@ -733,7 +736,7 @@ class SalesService
             ->orWhere('name', 'like', '%Sales Revenue%')
             ->first();
 
-        if (!$account) {
+        if (! $account) {
             throw new Exception('Default sales account not found. Please create account with code 4.1.1');
         }
 

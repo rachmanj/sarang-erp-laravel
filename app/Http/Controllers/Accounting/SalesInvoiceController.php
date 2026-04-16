@@ -9,6 +9,7 @@ use App\Models\CompanyEntity;
 use App\Models\DeliveryOrder;
 use App\Models\DeliveryOrderLine;
 use App\Models\SalesOrder;
+use App\Models\SalesOrderLine;
 use App\Models\SalesQuotation;
 use App\Services\Accounting\PostingService;
 use App\Services\CompanyEntityService;
@@ -231,6 +232,9 @@ class SalesInvoiceController extends Controller
                 $soLine = $l->salesOrderLine;
                 $taxCodeId = $l->tax_code_id ?? ($soLine?->tax_code_id);
                 $wtaxRate = $soLine ? (float) ($soLine->wtax_rate ?? 0) : 0;
+                $lineTotalAmount = $soLine
+                    ? $soLine->computeAmountForQuantity((float) $l->delivered_qty)
+                    : ((float) $l->delivered_qty * (float) $l->unit_price);
                 $lines->push([
                     'delivery_order_line_id' => $l->id,
                     'delivery_order_id' => $deliveryOrder->id,
@@ -246,7 +250,7 @@ class SalesInvoiceController extends Controller
                     'unit_price' => (float) $l->unit_price,
                     'tax_code_id' => $taxCodeId ? (int) $taxCodeId : null,
                     'wtax_rate' => $wtaxRate,
-                    'total_amount' => $l->delivered_qty * $l->unit_price,
+                    'total_amount' => $lineTotalAmount,
                 ]);
             }
         }
@@ -310,6 +314,31 @@ class SalesInvoiceController extends Controller
             'inventory_item_id' => $inventoryItemId,
             'part_number_id' => $partNumberId,
         ];
+    }
+
+    /**
+     * Line amount aligned with {@see SalesOrderLine} / sales order: base + VAT − WTax on base.
+     * When the invoice line is tied to a delivery order line, tax rates come from the sales order line.
+     */
+    private function resolveSalesInvoiceLineAmount(array $l): float
+    {
+        $qty = (float) $l['qty'];
+        $unitPrice = (float) $l['unit_price'];
+        $dolId = $l['delivery_order_line_id'] ?? null;
+        if ($dolId) {
+            $dol = DeliveryOrderLine::with('salesOrderLine')->find($dolId);
+            $sol = $dol?->salesOrderLine;
+            if ($sol) {
+                return SalesOrderLine::computeAmountFromPricing(
+                    $qty,
+                    $unitPrice,
+                    $sol->vat_rate,
+                    $sol->wtax_rate
+                );
+            }
+        }
+
+        return $qty * $unitPrice;
     }
 
     public function edit(int $id)
@@ -379,7 +408,7 @@ class SalesInvoiceController extends Controller
 
             $total = 0;
             foreach ($data['lines'] as $l) {
-                $amount = (float) $l['qty'] * (float) $l['unit_price'];
+                $amount = $this->resolveSalesInvoiceLineAmount($l);
                 $total += $amount;
                 $resolved = $this->resolveLineDataFromDeliveryOrder($l);
                 SalesInvoiceLine::create([
@@ -432,6 +461,7 @@ class SalesInvoiceController extends Controller
             'lines.*.wtax_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'lines.*.project_id' => ['nullable', 'integer'],
             'lines.*.dept_id' => ['nullable', 'integer'],
+            'lines.*.delivery_order_line_id' => ['nullable', 'integer', 'exists:delivery_order_lines,id'],
         ]);
 
         $deliveryOrderIds = array_filter(array_map('intval', $data['delivery_order_ids'] ?? []));
@@ -518,7 +548,7 @@ class SalesInvoiceController extends Controller
 
             $total = 0;
             foreach ($data['lines'] as $idx => $l) {
-                $amount = (float) $l['qty'] * (float) $l['unit_price'];
+                $amount = $this->resolveSalesInvoiceLineAmount($l);
                 $total += $amount;
                 $resolved = $this->resolveLineDataFromDeliveryOrder($l, $idx, $deliveryOrders);
                 SalesInvoiceLine::create([

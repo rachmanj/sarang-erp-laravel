@@ -5,25 +5,22 @@ namespace App\Services;
 use App\Models\DeliveryOrder;
 use App\Models\DeliveryOrderLine;
 use App\Models\DeliveryTracking;
+use App\Models\InventoryItem;
 use App\Models\InventoryTransaction;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderLine;
-use App\Models\InventoryItem;
-use App\Models\BusinessPartner;
-use App\Services\DocumentNumberingService;
-use App\Services\DeliveryJournalService;
-use App\Services\CompanyEntityService;
-use App\Services\DocumentRelationshipService;
-use App\Services\InventoryService;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class DeliveryService
 {
     protected $documentNumberingService;
+
     protected $deliveryJournalService;
+
     protected $companyEntityService;
+
     protected $inventoryService;
 
     public function __construct(
@@ -43,7 +40,7 @@ class DeliveryService
         return DB::transaction(function () use ($salesOrderId, $data) {
             Log::info('DeliveryService: Starting createDeliveryOrderFromSalesOrder', [
                 'sales_order_id' => $salesOrderId,
-                'data' => $data
+                'data' => $data,
             ]);
 
             $salesOrder = SalesOrder::with(['lines', 'customer', 'businessPartner'])->findOrFail($salesOrderId);
@@ -53,16 +50,16 @@ class DeliveryService
                 'status' => $salesOrder->status,
                 'approval_status' => $salesOrder->approval_status,
                 'order_type' => $salesOrder->order_type,
-                'lines_count' => $salesOrder->lines->count()
+                'lines_count' => $salesOrder->lines->count(),
             ]);
 
             // Check if sales order can be converted to delivery order
-            if (!$this->canCreateDeliveryOrder($salesOrder)) {
+            if (! $this->canCreateDeliveryOrder($salesOrder)) {
                 Log::error('DeliveryService: Sales Order cannot be converted to Delivery Order', [
                     'sales_order_id' => $salesOrder->id,
                     'status' => $salesOrder->status,
                     'approval_status' => $salesOrder->approval_status,
-                    'order_type' => $salesOrder->order_type
+                    'order_type' => $salesOrder->order_type,
                 ]);
                 throw new \Exception('Sales Order cannot be converted to Delivery Order');
             }
@@ -87,7 +84,7 @@ class DeliveryService
                 'planned_delivery_date' => $data['planned_delivery_date'] ?? $salesOrder->expected_delivery_date ?? now()->addDays(3),
                 'delivery_method' => $data['delivery_method'] ?? 'own_fleet',
                 'created_by' => Auth::id(),
-                'do_number' => $doNumber
+                'do_number' => $doNumber,
             ]);
 
             try {
@@ -116,7 +113,7 @@ class DeliveryService
                 Log::error('DeliveryService: Failed to create Delivery Order', [
                     'error' => $e->getMessage(),
                     'sales_order_id' => $salesOrder->id,
-                    'do_number' => $doNumber
+                    'do_number' => $doNumber,
                 ]);
                 throw $e;
             }
@@ -124,7 +121,7 @@ class DeliveryService
             $linesCreated = 0;
             $formLines = $data['lines'] ?? null;
 
-            if (!empty($formLines)) {
+            if (! empty($formLines)) {
                 $solById = $salesOrder->lines->keyBy('id');
                 foreach ($formLines as $lineData) {
                     $solId = (int) ($lineData['sales_order_line_id'] ?? 0);
@@ -133,7 +130,7 @@ class DeliveryService
                         continue;
                     }
                     $salesOrderLine = $solById->get($solId);
-                    if (!$salesOrderLine || !$salesOrderLine->inventory_item_id) {
+                    if (! $salesOrderLine || ! $salesOrderLine->inventory_item_id) {
                         continue;
                     }
                     $doLine = $this->createDeliveryOrderLine($do, $salesOrderLine, $data, $qty);
@@ -143,7 +140,7 @@ class DeliveryService
                 }
             } else {
                 foreach ($salesOrder->lines as $salesOrderLine) {
-                    if (!$salesOrderLine->inventory_item_id) {
+                    if (! $salesOrderLine->inventory_item_id) {
                         continue;
                     }
                     $doLine = $this->createDeliveryOrderLine($do, $salesOrderLine, $data);
@@ -174,6 +171,7 @@ class DeliveryService
             );
 
             Log::info('DeliveryService: Delivery Order creation completed successfully', ['delivery_order_id' => $do->id]);
+
             return $do;
         });
     }
@@ -183,7 +181,7 @@ class DeliveryService
         Log::info('DeliveryService: Starting createDeliveryOrderLine', [
             'delivery_order_id' => $deliveryOrder->id,
             'sales_order_line_id' => $salesOrderLine->id,
-            'inventory_item_id' => $salesOrderLine->inventory_item_id
+            'inventory_item_id' => $salesOrderLine->inventory_item_id,
         ]);
 
         // Get inventory item details
@@ -196,14 +194,14 @@ class DeliveryService
                 Log::info('DeliveryService: Inventory item found', [
                     'inventory_item_id' => $inventoryItem->id,
                     'item_code' => $inventoryItem->code,
-                    'item_name' => $inventoryItem->name
+                    'item_name' => $inventoryItem->name,
                 ]);
             } else {
                 Log::warning('DeliveryService: Inventory item not found, setting inventory_item_id to NULL', [
                     'sales_order_line_id' => $salesOrderLine->id,
                     'inventory_item_id' => $salesOrderLine->inventory_item_id,
                     'item_code' => $salesOrderLine->item_code,
-                    'item_name' => $salesOrderLine->item_name
+                    'item_name' => $salesOrderLine->item_name,
                 ]);
                 $inventoryItemId = null;
             }
@@ -213,6 +211,7 @@ class DeliveryService
         $pendingQty = max(0, (float) $salesOrderLine->qty - $alreadyAllocated);
         if ($pendingQty <= 0) {
             Log::info('DeliveryService: Skipping line with no remaining qty', ['sales_order_line_id' => $salesOrderLine->id]);
+
             return null;
         }
 
@@ -223,11 +222,13 @@ class DeliveryService
             return null;
         }
 
+        $lineAmount = $salesOrderLine->computeAmountForQuantity($orderedQty);
+
         Log::info('DeliveryService: Creating delivery order line', [
             'ordered_qty' => $orderedQty,
             'unit_price' => $salesOrderLine->unit_price,
             'account_id' => $salesOrderLine->account_id,
-            'inventory_item_id' => $inventoryItemId
+            'inventory_item_id' => $inventoryItemId,
         ]);
 
         // Create delivery order line
@@ -246,7 +247,7 @@ class DeliveryService
                 'picked_qty' => 0,
                 'delivered_qty' => 0,
                 'unit_price' => $salesOrderLine->unit_price,
-                'amount' => $orderedQty * $salesOrderLine->unit_price,
+                'amount' => $lineAmount,
                 'tax_code_id' => $salesOrderLine->tax_code_id,
                 'warehouse_location' => $data['warehouse_location'] ?? null,
                 'status' => 'pending',
@@ -258,7 +259,7 @@ class DeliveryService
             Log::error('DeliveryService: Failed to create delivery order line', [
                 'error' => $e->getMessage(),
                 'delivery_order_id' => $deliveryOrder->id,
-                'sales_order_line_id' => $salesOrderLine->id
+                'sales_order_line_id' => $salesOrderLine->id,
             ]);
             throw $e;
         }
@@ -280,11 +281,12 @@ class DeliveryService
                 'delivery_attempts' => 0,
             ]);
             Log::info('DeliveryService: Delivery tracking record created', ['tracking_id' => $tracking->id]);
+
             return $tracking;
         } catch (\Exception $e) {
             Log::error('DeliveryService: Failed to create delivery tracking record', [
                 'error' => $e->getMessage(),
-                'delivery_order_id' => $deliveryOrder->id
+                'delivery_order_id' => $deliveryOrder->id,
             ]);
             throw $e;
         }
@@ -294,26 +296,27 @@ class DeliveryService
     {
         Log::info('DeliveryService: Starting reserveInventory', [
             'delivery_order_line_id' => $deliveryOrderLine->id,
-            'inventory_item_id' => $deliveryOrderLine->inventory_item_id
+            'inventory_item_id' => $deliveryOrderLine->inventory_item_id,
         ]);
 
-        if (!$deliveryOrderLine->inventory_item_id) {
+        if (! $deliveryOrderLine->inventory_item_id) {
             Log::info('DeliveryService: No inventory_item_id, skipping reservation');
+
             return;
         }
 
         $inventoryItem = InventoryItem::find($deliveryOrderLine->inventory_item_id);
 
-        if (!$inventoryItem) {
+        if (! $inventoryItem) {
             Log::error('DeliveryService: Inventory item not found', [
-                'inventory_item_id' => $deliveryOrderLine->inventory_item_id
+                'inventory_item_id' => $deliveryOrderLine->inventory_item_id,
             ]);
             throw new \Exception('Inventory item not found');
         }
 
         Log::info('DeliveryService: Inventory item found for reservation', [
             'inventory_item_id' => $inventoryItem->id,
-            'item_code' => $inventoryItem->code
+            'item_code' => $inventoryItem->code,
         ]);
 
         // Check if sufficient stock is available (skip for now since current_stock column doesn't exist)
@@ -324,16 +327,16 @@ class DeliveryService
         // Reserve the inventory
         Log::info('DeliveryService: Reserving inventory', [
             'delivery_order_line_id' => $deliveryOrderLine->id,
-            'ordered_qty' => $deliveryOrderLine->ordered_qty
+            'ordered_qty' => $deliveryOrderLine->ordered_qty,
         ]);
 
         $deliveryOrderLine->update([
-            'reserved_qty' => $deliveryOrderLine->ordered_qty
+            'reserved_qty' => $deliveryOrderLine->ordered_qty,
         ]);
 
         Log::info('DeliveryService: Inventory reserved successfully', [
             'delivery_order_line_id' => $deliveryOrderLine->id,
-            'reserved_qty' => $deliveryOrderLine->ordered_qty
+            'reserved_qty' => $deliveryOrderLine->ordered_qty,
         ]);
 
         // Update inventory item (if you have reserved stock tracking)
@@ -346,7 +349,7 @@ class DeliveryService
         return DB::transaction(function () use ($deliveryOrderLineId, $pickedQty) {
             $deliveryOrderLine = DeliveryOrderLine::with('inventoryItem')->findOrFail($deliveryOrderLineId);
 
-            if (!$deliveryOrderLine->canPickQuantity($pickedQty)) {
+            if (! $deliveryOrderLine->canPickQuantity($pickedQty)) {
                 throw new \Exception('Invalid picking quantity');
             }
 
@@ -365,7 +368,7 @@ class DeliveryService
         return DB::transaction(function () use ($deliveryOrderLineId, $deliveredQty) {
             $deliveryOrderLine = DeliveryOrderLine::with('inventoryItem')->findOrFail($deliveryOrderLineId);
 
-            if (!$deliveryOrderLine->canDeliverQuantity($deliveredQty)) {
+            if (! $deliveryOrderLine->canDeliverQuantity($deliveredQty)) {
                 throw new \Exception('Invalid delivery quantity');
             }
 
@@ -386,43 +389,46 @@ class DeliveryService
     private function getDeliveredQtyForSalesOrderLine(int $salesOrderLineId): float
     {
         return (float) DeliveryOrderLine::where('sales_order_line_id', $salesOrderLineId)
-            ->whereHas('deliveryOrder', fn($q) => $q->where('status', '!=', 'cancelled'))
+            ->whereHas('deliveryOrder', fn ($q) => $q->where('status', '!=', 'cancelled'))
             ->sum('delivered_qty');
     }
 
     public function getDeliveredQtyForSalesOrderLineExcludingDo(int $salesOrderLineId, ?int $excludeDeliveryOrderId): float
     {
         $query = DeliveryOrderLine::where('sales_order_line_id', $salesOrderLineId)
-            ->whereHas('deliveryOrder', fn($q) => $q->where('status', '!=', 'cancelled'));
+            ->whereHas('deliveryOrder', fn ($q) => $q->where('status', '!=', 'cancelled'));
         if ($excludeDeliveryOrderId !== null) {
             $query->where('delivery_order_id', '!=', $excludeDeliveryOrderId);
         }
+
         return (float) $query->sum('delivered_qty');
     }
 
     private function getAllocatedQtyForSalesOrderLine(int $salesOrderLineId): float
     {
         $lines = DeliveryOrderLine::where('sales_order_line_id', $salesOrderLineId)
-            ->whereHas('deliveryOrder', fn($q) => $q->where('status', '!=', 'cancelled'))
+            ->whereHas('deliveryOrder', fn ($q) => $q->where('status', '!=', 'cancelled'))
             ->get();
-        return (float) $lines->sum(fn($l) => max((float) $l->picked_qty, (float) $l->delivered_qty));
+
+        return (float) $lines->sum(fn ($l) => max((float) $l->picked_qty, (float) $l->delivered_qty));
     }
 
     private function getAllocatedQtyForSalesOrderLineExcludingDo(int $salesOrderLineId, ?int $excludeDeliveryOrderId): float
     {
         $query = DeliveryOrderLine::where('sales_order_line_id', $salesOrderLineId)
-            ->whereHas('deliveryOrder', fn($q) => $q->where('status', '!=', 'cancelled'));
+            ->whereHas('deliveryOrder', fn ($q) => $q->where('status', '!=', 'cancelled'));
         if ($excludeDeliveryOrderId !== null) {
             $query->where('delivery_order_id', '!=', $excludeDeliveryOrderId);
         }
         $lines = $query->get();
-        return (float) $lines->sum(fn($l) => max((float) $l->picked_qty, (float) $l->delivered_qty));
+
+        return (float) $lines->sum(fn ($l) => max((float) $l->picked_qty, (float) $l->delivered_qty));
     }
 
     private function syncSalesOrderLineFromDeliveries(int $salesOrderLineId): void
     {
         $line = SalesOrderLine::find($salesOrderLineId);
-        if (!$line) {
+        if (! $line) {
             return;
         }
         $delivered = $this->getDeliveredQtyForSalesOrderLine($salesOrderLineId);
@@ -431,7 +437,7 @@ class DeliveryService
 
     private function ensureInventoryReduction(DeliveryOrderLine $line): void
     {
-        if (!$line->inventory_item_id || !$line->inventoryItem) {
+        if (! $line->inventory_item_id || ! $line->inventoryItem) {
             return;
         }
 
@@ -467,13 +473,13 @@ class DeliveryService
     {
         $lines = $deliveryOrder->lines;
 
-        if ($lines->every(fn($line) => $line->status === 'delivered')) {
+        if ($lines->every(fn ($line) => $line->status === 'delivered')) {
             $deliveryOrder->updateStatus('delivered');
-        } elseif ($lines->some(fn($line) => $line->status === 'delivered')) {
+        } elseif ($lines->some(fn ($line) => $line->status === 'delivered')) {
             $deliveryOrder->updateStatus('partial_delivered');
-        } elseif ($lines->every(fn($line) => $line->status === 'picked')) {
+        } elseif ($lines->every(fn ($line) => $line->status === 'picked')) {
             $deliveryOrder->updateStatus('ready');
-        } elseif ($lines->some(fn($line) => $line->status === 'picked')) {
+        } elseif ($lines->some(fn ($line) => $line->status === 'picked')) {
             $deliveryOrder->updateStatus('picking');
         }
     }
@@ -488,7 +494,7 @@ class DeliveryService
                 'approved_by' => $userId,
                 'approved_at' => now(),
                 'status' => 'in_transit',
-                'notes' => $comments ? $deliveryOrder->notes . "\nApproval: " . $comments : $deliveryOrder->notes
+                'notes' => $comments ? $deliveryOrder->notes."\nApproval: ".$comments : $deliveryOrder->notes,
             ]);
 
             foreach ($deliveryOrder->lines as $line) {
@@ -500,7 +506,7 @@ class DeliveryService
             try {
                 $this->deliveryJournalService->createInventoryReservation($deliveryOrder);
             } catch (\Exception $e) {
-                Log::error('Failed to create inventory reservation journal entry: ' . $e->getMessage());
+                Log::error('Failed to create inventory reservation journal entry: '.$e->getMessage());
             }
 
             return $deliveryOrder;
@@ -510,7 +516,7 @@ class DeliveryService
     private function reduceStockOnApproval(DeliveryOrder $deliveryOrder): void
     {
         foreach ($deliveryOrder->lines as $line) {
-            if (!$line->inventory_item_id || !$line->inventoryItem) {
+            if (! $line->inventory_item_id || ! $line->inventoryItem) {
                 continue;
             }
 
@@ -547,7 +553,7 @@ class DeliveryService
         return DB::transaction(function () use ($deliveryOrderId, $deliveredAt, $deliveredBy) {
             $deliveryOrder = DeliveryOrder::with('lines.inventoryItem')->findOrFail($deliveryOrderId);
 
-            if (!in_array($deliveryOrder->status, ['in_transit', 'ready'])) {
+            if (! in_array($deliveryOrder->status, ['in_transit', 'ready'])) {
                 throw new \Exception('Delivery Order must be in transit or ready status to mark as delivered.');
             }
 
@@ -581,7 +587,7 @@ class DeliveryService
                 $this->deliveryJournalService->createRevenueRecognition($deliveryOrder);
                 $deliveryOrder->update(['status' => 'completed']);
             } catch (\Exception $e) {
-                Log::error('Failed to create revenue recognition journal entry: ' . $e->getMessage());
+                Log::error('Failed to create revenue recognition journal entry: '.$e->getMessage());
                 throw $e;
             }
 
@@ -597,7 +603,7 @@ class DeliveryService
             'approval_status' => 'rejected',
             'approved_by' => $userId,
             'approved_at' => now(),
-            'notes' => $comments ? $deliveryOrder->notes . "\nRejection: " . $comments : $deliveryOrder->notes
+            'notes' => $comments ? $deliveryOrder->notes."\nRejection: ".$comments : $deliveryOrder->notes,
         ]);
 
         return $deliveryOrder;
@@ -608,7 +614,7 @@ class DeliveryService
         return DB::transaction(function () use ($deliveryOrderId, $reason) {
             $deliveryOrder = DeliveryOrder::with('lines.inventoryItem')->findOrFail($deliveryOrderId);
 
-            if (!$deliveryOrder->canBeCancelled()) {
+            if (! $deliveryOrder->canBeCancelled()) {
                 throw new \Exception('Delivery Order cannot be cancelled in current status');
             }
 
@@ -632,7 +638,7 @@ class DeliveryService
 
             $deliveryOrder->update([
                 'status' => 'cancelled',
-                'notes' => $reason ? $deliveryOrder->notes . "\nCancellation: " . $reason : $deliveryOrder->notes
+                'notes' => $reason ? $deliveryOrder->notes."\nCancellation: ".$reason : $deliveryOrder->notes,
             ]);
 
             foreach ($deliveryOrder->lines as $line) {
@@ -647,7 +653,7 @@ class DeliveryService
 
     public function releaseInventory($deliveryOrderLine)
     {
-        if (!$deliveryOrderLine->inventory_item_id) {
+        if (! $deliveryOrderLine->inventory_item_id) {
             return;
         }
 
@@ -667,7 +673,7 @@ class DeliveryService
         $salesOrder = SalesOrder::with(['lines.inventoryItem'])->findOrFail($salesOrderId);
         $result = [];
         foreach ($salesOrder->lines as $line) {
-            if (!$line->inventory_item_id) {
+            if (! $line->inventory_item_id) {
                 continue;
             }
             $orderedQty = (float) $line->qty;
@@ -692,6 +698,7 @@ class DeliveryService
                 'max_qty' => $maxQty,
             ];
         }
+
         return $result;
     }
 
@@ -706,6 +713,7 @@ class DeliveryService
                 $result[$line->sales_order_line_id] = max(0, $orderedQty - $deliveredByOthers);
             }
         }
+
         return $result;
     }
 
@@ -714,6 +722,7 @@ class DeliveryService
         if ($salesOrder->approval_status !== 'approved' || $salesOrder->order_type !== 'item') {
             return false;
         }
+
         return in_array($salesOrder->status, ['confirmed', 'processing']);
     }
 

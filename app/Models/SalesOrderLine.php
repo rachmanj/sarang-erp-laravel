@@ -36,7 +36,7 @@ class SalesOrderLine extends Model
         'vat_rate',
         'wtax_rate',
         'notes',
-        'status'
+        'status',
     ];
 
     protected $casts = [
@@ -107,6 +107,7 @@ class SalesOrderLine extends Model
         if ($this->unit_conversion_factor && $this->unit_conversion_factor > 0) {
             return $this->qty * $this->unit_conversion_factor;
         }
+
         return $this->qty;
     }
 
@@ -115,6 +116,7 @@ class SalesOrderLine extends Model
         if ($this->unit_conversion_factor && $this->unit_conversion_factor > 0) {
             return $this->unit_price / $this->unit_conversion_factor;
         }
+
         return $this->unit_price;
     }
 
@@ -159,6 +161,29 @@ class SalesOrderLine extends Model
         }
 
         return round(($this->gross_profit / $this->net_amount) * 100, 2);
+    }
+
+    /**
+     * Line gross amount: (qty × unit_price) + VAT − withholding tax on base.
+     * Must stay aligned with {@see SalesService} create/update order line logic.
+     */
+    public static function computeAmountFromPricing(float $qty, float $unitPrice, $vatRate = null, $wtaxRate = null): float
+    {
+        $originalAmount = $qty * $unitPrice;
+        $vat = $originalAmount * (((float) ($vatRate ?? 0)) / 100);
+        $wtax = $originalAmount * (((float) ($wtaxRate ?? 0)) / 100);
+
+        return $originalAmount + $vat - $wtax;
+    }
+
+    public function computeAmountForQuantity(float $qty): float
+    {
+        return self::computeAmountFromPricing(
+            $qty,
+            (float) $this->unit_price,
+            $this->vat_rate,
+            $this->wtax_rate
+        );
     }
 
     // Methods

@@ -323,7 +323,10 @@ class DeliveryOrderController extends Controller
                 }
 
                 $unitPrice = $line->salesOrderLine ? (float) $line->salesOrderLine->unit_price : (float) $line->unit_price;
-                $amount = $orderedQty * $unitPrice;
+                $sol = $line->salesOrderLine;
+                $amount = $sol
+                    ? $sol->computeAmountForQuantity($orderedQty)
+                    : $orderedQty * $unitPrice;
 
                 $line->update([
                     'ordered_qty' => $orderedQty,
