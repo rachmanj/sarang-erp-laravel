@@ -79,5 +79,7 @@ php artisan help:reindex
 
 Lihat **`README.md`** di folder yang sama untuk indeks berkas panduan dan petunjuk pemeliharaan HELP.
 
+**Koreksi alur penjualan** (Sales Credit Memo, reverse delivery, Relationship Map, salah **Company entity**): ringkasan untuk indeks HELP — **`sales-workflow-corrections-help-id.md`** (ID) dan **`sales-workflow-corrections-help-en.md`** (EN). Checklist operasional: **`checklist-perbaikan-salah-entitas-so-id.md`**.
+
 **Domain Assistant** (ikon robot, data ERP langsung — bukan HELP): lihat **`domain-assistant-manual-id.md`** di folder ini.
 

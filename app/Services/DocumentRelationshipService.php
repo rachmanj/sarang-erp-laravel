@@ -174,6 +174,23 @@ class DocumentRelationshipService
         Cache::forget($targetCacheKey);
     }
 
+    public function labelForMorphClass(string $morphClass): string
+    {
+        $labels = [
+            'App\Models\PurchaseOrder' => 'Purchase Order',
+            'App\Models\GoodsReceiptPO' => 'Goods Receipt PO',
+            'App\Models\Accounting\PurchaseInvoice' => 'Purchase Invoice',
+            'App\Models\Accounting\PurchasePayment' => 'Purchase Payment',
+            'App\Models\SalesOrder' => 'Sales Order',
+            'App\Models\DeliveryOrder' => 'Delivery Order',
+            'App\Models\Accounting\SalesInvoice' => 'Sales Invoice',
+            'App\Models\Accounting\SalesReceipt' => 'Sales Receipt',
+            'App\Models\Accounting\SalesCreditMemo' => 'Sales Credit Memo',
+        ];
+
+        return $labels[$morphClass] ?? 'Document';
+    }
+
     /**
      * Get navigation data for a document
      */
@@ -188,7 +205,8 @@ class DocumentRelationshipService
                     return [
                         'id' => $doc->id,
                         'type' => $doc->getMorphClass(),
-                        'number' => $doc->order_no ?? $doc->grn_no ?? $doc->invoice_no ?? $doc->payment_no ?? $doc->receipt_no ?? $doc->do_number ?? 'N/A',
+                        'type_label' => $this->labelForMorphClass($doc->getMorphClass()),
+                        'number' => $doc->order_no ?? $doc->grn_no ?? $doc->invoice_no ?? $doc->payment_no ?? $doc->receipt_no ?? $doc->do_number ?? $doc->memo_no ?? 'N/A',
                         'status' => $doc->status ?? 'N/A',
                         'amount' => $doc->total_amount ?? $doc->amount ?? 0,
                         'date' => $doc->date ?? $doc->created_at,
@@ -203,7 +221,8 @@ class DocumentRelationshipService
                     return [
                         'id' => $doc->id,
                         'type' => $doc->getMorphClass(),
-                        'number' => $doc->order_no ?? $doc->grn_no ?? $doc->invoice_no ?? $doc->payment_no ?? $doc->receipt_no ?? $doc->do_number ?? 'N/A',
+                        'type_label' => $this->labelForMorphClass($doc->getMorphClass()),
+                        'number' => $doc->order_no ?? $doc->grn_no ?? $doc->invoice_no ?? $doc->payment_no ?? $doc->receipt_no ?? $doc->do_number ?? $doc->memo_no ?? 'N/A',
                         'status' => $doc->status ?? 'N/A',
                         'amount' => $doc->total_amount ?? $doc->amount ?? 0,
                         'date' => $doc->date ?? $doc->created_at,
@@ -237,6 +256,7 @@ class DocumentRelationshipService
             'App\Models\Accounting\SalesInvoice' => 'sales-invoices.show',
             'App\Models\SalesReceipt' => 'sales-receipts.show',
             'App\Models\Accounting\SalesReceipt' => 'sales-receipts.show',
+            'App\Models\Accounting\SalesCreditMemo' => 'sales-credit-memos.show',
         ];
 
         $route = $routes[$type] ?? 'documents.show';

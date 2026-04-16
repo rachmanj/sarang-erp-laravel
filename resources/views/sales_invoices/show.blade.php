@@ -55,6 +55,20 @@
                                 </form>
                             @endif
                         @endcan
+                        @can('ar.credit-memos.view')
+                            @if ($hasCreditMemo ?? false)
+                                <a href="{{ route('sales-credit-memos.show', $invoice->creditMemo->id) }}" class="btn btn-sm btn-warning">
+                                    <i class="fas fa-file-invoice"></i> Credit Memo
+                                </a>
+                            @endif
+                        @endcan
+                        @can('ar.credit-memos.create')
+                            @if ($canCreateCreditMemo ?? false)
+                                <a href="{{ route('sales-credit-memos.create', ['sales_invoice_id' => $invoice->id]) }}" class="btn btn-sm btn-warning">
+                                    <i class="fas fa-file-invoice"></i> Create Credit Memo
+                                </a>
+                            @endif
+                        @endcan
                         @can('ar.invoices.create')
                             @if ($invoice->status === 'draft')
                                 <a href="{{ route('sales-invoices.edit', $invoice->id) }}" class="btn btn-sm btn-primary">

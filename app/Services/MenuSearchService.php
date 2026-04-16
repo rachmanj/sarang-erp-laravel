@@ -148,7 +148,7 @@ class MenuSearchService
         }
 
         // Sales Group
-        if ($user->hasAnyPermission(['ar.invoices.view', 'ar.receipts.view', 'ar.quotations.view'])) {
+        if ($user->hasAnyPermission(['ar.invoices.view', 'ar.credit-memos.view', 'ar.receipts.view', 'ar.quotations.view'])) {
             $items[] = $this->buildMenuItem(
                 'Sales Dashboard',
                 route('sales.dashboard'),
@@ -191,6 +191,16 @@ class MenuSearchService
                     'Sales',
                     'MAIN > Sales > Sales Invoices',
                     ['sales', 'invoices', 'ar', 'accounts receivable']
+                );
+            }
+            if ($user->can('ar.credit-memos.view')) {
+                $items[] = $this->buildMenuItem(
+                    'Sales Credit Memos',
+                    route('sales-credit-memos.index'),
+                    'fas fa-file-invoice',
+                    'Sales',
+                    'MAIN > Sales > Sales Credit Memos',
+                    ['credit memo', 'cm', 'ar', 'sales', 'reversal']
                 );
             }
             if ($user->can('ar.receipts.view')) {

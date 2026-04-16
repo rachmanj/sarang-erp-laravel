@@ -58,7 +58,7 @@
                     <p>Cash on Hand</p>
                 </div>
                 <div class="icon"><i class="fas fa-wallet"></i></div>
-                <a href="{{ route('control-accounts.index') }}" class="small-box-footer">Control Accounts <i
+                <a href="{{ route('reports.trial-balance') }}" class="small-box-footer">Trial Balance (verify GL) <i
                         class="fas fa-arrow-circle-right"></i></a>
             </div>
         </div>

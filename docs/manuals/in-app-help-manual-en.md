@@ -78,5 +78,6 @@ php artisan help:reindex
 ## Related
 
 - Index of manuals: **`README.md`** in this folder.
+- **Sales workflow corrections** (credit memos, reverse delivery, Relationship Map, wrong company entity): HELP-oriented summaries — **`sales-workflow-corrections-help-en.md`** / **`sales-workflow-corrections-help-id.md`**. Operational checklist (ID): **`checklist-perbaikan-salah-entitas-so-id.md`**.
 - **Domain Assistant** (robot icon, live ERP data — not HELP): see **`domain-assistant-manual-en.md`** in this folder.
 

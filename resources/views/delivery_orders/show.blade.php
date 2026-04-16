@@ -73,6 +73,27 @@
                                         </button>
                                     </form>
                                 @endif
+                                @can('delivery-orders.reverse')
+                                    @if (in_array($deliveryOrder->status, ['partial_delivered', 'delivered', 'completed'], true))
+                                        @if ($reason = $deliveryOrder->reversalBlockReason())
+                                            <div class="alert alert-warning py-2 px-3 mb-1">
+                                                <small><strong>Reverse unavailable:</strong> {{ $reason }}</small>
+                                            </div>
+                                        @else
+                                            <form method="post" action="{{ route('delivery-orders.reverse', $deliveryOrder) }}"
+                                                class="d-inline-flex align-items-center flex-wrap"
+                                                onsubmit="return confirm('Reverse this delivery order? Posted journals will be reversed and stock will be restored. If this DO was invoiced, ensure a credit memo is posted and the invoice link was removed first.');">
+                                                @csrf
+                                                <input type="text" name="reason" class="form-control form-control-sm mr-1 mb-1"
+                                                    style="min-width: 180px; max-width: 280px;" placeholder="Reason (optional)"
+                                                    maxlength="1000">
+                                                <button type="submit" class="btn btn-sm btn-danger mb-1">
+                                                    <i class="fas fa-undo"></i> Reverse delivery
+                                                </button>
+                                            </form>
+                                        @endif
+                                    @endif
+                                @endcan
                                 <a href="{{ route('delivery-orders.index') }}" class="btn btn-sm btn-secondary">
                                     <i class="fas fa-arrow-left"></i> Back
                                 </a>
@@ -92,7 +113,7 @@
                             <div class="row mb-3">
                                 <div class="col-md-6">
                                     <span
-                                        class="badge badge-{{ $deliveryOrder->status === 'delivered' ? 'success' : 'info' }}">
+                                        class="badge badge-{{ $deliveryOrder->status === 'delivered' || $deliveryOrder->status === 'completed' ? 'success' : ($deliveryOrder->status === 'reversed' ? 'secondary' : 'info') }}">
                                         Status: {{ ucfirst(str_replace('_', ' ', $deliveryOrder->status)) }}
                                     </span>
                                 </div>

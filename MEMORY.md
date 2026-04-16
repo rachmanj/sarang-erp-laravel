@@ -1,5 +1,5 @@
 **Purpose**: AI's persistent knowledge base for project context and learnings
-**Last Updated**: 2026-04-14 (DO cancel UI + SI list totals + manual)
+**Last Updated**: 2026-04-16 (AR CM + DO reverse + Relationship Map + HELP)
 
 ## Memory Maintenance Guidelines
 
@@ -26,6 +26,14 @@
 ---
 
 ## Project Memory Entries
+
+### [103] AR Sales Credit Memo + DO reverse delivery + Relationship Map + HELP corpus (2026-04-16) ✅ COMPLETE
+
+**Challenge**: Correct **posted** AR and **completed** deliveries when **company entity** or logistics were wrong—without DB hacks; Relationship Map showed **N/A** where users expected **status**; HELP needed retrievable chunks for CM, reverse DO, PT/CV checklist.
+
+**Solution**: **One CM per SI** (unique `sales_invoice_id`, `SalesCreditMemoController` + post). **DO reverse** (`delivery-orders.reverse`, `reverseDeliveryOrder`, journal reversal without double-reverse, inventory adjustment, status `reversed`, audit `reversed`). **Relationship Map**: node lines = type, number, date, **Status**, amount, optional Ref; `type_label` in nav API. Manuals: `sales-workflow-corrections-help-*.md`, checklist, `help-navigation.json` entries; **`php artisan help:reindex`** after deploy.
+
+**Learning**: Encode **Cancel vs Reverse** and **CM-before-unlink** in manuals for RAG; keep diagram semantics (reference vs status) explicit to cut support noise.
 
 ### [102] Delivery Order cancel UI + SI filtered totals + DO manual (partial shipment) (2026-04-14) ✅ COMPLETE
 

@@ -156,6 +156,7 @@ class DocumentNavigationController extends Controller
             'delivery-order' => \App\Models\DeliveryOrder::class,
             'sales-invoice' => \App\Models\Accounting\SalesInvoice::class,
             'sales-receipt' => \App\Models\Accounting\SalesReceipt::class,
+            'sales-credit-memo' => \App\Models\Accounting\SalesCreditMemo::class,
         ];
 
         $modelClass = $modelMap[$documentType] ?? null;
@@ -202,6 +203,7 @@ class DocumentNavigationController extends Controller
             'App\Models\Accounting\SalesInvoice' => 'sales-invoices.show',
             'App\Models\SalesReceipt' => 'sales-receipts.show',
             'App\Models\Accounting\SalesReceipt' => 'sales-receipts.show',
+            'App\Models\Accounting\SalesCreditMemo' => 'sales-credit-memos.show',
         ];
 
         $route = $routes[$type] ?? 'documents.show';

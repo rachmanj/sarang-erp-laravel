@@ -1,5 +1,5 @@
 **Purpose**: Record technical decisions and rationale for future reference
-**Last Updated**: 2026-04-14 (DO cancel + SI totals + HELP manual)
+**Last Updated**: 2026-04-16 (AR Sales Credit Memo, DO reverse, Relationship Map labels, HELP corpus)
 
 # Technical Decision Records
 
@@ -29,6 +29,26 @@ Decision: [Title] - [YYYY-MM-DD]
 ---
 
 ## Recent Decisions
+
+### Decision: AR Sales Credit Memo + Delivery Order reverse + Relationship Map clarity + HELP corpus — 2026-04-16
+
+**Context**: Users needed a supported path to correct **posted** AR after wrong **company entity** or delivery mistakes: (1) **one credit memo per Sales Invoice**, (2) **reverse** a DO after delivered/completed without raw DB edits, (3) Relationship Map boxes showed **N/A** on a line that was **reference**, not status, and omitted **document type**.
+
+**Decision**:
+
+1. **Schema**: `sales_credit_memos` / `sales_credit_memo_lines`; unique `sales_invoice_id` on memos. `delivery_orders.status` ENUM includes **`reversed`**.
+2. **CM**: `SalesCreditMemoController` + posting; duplicate create blocked; `SalesInvoice` `hasOne` creditMemo; permissions `ar.credit-memos.*`.
+3. **DO reverse**: `POST delivery-orders/{id}/reverse`, `delivery-orders.reverse`, `DeliveryService::reverseDeliveryOrder` + `DeliveryJournalService::reverseOriginalJournalsForDeliveryOrder` (no double-reversal), inventory adjustment, `canBeReversed` / `reversalBlockReason`, audit log `reversed`.
+4. **Relationship Map**: Mermaid labels = type, number, date, status, amount; optional Ref; `type_label` on navigation payloads; `getDocumentReference` includes `reference_no` for SO.
+5. **HELP**: `sales-workflow-corrections-help-*.md`, `checklist-perbaikan-salah-entitas-so-id.md`, `help-navigation.json` entries, manual sections in `delivery-order-manual-id.md` and `sales-invoice-manual-id.md`; reindex `php artisan help:reindex`.
+
+**Rationale**: One CM per SI matches accounting control; DO reversal reuses `PostingService::reverseJournal`; UI clarity reduces misinterpretation of “N/A”; chunked manuals improve RAG.
+
+**Implementation**: Migrations, models, services, routes `routes/web/orders.php` + `ar_ap.php`, `RolePermissionSeeder`, `DocumentRelationshipController` / `DocumentRelationshipService`, `relationship-map-modal.blade.php`, docs under `docs/manuals/` and `docs/action-plans/ar-credit-memo-do-reversal-functional-spec.md` §12.
+
+**Review Date**: 2027-04-16
+
+---
 
 ### Decision: Delivery Order cancel button + Sales Invoice list filtered totals + HELP manual (DO partial shipment) - 2026-04-14
 

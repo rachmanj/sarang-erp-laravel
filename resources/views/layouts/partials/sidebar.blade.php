@@ -190,10 +190,11 @@
                 @endcanany
 
                 <!-- 3. Sales Group -->
-                @canany(['ar.invoices.view', 'ar.receipts.view', 'ar.quotations.view'])
+                @canany(['ar.invoices.view', 'ar.credit-memos.view', 'ar.receipts.view', 'ar.quotations.view'])
                     @php
                         $salesActive =
                             request()->routeIs('sales-invoices.*') ||
+                            request()->routeIs('sales-credit-memos.*') ||
                             request()->routeIs('sales-receipts.*') ||
                             request()->routeIs('sales-orders.*') ||
                             request()->routeIs('sales-quotations.*') ||
@@ -244,6 +245,15 @@
                                         class="nav-link {{ request()->routeIs('sales-invoices.*') ? 'active' : '' }}">
                                         <i class="far fa-circle nav-icon"></i>
                                         <p>Sales Invoices</p>
+                                    </a>
+                                </li>
+                            @endcan
+                            @can('ar.credit-memos.view')
+                                <li class="nav-item">
+                                    <a href="{{ route('sales-credit-memos.index') }}"
+                                        class="nav-link {{ request()->routeIs('sales-credit-memos.*') ? 'active' : '' }}">
+                                        <i class="far fa-circle nav-icon"></i>
+                                        <p>Sales Credit Memos</p>
                                     </a>
                                 </li>
                             @endcan

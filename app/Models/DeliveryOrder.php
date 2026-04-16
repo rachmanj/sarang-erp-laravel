@@ -2,11 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Accounting\SalesCreditMemo;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Facades\DB;
 
 class DeliveryOrder extends Model
 {
@@ -49,6 +51,7 @@ class DeliveryOrder extends Model
     ];
 
     protected $auditLogIgnore = ['updated_at', 'created_at'];
+
     protected $auditEntityType = 'delivery_order';
 
     // Relationships
@@ -123,9 +126,12 @@ class DeliveryOrder extends Model
     public function getDeliveryProgressAttribute()
     {
         $totalLines = $this->lines->count();
-        if ($totalLines == 0) return 0;
+        if ($totalLines == 0) {
+            return 0;
+        }
 
         $deliveredLines = $this->lines->where('status', 'delivered')->count();
+
         return round(($deliveredLines / $totalLines) * 100);
     }
 
@@ -140,7 +146,7 @@ class DeliveryOrder extends Model
     {
         return $this->lines->some(function ($line) {
             return $line->status === 'delivered';
-        }) && !$this->is_fully_delivered;
+        }) && ! $this->is_fully_delivered;
     }
 
     // Methods
@@ -163,5 +169,41 @@ class DeliveryOrder extends Model
     public function canBeCancelled()
     {
         return in_array($this->status, ['draft', 'picking', 'packed', 'in_transit']);
+    }
+
+    public function canBeReversed(): bool
+    {
+        return $this->reversalBlockReason() === null;
+    }
+
+    /**
+     * When non-null, explains why this DO cannot be reversed (status must already be deliverable).
+     */
+    public function reversalBlockReason(): ?string
+    {
+        if (! in_array($this->status, ['partial_delivered', 'delivered', 'completed'], true)) {
+            return 'Only partially delivered, delivered, or completed delivery orders can be reversed.';
+        }
+
+        if (DB::table('delivery_order_sales_invoice')->where('delivery_order_id', $this->id)->exists()) {
+            return 'This delivery order is still linked to a sales invoice. Post a credit memo for that invoice if required, then remove the link between this delivery order and the invoice (unlink), and try again.';
+        }
+
+        if (($this->closure_status ?? 'open') === 'open') {
+            return null;
+        }
+
+        if ($this->closed_by_document_type === 'sales_invoice' && $this->closed_by_document_id) {
+            $hasPostedCreditMemo = SalesCreditMemo::query()
+                ->where('sales_invoice_id', $this->closed_by_document_id)
+                ->where('status', 'posted')
+                ->exists();
+
+            return $hasPostedCreditMemo
+                ? null
+                : 'Post the sales credit memo for the sales invoice that closed this delivery order before reversing.';
+        }
+
+        return 'This delivery order is closed in a way that does not allow reversal from the UI. Contact an administrator if this is unexpected.';
     }
 }

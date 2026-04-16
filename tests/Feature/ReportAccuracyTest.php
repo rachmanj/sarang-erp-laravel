@@ -2,9 +2,11 @@
 
 namespace Tests\Feature;
 
+use App\Services\DashboardDataService;
 use App\Services\Reports\ReportService;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
@@ -136,5 +138,17 @@ class ReportAccuracyTest extends TestCase
         }
         $expectedNi = round($income - $expense, 2);
         $this->assertEqualsWithDelta($expectedNi, (float) $pl['subtotals']['net_income'], 0.05);
+    }
+
+    public function test_dashboard_cash_on_hand_matches_trial_balance_for_gl_1_1_1(): void
+    {
+        Cache::forget('dashboard:data:global');
+        $date = now()->toDateString();
+        $tb = $this->reports->getTrialBalance($date);
+        $row = collect($tb['rows'])->firstWhere('code', '1.1.1');
+        $expected = $row ? (float) $row['balance'] : 0.0;
+
+        $dashboard = app(DashboardDataService::class)->getDashboardData(true);
+        $this->assertEqualsWithDelta($expected, (float) $dashboard['kpis']['cash_on_hand'], 0.02);
     }
 }

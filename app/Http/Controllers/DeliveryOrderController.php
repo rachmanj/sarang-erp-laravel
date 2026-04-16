@@ -554,4 +554,25 @@ class DeliveryOrderController extends Controller
                 ->with('error', $e->getMessage());
         }
     }
+
+    public function reverse(Request $request, DeliveryOrder $deliveryOrder)
+    {
+        $data = $request->validate([
+            'reason' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        try {
+            $this->deliveryService->reverseDeliveryOrder(
+                $deliveryOrder->id,
+                $data['reason'] ?? null,
+                Auth::id()
+            );
+
+            return redirect()->route('delivery-orders.show', $deliveryOrder->id)
+                ->with('success', 'Delivery order reversed. Related journals were reversed and stock was restored where applicable.');
+        } catch (\Exception $e) {
+            return redirect()->back()
+                ->with('error', $e->getMessage());
+        }
+    }
 }

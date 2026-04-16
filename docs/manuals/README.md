@@ -36,6 +36,8 @@ File **`help-navigation.json`** holds short **menu path** and **keyword** entrie
 | Purchase Payment | `purchase-payment-manual-id.md` | — |
 | Delivery Order | `delivery-order-manual-id.md` | — |
 | **Sales Invoice** | `sales-invoice-manual-id.md` | `sales-invoice-manual-en.md` |
+| Sales workflow corrections (HELP chunks: CM, reverse DO, Relationship Map, entity) | `sales-workflow-corrections-help-id.md` | `sales-workflow-corrections-help-en.md` |
+| Checklist salah entitas SO (operasional) | `checklist-perbaikan-salah-entitas-so-id.md` | — |
 | Customer / project | `customer-project-manual-id.md` | — |
 | Warehouse stock transfer | `warehouse-stock-transfer-manual-id.md` | `warehouse-stock-transfer-manual.md` |
 | Bank/Kas saldo awal | `setup-saldo-awal-bank-kas-manual-id.md` | — |

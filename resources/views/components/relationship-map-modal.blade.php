@@ -76,11 +76,14 @@
                 {{-- Mermaid Diagram Container --}}
                 <div id="relationshipMapContainer" class="d-none">
                     <div class="card">
-                        <div class="card-header d-flex justify-content-between align-items-center">
-                            <h6 class="mb-0">
-                                <i class="fas fa-project-diagram mr-1"></i>
-                                Document Workflow
-                            </h6>
+                        <div class="card-header d-flex justify-content-between align-items-center flex-wrap">
+                            <div>
+                                <h6 class="mb-0">
+                                    <i class="fas fa-project-diagram mr-1"></i>
+                                    Document Workflow
+                                </h6>
+                                <small class="text-muted">Each box: document type, number, date, status, amount; reference only when set (not &quot;N/A&quot;).</small>
+                            </div>
                             <div class="btn-group btn-group-sm">
                                 <button type="button" class="btn btn-outline-secondary" id="zoomInBtn">
                                     <i class="fas fa-search-plus"></i>
@@ -256,8 +259,8 @@
         // Update document info
         function updateDocumentInfo(document) {
             $('#currentDocumentNumber').text(document.number);
-            $('#currentDocumentType').text(document.type);
-            $('#currentDocumentStatus').text(document.status).removeClass().addClass('badge badge-' +
+            $('#currentDocumentType').text(document.type_label || document.type);
+            $('#currentDocumentStatus').text(formatStatusLabel(document.status)).removeClass().addClass('badge badge-' +
                 getStatusBadgeClass(document.status));
             $('#currentDocumentAmount').text(formatCurrency(document.amount));
         }
@@ -295,6 +298,26 @@
         }
 
         // Generate Mermaid diagram definition
+        function escapeMermaidText(text) {
+            return String(text ?? '')
+                .replace(/\\/g, '\\\\')
+                .replace(/"/g, "'");
+        }
+
+        function formatDiagramStatus(status) {
+            if (status === undefined || status === null || status === '' || status === 'N/A') {
+                return 'Status: —';
+            }
+            return 'Status: ' + String(status).replace(/_/g, ' ');
+        }
+
+        function formatStatusLabel(status) {
+            if (status === undefined || status === null || status === '' || status === 'N/A') {
+                return '—';
+            }
+            return String(status).replace(/_/g, ' ');
+        }
+
         function generateMermaidDefinition(mermaidData) {
             let definition = 'graph TD\n';
 
@@ -302,16 +325,17 @@
             mermaidData.nodes.forEach(node => {
                 const nodeId = node.id.replace('doc_', '');
 
-                // Create detailed node label with document info
-                let nodeLabel = `${node.label}`;
-                if (node.date) {
-                    nodeLabel += `\\n${node.date}`;
+                let nodeLabel = escapeMermaidText(node.type || 'Document');
+                nodeLabel += '\\n' + escapeMermaidText(node.label || ('#' + nodeId));
+                if (node.date && node.date !== 'N/A') {
+                    nodeLabel += '\\n' + escapeMermaidText(node.date);
                 }
-                if (node.reference) {
-                    nodeLabel += `\\n${node.reference}`;
+                nodeLabel += '\\n' + escapeMermaidText(formatDiagramStatus(node.status));
+                if (node.amount !== undefined && node.amount !== null) {
+                    nodeLabel += '\\n' + escapeMermaidText(formatCurrency(node.amount));
                 }
-                if (node.amount) {
-                    nodeLabel += `\\n${formatCurrency(node.amount)}`;
+                if (node.reference && node.reference !== 'N/A') {
+                    nodeLabel += '\\nRef: ' + escapeMermaidText(node.reference);
                 }
 
                 const nodeClass = node.isCurrent ? 'current' : getDocumentTypeClass(node.type);
@@ -345,6 +369,7 @@
     classDef deliveryOrder fill:#f1f8e9,stroke:#689f38,stroke-width:2px,color:#000
     classDef salesInvoice fill:#fff8e1,stroke:#ffa000,stroke-width:2px,color:#000
     classDef salesReceipt fill:#e0f2f1,stroke:#00796b,stroke-width:2px,color:#000
+    classDef salesCreditMemo fill:#fce4ec,stroke:#ad1457,stroke-width:2px,color:#000
     classDef default fill:#f8f9fa,stroke:#6c757d,stroke-width:2px,color:#000
         `;
 
@@ -370,7 +395,8 @@
                 'Sales Order': 'salesOrder',
                 'Delivery Order': 'deliveryOrder',
                 'Sales Invoice': 'salesInvoice',
-                'Sales Receipt': 'salesReceipt'
+                'Sales Receipt': 'salesReceipt',
+                'Sales Credit Memo': 'salesCreditMemo'
             };
             return typeMap[type] || 'default';
         }
@@ -400,7 +426,8 @@
         // Create document card
         function createDocumentCard(doc, type) {
             const statusBadgeClass = getStatusBadgeClass(doc.status);
-            const typeIcon = getDocumentTypeIcon(doc.type);
+            const typeLabel = doc.type_label || doc.type;
+            const typeIcon = getDocumentTypeIcon(typeLabel);
 
             return $(`
             <div class="card mb-2">
@@ -411,7 +438,7 @@
                                 <i class="${typeIcon} mr-1"></i>
                                 ${doc.number}
                             </h6>
-                            <p class="mb-1 text-muted small">${doc.type}</p>
+                            <p class="mb-1 text-muted small">${typeLabel}</p>
                             <p class="mb-0 small">
                                 <span class="badge badge-${statusBadgeClass}">${doc.status}</span>
                                 <span class="ml-2">${formatCurrency(doc.amount)}</span>
@@ -446,6 +473,9 @@
         }
 
         function getStatusBadgeClass(status) {
+            if (status === undefined || status === null || status === '' || status === 'N/A') {
+                return 'secondary';
+            }
             const statusMap = {
                 'draft': 'secondary',
                 'approved': 'success',
@@ -454,7 +484,7 @@
                 'cancelled': 'danger',
                 'pending': 'warning'
             };
-            return statusMap[status.toLowerCase()] || 'secondary';
+            return statusMap[String(status).toLowerCase()] || 'secondary';
         }
 
         function getDocumentTypeIcon(type) {
@@ -466,7 +496,8 @@
                 'Sales Order': 'fas fa-handshake',
                 'Delivery Order': 'fas fa-truck',
                 'Sales Invoice': 'fas fa-file-invoice-dollar',
-                'Sales Receipt': 'fas fa-receipt'
+                'Sales Receipt': 'fas fa-receipt',
+                'Sales Credit Memo': 'fas fa-file-invoice'
             };
             return iconMap[type] || 'fas fa-file';
         }

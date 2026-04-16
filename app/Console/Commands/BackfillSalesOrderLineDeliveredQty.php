@@ -26,16 +26,17 @@ class BackfillSalesOrderLineDeliveredQty extends Command
 
         foreach ($lines as $line) {
             $delivered = (float) DeliveryOrderLine::where('sales_order_line_id', $line->id)
-                ->whereHas('deliveryOrder', fn($q) => $q->where('status', '!=', 'cancelled'))
+                ->whereHas('deliveryOrder', fn ($q) => $q->whereNotIn('status', ['cancelled', 'reversed']))
                 ->sum('delivered_qty');
 
             $currentDelivered = (float) $line->delivered_qty;
             if (abs($delivered - $currentDelivered) < 0.001) {
                 $unchanged++;
+
                 continue;
             }
 
-            if (!$dryRun) {
+            if (! $dryRun) {
                 $line->updateDeliveredQuantity($delivered);
             }
 

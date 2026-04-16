@@ -10,6 +10,12 @@
 @endsection
 
 @section('content')
+    @php
+        $cashLedgerQuery = array_filter(
+            request()->only(['from', 'to', 'account_id']),
+            fn ($v) => $v !== null && $v !== ''
+        );
+    @endphp
     <section class="content">
         <div class="container-fluid">
             <div class="row">
@@ -18,6 +24,9 @@
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <h3 class="card-title">Cash Ledger</h3>
                             <form method="get" class="form-inline">
+                                @if (request()->filled('account_id'))
+                                    <input type="hidden" name="account_id" value="{{ request('account_id') }}">
+                                @endif
                                 <input type="date" name="from" value="{{ request('from') }}"
                                     class="form-control form-control-sm mr-2">
                                 <input type="date" name="to" value="{{ request('to') }}"
@@ -53,11 +62,32 @@
 
 @push('scripts')
     <script>
+        const cashLedgerMonthAbbr = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+        function formatCashLedgerDate(isoDate) {
+            if (!isoDate || String(isoDate).trim() === '') {
+                return '';
+            }
+            const s = String(isoDate).slice(0, 10);
+            const d = new Date(s + 'T12:00:00');
+            if (Number.isNaN(d.getTime())) {
+                return isoDate;
+            }
+            const day = String(d.getDate()).padStart(2, '0');
+            const mon = cashLedgerMonthAbbr[d.getMonth()];
+            return `${day}-${mon}-${d.getFullYear()}`;
+        }
+
+        function formatCashLedgerIdr(n) {
+            const x = Number(n);
+            return 'Rp ' + new Intl.NumberFormat('id-ID', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }).format(x);
+        }
+
         $(async function() {
-            const params = new URLSearchParams({
-                from: '{{ request('from') }}',
-                to: '{{ request('to') }}'
-            });
+            const params = new URLSearchParams(@json($cashLedgerQuery));
             const res = await fetch(`{{ route('reports.cash-ledger') }}?${params.toString()}`, {
                 headers: {
                     'Accept': 'application/json'
@@ -68,12 +98,15 @@
             tbody.innerHTML = '';
             data.rows.forEach(r => {
                 const tr = document.createElement('tr');
+                const debit = Number(r.debit);
+                const credit = Number(r.credit);
+                const balance = Number(r.balance);
                 tr.innerHTML = `
-      <td>${r.date}</td>
+      <td>${formatCashLedgerDate(r.date)}</td>
       <td>${r.description || ''}</td>
-      <td class="text-right">${r.debit.toFixed(2)}</td>
-      <td class="text-right">${r.credit.toFixed(2)}</td>
-      <td class="text-right">${r.balance.toFixed(2)}</td>
+      <td class="text-right text-nowrap">${formatCashLedgerIdr(debit)}</td>
+      <td class="text-right text-nowrap">${formatCashLedgerIdr(credit)}</td>
+      <td class="text-right text-nowrap">${formatCashLedgerIdr(balance)}</td>
     `;
                 tbody.appendChild(tr);
             });

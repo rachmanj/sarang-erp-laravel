@@ -150,6 +150,37 @@ Untuk detail jurnal spesifik, koordinasikan dengan tim akuntansi atau lihat doku
 
 ---
 
+## Sales Credit Memo (nota kredit / koreksi faktur)
+
+### Apa itu?
+
+**Sales Credit Memo** adalah dokumen untuk **mengoreksi** piutang dan pendapatan yang sudah diakui lewat **Sales Invoice yang sudah posting** — misalnya retur administratif, koreksi harga, atau penyesuaian setelah kesalahan entitas/dokumen.
+
+### Menu dan URL
+
+- **Sales** → **Sales Credit Memos** — daftar `/sales-credit-memos`, buat `/sales-credit-memos/create`, detail `/sales-credit-memos/{id}`.
+- Dari halaman detail **Sales Invoice** yang sudah **posted**: tombol **Credit Memo** (jika sudah ada) atau **Create Credit Memo** (jika belum ada dan syarat terpenuhi).
+
+### Aturan satu memo per faktur
+
+Sistem membatasi **hanya satu** Sales Credit Memo per **Sales Invoice** (satu SI tidak boleh memiliki dua CM). Jika pengguna mencoba membuat CM kedua, aplikasi menolak atau mengarahkan ke memo yang sudah ada.
+
+### Alur singkat
+
+1. Pilih SI yang akan dikoreksi (biasanya status **posted**).
+2. Buat **Sales Credit Memo** (isi baris koreksi sesuai kebijakan).
+3. **Post** memo (izin `ar.credit-memos.post`) agar jurnal koreksi tercatat.
+
+### Terkait Delivery Order dan entitas salah
+
+Sales Credit Memo sering menjadi langkah **sebelum** **Reverse delivery** pada DO yang pernah tertaut SI dan ditutup oleh faktur — ikuti pesan di layar dan checklist **`checklist-perbaikan-salah-entitas-so-id.md`**.
+
+### Untuk HELP
+
+Kata kunci: *nota kredit*, *credit memo*, *koreksi faktur*, *dua CM*, *satu memo per invoice*. Setelah memperbarui dokumentasi, jalankan **`php artisan help:reindex`**.
+
+---
+
 ## Cetak dan PDF (layout)
 
 Dari halaman detail SI:
@@ -220,3 +251,5 @@ Gunakan ikon **?** di navbar untuk bertanya cara penggunaan modul. Isi pengetahu
 - Manual **Customer / Project** (proyek di SI): `customer-project-manual-id.md`
 - Manual **Penomoran dokumen**: `document-numbering-system-manual-id.md`
 - Manual **Bantuan dalam aplikasi**: `in-app-help-manual-id.md`
+- Ringkasan koreksi alur (HELP): `sales-workflow-corrections-help-id.md`
+- Checklist salah entitas SO: `checklist-perbaikan-salah-entitas-so-id.md`

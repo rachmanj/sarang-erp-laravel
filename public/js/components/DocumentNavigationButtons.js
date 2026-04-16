@@ -302,6 +302,7 @@ class DocumentNavigationButtons {
             'App\\Models\\Accounting\\SalesInvoice': 'Sales Invoice',
             'App\\Models\\SalesReceipt': 'Sales Receipt',
             'App\\Models\\Accounting\\SalesReceipt': 'Sales Receipt',
+            'App\\Models\\Accounting\\SalesCreditMemo': 'Sales Credit Memo',
         };
         
         return typeMap[type] || type;

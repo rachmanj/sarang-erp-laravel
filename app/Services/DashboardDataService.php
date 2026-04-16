@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Accounting\Account;
 use App\Models\Accounting\Journal;
 use App\Models\Accounting\PurchaseInvoice;
 use App\Models\Accounting\SalesInvoice;
@@ -12,14 +13,14 @@ use App\Models\GRGIHeader;
 use App\Models\InventoryValuation;
 use App\Models\InventoryWarehouseStock;
 use App\Models\PurchaseOrder;
+use App\Models\PurchaseOrderApproval;
 use App\Models\SalesOrder;
+use App\Models\SalesOrderApproval;
 use App\Models\SupplierPerformance;
 use App\Models\TaxComplianceLog;
 use App\Models\TaxReport;
 use App\Models\TaxSetting;
 use App\Models\TaxTransaction;
-use App\Models\PurchaseOrderApproval;
-use App\Models\SalesOrderApproval;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -29,7 +30,11 @@ use Illuminate\Support\Facades\Schema;
 class DashboardDataService
 {
     private const CACHE_KEY = 'dashboard:data:global';
+
     private const CACHE_TTL = 300;
+
+    /** Chart of accounts code for physical cash (see CoASeeder). */
+    private const CASH_ON_HAND_ACCOUNT_CODE = '1.1.1';
 
     public function getDashboardData(bool $refresh = false): array
     {
@@ -62,7 +67,7 @@ class DashboardDataService
         $salesMtd = SalesInvoice::whereBetween('date', [$monthStart, $today])->sum('total_amount');
         $purchasesMtd = PurchaseInvoice::whereBetween('date', [$monthStart, $today])->sum('total_amount');
 
-        $cashOnHand = DB::table('control_account_balances')->sum('balance');
+        $cashOnHand = $this->postedGlAccountBalanceAsOf(self::CASH_ON_HAND_ACCOUNT_CODE, $today);
 
         $pendingApprovals = PurchaseOrderApproval::where('status', 'pending')->count()
             + SalesOrderApproval::where('status', 'pending')->count();
@@ -73,6 +78,28 @@ class DashboardDataService
             'cash_on_hand' => (float) $cashOnHand,
             'approvals_pending' => $pendingApprovals,
         ];
+    }
+
+    /**
+     * Net balance for a GL account from posted journals through the given date (asset-style: debit − credit).
+     * Matches {@see \App\Services\Reports\ReportService::getTrialBalance()} row math for the same account.
+     */
+    private function postedGlAccountBalanceAsOf(string $accountCode, Carbon $asOfDate): float
+    {
+        $accountId = Account::query()->where('code', $accountCode)->value('id');
+        if (! $accountId) {
+            return 0.0;
+        }
+
+        $balance = DB::table('journal_lines as jl')
+            ->join('journals as j', 'j.id', '=', 'jl.journal_id')
+            ->where('jl.account_id', $accountId)
+            ->whereNotNull('j.posted_at')
+            ->whereDate('j.date', '<=', $asOfDate->toDateString())
+            ->selectRaw('COALESCE(SUM(jl.debit - jl.credit), 0) as balance')
+            ->value('balance');
+
+        return (float) $balance;
     }
 
     private function buildFinanceSnapshot(): array
@@ -157,9 +184,9 @@ class DashboardDataService
         $totalInventoryValue = (float) InventoryValuation::sum('total_value');
 
         $inventoryByCategory = InventoryValuation::select(
-                'inventory_items.category_id',
-                DB::raw('SUM(inventory_valuations.total_value) as total_value')
-            )
+            'inventory_items.category_id',
+            DB::raw('SUM(inventory_valuations.total_value) as total_value')
+        )
             ->join('inventory_items', 'inventory_items.id', '=', 'inventory_valuations.item_id')
             ->groupBy('inventory_items.category_id')
             ->orderByDesc(DB::raw('SUM(inventory_valuations.total_value)'))
@@ -306,8 +333,9 @@ class DashboardDataService
             $amount = (float) ($document->total_amount ?? 0);
             $dueDate = $document->due_date ? Carbon::parse($document->due_date) : Carbon::parse($document->date);
 
-            if (!$dueDate) {
+            if (! $dueDate) {
                 $buckets['0_30'] += $amount;
+
                 continue;
             }
 
@@ -327,4 +355,3 @@ class DashboardDataService
         return $buckets;
     }
 }
-

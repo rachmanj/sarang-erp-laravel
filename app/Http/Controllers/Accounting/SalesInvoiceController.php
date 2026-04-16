@@ -634,6 +634,7 @@ class SalesInvoiceController extends Controller
             'companyEntity',
             'salesOrder',
             'deliveryOrders',
+            'creditMemo',
             'lines.account',
             'lines.taxCode',
             'lines.inventoryItem',
@@ -642,7 +643,14 @@ class SalesInvoiceController extends Controller
             'lines.deliveryOrderLine.partNumber',
         ])->findOrFail($id);
 
-        return view('sales_invoices.show', compact('invoice'));
+        $hasCreditMemo = (bool) optional($invoice->creditMemo)->id;
+        $canCreateCreditMemo = Auth::user()->can('ar.credit-memos.create')
+            && $invoice->status === 'posted'
+            && ! $invoice->is_opening_balance
+            && ! DB::table('sales_receipt_allocations')->where('invoice_id', $invoice->id)->exists()
+            && ! $hasCreditMemo;
+
+        return view('sales_invoices.show', compact('invoice', 'canCreateCreditMemo', 'hasCreditMemo'));
     }
 
     public function print(Request $request, int $id)

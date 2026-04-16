@@ -3,8 +3,8 @@
 namespace App\Services;
 
 use App\Models\DocumentSequence;
-use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class DocumentNumberingService
 {
@@ -20,7 +20,7 @@ class DocumentNumberingService
         'grpo' => 'GRPO',
         'cash_expense' => 'CEV',
         'journal' => 'JNL',
-        'account_statement' => 'AST'
+        'account_statement' => 'AST',
     ];
 
     private const ENTITY_DOCUMENT_CODES = [
@@ -33,6 +33,7 @@ class DocumentNumberingService
         'sales_order' => '06',
         'delivery_order' => '07',
         'sales_invoice' => '08',
+        'sales_credit_memo' => '14',
         'sales_receipt' => '09',
         'asset_disposal' => '10',
         'cash_expense' => '11',
@@ -58,7 +59,7 @@ class DocumentNumberingService
             return $this->formatEntityNumber($entity->code, $year, $docCode, $sequence);
         }
 
-        if (!isset(self::LEGACY_DOCUMENT_TYPES[$documentType])) {
+        if (! isset(self::LEGACY_DOCUMENT_TYPES[$documentType])) {
             throw new \InvalidArgumentException("Invalid document type: {$documentType}");
         }
 
@@ -83,7 +84,7 @@ class DocumentNumberingService
             return $this->formatEntityNumber($entity->code, $year, $docCode, $sequence);
         }
 
-        if (!isset(self::LEGACY_DOCUMENT_TYPES[$documentType])) {
+        if (! isset(self::LEGACY_DOCUMENT_TYPES[$documentType])) {
             throw new \InvalidArgumentException("Invalid document type: {$documentType}");
         }
 
@@ -103,12 +104,12 @@ class DocumentNumberingService
             return preg_match('/^\d{2}\d{2}\d{2}\d{5}$/', $number) === 1;
         }
 
-        if (!isset(self::LEGACY_DOCUMENT_TYPES[$documentType])) {
+        if (! isset(self::LEGACY_DOCUMENT_TYPES[$documentType])) {
             return false;
         }
 
         $prefix = self::LEGACY_DOCUMENT_TYPES[$documentType];
-        $pattern = '/^' . preg_quote($prefix) . '-\d{6}-\d{6}$/';
+        $pattern = '/^'.preg_quote($prefix).'-\d{6}-\d{6}$/';
 
         return preg_match($pattern, $number) === 1;
     }
@@ -148,6 +149,7 @@ class DocumentNumberingService
 
         if ($sequence && $sequence->last_sequence < $maxSequence) {
             $sequence->update(['last_sequence' => $maxSequence]);
+
             return $maxSequence - $sequence->last_sequence;
         }
 
@@ -164,7 +166,7 @@ class DocumentNumberingService
 
     private function getLegacyPrefix(string $documentType): string
     {
-        if (!isset(self::LEGACY_DOCUMENT_TYPES[$documentType])) {
+        if (! isset(self::LEGACY_DOCUMENT_TYPES[$documentType])) {
             throw new \InvalidArgumentException("Invalid document type: {$documentType}");
         }
 
@@ -191,7 +193,7 @@ class DocumentNumberingService
                 ->where('year_month', $yearMonth)
                 ->first();
 
-            if (!$sequence) {
+            if (! $sequence) {
                 $sequence = DocumentSequence::create([
                     'document_type' => $documentType,
                     'year_month' => $yearMonth,
@@ -200,6 +202,7 @@ class DocumentNumberingService
             }
 
             $sequence->increment('last_sequence');
+
             return $sequence->last_sequence;
         });
     }
@@ -228,10 +231,10 @@ class DocumentNumberingService
                 ->where('year', $year)
                 ->first();
 
-            if (!$sequence) {
+            if (! $sequence) {
                 $sequence = DocumentSequence::create([
                     'company_entity_id' => $entityId,
-                    'document_type' => $documentType . '_entity_' . $entityId,
+                    'document_type' => $documentType.'_entity_'.$entityId,
                     'document_code' => $documentCode,
                     'year' => $year,
                     'year_month' => sprintf('%04d00', $year),

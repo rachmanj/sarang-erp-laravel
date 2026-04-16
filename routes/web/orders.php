@@ -1,12 +1,12 @@
 <?php
 
+use App\Http\Controllers\DeliveryOrderController;
+use App\Http\Controllers\GoodsReceiptPOController;
+use App\Http\Controllers\PurchaseDashboardController;
+use App\Http\Controllers\PurchaseOrderController;
+use App\Http\Controllers\SalesDashboardController;
 use App\Http\Controllers\SalesOrderController;
 use App\Http\Controllers\SalesQuotationController;
-use App\Http\Controllers\PurchaseOrderController;
-use App\Http\Controllers\GoodsReceiptPOController;
-use App\Http\Controllers\DeliveryOrderController;
-use App\Http\Controllers\PurchaseDashboardController;
-use App\Http\Controllers\SalesDashboardController;
 use Illuminate\Support\Facades\Route;
 
 // Sales Dashboard
@@ -30,49 +30,52 @@ Route::prefix('sales-orders')->group(function () {
             $q->whereDate('so.date', '<=', request('to'));
         }
         if (request()->filled('business_partner_id')) {
-            $q->where('so.business_partner_id', (int)request('business_partner_id'));
+            $q->where('so.business_partner_id', (int) request('business_partner_id'));
         }
         if (request()->filled('order_no')) {
-            $q->where('so.order_no', 'like', '%' . request('order_no') . '%');
+            $q->where('so.order_no', 'like', '%'.request('order_no').'%');
         }
         if (request()->filled('reference_no')) {
-            $q->where('so.reference_no', 'like', '%' . request('reference_no') . '%');
+            $q->where('so.reference_no', 'like', '%'.request('reference_no').'%');
         }
         if (request()->filled('q')) {
             $kw = request('q');
             $q->where(function ($w) use ($kw) {
-                $w->where('so.order_no', 'like', '%' . $kw . '%')
-                    ->orWhere('so.reference_no', 'like', '%' . $kw . '%')
-                    ->orWhere('so.description', 'like', '%' . $kw . '%')
-                    ->orWhere('c.name', 'like', '%' . $kw . '%');
+                $w->where('so.order_no', 'like', '%'.$kw.'%')
+                    ->orWhere('so.reference_no', 'like', '%'.$kw.'%')
+                    ->orWhere('so.description', 'like', '%'.$kw.'%')
+                    ->orWhere('c.name', 'like', '%'.$kw.'%');
             });
         }
         if (request()->filled('company_entity_id')) {
-            $q->where('so.company_entity_id', (int)request('company_entity_id'));
+            $q->where('so.company_entity_id', (int) request('company_entity_id'));
         }
+
         return Yajra\DataTables\Facades\DataTables::of($q)
             ->editColumn('id', function ($r) {
                 static $idx = -1;
                 $idx++;
+
                 return (int) request()->input('start', 0) + $idx + 1;
             })
             ->editColumn('date', function ($r) {
                 if ($r->date) {
                     return \Carbon\Carbon::parse($r->date)->format('d-M-Y');
                 }
+
                 return '-';
             })
-            ->editColumn('total_amount', fn($r) => 'Rp ' . number_format((float)$r->total_amount, 0, ',', '.'))
-            ->editColumn('reference_no', fn($r) => $r->reference_no ?: '-')
-            ->addColumn('customer', fn($r) => $r->customer_name ?: ('#' . $r->business_partner_id))
+            ->editColumn('total_amount', fn ($r) => 'Rp '.number_format((float) $r->total_amount, 0, ',', '.'))
+            ->editColumn('reference_no', fn ($r) => $r->reference_no ?: '-')
+            ->addColumn('customer', fn ($r) => $r->customer_name ?: ('#'.$r->business_partner_id))
             ->addColumn('actions', function ($r) {
-                $actions = '<a class="btn btn-xs btn-info" href="' . route('sales-orders.show', $r->id) . '">View</a>';
-                
+                $actions = '<a class="btn btn-xs btn-info" href="'.route('sales-orders.show', $r->id).'">View</a>';
+
                 // Add edit button only for draft status
                 if ($r->status === 'draft') {
-                    $actions .= ' <a class="btn btn-xs btn-warning" href="' . route('sales-orders.edit', $r->id) . '">Edit</a>';
+                    $actions .= ' <a class="btn btn-xs btn-warning" href="'.route('sales-orders.edit', $r->id).'">Edit</a>';
                 }
-                
+
                 return $actions;
             })
             ->rawColumns(['actions'])->toJson();
@@ -91,32 +94,33 @@ Route::prefix('sales-orders')->group(function () {
             $q->whereDate('so.date', '<=', request('to'));
         }
         if (request()->filled('business_partner_id')) {
-            $q->where('so.business_partner_id', (int)request('business_partner_id'));
+            $q->where('so.business_partner_id', (int) request('business_partner_id'));
         }
         if (request()->filled('order_no')) {
-            $q->where('so.order_no', 'like', '%' . request('order_no') . '%');
+            $q->where('so.order_no', 'like', '%'.request('order_no').'%');
         }
         if (request()->filled('reference_no')) {
-            $q->where('so.reference_no', 'like', '%' . request('reference_no') . '%');
+            $q->where('so.reference_no', 'like', '%'.request('reference_no').'%');
         }
         if (request()->filled('q')) {
             $kw = request('q');
             $q->where(function ($w) use ($kw) {
-                $w->where('so.order_no', 'like', '%' . $kw . '%')
-                    ->orWhere('so.reference_no', 'like', '%' . $kw . '%')
-                    ->orWhere('so.description', 'like', '%' . $kw . '%')
-                    ->orWhere('c.name', 'like', '%' . $kw . '%');
+                $w->where('so.order_no', 'like', '%'.$kw.'%')
+                    ->orWhere('so.reference_no', 'like', '%'.$kw.'%')
+                    ->orWhere('so.description', 'like', '%'.$kw.'%')
+                    ->orWhere('c.name', 'like', '%'.$kw.'%');
             });
         }
         $entityId = request('company_entity_id') ?: request('entity_filter');
         if ($entityId) {
-            $q->where('so.company_entity_id', (int)$entityId);
+            $q->where('so.company_entity_id', (int) $entityId);
         }
         $rows = $q->orderBy('so.date', 'desc')->get();
         $csv = "date,order_no,reference_no,customer,total,status\n";
         foreach ($rows as $r) {
-            $csv .= sprintf("%s,%s,%s,%s,%.2f,%s\n", $r->date, $r->order_no, str_replace(',', ' ', (string)($r->reference_no ?? '')), str_replace(',', ' ', (string)$r->customer), (float)$r->total_amount, $r->status);
+            $csv .= sprintf("%s,%s,%s,%s,%.2f,%s\n", $r->date, $r->order_no, str_replace(',', ' ', (string) ($r->reference_no ?? '')), str_replace(',', ' ', (string) $r->customer), (float) $r->total_amount, $r->status);
         }
+
         return response($csv, 200, ['Content-Type' => 'text/csv', 'Content-Disposition' => 'attachment; filename="sales-orders.csv"']);
     })->name('sales-orders.csv');
     Route::get('/create', [SalesOrderController::class, 'create'])->name('sales-orders.create');
@@ -127,20 +131,20 @@ Route::prefix('sales-orders')->group(function () {
     Route::get('/{id}/create-invoice', [SalesOrderController::class, 'createInvoice'])->name('sales-orders.create-invoice');
     Route::get('/fix-approval/{orderNo}', function ($orderNo) {
         $salesOrder = \App\Models\SalesOrder::where('order_no', $orderNo)->firstOrFail();
-        
+
         // Ensure superadmin has officer role
         $officerRole = \App\Models\UserRole::where('user_id', 1)
             ->where('role_name', 'officer')
             ->first();
-            
-        if (!$officerRole) {
+
+        if (! $officerRole) {
             \App\Models\UserRole::create([
                 'user_id' => 1,
                 'role_name' => 'officer',
                 'is_active' => true,
             ]);
         }
-        
+
         // Create approval workflow if missing
         $existingApprovals = \App\Models\SalesOrderApproval::where('sales_order_id', $salesOrder->id)->count();
         if ($existingApprovals === 0) {
@@ -150,7 +154,7 @@ Route::prefix('sales-orders')->group(function () {
                 $salesOrder->id,
                 $salesOrder->total_amount
             );
-            
+
             foreach ($approvalRecords as $record) {
                 \App\Models\SalesOrderApproval::create([
                     'sales_order_id' => $record['document_id'],
@@ -160,11 +164,11 @@ Route::prefix('sales-orders')->group(function () {
                 ]);
             }
         }
-        
+
         return redirect()->route('sales-orders.show', $salesOrder->id)
             ->with('success', 'Approval workflow fixed. You can now approve the Sales Order.');
     })->name('sales-orders.fix-approval');
-    
+
     Route::post('/{id}/approve', [SalesOrderController::class, 'approve'])->name('sales-orders.approve');
     Route::post('/{id}/confirm', [SalesOrderController::class, 'confirm'])->name('sales-orders.confirm');
     Route::post('/{id}/close', [SalesOrderController::class, 'close'])->name('sales-orders.close');
@@ -192,19 +196,19 @@ Route::prefix('sales-quotations')->middleware(['auth'])->group(function () {
             $q->whereDate('sq.date', '<=', request('to'));
         }
         if (request()->filled('business_partner_id')) {
-            $q->where('sq.business_partner_id', (int)request('business_partner_id'));
+            $q->where('sq.business_partner_id', (int) request('business_partner_id'));
         }
         if (request()->filled('q')) {
             $kw = request('q');
             $q->where(function ($w) use ($kw) {
-                $w->where('sq.quotation_no', 'like', '%' . $kw . '%')
-                    ->orWhere('sq.reference_no', 'like', '%' . $kw . '%')
-                    ->orWhere('bp.name', 'like', '%' . $kw . '%');
+                $w->where('sq.quotation_no', 'like', '%'.$kw.'%')
+                    ->orWhere('sq.reference_no', 'like', '%'.$kw.'%')
+                    ->orWhere('bp.name', 'like', '%'.$kw.'%');
             });
         }
         $entityId = request('company_entity_id') ?: request('entity_filter');
         if ($entityId) {
-            $q->where('sq.company_entity_id', (int)$entityId);
+            $q->where('sq.company_entity_id', (int) $entityId);
         }
         $rows = $q->orderBy('sq.date', 'desc')->get();
         $csv = "date,quotation_no,valid_until_date,customer,total_amount,net_amount,status,approval_status\n";
@@ -214,13 +218,14 @@ Route::prefix('sales-quotations')->middleware(['auth'])->group(function () {
                 $r->date,
                 $r->quotation_no,
                 $r->valid_until_date,
-                str_replace(',', ' ', (string)$r->customer),
-                (float)$r->total_amount,
-                (float)$r->net_amount,
+                str_replace(',', ' ', (string) $r->customer),
+                (float) $r->total_amount,
+                (float) $r->net_amount,
                 $r->status,
                 $r->approval_status
             );
         }
+
         return response($csv, 200, ['Content-Type' => 'text/csv', 'Content-Disposition' => 'attachment; filename="sales-quotations.csv"']);
     })->middleware('permission:ar.quotations.view')->name('sales-quotations.csv');
     Route::get('/create', [SalesQuotationController::class, 'create'])->middleware('permission:ar.quotations.create')->name('sales-quotations.create');
@@ -265,48 +270,50 @@ Route::prefix('delivery-orders')->group(function () {
         }
         if (request()->filled('customer_id') || request()->filled('business_partner_id')) {
             $customerId = request('customer_id') ?: request('business_partner_id');
-            $q->where('do.business_partner_id', (int)$customerId);
+            $q->where('do.business_partner_id', (int) $customerId);
         }
         if (request()->filled('company_entity_id')) {
-            $q->where('do.company_entity_id', (int)request('company_entity_id'));
+            $q->where('do.company_entity_id', (int) request('company_entity_id'));
         }
         if (request()->filled('q')) {
             $kw = request('q');
             $q->where(function ($w) use ($kw) {
-                $w->where('do.do_number', 'like', '%' . $kw . '%')
-                    ->orWhere('so.order_no', 'like', '%' . $kw . '%')
-                    ->orWhere('so.reference_no', 'like', '%' . $kw . '%')
-                    ->orWhere('c.name', 'like', '%' . $kw . '%');
+                $w->where('do.do_number', 'like', '%'.$kw.'%')
+                    ->orWhere('so.order_no', 'like', '%'.$kw.'%')
+                    ->orWhere('so.reference_no', 'like', '%'.$kw.'%')
+                    ->orWhere('c.name', 'like', '%'.$kw.'%');
             });
         }
         if (request()->filled('customer_ref_no')) {
-            $q->where('so.reference_no', 'like', '%' . request('customer_ref_no') . '%');
+            $q->where('so.reference_no', 'like', '%'.request('customer_ref_no').'%');
         }
+
         return Yajra\DataTables\Facades\DataTables::of($q)
             ->filterColumn('do_number', function ($query, $keyword) {
-                $query->where('do.do_number', 'like', '%' . $keyword . '%');
+                $query->where('do.do_number', 'like', '%'.$keyword.'%');
             })
             ->filterColumn('sales_order_no', function ($query, $keyword) {
-                $query->where('so.order_no', 'like', '%' . $keyword . '%');
+                $query->where('so.order_no', 'like', '%'.$keyword.'%');
             })
             ->filterColumn('customer', function ($query, $keyword) {
-                $query->where('c.name', 'like', '%' . $keyword . '%');
+                $query->where('c.name', 'like', '%'.$keyword.'%');
             })
             ->filterColumn('created_by', function ($query, $keyword) {
-                $query->where('u.name', 'like', '%' . $keyword . '%');
+                $query->where('u.name', 'like', '%'.$keyword.'%');
             })
             ->filterColumn('customer_ref_no', function ($query, $keyword) {
-                $query->where('so.reference_no', 'like', '%' . $keyword . '%');
+                $query->where('so.reference_no', 'like', '%'.$keyword.'%');
             })
             ->editColumn('planned_delivery_date', function ($r) {
                 return $r->planned_delivery_date ? \Carbon\Carbon::parse($r->planned_delivery_date)->format('d-M-Y') : '';
             })
-            ->addColumn('customer', fn($r) => $r->customer_name ?: ('#' . $r->business_partner_id))
-            ->addColumn('customer_ref_no', fn($r) => $r->customer_ref_no ?? '—')
-            ->addColumn('created_by', fn($r) => $r->creator_name ?: ('#' . $r->created_by))
+            ->addColumn('customer', fn ($r) => $r->customer_name ?: ('#'.$r->business_partner_id))
+            ->addColumn('customer_ref_no', fn ($r) => $r->customer_ref_no ?? '—')
+            ->addColumn('created_by', fn ($r) => $r->creator_name ?: ('#'.$r->created_by))
             ->addColumn('actions', function ($r) {
                 $url = route('delivery-orders.show', $r->id);
-                return '<a class="btn btn-xs btn-info" href="' . $url . '">View</a>';
+
+                return '<a class="btn btn-xs btn-info" href="'.$url.'">View</a>';
             })
             ->rawColumns(['actions'])->toJson();
     })->name('delivery-orders.data');
@@ -322,6 +329,9 @@ Route::prefix('delivery-orders')->group(function () {
     Route::post('/{deliveryOrder}/update-picking', [DeliveryOrderController::class, 'updatePicking'])->name('delivery-orders.update-picking');
     Route::post('/{deliveryOrder}/update-delivery', [DeliveryOrderController::class, 'updateDelivery'])->name('delivery-orders.update-delivery');
     Route::post('/{deliveryOrder}/mark-delivered', [DeliveryOrderController::class, 'markAsDelivered'])->name('delivery-orders.mark-delivered');
+    Route::post('/{deliveryOrder}/reverse', [DeliveryOrderController::class, 'reverse'])
+        ->middleware('permission:delivery-orders.reverse')
+        ->name('delivery-orders.reverse');
     Route::get('/{deliveryOrder}/print', [DeliveryOrderController::class, 'print'])->name('delivery-orders.print');
     Route::get('/{deliveryOrder}/create-invoice', [DeliveryOrderController::class, 'createInvoice'])->name('delivery-orders.create-invoice');
 });
@@ -350,40 +360,43 @@ Route::prefix('purchase-orders')->group(function () {
             $q->whereDate('po.date', '<=', request('to'));
         }
         if (request()->filled('business_partner_id')) {
-            $q->where('po.business_partner_id', (int)request('business_partner_id'));
+            $q->where('po.business_partner_id', (int) request('business_partner_id'));
         }
         if (request()->filled('company_entity_id')) {
-            $q->where('po.company_entity_id', (int)request('company_entity_id'));
+            $q->where('po.company_entity_id', (int) request('company_entity_id'));
         }
         if (request()->filled('q')) {
             $kw = request('q');
             $q->where(function ($w) use ($kw) {
-                $w->where('po.order_no', 'like', '%' . $kw . '%')->orWhere('po.description', 'like', '%' . $kw . '%')->orWhere('v.name', 'like', '%' . $kw . '%');
+                $w->where('po.order_no', 'like', '%'.$kw.'%')->orWhere('po.description', 'like', '%'.$kw.'%')->orWhere('v.name', 'like', '%'.$kw.'%');
             });
         }
+
         return Yajra\DataTables\Facades\DataTables::of($q)
             ->editColumn('date', function ($r) {
                 return $r->date ? \Carbon\Carbon::parse($r->date)->format('d-M-Y') : '';
             })
-            ->editColumn('total_amount', fn($r) => 'Rp ' . number_format((float)$r->total_amount, 0, ',', '.'))
-            ->addColumn('vendor', fn($r) => $r->vendor_name ?: ('#' . $r->business_partner_id))
+            ->editColumn('total_amount', fn ($r) => 'Rp '.number_format((float) $r->total_amount, 0, ',', '.'))
+            ->addColumn('vendor', fn ($r) => $r->vendor_name ?: ('#'.$r->business_partner_id))
             ->addColumn('closure_status', function ($r) {
                 if ($r->closure_status === 'closed') {
-                    $closedBy = $r->closed_by_document_type ? ' by ' . $r->closed_by_document_type : '';
-                    return '<span class="badge badge-success"><i class="fas fa-check"></i> Closed' . $closedBy . '</span>';
+                    $closedBy = $r->closed_by_document_type ? ' by '.$r->closed_by_document_type : '';
+
+                    return '<span class="badge badge-success"><i class="fas fa-check"></i> Closed'.$closedBy.'</span>';
                 } else {
                     $daysOpen = round($r->closed_at ? \Carbon\Carbon::parse($r->closed_at)->diffInDays(now()) : \Carbon\Carbon::parse($r->date)->diffInDays(now()));
                     $isOverdue = $daysOpen > 30; // Default threshold
                     $badgeClass = $isOverdue ? 'badge-warning' : 'badge-info';
-                    return '<span class="badge ' . $badgeClass . '"><i class="fas fa-clock"></i> Open (' . $daysOpen . ' days)</span>';
+
+                    return '<span class="badge '.$badgeClass.'"><i class="fas fa-clock"></i> Open ('.$daysOpen.' days)</span>';
                 }
             })
             ->addColumn('actions', function ($r) {
-                $actions = '<a class="btn btn-xs btn-info" href="' . route('purchase-orders.show', $r->id) . '">View</a>';
+                $actions = '<a class="btn btn-xs btn-info" href="'.route('purchase-orders.show', $r->id).'">View</a>';
 
                 // Add edit button only for draft status
                 if ($r->status === 'draft') {
-                    $actions .= ' <a class="btn btn-xs btn-warning" href="' . route('purchase-orders.edit', $r->id) . '">Edit</a>';
+                    $actions .= ' <a class="btn btn-xs btn-warning" href="'.route('purchase-orders.edit', $r->id).'">Edit</a>';
                 }
 
                 return $actions;
@@ -404,36 +417,37 @@ Route::prefix('purchase-orders')->group(function () {
             $q->whereDate('po.date', '<=', request('to'));
         }
         if (request()->filled('business_partner_id')) {
-            $q->where('po.business_partner_id', (int)request('business_partner_id'));
+            $q->where('po.business_partner_id', (int) request('business_partner_id'));
         }
         if (request()->filled('q')) {
             $kw = request('q');
             $q->where(function ($w) use ($kw) {
-                $w->where('po.order_no', 'like', '%' . $kw . '%')->orWhere('po.description', 'like', '%' . $kw . '%')->orWhere('v.name', 'like', '%' . $kw . '%');
+                $w->where('po.order_no', 'like', '%'.$kw.'%')->orWhere('po.description', 'like', '%'.$kw.'%')->orWhere('v.name', 'like', '%'.$kw.'%');
             });
         }
         $entityId = request('company_entity_id') ?: request('entity_filter');
         if ($entityId) {
-            $q->where('po.company_entity_id', (int)$entityId);
+            $q->where('po.company_entity_id', (int) $entityId);
         }
         $rows = $q->orderBy('po.date', 'desc')->get();
         $csv = "date,order_no,vendor,total,status,closure_status\n";
         foreach ($rows as $r) {
             $formattedDate = $r->date ? \Carbon\Carbon::parse($r->date)->format('d-M-Y') : '';
-            $formattedTotal = 'Rp ' . number_format($r->total_amount, 0, ',', '.');
+            $formattedTotal = 'Rp '.number_format($r->total_amount, 0, ',', '.');
             $closureStatus = $r->closure_status === 'open' ?
-                round(\Carbon\Carbon::parse($r->created_at)->diffInDays(\Carbon\Carbon::now())) . ' days' :
+                round(\Carbon\Carbon::parse($r->created_at)->diffInDays(\Carbon\Carbon::now())).' days' :
                 ucfirst($r->closure_status);
             $csv .= sprintf(
                 "%s,%s,%s,%s,%s,%s\n",
                 $formattedDate,
                 $r->order_no,
-                str_replace(',', ' ', (string)$r->vendor),
+                str_replace(',', ' ', (string) $r->vendor),
                 $formattedTotal,
                 $r->status,
                 $closureStatus
             );
         }
+
         return response($csv, 200, ['Content-Type' => 'text/csv', 'Content-Disposition' => 'attachment; filename="purchase-orders.csv"']);
     })->name('purchase-orders.csv');
     Route::get('/create', [PurchaseOrderController::class, 'create'])->name('purchase-orders.create');
@@ -480,23 +494,25 @@ Route::prefix('goods-receipt-pos')->group(function () {
             $q->whereDate('grpo.date', '<=', request('to'));
         }
         if (request()->filled('business_partner_id')) {
-            $q->where('grpo.business_partner_id', (int)request('business_partner_id'));
+            $q->where('grpo.business_partner_id', (int) request('business_partner_id'));
         }
         if (request()->filled('q')) {
             $kw = request('q');
             $q->where(function ($w) use ($kw) {
-                $w->where('grpo.grn_no', 'like', '%' . $kw . '%')->orWhere('grpo.description', 'like', '%' . $kw . '%')->orWhere('v.name', 'like', '%' . $kw . '%');
+                $w->where('grpo.grn_no', 'like', '%'.$kw.'%')->orWhere('grpo.description', 'like', '%'.$kw.'%')->orWhere('v.name', 'like', '%'.$kw.'%');
             });
         }
         if (request()->filled('company_entity_id')) {
-            $q->where('grpo.company_entity_id', (int)request('company_entity_id'));
+            $q->where('grpo.company_entity_id', (int) request('company_entity_id'));
         }
+
         return Yajra\DataTables\Facades\DataTables::of($q)
-            ->editColumn('total_amount', fn($r) => number_format((float)$r->total_amount, 2))
-            ->addColumn('vendor', fn($r) => $r->vendor_name ?: ('#' . $r->business_partner_id))
+            ->editColumn('total_amount', fn ($r) => number_format((float) $r->total_amount, 2))
+            ->addColumn('vendor', fn ($r) => $r->vendor_name ?: ('#'.$r->business_partner_id))
             ->addColumn('actions', function ($r) {
                 $url = route('goods-receipt-pos.show', $r->id);
-                return '<a class="btn btn-xs btn-info" href="' . $url . '">View</a>';
+
+                return '<a class="btn btn-xs btn-info" href="'.$url.'">View</a>';
             })
             ->rawColumns(['actions'])->toJson();
     })->name('goods-receipt-pos.data');
@@ -514,22 +530,23 @@ Route::prefix('goods-receipt-pos')->group(function () {
             $q->whereDate('grpo.date', '<=', request('to'));
         }
         if (request()->filled('business_partner_id')) {
-            $q->where('grpo.business_partner_id', (int)request('business_partner_id'));
+            $q->where('grpo.business_partner_id', (int) request('business_partner_id'));
         }
         if (request()->filled('q')) {
             $kw = request('q');
             $q->where(function ($w) use ($kw) {
-                $w->where('grpo.grn_no', 'like', '%' . $kw . '%')->orWhere('grpo.description', 'like', '%' . $kw . '%')->orWhere('v.name', 'like', '%' . $kw . '%');
+                $w->where('grpo.grn_no', 'like', '%'.$kw.'%')->orWhere('grpo.description', 'like', '%'.$kw.'%')->orWhere('v.name', 'like', '%'.$kw.'%');
             });
         }
         if (request()->filled('company_entity_id')) {
-            $q->where('grpo.company_entity_id', (int)request('company_entity_id'));
+            $q->where('grpo.company_entity_id', (int) request('company_entity_id'));
         }
         $rows = $q->orderBy('grpo.date', 'desc')->get();
         $csv = "date,grpo_no,vendor,total,status\n";
         foreach ($rows as $r) {
-            $csv .= sprintf("%s,%s,%s,%.2f,%s\n", $r->date, $r->grn_no, str_replace(',', ' ', (string)$r->vendor), (float)$r->total_amount, $r->status);
+            $csv .= sprintf("%s,%s,%s,%.2f,%s\n", $r->date, $r->grn_no, str_replace(',', ' ', (string) $r->vendor), (float) $r->total_amount, $r->status);
         }
+
         return response($csv, 200, ['Content-Type' => 'text/csv', 'Content-Disposition' => 'attachment; filename="goods-receipt-pos.csv"']);
     })->name('goods-receipt-pos.csv');
     Route::get('/create', [GoodsReceiptPOController::class, 'create'])->name('goods-receipt-pos.create');
@@ -550,7 +567,7 @@ Route::prefix('goods-receipt-pos')->group(function () {
     Route::post('/{id}/create-journal', [GoodsReceiptPOController::class, 'createJournal'])->name('goods-receipt-pos.create-journal');
     Route::post('/{id}/reverse-journal', [GoodsReceiptPOController::class, 'reverseJournal'])->name('goods-receipt-pos.reverse-journal');
     Route::get('/{id}/journal', [GoodsReceiptPOController::class, 'showJournal'])->name('goods-receipt-pos.journal');
-    
+
     // Inventory transaction fix route
     Route::post('/{id}/fix-inventory', [GoodsReceiptPOController::class, 'fixInventoryTransactions'])->name('goods-receipt-pos.fix-inventory');
 });

@@ -218,6 +218,7 @@ Tombol **Create Delivery Order** tersedia saat status SO = **Confirmed** atau **
 - **Print**: Mencetak surat jalan (pilih Standard atau Dot Matrix)
 - **Edit**: Hanya tampil saat status **Draft**
 - **Cancel delivery order**: Tampil jika DO **boleh dibatalkan** (lihat [Membatalkan Delivery Order](#membatalkan-delivery-order-cancel-do)). Mengonfirmasi sebelum mengirim permintaan pembatalan.
+- **Reverse delivery**: Tampil jika pengguna punya izin `delivery-orders.reverse` dan DO memenuhi syarat (status delivered/completed/partial_delivered, tidak tertaut SI, dll. — lihat [Reverse delivery](#reverse-delivery-pembatalan-pengiriman-setelah-deliveredcompleted)).
 - **Back**: Kembali ke daftar DO
 
 ### Document Navigation
@@ -266,6 +267,35 @@ Jangan menyamakan kedua tombol ini saat menjawab pengguna di bantuan (HELP).
 ### Untuk pengurus HELP (RAG)
 
 Setelah mengubah manual ini, jalankan **`php artisan help:reindex`** agar potongan teks ini masuk indeks pencarian bantuan.
+
+---
+
+## Reverse delivery (pembatalan pengiriman setelah delivered/completed)
+
+### Beda dengan Cancel delivery order
+
+| Aksi | Status DO yang umum | Fungsi ringkas |
+|------|---------------------|----------------|
+| **Cancel delivery order** | Draft, Picking, Packed, In Transit | Membatalkan DO sebelum pengiriman selesai; mengembalikan stok/reservasi sesuai logika cancel. |
+| **Reverse delivery** | partial_delivered, delivered, completed | Membalik jurnal yang bersumber dari DO ini dan mengembalikan stok dari transaksi penjualan tercatat; status menjadi **reversed**. |
+
+### Di mana tombolnya?
+
+**Sales** → **Delivery Orders** → halaman detail DO → tombol **Reverse delivery** (dengan field alasan opsional), jika tampil sesuai aturan bisnis.
+
+### Prasyarat umum (ringkas)
+
+- DO **tidak** boleh masih punya baris di pivot **Delivery Order ↔ Sales Invoice** — lepas tautan terlebih dahulu sesuai prosedur internal jika pernah difakturkan.
+- Jika penutupan DO terkait Sales Invoice mengharuskan koreksi akuntansi: biasanya **Sales Credit Memo** untuk SI terkait sudah **posted** lebih dulu (lihat pesan peringatan di layar).
+- Memerlukan izin **`delivery-orders.reverse`**.
+
+### Audit
+
+Reversal tercatat di **audit log** (aksi `reversed` pada entitas delivery order) dengan ringkasan perubahan status dan entitas penutupan.
+
+### Untuk HELP
+
+Kata kunci pengguna: *reverse surat jalan*, *batalkan pengiriman sudah selesai*, *salah kirim PT CV*, *kembalikan stok setelah DO*. Setelah memperbarui manual, jalankan **`php artisan help:reindex`**.
 
 ---
 

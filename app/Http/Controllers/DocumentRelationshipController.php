@@ -55,6 +55,7 @@ class DocumentRelationshipController extends Controller
                 'document' => [
                     'id' => $document->id,
                     'type' => $documentType,
+                    'type_label' => $this->getDocumentTypeLabel($document),
                     'number' => $this->getDocumentNumber($document),
                     'status' => $document->status ?? 'N/A',
                     'amount' => $document->total_amount ?? $document->amount ?? 0,
@@ -85,6 +86,7 @@ class DocumentRelationshipController extends Controller
             'delivery-orders' => \App\Models\DeliveryOrder::class,
             'sales-invoices' => \App\Models\Accounting\SalesInvoice::class,
             'sales-receipts' => \App\Models\Accounting\SalesReceipt::class,
+            'sales-credit-memos' => \App\Models\Accounting\SalesCreditMemo::class,
         ];
 
         $modelClass = $modelMap[$documentType] ?? null;
@@ -107,6 +109,7 @@ class DocumentRelationshipController extends Controller
             $document->payment_no ??
             $document->receipt_no ??
             $document->do_number ??
+            $document->memo_no ??
             '#'.$document->id;
     }
 
@@ -153,7 +156,10 @@ class DocumentRelationshipController extends Controller
             $edges[] = [
                 'from' => $nodeId,
                 'to' => $currentDocumentId,
-                'label' => $this->getRelationshipLabel($baseDoc['type'], $this->getDocumentTypeLabel($document)),
+                'label' => $this->getRelationshipLabel(
+                    $this->getDocumentTypeLabelFromString($baseDoc['type']),
+                    $this->getDocumentTypeLabel($document)
+                ),
                 'type' => 'direct',
             ];
         }
@@ -179,7 +185,10 @@ class DocumentRelationshipController extends Controller
             $edges[] = [
                 'from' => $currentDocumentId,
                 'to' => $nodeId,
-                'label' => $this->getRelationshipLabel($this->getDocumentTypeLabel($document), $targetDoc['type']),
+                'label' => $this->getRelationshipLabel(
+                    $this->getDocumentTypeLabel($document),
+                    $this->getDocumentTypeLabelFromString($targetDoc['type'])
+                ),
                 'type' => 'direct',
             ];
         }
@@ -208,6 +217,7 @@ class DocumentRelationshipController extends Controller
             'App\\Models\\DeliveryOrder' => \App\Models\DeliveryOrder::class,
             'App\\Models\\Accounting\\SalesInvoice' => \App\Models\Accounting\SalesInvoice::class,
             'App\\Models\\Accounting\\SalesReceipt' => \App\Models\Accounting\SalesReceipt::class,
+            'App\\Models\\Accounting\\SalesCreditMemo' => \App\Models\Accounting\SalesCreditMemo::class,
         ];
 
         $modelClass = $modelMap[$type] ?? null;
@@ -236,11 +246,14 @@ class DocumentRelationshipController extends Controller
      */
     private function getDocumentReference($document): string
     {
-        return $document->reference ??
-            $document->vendor_reference ??
-            $document->customer_reference ??
-            $document->invoice_reference ??
-            'N/A';
+        $ref = $document->reference
+            ?? $document->reference_no
+            ?? $document->vendor_reference
+            ?? $document->customer_reference
+            ?? $document->invoice_reference
+            ?? null;
+
+        return $ref !== null && $ref !== '' ? (string) $ref : 'N/A';
     }
 
     /**
@@ -337,6 +350,7 @@ class DocumentRelationshipController extends Controller
             \App\Models\DeliveryOrder::class => 'Delivery Order',
             \App\Models\Accounting\SalesInvoice::class => 'Sales Invoice',
             \App\Models\Accounting\SalesReceipt::class => 'Sales Receipt',
+            \App\Models\Accounting\SalesCreditMemo::class => 'Sales Credit Memo',
         ];
 
         return $labels[$class] ?? 'Document';
@@ -356,6 +370,7 @@ class DocumentRelationshipController extends Controller
             'App\\Models\\DeliveryOrder' => 'Delivery Order',
             'App\\Models\\Accounting\\SalesInvoice' => 'Sales Invoice',
             'App\\Models\\Accounting\\SalesReceipt' => 'Sales Receipt',
+            'App\\Models\\Accounting\\SalesCreditMemo' => 'Sales Credit Memo',
         ];
 
         return $labels[$type] ?? 'Document';

@@ -65,6 +65,9 @@ class RolePermissionSeeder extends Seeder
             'ar.invoices.view',
             'ar.invoices.create',
             'ar.invoices.post',
+            'ar.credit-memos.view',
+            'ar.credit-memos.create',
+            'ar.credit-memos.post',
             'ar.receipts.view',
             'ar.receipts.create',
             'ar.receipts.post',
@@ -135,6 +138,7 @@ class RolePermissionSeeder extends Seeder
             'sales-orders.update',
             'sales-orders.delete',
             'sales-orders.approve',
+            'delivery-orders.reverse',
             // Unit of Measure permissions
             'view_unit_of_measure',
             'create_unit_of_measure',
@@ -164,6 +168,8 @@ class RolePermissionSeeder extends Seeder
                 // AR/AP create/view
                 'ar.invoices.view',
                 'ar.invoices.create',
+                'ar.credit-memos.view',
+                'ar.credit-memos.create',
                 'ap.invoices.view',
                 'ap.invoices.create',
                 'ar.receipts.view',
@@ -174,6 +180,7 @@ class RolePermissionSeeder extends Seeder
                 'ar.quotations.convert',
                 'ap.payments.view',
                 'ap.payments.create',
+                'delivery-orders.reverse',
                 // Fixed Assets
                 'assets.view',
                 'asset_categories.view',
@@ -185,11 +192,14 @@ class RolePermissionSeeder extends Seeder
                 // Posting permissions
                 'journals.post',
                 'ar.invoices.post',
+                'ar.credit-memos.view',
+                'ar.credit-memos.post',
                 'ap.invoices.post',
                 'ar.receipts.post',
                 'ar.quotations.view',
                 'ar.quotations.approve',
                 'ap.payments.post',
+                'delivery-orders.reverse',
                 // Fixed Assets posting
                 'assets.depreciation.run',
                 'assets.depreciation.reverse',
@@ -260,6 +270,7 @@ class RolePermissionSeeder extends Seeder
                 'departments.view',
                 // Reports
                 'reports.view',
+                'delivery-orders.reverse',
             ],
         ];
 

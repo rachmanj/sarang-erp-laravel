@@ -92,6 +92,15 @@ Open create with **`quotation_id`** (from the quotation workflow). Header and li
 
 ---
 
+## Sales Credit Memo
+
+- **Menu**: **Sales** → **Sales Credit Memos** (`/sales-credit-memos`). Or from a **posted** SI: **Create Credit Memo** / **Credit Memo** when applicable.
+- **Rule**: **One** Sales Credit Memo per **Sales Invoice** (duplicates are blocked).
+- **Post** the memo (`ar.credit-memos.post`) to record reversing entries.
+- For workflow corrections (entity, reverse DO), see **`sales-workflow-corrections-help-en.md`** and the Indonesian checklist **`checklist-perbaikan-salah-entitas-so-id.md`**.
+
+---
+
 ## Document numbering
 
 Follows the **document numbering** rules per company entity. See **Document Numbering System** manuals (`document-numbering-system-manual-en.md` / `document-numbering-system-manual-id.md`).
@@ -120,3 +129,4 @@ Use the **?** icon in the navbar for how-to questions. Knowledge comes from `doc
 - `delivery-order-manual-id.md` — shipping and “create invoice from DO”.
 - `customer-project-manual-id.md` — projects on invoices.
 - `in-app-help-manual-en.md` — in-app HELP and updating knowledge.
+- `sales-workflow-corrections-help-en.md` — credit memos, reverse delivery, Relationship Map, wrong entity (HELP-oriented).

@@ -71,9 +71,9 @@
             "title_id": "Delivery Order / Surat Jalan",
             "menu_path_en": "Sidebar → Sales → Delivery Orders.",
             "menu_path_id": "Menu samping → Sales → Delivery Orders.",
-            "keywords_en": ["delivery order", "DO", "surat jalan", "shipping", "cancel delivery order", "delete DO", "partial shipment", "split delivery"],
-            "keywords_id": ["surat jalan", "DO", "pengiriman", "batalkan DO", "cancel delivery order", "hapus surat jalan", "pengiriman sebagian", "split delivery"],
-            "notes": "Cancel DO: detail page button when status allows; do not shrink SO qty to fix wrong first DO — cancel DO and create new DO with correct Delivery Qty. Reindex: php artisan help:reindex after manual edits."
+            "keywords_en": ["delivery order", "DO", "surat jalan", "shipping", "cancel delivery order", "delete DO", "partial shipment", "split delivery", "reverse delivery", "undo shipment"],
+            "keywords_id": ["surat jalan", "DO", "pengiriman", "batalkan DO", "cancel delivery order", "hapus surat jalan", "pengiriman sebagian", "split delivery", "reverse delivery", "balik pengiriman"],
+            "notes": "Cancel vs Reverse: see delivery-order-manual-id.md. Reverse requires permission delivery-orders.reverse. Reindex: php artisan help:reindex after manual edits."
         },
         {
             "id": "sales-invoice",
@@ -93,6 +93,36 @@
             "menu_path_id": "Menu samping → Sales → Sales Receipts (pelunasan faktur).",
             "keywords_en": ["sales receipt", "SR", "payment", "collection"],
             "keywords_id": ["sales receipt", "penerimaan", "pelunasan", "kas masuk"]
+        },
+        {
+            "id": "sales-credit-memos",
+            "title_en": "Sales Credit Memos",
+            "title_id": "Sales Credit Memo / nota kredit",
+            "menu_path_en": "Sidebar → Sales → Sales Credit Memos. One memo per posted Sales Invoice (duplicate blocked).",
+            "menu_path_id": "Menu samping → Sales → Sales Credit Memos. Satu memo per Sales Invoice yang sudah posting (duplikasi ditolak).",
+            "keywords_en": ["credit memo", "sales credit memo", "nota kredit", "correct invoice", "one CM per SI", "AR adjustment"],
+            "keywords_id": ["credit memo", "nota kredit", "koreksi faktur", "satu memo per invoice", "retur administrasi", "koreksi piutang"],
+            "notes": "Manuals: sales-invoice-manual-id.md (section Sales Credit Memo), sales-workflow-corrections-help-*.md. Reindex: php artisan help:reindex"
+        },
+        {
+            "id": "document-relationship-map",
+            "title_en": "Document Relationship Map",
+            "title_id": "Peta hubungan dokumen / Relationship Map",
+            "menu_path_en": "Document detail (SO, DO, SI, …) → header button Relationship Map → modal Document Relationship Map; diagram section Document Workflow.",
+            "menu_path_id": "Halaman detail dokumen (SO, DO, SI, …) → tombol Relationship Map di header → modal; bagian diagram bernama Document Workflow.",
+            "keywords_en": ["relationship map", "document workflow", "mermaid", "SO DO SI chain", "document diagram"],
+            "keywords_id": ["relationship map", "peta dokumen", "alur dokumen", "diagram SO DO SI", "workflow dokumen"],
+            "notes": "Node labels show document type, number, date, status, amount. sales-workflow-corrections-help-*.md"
+        },
+        {
+            "id": "company-entity-correction",
+            "title_en": "Wrong company entity on sales documents",
+            "title_id": "Salah pilih company entity (PT/CV)",
+            "menu_path_en": "Sales Order form: Company entity field. If SI posted: Sales Credit Memos + unlink DO–SI + Reverse delivery as needed; see checklist-perbaikan-salah-entitas-so-id.md.",
+            "menu_path_id": "Form Sales Order: field Company entity. Jika SI sudah posting: Sales Credit Memos + lepas tautan DO–SI + Reverse delivery bila perlu; lihat checklist-perbaikan-salah-entitas-so-id.md.",
+            "keywords_en": ["wrong entity", "PT CV mistake", "company entity", "fix sales order entity"],
+            "keywords_id": ["salah entitas", "PT CV salah", "company entity", "ganti entitas SO", "perbaiki entitas"],
+            "notes": "checklist-perbaikan-salah-entitas-so-id.md, sales-workflow-corrections-help-*.md"
         },
         {
             "id": "purchase-invoice",

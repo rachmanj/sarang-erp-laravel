@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Accounting\PurchaseInvoiceController;
 use App\Http\Controllers\Accounting\PurchasePaymentController;
+use App\Http\Controllers\Accounting\SalesCreditMemoController;
 use App\Http\Controllers\Accounting\SalesInvoiceController;
 use App\Http\Controllers\Accounting\SalesInvoiceImportController;
 use App\Http\Controllers\Accounting\SalesReceiptController;
@@ -31,6 +32,16 @@ Route::prefix('sales-invoices')->group(function () {
     Route::get('/{id}/print', [SalesInvoiceController::class, 'print'])->middleware('permission:ar.invoices.view')->name('sales-invoices.print');
     Route::get('/{id}/pdf', [SalesInvoiceController::class, 'pdf'])->middleware('permission:ar.invoices.view')->name('sales-invoices.pdf');
     Route::post('/{id}/queue-pdf', [SalesInvoiceController::class, 'queuePdf'])->middleware('permission:ar.invoices.view')->name('sales-invoices.queuePdf');
+});
+
+// AR - Sales Credit Memos
+Route::prefix('sales-credit-memos')->group(function () {
+    Route::get('/', [SalesCreditMemoController::class, 'index'])->middleware('permission:ar.credit-memos.view')->name('sales-credit-memos.index');
+    Route::get('/data', [SalesCreditMemoController::class, 'data'])->middleware('permission:ar.credit-memos.view')->name('sales-credit-memos.data');
+    Route::get('/create', [SalesCreditMemoController::class, 'create'])->middleware('permission:ar.credit-memos.create')->name('sales-credit-memos.create');
+    Route::post('/', [SalesCreditMemoController::class, 'store'])->middleware('permission:ar.credit-memos.create')->name('sales-credit-memos.store');
+    Route::get('/{id}', [SalesCreditMemoController::class, 'show'])->middleware('permission:ar.credit-memos.view')->name('sales-credit-memos.show');
+    Route::post('/{id}/post', [SalesCreditMemoController::class, 'post'])->middleware('permission:ar.credit-memos.post')->name('sales-credit-memos.post');
 });
 
 // AP - Purchase Invoices

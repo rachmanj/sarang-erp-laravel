@@ -2,13 +2,12 @@
 
 namespace App\Services\Accounting;
 
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Carbon;
-use App\Services\Accounting\PeriodCloseService;
-use App\Services\DocumentNumberingService;
-use App\Services\ControlAccountService;
-use App\Services\ExchangeRateService;
 use App\Services\CompanyEntityService;
+use App\Services\ControlAccountService;
+use App\Services\DocumentNumberingService;
+use App\Services\ExchangeRateService;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class PostingService
 {
@@ -19,6 +18,7 @@ class PostingService
         private ExchangeRateService $exchangeRateService,
         private CompanyEntityService $companyEntityService
     ) {}
+
     public function postJournal(array $payload): int
     {
         // Expected $payload keys: date, description, period_id|null, source_type, source_id, posted_by|null, lines[]
@@ -67,8 +67,8 @@ class PostingService
                 $linesInsert[] = [
                     'journal_id' => $journalId,
                     'account_id' => $l['account_id'],
-                    'debit' => (float)($l['debit'] ?? 0),
-                    'credit' => (float)($l['credit'] ?? 0),
+                    'debit' => (float) ($l['debit'] ?? 0),
+                    'credit' => (float) ($l['credit'] ?? 0),
                     'currency_id' => $lineCurrency['currency_id'],
                     'exchange_rate' => $lineCurrency['exchange_rate'],
                     'debit_foreign' => $lineCurrency['debit_foreign'],
@@ -86,8 +86,8 @@ class PostingService
             foreach ($payload['lines'] as $line) {
                 $this->controlAccountService->updateBalanceOnJournalPost(
                     $line['account_id'],
-                    (float)($line['debit'] ?? 0),
-                    (float)($line['credit'] ?? 0),
+                    (float) ($line['debit'] ?? 0),
+                    (float) ($line['credit'] ?? 0),
                     empty($line['project_id']) ? null : $line['project_id'],
                     empty($line['dept_id']) ? null : $line['dept_id']
                 );
@@ -102,7 +102,7 @@ class PostingService
         $date = $date ?: now()->toDateString();
 
         $journal = DB::table('journals')->where('id', $journalId)->first();
-        if (!$journal) {
+        if (! $journal) {
             throw new \InvalidArgumentException('Journal not found');
         }
 
@@ -113,7 +113,7 @@ class PostingService
 
         $payload = [
             'date' => $date,
-            'description' => 'Reversal of #' . $journalId . ($journal->description ? ' - ' . $journal->description : ''),
+            'description' => 'Reversal of #'.$journalId.($journal->description ? ' - '.$journal->description : ''),
             'period_id' => $journal->period_id,
             'source_type' => $journal->source_type,
             'source_id' => $journal->source_id,
@@ -124,11 +124,11 @@ class PostingService
         foreach ($lines as $l) {
             $payload['lines'][] = [
                 'account_id' => $l->account_id,
-                'debit' => (float)$l->credit,
-                'credit' => (float)$l->debit,
+                'debit' => (float) $l->credit,
+                'credit' => (float) $l->debit,
                 'project_id' => $l->project_id,
                 'dept_id' => $l->dept_id,
-                'memo' => 'Reversal of line ' . $l->id,
+                'memo' => 'Reversal of line '.$l->id,
             ];
         }
 
@@ -138,19 +138,19 @@ class PostingService
     private function validatePayload(array $payload): void
     {
         foreach (['date', 'source_type', 'source_id', 'lines'] as $key) {
-            if (!array_key_exists($key, $payload)) {
+            if (! array_key_exists($key, $payload)) {
                 throw new \InvalidArgumentException("Missing required key: {$key}");
             }
         }
-        if (!is_array($payload['lines']) || count($payload['lines']) === 0) {
+        if (! is_array($payload['lines']) || count($payload['lines']) === 0) {
             throw new \InvalidArgumentException('Journal must contain at least one line');
         }
         foreach ($payload['lines'] as $idx => $l) {
             if (empty($l['account_id'])) {
                 throw new \InvalidArgumentException("Line {$idx} missing account_id");
             }
-            $debit = (float)($l['debit'] ?? 0);
-            $credit = (float)($l['credit'] ?? 0);
+            $debit = (float) ($l['debit'] ?? 0);
+            $credit = (float) ($l['credit'] ?? 0);
             if ($debit < 0 || $credit < 0) {
                 throw new \InvalidArgumentException("Line {$idx} has negative amount");
             }
@@ -165,8 +165,8 @@ class PostingService
         $sumDebit = 0.0;
         $sumCredit = 0.0;
         foreach ($lines as $l) {
-            $sumDebit += (float)($l['debit'] ?? 0);
-            $sumCredit += (float)($l['credit'] ?? 0);
+            $sumDebit += (float) ($l['debit'] ?? 0);
+            $sumCredit += (float) ($l['credit'] ?? 0);
         }
         if (round($sumDebit - $sumCredit, 2) !== 0.0) {
             throw new \InvalidArgumentException('Journal is not balanced');
@@ -176,16 +176,16 @@ class PostingService
     private function validateMultiCurrency(array $lines): void
     {
         foreach ($lines as $idx => $line) {
-            if (isset($line['currency_id']) && !isset($line['exchange_rate'])) {
+            if (isset($line['currency_id']) && ! isset($line['exchange_rate'])) {
                 throw new \InvalidArgumentException("Line {$idx} has currency_id but missing exchange_rate");
             }
-            if (isset($line['exchange_rate']) && !isset($line['currency_id'])) {
+            if (isset($line['exchange_rate']) && ! isset($line['currency_id'])) {
                 throw new \InvalidArgumentException("Line {$idx} has exchange_rate but missing currency_id");
             }
-            if (isset($line['debit_foreign']) && !isset($line['currency_id'])) {
+            if (isset($line['debit_foreign']) && ! isset($line['currency_id'])) {
                 throw new \InvalidArgumentException("Line {$idx} has debit_foreign but missing currency_id");
             }
-            if (isset($line['credit_foreign']) && !isset($line['currency_id'])) {
+            if (isset($line['credit_foreign']) && ! isset($line['currency_id'])) {
                 throw new \InvalidArgumentException("Line {$idx} has credit_foreign but missing currency_id");
             }
         }
@@ -214,9 +214,10 @@ class PostingService
 
             // Get exchange rate for non-base currency
             $exchangeRate = $this->exchangeRateService->getRate($currencyId, $baseCurrencyId, Carbon::parse($lines[0]['date'] ?? now()));
+
             return [
                 'currency_id' => $currencyId,
-                'exchange_rate' => $exchangeRate ? $exchangeRate->rate : $baseExchangeRate
+                'exchange_rate' => $exchangeRate ? $exchangeRate->rate : $baseExchangeRate,
             ];
         }
 
@@ -234,8 +235,8 @@ class PostingService
         $currencyId = $line['currency_id'] ?? $baseCurrencyId;
         $exchangeRate = $line['exchange_rate'] ?? $baseExchangeRate;
 
-        $debit = (float)($line['debit'] ?? 0);
-        $credit = (float)($line['credit'] ?? 0);
+        $debit = (float) ($line['debit'] ?? 0);
+        $credit = (float) ($line['credit'] ?? 0);
 
         $debitForeign = $line['debit_foreign'] ?? 0;
         $creditForeign = $line['credit_foreign'] ?? 0;
@@ -247,10 +248,10 @@ class PostingService
             $calculatedCreditForeign = $credit / $exchangeRate;
 
             if (abs($debitForeign - $calculatedDebitForeign) > 0.01) {
-                throw new \InvalidArgumentException("Debit foreign amount does not match calculated amount");
+                throw new \InvalidArgumentException('Debit foreign amount does not match calculated amount');
             }
             if (abs($creditForeign - $calculatedCreditForeign) > 0.01) {
-                throw new \InvalidArgumentException("Credit foreign amount does not match calculated amount");
+                throw new \InvalidArgumentException('Credit foreign amount does not match calculated amount');
             }
         } else {
             // Calculate foreign amounts from IDR amounts
@@ -271,7 +272,7 @@ class PostingService
         // Enhanced version that handles FX gain/loss calculation
         // Expected additional keys: settlement_currency_id, settlement_exchange_rate, settlement_date
 
-        if (!isset($payload['settlement_currency_id']) || !isset($payload['settlement_exchange_rate'])) {
+        if (! isset($payload['settlement_currency_id']) || ! isset($payload['settlement_exchange_rate'])) {
             // Fall back to regular posting
             return $this->postJournal($payload);
         }
@@ -306,8 +307,8 @@ class PostingService
         $settlementTotal = 0;
 
         foreach ($payload['lines'] as $line) {
-            $debit = (float)($line['debit'] ?? 0);
-            $credit = (float)($line['credit'] ?? 0);
+            $debit = (float) ($line['debit'] ?? 0);
+            $credit = (float) ($line['credit'] ?? 0);
             $originalTotal += ($debit - $credit);
         }
 
@@ -324,7 +325,7 @@ class PostingService
     private function resolveJournalEntity(?string $sourceType, ?int $sourceId): int
     {
         // Manual journals use default entity
-        if (!$sourceType || !$sourceId || $sourceType === 'manual_journal') {
+        if (! $sourceType || ! $sourceId || $sourceType === 'manual_journal') {
             return $this->companyEntityService->getDefaultEntity()->id;
         }
 
@@ -337,6 +338,9 @@ class PostingService
                 case 'App\Models\Accounting\PurchasePayment':
                 case 'App\Models\Accounting\SalesReceipt':
                     $sourceModel = $sourceType::find($sourceId);
+                    break;
+                case 'sales_credit_memo':
+                    $sourceModel = \App\Models\Accounting\SalesCreditMemo::find($sourceId);
                     break;
                 case 'App\Models\AssetDisposal':
                     $sourceModel = \App\Models\AssetDisposal::find($sourceId);

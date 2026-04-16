@@ -55,7 +55,7 @@ class SyncDraftDocumentLineAmountsFromSalesOrders extends Command
             ->whereNotNull('sales_order_line_id')
             ->whereHas('deliveryOrder', function ($q) use ($statusFilter) {
                 if ($statusFilter === null) {
-                    $q->where('status', '!=', 'cancelled');
+                    $q->whereNotIn('status', ['cancelled', 'reversed']);
                 } else {
                     $q->whereIn('status', $statusFilter);
                 }

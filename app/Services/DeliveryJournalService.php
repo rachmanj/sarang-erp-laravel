@@ -4,10 +4,8 @@ namespace App\Services;
 
 use App\Models\DeliveryOrder;
 use App\Services\Accounting\PostingService;
-use App\Services\DocumentNumberingService;
-use App\Services\InventoryService;
-use Illuminate\Support\Facades\DB;
 use Exception;
+use Illuminate\Support\Facades\DB;
 
 class DeliveryJournalService
 {
@@ -155,7 +153,7 @@ class DeliveryJournalService
             ->where('description', 'like', '%Inventory Reservation%')
             ->first();
 
-        if (!$reservationJournal) {
+        if (! $reservationJournal) {
             throw new Exception('No inventory reservation journal found for this delivery order.');
         }
 
@@ -164,6 +162,40 @@ class DeliveryJournalService
             now()->toDateString(),
             auth()->id()
         );
+    }
+
+    /**
+     * Reverse all original (non-reversal) journals for this delivery order, newest first.
+     * Skips entries that already have a matching reversal journal.
+     */
+    public function reverseOriginalJournalsForDeliveryOrder(DeliveryOrder $deliveryOrder, ?string $asOfDate = null, ?int $postedBy = null): void
+    {
+        $asOfDate = $asOfDate ?? now()->toDateString();
+        $postedBy = $postedBy ?? auth()->id();
+
+        $candidates = DB::table('journals')
+            ->where('source_type', DeliveryOrder::class)
+            ->where('source_id', $deliveryOrder->id)
+            ->where('description', 'not like', 'Reversal of %')
+            ->orderByDesc('id')
+            ->get();
+
+        foreach ($candidates as $journal) {
+            $alreadyReversed = DB::table('journals')
+                ->where('source_type', DeliveryOrder::class)
+                ->where('source_id', $deliveryOrder->id)
+                ->where(function ($q) use ($journal) {
+                    $q->where('description', 'Reversal of #'.$journal->id)
+                        ->orWhere('description', 'like', 'Reversal of #'.$journal->id.' -%');
+                })
+                ->exists();
+
+            if ($alreadyReversed) {
+                continue;
+            }
+
+            $this->postingService->reverseJournal((int) $journal->id, $asOfDate, $postedBy);
+        }
     }
 
     /**
@@ -176,7 +208,7 @@ class DeliveryJournalService
             ->orWhere('name', 'like', '%Inventory Reserved%')
             ->first();
 
-        if (!$account) {
+        if (! $account) {
             throw new Exception('Inventory Reserved account not found. Please create account with code 1.1.3.01');
         }
 
@@ -193,7 +225,7 @@ class DeliveryJournalService
             ->orWhere('name', 'like', '%Inventory Available%')
             ->first();
 
-        if (!$account) {
+        if (! $account) {
             throw new Exception('Inventory Available account not found. Please create account with code 1.1.3.02');
         }
 
@@ -210,7 +242,7 @@ class DeliveryJournalService
             ->orWhere('name', 'like', '%Sales Revenue%')
             ->first();
 
-        if (!$account) {
+        if (! $account) {
             throw new Exception('Sales Revenue account not found. Please create account with code 4.1.1');
         }
 
@@ -232,7 +264,7 @@ class DeliveryJournalService
             ->orderByRaw("CASE WHEN code = '5.1.1' THEN 0 WHEN code = '5.1' THEN 1 ELSE 2 END")
             ->first();
 
-        if (!$account) {
+        if (! $account) {
             throw new Exception('Cost of Goods Sold account not found. Please create account with code 5.1.1 or 5.1 (HPP Barang Dagangan)');
         }
 
@@ -248,7 +280,7 @@ class DeliveryJournalService
             ->where('code', '1.1.2.04') // AR UnInvoice
             ->first();
 
-        if (!$account) {
+        if (! $account) {
             throw new Exception('AR UnInvoice account not found. Please create account with code 1.1.2.04');
         }
 
@@ -264,11 +296,10 @@ class DeliveryJournalService
             ->where('code', '1.1.2.01') // Piutang Dagang
             ->first();
 
-        if (!$account) {
+        if (! $account) {
             throw new Exception('Accounts Receivable account not found. Please create account with code 1.1.2.01');
         }
 
         return $account->id;
     }
-
 }

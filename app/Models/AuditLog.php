@@ -75,6 +75,8 @@ class AuditLog extends Model
                 return 'warning';
             case 'adjusted':
                 return 'primary';
+            case 'reversed':
+                return 'warning';
             default:
                 return 'secondary';
         }
@@ -82,7 +84,7 @@ class AuditLog extends Model
 
     public function getFormattedChangesAttribute()
     {
-        if (!$this->old_values || !$this->new_values) {
+        if (! $this->old_values || ! $this->new_values) {
             return [];
         }
 

@@ -4,8 +4,8 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 use Yajra\DataTables\Facades\DataTables;
 
 class RoleController extends Controller
@@ -14,6 +14,7 @@ class RoleController extends Controller
     {
         $this->authorize('roles.view');
         $permissions = Permission::orderBy('name')->pluck('name');
+
         return view('admin.roles.index', compact('permissions'));
     }
 
@@ -22,6 +23,7 @@ class RoleController extends Controller
         $this->authorize('roles.create');
         $permissions = Permission::orderBy('name')->get(['id', 'name']);
         $groupedPermissions = $this->groupPermissionsByFeature($permissions);
+
         return view('admin.roles.create', compact('permissions', 'groupedPermissions'));
     }
 
@@ -29,6 +31,7 @@ class RoleController extends Controller
     {
         $this->authorize('roles.view');
         $role->load('permissions', 'users');
+
         return view('admin.roles.show', compact('role'));
     }
 
@@ -36,6 +39,7 @@ class RoleController extends Controller
     {
         $this->authorize('roles.view');
         $query = Role::query()->withCount('users')->select(['id', 'name']);
+
         return DataTables::of($query)
             ->addColumn('permissions', function (Role $role) {
                 $permissions = $role->permissions->pluck('name');
@@ -46,13 +50,13 @@ class RoleController extends Controller
                 // Show first 3 permissions as badges
                 $displayPermissions = $permissions->take(3);
                 $html = $displayPermissions->map(function ($name) {
-                    return '<span class="badge badge-info mr-1 mb-1">' . e($name) . '</span>';
+                    return '<span class="badge badge-info mr-1 mb-1">'.e($name).'</span>';
                 })->join('');
 
                 // Add "+X more" if there are more than 3 permissions
                 if ($permissions->count() > 3) {
                     $remaining = $permissions->count() - 3;
-                    $html .= '<span class="badge badge-secondary">+' . $remaining . ' more</span>';
+                    $html .= '<span class="badge badge-secondary">+'.$remaining.' more</span>';
                 }
 
                 return $html;
@@ -64,15 +68,15 @@ class RoleController extends Controller
                 $html = '';
 
                 // View button
-                $html .= '<button class="btn btn-sm btn-info mr-1 view-role" data-id="' . $role->id . '" title="View"><i class="fas fa-eye"></i></button>';
+                $html .= '<button class="btn btn-sm btn-info mr-1 view-role" data-id="'.$role->id.'" title="View"><i class="fas fa-eye"></i></button>';
 
                 // Edit button
                 $editUrl = route('admin.roles.edit', $role);
-                $html .= '<a href="' . $editUrl . '" class="btn btn-sm btn-warning mr-1" title="Edit"><i class="fas fa-edit"></i></a>';
+                $html .= '<a href="'.$editUrl.'" class="btn btn-sm btn-warning mr-1" title="Edit"><i class="fas fa-edit"></i></a>';
 
                 // Delete button (not for superadmin)
                 if ($role->name !== 'superadmin') {
-                    $html .= '<button type="button" class="btn btn-sm btn-danger delete-role" data-id="' . $role->id . '" title="Delete"><i class="fas fa-trash"></i></button>';
+                    $html .= '<button type="button" class="btn btn-sm btn-danger delete-role" data-id="'.$role->id.'" title="Delete"><i class="fas fa-trash"></i></button>';
                 }
 
                 return $html;
@@ -87,13 +91,14 @@ class RoleController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:100', 'unique:roles,name'],
             'permissions' => ['array'],
-            'permissions.*' => ['integer', 'exists:permissions,id']
+            'permissions.*' => ['integer', 'exists:permissions,id'],
         ]);
         $role = Role::create(['name' => $data['name']]);
-        if (!empty($data['permissions'])) {
-            $perms = collect($data['permissions'])->map(fn($id) => (int) $id)->all();
+        if (! empty($data['permissions'])) {
+            $perms = collect($data['permissions'])->map(fn ($id) => (int) $id)->all();
             $role->syncPermissions($perms);
         }
+
         return redirect()->route('admin.roles.index')->with('success', 'Role created');
     }
 
@@ -102,6 +107,7 @@ class RoleController extends Controller
         $this->authorize('roles.update');
         $permissions = Permission::orderBy('name')->get(['id', 'name']);
         $groupedPermissions = $this->groupPermissionsByFeature($permissions);
+
         return view('admin.roles.edit', compact('role', 'permissions', 'groupedPermissions'));
     }
 
@@ -109,16 +115,17 @@ class RoleController extends Controller
     {
         $this->authorize('roles.update');
         $data = $request->validate([
-            'name' => ['required', 'string', 'max:100', 'unique:roles,name,' . $role->id],
+            'name' => ['required', 'string', 'max:100', 'unique:roles,name,'.$role->id],
             'permissions' => ['array'],
-            'permissions.*' => ['integer', 'exists:permissions,id']
+            'permissions.*' => ['integer', 'exists:permissions,id'],
         ]);
         $role->name = $data['name'];
         $role->save();
         if (isset($data['permissions'])) {
-            $perms = collect($data['permissions'])->map(fn($id) => (int) $id)->all();
+            $perms = collect($data['permissions'])->map(fn ($id) => (int) $id)->all();
             $role->syncPermissions($perms);
         }
+
         return redirect()->route('admin.roles.index')->with('success', 'Role updated');
     }
 
@@ -129,6 +136,7 @@ class RoleController extends Controller
             return back()->with('error', 'Cannot delete superadmin role');
         }
         $role->delete();
+
         return back()->with('success', 'Role deleted');
     }
 
@@ -137,6 +145,7 @@ class RoleController extends Controller
         $this->authorize('roles.assign');
         $perms = $request->input('permissions', []);
         $role->syncPermissions($perms);
+
         return back()->with('success', 'Permissions updated');
     }
 
@@ -162,7 +171,7 @@ class RoleController extends Controller
                 'permissions.update',
                 'permissions.delete',
                 'view-admin',
-                'manage-erp-parameters'
+                'manage-erp-parameters',
             ],
             'Master Data Management' => [
                 'customers.view',
@@ -180,7 +189,7 @@ class RoleController extends Controller
                 'funds.view',
                 'funds.manage',
                 'asset_categories.view',
-                'asset_categories.manage'
+                'asset_categories.manage',
             ],
             'Inventory Management' => [
                 'inventory.view',
@@ -189,7 +198,7 @@ class RoleController extends Controller
                 'inventory.delete',
                 'inventory.adjust',
                 'inventory.transfer',
-                'inventory.reports'
+                'inventory.reports',
             ],
             'Fixed Asset Management' => [
                 'assets.view',
@@ -209,7 +218,7 @@ class RoleController extends Controller
                 'assets.disposal.reverse',
                 'assets.depreciation.run',
                 'assets.depreciation.reverse',
-                'assets.reports.view'
+                'assets.reports.view',
             ],
             'Purchase Management' => [
                 'ap.invoices.view',
@@ -217,15 +226,19 @@ class RoleController extends Controller
                 'ap.invoices.post',
                 'ap.payments.view',
                 'ap.payments.create',
-                'ap.payments.post'
+                'ap.payments.post',
             ],
             'Sales Management' => [
                 'ar.invoices.view',
                 'ar.invoices.create',
                 'ar.invoices.post',
+                'ar.credit-memos.view',
+                'ar.credit-memos.create',
+                'ar.credit-memos.post',
                 'ar.receipts.view',
                 'ar.receipts.create',
-                'ar.receipts.post'
+                'ar.receipts.post',
+                'delivery-orders.reverse',
             ],
             'Accounting & Finance' => [
                 'journals.view',
@@ -237,12 +250,12 @@ class RoleController extends Controller
                 'account_statements.view',
                 'account_statements.create',
                 'account_statements.update',
-                'account_statements.delete'
+                'account_statements.delete',
             ],
             'Reports & Analytics' => [
                 'reports.view',
-                'reports.open-items'
-            ]
+                'reports.open-items',
+            ],
         ];
 
         $groupedPermissions = [];
@@ -260,7 +273,7 @@ class RoleController extends Controller
         // Add any remaining permissions that don't fit into the defined groups
         $assignedPermissions = collect($groups)->flatten()->toArray();
         $remainingPermissions = $permissions->filter(function ($permission) use ($assignedPermissions) {
-            return !in_array($permission->name, $assignedPermissions);
+            return ! in_array($permission->name, $assignedPermissions);
         });
 
         if ($remainingPermissions->isNotEmpty()) {

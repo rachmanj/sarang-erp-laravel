@@ -1,6 +1,6 @@
 # Sarange ERP - Modules and Features List
 
-**Last Updated**: 2026-04-08  
+**Last Updated**: 2026-04-16  
 **System Status**: Production Ready (95% Complete)  
 **Technology Stack**: Laravel 12, PHP 8.2+, MySQL, AdminLTE 3.14
 
@@ -226,14 +226,15 @@
 
 ### 20. Delivery Orders
 - **Simplified Flow**: Draft → Approve → In Transit → Mark as Delivered → Completed. Stock reduces at approval; revenue recognition on Mark as Delivered.
-- **Multiple Partial DOs per SO**: A Sales Order can have multiple Delivery Orders. New DO creation uses remaining qty per SO line (skips fully-delivered lines). SO status `confirmed` or `processing` allows Create Delivery Order. Delivered qty syncs across all DOs.
+- **Reverse delivery**: When allowed (`canBeReversed`), reverses posted DO journals and restores inventory; status becomes **`reversed`** (excluded from delivered-qty sums). If a Sales Invoice closed the DO, a **posted Sales Credit Memo** for that SI and **unlink** DO–SI may be required first. Permission: **`delivery-orders.reverse`**. See `docs/manuals/delivery-order-manual-id.md`.
+- **Multiple Partial DOs per SO**: A Sales Order can have multiple Delivery Orders. New DO creation uses remaining qty per SO line (skips fully-delivered lines). SO status `confirmed` or `processing` allows Create Delivery Order. Delivered qty syncs across all DOs (DO lines on **`reversed`** headers excluded).
 - **Delivery Items Table**: No, Item Code, Item Name, Ordered Qty, Remain Qty, Delivery Qty, Action. VAT, WTax, Unit Price hidden from UI (kept in DB for invoicing).
 - **Mark as Delivered**: Single button with modal (date, time, delivered by). Triggers revenue recognition journal and sets status to completed.
 - **Print Layout Selection**: Dropdown (Standard A4/Laser | Dot Matrix) for warehouse vs formal prints.
 - **Automatic Numbering**: Entity-aware format `EEYYDDNNNNN` (code 07)
 - **Inventory Reservation**: Automatic stock allocation and reservation upon approval
 - **Revenue Recognition**: Automated revenue recognition with COGS calculation upon Mark as Delivered
-- **Status Tracking**: draft, in_transit, ready, completed, cancelled
+- **Status Tracking**: draft, in_transit, ready, completed, **reversed**, cancelled (legacy rows may include picking, packed, partial_delivered)
 - **Approval Workflows**: Multi-level approval process
 - **Journal Entries Integration**: Inventory reservation on approval; revenue recognition on Mark as Delivered
 - **Delivery Tracking**: Logistics cost tracking and performance metrics
@@ -251,6 +252,7 @@
 - **AR UnInvoice Accounting**: Intermediate account handling for accrual accounting
 - **Multi-Currency Support**: Foreign currency invoices
 - **Document Closure**: Automatic closure tracking
+- **Sales Credit Memos (AR)**: One credit memo per **posted** Sales Invoice (unique `sales_invoice_id`). Posting via `PostingService`; permissions **`ar.credit-memos.view|create|post`**. Manuals: `docs/manuals/sales-invoice-manual-id.md` (Sales Credit Memo section), `sales-workflow-corrections-help-*.md`.
 
 ### 22. Sales Receipts
 - **Invoice-First Flow**: Select customer → load outstanding Sales Invoices via `getAvailableInvoices` API → select invoices to receive payment with checkboxes (Select All/Deselect All) → enter allocation amount per invoice → receipt lines auto-populated from total allocation
@@ -528,8 +530,8 @@
 
 ### 52. Document Navigation & Relationship Map
 - **Base/Target Document Navigation**: Navigate between related documents
-- **Relationship Map Visualization**: Mermaid.js flowchart visualization of document relationships
-- **Document Relationship Tracking**: Polymorphic relationship storage for all document types
+- **Relationship Map Visualization**: Mermaid.js flowchart; each node shows **document type**, number, date, **status**, amount (IDR), and optional **Ref** (reference line is not shown as “N/A” status)
+- **Document Relationship Tracking**: Polymorphic relationship storage for all document types; API includes human **`type_label`** for list cards
 - **Journal Preview**: Preview journal entries before posting
 - **Document Analytics**: Usage tracking and performance analytics
 

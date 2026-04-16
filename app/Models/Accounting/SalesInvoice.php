@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class SalesInvoice extends Model
 {
@@ -45,6 +46,11 @@ class SalesInvoice extends Model
     public function lines(): HasMany
     {
         return $this->hasMany(SalesInvoiceLine::class, 'invoice_id');
+    }
+
+    public function creditMemo(): HasOne
+    {
+        return $this->hasOne(SalesCreditMemo::class, 'sales_invoice_id');
     }
 
     public function businessPartner(): BelongsTo

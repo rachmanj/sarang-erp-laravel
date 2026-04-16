@@ -23,16 +23,24 @@ class DeliveryService
 
     protected $inventoryService;
 
+    protected $documentRelationshipService;
+
+    protected $auditLogService;
+
     public function __construct(
         DocumentNumberingService $documentNumberingService,
         DeliveryJournalService $deliveryJournalService,
         CompanyEntityService $companyEntityService,
-        InventoryService $inventoryService
+        InventoryService $inventoryService,
+        DocumentRelationshipService $documentRelationshipService,
+        AuditLogService $auditLogService
     ) {
         $this->documentNumberingService = $documentNumberingService;
         $this->deliveryJournalService = $deliveryJournalService;
         $this->companyEntityService = $companyEntityService;
         $this->inventoryService = $inventoryService;
+        $this->documentRelationshipService = $documentRelationshipService;
+        $this->auditLogService = $auditLogService;
     }
 
     public function createDeliveryOrderFromSalesOrder($salesOrderId, $data = [])
@@ -396,14 +404,14 @@ class DeliveryService
     private function getDeliveredQtyForSalesOrderLine(int $salesOrderLineId): float
     {
         return (float) DeliveryOrderLine::where('sales_order_line_id', $salesOrderLineId)
-            ->whereHas('deliveryOrder', fn ($q) => $q->where('status', '!=', 'cancelled'))
+            ->whereHas('deliveryOrder', fn ($q) => $q->whereNotIn('status', ['cancelled', 'reversed']))
             ->sum('delivered_qty');
     }
 
     public function getDeliveredQtyForSalesOrderLineExcludingDo(int $salesOrderLineId, ?int $excludeDeliveryOrderId): float
     {
         $query = DeliveryOrderLine::where('sales_order_line_id', $salesOrderLineId)
-            ->whereHas('deliveryOrder', fn ($q) => $q->where('status', '!=', 'cancelled'));
+            ->whereHas('deliveryOrder', fn ($q) => $q->whereNotIn('status', ['cancelled', 'reversed']));
         if ($excludeDeliveryOrderId !== null) {
             $query->where('delivery_order_id', '!=', $excludeDeliveryOrderId);
         }
@@ -414,7 +422,7 @@ class DeliveryService
     private function getAllocatedQtyForSalesOrderLine(int $salesOrderLineId): float
     {
         $lines = DeliveryOrderLine::where('sales_order_line_id', $salesOrderLineId)
-            ->whereHas('deliveryOrder', fn ($q) => $q->where('status', '!=', 'cancelled'))
+            ->whereHas('deliveryOrder', fn ($q) => $q->whereNotIn('status', ['cancelled', 'reversed']))
             ->get();
 
         return (float) $lines->sum(fn ($l) => max((float) $l->picked_qty, (float) $l->delivered_qty));
@@ -423,7 +431,7 @@ class DeliveryService
     private function getAllocatedQtyForSalesOrderLineExcludingDo(int $salesOrderLineId, ?int $excludeDeliveryOrderId): float
     {
         $query = DeliveryOrderLine::where('sales_order_line_id', $salesOrderLineId)
-            ->whereHas('deliveryOrder', fn ($q) => $q->where('status', '!=', 'cancelled'));
+            ->whereHas('deliveryOrder', fn ($q) => $q->whereNotIn('status', ['cancelled', 'reversed']));
         if ($excludeDeliveryOrderId !== null) {
             $query->where('delivery_order_id', '!=', $excludeDeliveryOrderId);
         }
@@ -655,6 +663,107 @@ class DeliveryService
             }
 
             return $deliveryOrder;
+        });
+    }
+
+    public function reverseDeliveryOrder(int $deliveryOrderId, ?string $reason = null, ?int $userId = null): DeliveryOrder
+    {
+        return DB::transaction(function () use ($deliveryOrderId, $reason, $userId) {
+            $deliveryOrder = DeliveryOrder::lockForUpdate()
+                ->with(['lines.inventoryItem', 'salesOrder'])
+                ->findOrFail($deliveryOrderId);
+
+            if (! $deliveryOrder->canBeReversed()) {
+                throw new \Exception($deliveryOrder->reversalBlockReason() ?? 'This delivery order cannot be reversed.');
+            }
+
+            $auditBefore = [
+                'do_number' => $deliveryOrder->do_number,
+                'status' => $deliveryOrder->status,
+                'closure_status' => $deliveryOrder->closure_status,
+                'closed_by_document_type' => $deliveryOrder->closed_by_document_type,
+                'closed_by_document_id' => $deliveryOrder->closed_by_document_id,
+            ];
+
+            $this->deliveryJournalService->reverseOriginalJournalsForDeliveryOrder(
+                $deliveryOrder,
+                now()->toDateString(),
+                $userId ?? Auth::id()
+            );
+
+            foreach ($deliveryOrder->lines as $line) {
+                if ($line->inventory_item_id && $line->inventoryItem) {
+                    $soldQty = (int) round(abs(
+                        (float) InventoryTransaction::where('reference_type', 'delivery_order_line')
+                            ->where('reference_id', $line->id)
+                            ->where('transaction_type', 'sale')
+                            ->sum('quantity')
+                    ));
+
+                    if ($soldQty > 0) {
+                        $unitCost = $this->inventoryService->calculateUnitCost($line->inventoryItem);
+                        $this->inventoryService->processAdjustmentTransaction(
+                            $line->inventory_item_id,
+                            $soldQty,
+                            (float) $unitCost,
+                            "DO {$deliveryOrder->do_number} reversed — stock restored for {$line->item_name}"
+                        );
+                    }
+                }
+
+                $line->update([
+                    'reserved_qty' => 0,
+                    'picked_qty' => 0,
+                    'delivered_qty' => 0,
+                    'status' => 'pending',
+                ]);
+            }
+
+            $noteLine = $reason ? "\nReversal: ".$reason : '';
+            $deliveryOrder->update([
+                'status' => 'reversed',
+                'delivered_at' => null,
+                'delivered_by' => null,
+                'actual_delivery_date' => null,
+                'closure_status' => 'closed',
+                'closed_by_document_type' => 'reversal',
+                'closed_by_document_id' => null,
+                'closed_at' => now(),
+                'closed_by_user_id' => $userId ?? Auth::id(),
+                'notes' => ($deliveryOrder->notes ?? '').$noteLine,
+            ]);
+
+            $freshLines = DeliveryOrderLine::where('delivery_order_id', $deliveryOrder->id)->get();
+            foreach ($freshLines as $line) {
+                if ($line->sales_order_line_id) {
+                    $this->syncSalesOrderLineFromDeliveries($line->sales_order_line_id);
+                }
+            }
+
+            $doFresh = $deliveryOrder->fresh(['lines']);
+            $this->documentRelationshipService->clearDocumentCache($doFresh);
+            if ($doFresh->sales_order_id) {
+                $so = SalesOrder::find($doFresh->sales_order_id);
+                if ($so) {
+                    $this->documentRelationshipService->clearDocumentCache($so);
+                }
+            }
+
+            $uid = $userId ?? Auth::id();
+            $auditAfter = [
+                'do_number' => $doFresh->do_number,
+                'status' => $doFresh->status,
+                'closure_status' => $doFresh->closure_status,
+                'closed_by_document_type' => $doFresh->closed_by_document_type,
+                'closed_by_document_id' => $doFresh->closed_by_document_id,
+            ];
+            $description = 'Delivery order '.$doFresh->do_number.' reversed (journals reversed, stock restored where applicable).';
+            if ($reason) {
+                $description .= ' Reason: '.$reason;
+            }
+            $this->auditLogService->log('reversed', 'delivery_order', $doFresh->id, $auditBefore, $auditAfter, $description, $uid);
+
+            return $doFresh;
         });
     }
 
