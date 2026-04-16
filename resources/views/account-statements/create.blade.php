@@ -11,6 +11,9 @@
 @endsection
 
 @section('content')
+    @php
+        $effectiveStatementType = old('statement_type', $selectedType);
+    @endphp
     <div class="row">
         <div class="col-12">
             <div class="card">
@@ -20,6 +23,16 @@
                 <form method="POST" action="{{ route('account-statements.store') }}">
                     @csrf
                     <div class="card-body">
+                        @if ($errors->any())
+                            <div class="alert alert-danger" role="alert">
+                                <strong>{{ __('Please fix the following:') }}</strong>
+                                <ul class="mb-0 pl-3">
+                                    @foreach ($errors->all() as $err)
+                                        <li>{{ $err }}</li>
+                                    @endforeach
+                                </ul>
+                            </div>
+                        @endif
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="form-group">
@@ -40,7 +53,8 @@
                                 </div>
                             </div>
                             <div class="col-md-6">
-                                <div class="form-group" id="account_group" style="display: none;">
+                                <div class="form-group" id="account_group"
+                                    style="{{ $effectiveStatementType === 'gl_account' ? '' : 'display: none;' }}">
                                     <label for="account_id">Account <span class="text-danger">*</span></label>
                                     <select class="form-control @error('account_id') is-invalid @enderror" id="account_id"
                                         name="account_id">
@@ -56,7 +70,8 @@
                                         <span class="invalid-feedback">{{ $message }}</span>
                                     @enderror
                                 </div>
-                                <div class="form-group" id="business_partner_group" style="display: none;">
+                                <div class="form-group" id="business_partner_group"
+                                    style="{{ $effectiveStatementType === 'business_partner' ? '' : 'display: none;' }}">
                                     <label for="business_partner_id">Business Partner <span
                                             class="text-danger">*</span></label>
                                     <select class="form-control @error('business_partner_id') is-invalid @enderror"

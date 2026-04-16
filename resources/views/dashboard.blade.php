@@ -76,7 +76,7 @@
     </div>
 
     <div class="row">
-        <div class="col-xl-6">
+        <div class="col-xl-12">
             <div class="card card-outline card-primary">
                 <div class="card-header">
                     <h3 class="card-title"><i class="fas fa-balance-scale-left mr-2"></i>Receivables vs Payables Aging</h3>
@@ -106,40 +106,6 @@
                             </ul>
                         </div>
                     </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-xl-6">
-            <div class="card card-outline card-secondary">
-                <div class="card-header">
-                    <h3 class="card-title"><i class="fas fa-calendar-check mr-2"></i>Period Close Readiness</h3>
-                </div>
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <div>
-                            <span class="text-muted d-block">Open Periods</span>
-                            <strong>
-                                {{ data_get($finance, 'period_close.open_periods', collect())->count() }}
-                            </strong>
-                        </div>
-                        <div>
-                            <span class="text-muted d-block">Unposted Journals</span>
-                            <strong>{{ number_format(data_get($finance, 'period_close.unposted_journals', 0)) }}</strong>
-                        </div>
-                    </div>
-                    <ul class="list-inline mb-0">
-                        @forelse (collect(data_get($finance, 'period_close.open_periods', [])) as $period)
-                            @php
-                                $monthName = \Illuminate\Support\Carbon::create($period['year'], $period['month'])->translatedFormat('M Y');
-                            @endphp
-                            <li class="list-inline-item badge badge-light px-3 py-2 mb-2">{{ $monthName }}</li>
-                        @empty
-                            <li class="text-muted">{{ __('All periods closed') }}</li>
-                        @endforelse
-                    </ul>
-                    <a href="{{ route('periods.index') }}" class="btn btn-sm btn-outline-primary mt-3">
-                        Manage Period Closing
-                    </a>
                 </div>
             </div>
         </div>
@@ -176,14 +142,21 @@
                         </a>
                     </div>
                     <h6 class="text-muted text-uppercase font-weight-bold">Top Suppliers</h6>
+                    @if(data_get($salesProcurement, 'top_suppliers_caption'))
+                        <p class="small text-muted mb-2">{{ data_get($salesProcurement, 'top_suppliers_caption') }}</p>
+                    @endif
                     <ul class="list-unstyled mb-0">
                         @forelse (collect(data_get($salesProcurement, 'top_suppliers', [])) as $supplier)
                             <li class="d-flex justify-content-between py-1">
                                 <span>{{ $supplier['name'] }}</span>
-                                <span class="badge badge-success">{{ number_format($supplier['overall_rating'], 2) }}</span>
+                                @if(($supplier['mode'] ?? 'performance') === 'purchase_volume')
+                                    <span class="badge badge-info" title="{{ __(':count purchase orders', ['count' => $supplier['po_count'] ?? 0]) }}">Rp {{ number_format($supplier['purchase_total'] ?? 0, 0, ',', '.') }}</span>
+                                @else
+                                    <span class="badge badge-success">{{ number_format($supplier['overall_rating'] ?? 0, 2) }}</span>
+                                @endif
                             </li>
                         @empty
-                            <li class="text-muted">{{ __('No supplier performance data') }}</li>
+                            <li class="text-muted">{{ __('No supplier data yet') }}</li>
                         @endforelse
                     </ul>
                 </div>
@@ -210,7 +183,7 @@
                             <ul class="list-unstyled mb-3">
                                 @forelse (collect(data_get($inventory, 'by_category', [])) as $category)
                                     <li class="d-flex justify-content-between py-1">
-                                        <span>Kategori #{{ $category['category_id'] ?? '-' }}</span>
+                                        <span>{{ data_get($category, 'category_name') ?: (data_get($category, 'category_id') ? 'Kategori #' . data_get($category, 'category_id') : __('Uncategorized')) }}</span>
                                         <span>Rp {{ number_format($category['total_value'] ?? 0, 0, ',', '.') }}</span>
                                     </li>
                                 @empty
@@ -223,7 +196,7 @@
                             <ul class="list-unstyled mb-3">
                                 @forelse (collect(data_get($inventory, 'by_warehouse', [])) as $warehouse)
                                     <li class="d-flex justify-content-between py-1">
-                                        <span>Gudang #{{ $warehouse['warehouse_id'] ?? '-' }}</span>
+                                        <span>{{ data_get($warehouse, 'warehouse_name') ?: (data_get($warehouse, 'warehouse_id') ? 'Gudang #' . data_get($warehouse, 'warehouse_id') : __('Unknown warehouse')) }}</span>
                                         <span>{{ number_format($warehouse['available_quantity'] ?? 0) }} unit</span>
                                     </li>
                                 @empty

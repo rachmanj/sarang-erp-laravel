@@ -101,8 +101,8 @@ class AccountStatementController extends Controller
     {
         $request->validate([
             'statement_type' => 'required|in:gl_account,business_partner',
-            'account_id' => 'required_if:statement_type,gl_account|exists:accounts,id',
-            'business_partner_id' => 'required_if:statement_type,business_partner|exists:business_partners,id',
+            'account_id' => 'nullable|required_if:statement_type,gl_account|exists:accounts,id',
+            'business_partner_id' => 'nullable|required_if:statement_type,business_partner|exists:business_partners,id',
             'from_date' => 'required|date',
             'to_date' => 'required|date|after_or_equal:from_date',
             'project_id' => 'nullable|exists:projects,id',

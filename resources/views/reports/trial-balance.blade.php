@@ -45,8 +45,8 @@
                         <tfoot>
                             <tr>
                                 <th colspan="3">Totals</th>
-                                <th id="tdebit">0</th>
-                                <th id="tcredit">0</th>
+                                <th id="tdebit" class="text-right text-nowrap">Rp 0,00</th>
+                                <th id="tcredit" class="text-right text-nowrap">Rp 0,00</th>
                                 <th></th>
                             </tr>
                         </tfoot>
@@ -58,6 +58,14 @@
     <script>
         const form = document.getElementById('form');
         const tbody = document.querySelector('#tb tbody');
+
+        function formatTrialBalanceIdr(n) {
+            const x = Number(n);
+            return 'Rp ' + new Intl.NumberFormat('id-ID', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }).format(x);
+        }
 
         function tbQuery() {
             const p = new URLSearchParams();
@@ -88,11 +96,14 @@
                 tcredit += r.credit;
                 const tr = document.createElement('tr');
                 tr.innerHTML =
-                    `<td>${r.code}</td><td>${r.name}</td><td>${r.currencies || 'IDR'}</td><td>${r.debit.toFixed(2)}</td><td>${r.credit.toFixed(2)}</td><td>${r.balance.toFixed(2)}</td>`;
+                    `<td>${r.code}</td><td>${r.name}</td><td>${r.currencies || 'IDR'}</td>` +
+                    `<td class="text-right text-nowrap">${formatTrialBalanceIdr(r.debit)}</td>` +
+                    `<td class="text-right text-nowrap">${formatTrialBalanceIdr(r.credit)}</td>` +
+                    `<td class="text-right text-nowrap">${formatTrialBalanceIdr(r.balance)}</td>`;
                 tbody.appendChild(tr);
             });
-            document.getElementById('tdebit').innerText = tdebit.toFixed(2);
-            document.getElementById('tcredit').innerText = tcredit.toFixed(2);
+            document.getElementById('tdebit').innerText = formatTrialBalanceIdr(tdebit);
+            document.getElementById('tcredit').innerText = formatTrialBalanceIdr(tcredit);
         }
         form.addEventListener('submit', (e) => {
             e.preventDefault();

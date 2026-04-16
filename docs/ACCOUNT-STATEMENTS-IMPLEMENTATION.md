@@ -1,8 +1,9 @@
 # Account Statements System Implementation
 
-**Purpose**: Comprehensive documentation of the Account Statements functionality implementation
-**Last Updated**: 2025-01-19 · **Related note**: 2026-04-07 — partner detail GL tab: [`docs/BUSINESS-PARTNER-ACCOUNT-STATEMENT.md`](./BUSINESS-PARTNER-ACCOUNT-STATEMENT.md)
-**Status**: ✅ COMPLETE
+**Purpose**: Comprehensive documentation of the Account Statements functionality implementation  
+**Last Updated**: 2026-04-16 · **Related note**: 2026-04-07 — partner detail GL tab: [`docs/BUSINESS-PARTNER-ACCOUNT-STATEMENT.md`](./BUSINESS-PARTNER-ACCOUNT-STATEMENT.md)  
+**End-user / HELP manuals**: [`docs/manuals/account-statements-module-manual-en.md`](../manuals/account-statements-module-manual-en.md) · [`docs/manuals/account-statements-module-manual-id.md`](../manuals/account-statements-module-manual-id.md)  
+**Status**: ✅ COMPLETE (maintained)
 
 ## Overview
 
@@ -33,21 +34,15 @@ The **Business Partner** record screen has a separate **Account statement** tab 
 
 #### account_statements Table
 
-```sql
-- id: Primary key
-- statement_no: Unique statement number (AST-YYYYMM-######)
-- start_date: Statement period start date
-- end_date: Statement period end date
-- type: Statement type ('account' or 'business_partner')
-- account_id: Foreign key to accounts table (nullable)
-- business_partner_id: Foreign key to business_partners table (nullable)
-- opening_balance: Calculated opening balance
-- closing_balance: Calculated closing balance
-- description: Optional statement description
-- generated_by: User who generated the statement
-- generated_at: Timestamp of generation
-- timestamps: created_at, updated_at
-```
+Aligned with `database/migrations/2025_09_19_114520_create_account_statements_table.php` (plus later migrations such as `company_entity_id`):
+
+- `id`, `statement_no` (unique), `statement_type` (`gl_account` | `business_partner`)
+- `account_id`, `business_partner_id` (nullable FKs per type)
+- `statement_date`, `from_date`, `to_date`
+- `opening_balance`, `closing_balance`, `total_debits`, `total_credits`
+- `status` enum: **`draft`**, **`finalized`**, **`cancelled`** (default `draft`)
+- `notes`, `created_by`, `finalized_by`, `finalized_at`, `timestamps`
+- `company_entity_id` (entity-aware numbering; default entity for reporting documents)
 
 #### account_statement_lines Table
 
@@ -73,9 +68,9 @@ The **Business Partner** record screen has a separate **Account statement** tab 
 
 #### AccountStatement Model
 
--   **Relationships**: BelongsTo Account, BusinessPartner, User; HasMany AccountStatementLine
--   **Scopes**: forAccount(), forBusinessPartner(), betweenDates()
--   **Accessors**: displayName for formatted statement titles
+-   **Relationships**: BelongsTo Account, BusinessPartner, User (creator/finalizer), CompanyEntity; HasMany AccountStatementLine
+-   **Scopes**: e.g. `draft()`, `finalized()`, `glAccounts()`, `businessPartners()`, date/account/partner scopes
+-   **Workflow**: `finalize()`, `cancel()`, `canBeFinalized()` (draft + at least one line)
 
 #### AccountStatementLine Model
 
@@ -97,9 +92,10 @@ The **Business Partner** record screen has a separate **Account statement** tab 
 #### AccountStatementController
 
 -   **CRUD Operations**: index, create, store, show, edit, update, destroy
--   **Statement Actions**: finalize, cancel for workflow management
+-   **Statement Actions**: `finalize`, `cancel` (backend route exists; **Cancel** is not exposed as a button on standard Blade views — users primarily **Finalize** or **Delete** drafts)
 -   **Export/Print**: export, print for document generation
 -   **API Endpoints**: account-balance, business-partner-balance for preview functionality
+-   **Validation (`store`)**: `account_id` and `business_partner_id` use **`nullable`** together with **`required_if`** so the hidden, empty select for the *other* statement type does not fail `exists:*` validation (see `docs/decisions.md`, 2026-04-16).
 
 ### Views
 
@@ -113,10 +109,11 @@ All views follow the Sales Orders layout pattern for consistency:
 
 #### Key Features
 
--   **Dynamic Forms**: Account/Business Partner fields show/hide based on statement type
+-   **Dynamic Forms**: Account vs Business Partner groups toggled by statement type; **create** view uses server-rendered visibility (`$effectiveStatementType`) so the correct fields are shown even before JavaScript runs
+-   **Validation UX**: Global **`@if ($errors->any())`** alert on create form lists server-side validation failures (avoids “nothing happened” perception)
 -   **Filter Integration**: Comprehensive filtering by type, account, partner, status, dates
 -   **Responsive Design**: Mobile-friendly AdminLTE integration
--   **Action Buttons**: Context-sensitive actions based on statement status
+-   **Action Buttons**: Context-sensitive actions based on statement status (Finalize on draft; Delete when not finalized)
 
 ## Integration Points
 
@@ -168,6 +165,12 @@ All views follow the Sales Orders layout pattern for consistency:
 -   **Migration**: Successfully created all tables with proper relationships
 -   **Data Integrity**: Verified foreign key constraints and indexes
 -   **Performance**: Optimized queries with proper indexing
+
+## Maintenance notes (2026-04-16)
+
+-   **Store validation**: `AccountStatementController::store` validates `account_id` / `business_partner_id` as `nullable|required_if:…|exists:…` so posting an empty hidden partner field on **GL Account Statement** does not trigger “The selected business partner id is invalid.”
+-   **HELP / RAG**: User-facing manuals `account-statements-module-manual-*.md` and `help-navigation.json` entry `account-statements-formal`; run **`php artisan help:reindex`** after deploy.
+-   **Status workflow**: Documented in manuals — **Draft** → **Finalize** (UI); **cancelled** via `cancel` route if integrated later; **Delete** removes non-finalized rows.
 
 ## Future Enhancements
 

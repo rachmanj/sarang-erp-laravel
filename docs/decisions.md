@@ -1,5 +1,5 @@
 **Purpose**: Record technical decisions and rationale for future reference
-**Last Updated**: 2026-04-16 (AR Sales Credit Memo, DO reverse, Relationship Map labels, HELP corpus)
+**Last Updated**: 2026-04-16 (Account Statements HELP + validation; AR Sales Credit Memo, DO reverse, Relationship Map labels, HELP corpus)
 
 # Technical Decision Records
 
@@ -29,6 +29,23 @@ Decision: [Title] - [YYYY-MM-DD]
 ---
 
 ## Recent Decisions
+
+### Decision: Account Statements — conditional-field validation + HELP corpus — 2026-04-16
+
+**Context**: Generating a **GL Account Statement** posted both `account_id` and an empty `business_partner_id` from the form. Laravel ran **`exists:business_partners,id`** on the empty string, producing “The selected business partner id is invalid.” Users perceived **Generate Statement** as doing nothing (redirect back with easy-to-miss errors).
+
+**Decision**:
+
+1. **Validation**: In `AccountStatementController::store`, validate `account_id` and `business_partner_id` as **`nullable|required_if:…|exists:…`** so empty values skip `exists` when the field is not required for the selected `statement_type`.
+2. **Documentation / HELP**: Add `account-statements-module-manual-en.md` / `account-statements-module-manual-id.md`, `help-navigation.json` entry `account-statements-formal`, cross-links from `in-app-help-manual-*.md` and `docs/ACCOUNT-STATEMENTS-IMPLEMENTATION.md`; administrators run **`php artisan help:reindex`** after deploy.
+
+**Rationale**: `required_if` does not disable other rules on the same attribute; **`nullable`** is the standard Laravel pattern to ignore empty optional fields before `exists`.
+
+**Implementation**: `app/Http/Controllers/Accounting/AccountStatementController.php` (`store` rules); manuals and docs as above.
+
+**Review Date**: 2027-04-16
+
+---
 
 ### Decision: AR Sales Credit Memo + Delivery Order reverse + Relationship Map clarity + HELP corpus — 2026-04-16
 

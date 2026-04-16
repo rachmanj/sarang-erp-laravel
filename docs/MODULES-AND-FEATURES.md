@@ -67,7 +67,10 @@
 - **GL Account Statements**: Comprehensive financial statements for general ledger accounts
 - **Business Partner Statements**: Account statements for customers and suppliers
 - **Transaction Tracking**: Complete transaction history with running balances
+- **Status workflow**: **Draft** (default after generate) → **Finalize** (locks statement; requires at least one line); **Cancelled** exists in schema/backend; **Delete** removes non-finalized statements
+- **Create form**: Server-side visibility for GL vs BP fields; validation errors surfaced at top of form; `store` validation uses `nullable` with `required_if` so the unused partner/account select does not fail when the other statement type is chosen
 - **Export & Print**: PDF and Excel export capabilities
+- **HELP**: `docs/manuals/account-statements-module-manual-en.md` / `account-statements-module-manual-id.md`; reindex `php artisan help:reindex`
 
 ### 6. Control Account System
 - **Control Accounts**: Summary accounts (AR Control, AP Control, Inventory Control, Fixed Assets Control)

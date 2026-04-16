@@ -2,13 +2,10 @@
 
 namespace App\Services;
 
-use App\Models\Accounting\Account;
-use App\Models\Accounting\Journal;
 use App\Models\Accounting\PurchaseInvoice;
 use App\Models\Accounting\SalesInvoice;
 use App\Models\Asset;
 use App\Models\AssetDepreciationRun;
-use App\Models\Finance\Period;
 use App\Models\GRGIHeader;
 use App\Models\InventoryValuation;
 use App\Models\InventoryWarehouseStock;
@@ -21,6 +18,7 @@ use App\Models\TaxComplianceLog;
 use App\Models\TaxReport;
 use App\Models\TaxSetting;
 use App\Models\TaxTransaction;
+use App\Services\Reports\ReportService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -29,12 +27,9 @@ use Illuminate\Support\Facades\Schema;
 
 class DashboardDataService
 {
-    private const CACHE_KEY = 'dashboard:data:global';
+    private const CACHE_KEY = 'dashboard:data:global:v4';
 
     private const CACHE_TTL = 300;
-
-    /** Chart of accounts code for physical cash (see CoASeeder). */
-    private const CASH_ON_HAND_ACCOUNT_CODE = '1.1.1';
 
     public function getDashboardData(bool $refresh = false): array
     {
@@ -67,7 +62,12 @@ class DashboardDataService
         $salesMtd = SalesInvoice::whereBetween('date', [$monthStart, $today])->sum('total_amount');
         $purchasesMtd = PurchaseInvoice::whereBetween('date', [$monthStart, $today])->sum('total_amount');
 
-        $cashOnHand = $this->postedGlAccountBalanceAsOf(self::CASH_ON_HAND_ACCOUNT_CODE, $today);
+        $cashPrefixes = config('cash_flow.account_prefixes.cash_and_bank', ['1.1.1']);
+        $cashOnHand = app(ReportService::class)->balanceSheetDisplayTotalForPrefixes(
+            $today->toDateString(),
+            $cashPrefixes,
+            true
+        );
 
         $pendingApprovals = PurchaseOrderApproval::where('status', 'pending')->count()
             + SalesOrderApproval::where('status', 'pending')->count();
@@ -80,28 +80,6 @@ class DashboardDataService
         ];
     }
 
-    /**
-     * Net balance for a GL account from posted journals through the given date (asset-style: debit − credit).
-     * Matches {@see \App\Services\Reports\ReportService::getTrialBalance()} row math for the same account.
-     */
-    private function postedGlAccountBalanceAsOf(string $accountCode, Carbon $asOfDate): float
-    {
-        $accountId = Account::query()->where('code', $accountCode)->value('id');
-        if (! $accountId) {
-            return 0.0;
-        }
-
-        $balance = DB::table('journal_lines as jl')
-            ->join('journals as j', 'j.id', '=', 'jl.journal_id')
-            ->where('jl.account_id', $accountId)
-            ->whereNotNull('j.posted_at')
-            ->whereDate('j.date', '<=', $asOfDate->toDateString())
-            ->selectRaw('COALESCE(SUM(jl.debit - jl.credit), 0) as balance')
-            ->value('balance');
-
-        return (float) $balance;
-    }
-
     private function buildFinanceSnapshot(): array
     {
         $arInvoices = SalesInvoice::where('closure_status', 'open')
@@ -109,26 +87,9 @@ class DashboardDataService
         $apInvoices = PurchaseInvoice::where('closure_status', 'open')
             ->get(['due_date', 'date', 'total_amount']);
 
-        $openPeriods = Period::where('is_closed', false)
-            ->orderByDesc('year')
-            ->orderByDesc('month')
-            ->limit(6)
-            ->get(['year', 'month']);
-
-        $unpostedJournals = Journal::whereNull('posted_at')->count();
-
         return [
             'ar_aging' => $this->calculateAgingBuckets($arInvoices),
             'ap_aging' => $this->calculateAgingBuckets($apInvoices),
-            'period_close' => [
-                'open_periods' => $openPeriods->map(function (Period $period) {
-                    return [
-                        'year' => $period->year,
-                        'month' => $period->month,
-                    ];
-                })->values(),
-                'unposted_journals' => $unpostedJournals,
-            ],
         ];
     }
 
@@ -154,20 +115,14 @@ class DashboardDataService
             ->whereNotIn('status', ['draft', 'cancelled', 'closed'])
             ->count();
 
-        $topSuppliers = collect();
+        $topSuppliers = $this->buildTopSuppliersFromPerformance();
+        $topSuppliersCaption = null;
 
-        if (Schema::hasTable('supplier_performances')) {
-            $topSuppliers = SupplierPerformance::orderByDesc('overall_rating')
-                ->limit(5)
-                ->with('vendor:id,name')
-                ->get()
-                ->map(function (SupplierPerformance $performance) {
-                    return [
-                        'name' => optional($performance->vendor)->name ?: 'N/A',
-                        'overall_rating' => (float) $performance->overall_rating,
-                        'total_orders' => (int) $performance->total_orders,
-                    ];
-                });
+        if ($topSuppliers->isEmpty()) {
+            $topSuppliers = $this->buildTopSuppliersFromPurchaseOrders();
+            if ($topSuppliers->isNotEmpty()) {
+                $topSuppliersCaption = __('Ranked by purchase order total (excluding draft & cancelled).');
+            }
         }
 
         return [
@@ -176,6 +131,7 @@ class DashboardDataService
             'purchase_orders' => $purchaseOrderCounts,
             'open_purchase_orders' => $openPurchaseOrders,
             'top_suppliers' => $topSuppliers,
+            'top_suppliers_caption' => $topSuppliersCaption,
         ];
     }
 
@@ -185,29 +141,38 @@ class DashboardDataService
 
         $inventoryByCategory = InventoryValuation::select(
             'inventory_items.category_id',
+            'product_categories.name as category_name',
             DB::raw('SUM(inventory_valuations.total_value) as total_value')
         )
             ->join('inventory_items', 'inventory_items.id', '=', 'inventory_valuations.item_id')
-            ->groupBy('inventory_items.category_id')
+            ->leftJoin('product_categories', 'product_categories.id', '=', 'inventory_items.category_id')
+            ->groupBy('inventory_items.category_id', 'product_categories.name')
             ->orderByDesc(DB::raw('SUM(inventory_valuations.total_value)'))
             ->limit(5)
             ->get()
             ->map(function ($row) {
                 return [
                     'category_id' => $row->category_id,
+                    'category_name' => $row->category_name,
                     'total_value' => (float) $row->total_value,
                 ];
             });
 
         $inventoryByWarehouse = DB::table('inventory_warehouse_stock')
-            ->select('warehouse_id', DB::raw('SUM(available_quantity) as available_quantity'))
-            ->groupBy('warehouse_id')
-            ->orderByDesc(DB::raw('SUM(available_quantity)'))
+            ->select(
+                'inventory_warehouse_stock.warehouse_id',
+                'warehouses.name as warehouse_name',
+                DB::raw('SUM(inventory_warehouse_stock.available_quantity) as available_quantity')
+            )
+            ->leftJoin('warehouses', 'warehouses.id', '=', 'inventory_warehouse_stock.warehouse_id')
+            ->groupBy('inventory_warehouse_stock.warehouse_id', 'warehouses.name')
+            ->orderByDesc(DB::raw('SUM(inventory_warehouse_stock.available_quantity)'))
             ->limit(5)
             ->get()
             ->map(function ($row) {
                 return [
                     'warehouse_id' => $row->warehouse_id,
+                    'warehouse_name' => $row->warehouse_name,
                     'available_quantity' => (int) $row->available_quantity,
                 ];
             });
@@ -316,6 +281,55 @@ class DashboardDataService
             'pending_tax_reports' => $pendingTaxReports,
             'unposted_tax_transactions' => $unpostedTaxTransactions,
         ];
+    }
+
+    private function buildTopSuppliersFromPerformance(): Collection
+    {
+        if (! Schema::hasTable('supplier_performances')) {
+            return collect();
+        }
+
+        return SupplierPerformance::orderByDesc('overall_rating')
+            ->limit(5)
+            ->with('vendor:id,name')
+            ->get()
+            ->map(function (SupplierPerformance $performance) {
+                return [
+                    'mode' => 'performance',
+                    'name' => optional($performance->vendor)->name ?: 'N/A',
+                    'overall_rating' => (float) $performance->overall_rating,
+                    'total_orders' => (int) $performance->total_orders,
+                ];
+            });
+    }
+
+    private function buildTopSuppliersFromPurchaseOrders(): Collection
+    {
+        if (! Schema::hasTable('purchase_orders') || ! Schema::hasTable('business_partners')) {
+            return collect();
+        }
+
+        return DB::table('purchase_orders')
+            ->join('business_partners', 'business_partners.id', '=', 'purchase_orders.business_partner_id')
+            ->whereNotIn('purchase_orders.status', ['draft', 'cancelled'])
+            ->select([
+                'purchase_orders.business_partner_id',
+                'business_partners.name',
+                DB::raw('SUM(purchase_orders.total_amount) as purchase_total'),
+                DB::raw('COUNT(*) as po_count'),
+            ])
+            ->groupBy('purchase_orders.business_partner_id', 'business_partners.name')
+            ->orderByDesc(DB::raw('SUM(purchase_orders.total_amount)'))
+            ->limit(5)
+            ->get()
+            ->map(function ($row) {
+                return [
+                    'mode' => 'purchase_volume',
+                    'name' => $row->name ?: 'N/A',
+                    'purchase_total' => (float) $row->purchase_total,
+                    'po_count' => (int) $row->po_count,
+                ];
+            });
     }
 
     private function calculateAgingBuckets(Collection $documents): array

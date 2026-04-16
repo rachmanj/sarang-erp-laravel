@@ -198,6 +198,16 @@
             "keywords_id": ["jurnal", "buku besar", "akun", "periode", "laporan"]
         },
         {
+            "id": "account-statements-formal",
+            "title_en": "Account Statements (saved GL / BP statements)",
+            "title_id": "Account Statements (rekening koran tersimpan)",
+            "menu_path_en": "Sidebar → Accounting → Account Statements → Generate or list. Not the Business Partner → Account statement tab.",
+            "menu_path_id": "Menu samping → Accounting → Account Statements → Generate atau daftar. Bukan tab Account statement di Business Partner.",
+            "keywords_en": ["account statement", "AST", "GL account statement", "business partner statement", "generate statement", "draft", "finalize", "account_statements", "nothing happens", "validation"],
+            "keywords_id": ["account statement", "rekening koran", "AST", "GL", "business partner", "generate statement", "draft", "finalize", "status", "tidak terjadi apa-apa", "validasi"],
+            "notes": "Manuals: account-statements-module-manual-en.md / account-statements-module-manual-id.md. Reindex: php artisan help:reindex"
+        },
+        {
             "id": "tax-menu",
             "title_en": "Tax (Indonesia)",
             "title_id": "Pajak",

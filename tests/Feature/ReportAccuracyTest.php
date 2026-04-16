@@ -140,13 +140,15 @@ class ReportAccuracyTest extends TestCase
         $this->assertEqualsWithDelta($expectedNi, (float) $pl['subtotals']['net_income'], 0.05);
     }
 
-    public function test_dashboard_cash_on_hand_matches_trial_balance_for_gl_1_1_1(): void
+    public function test_dashboard_cash_on_hand_matches_configured_cash_and_bank_prefixes(): void
     {
-        Cache::forget('dashboard:data:global');
+        Cache::forget('dashboard:data:global:v4');
         $date = now()->toDateString();
-        $tb = $this->reports->getTrialBalance($date);
-        $row = collect($tb['rows'])->firstWhere('code', '1.1.1');
-        $expected = $row ? (float) $row['balance'] : 0.0;
+        $expected = $this->reports->balanceSheetDisplayTotalForPrefixes(
+            $date,
+            config('cash_flow.account_prefixes.cash_and_bank', ['1.1.1']),
+            true
+        );
 
         $dashboard = app(DashboardDataService::class)->getDashboardData(true);
         $this->assertEqualsWithDelta($expected, (float) $dashboard['kpis']['cash_on_hand'], 0.02);

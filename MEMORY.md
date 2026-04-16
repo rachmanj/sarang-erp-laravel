@@ -1,5 +1,5 @@
 **Purpose**: AI's persistent knowledge base for project context and learnings
-**Last Updated**: 2026-04-16 (AR CM + DO reverse + Relationship Map + HELP)
+**Last Updated**: 2026-04-16 (Account Statements HELP + AR CM + DO reverse + Relationship Map + HELP)
 
 ## Memory Maintenance Guidelines
 
@@ -26,6 +26,14 @@
 ---
 
 ## Project Memory Entries
+
+### [104] Account Statements store validation + HELP manuals (2026-04-16) ✅ COMPLETE
+
+**Challenge**: **GL Account Statement** submit sent empty `business_partner_id`; **`exists`** failed → users saw no clear success and missed validation.
+
+**Solution**: **`nullable|required_if|exists`** on `account_id` / `business_partner_id` in `AccountStatementController::store`. HELP: **`account-statements-module-manual-en/id`**, **`help-navigation.json`** (`account-statements-formal`), updates to **`ACCOUNT-STATEMENTS-IMPLEMENTATION.md`**, **`MODULES-AND-FEATURES.md`**, **`architecture.md`**, **`decisions.md`**, **`todo.md`**; run **`php artisan help:reindex`**.
+
+**Learning**: Pair **`required_if`** with **`nullable`** when optional HTML fields still POST empty strings; distinguish formal **`account_statements`** from partner **Account statement** tab in RAG sources.
 
 ### [103] AR Sales Credit Memo + DO reverse delivery + Relationship Map + HELP corpus (2026-04-16) ✅ COMPLETE
 
