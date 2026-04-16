@@ -2,10 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\DocumentRelationship;
 use App\Services\DocumentRelationshipService;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class DocumentRelationshipController extends Controller
@@ -26,7 +25,7 @@ class DocumentRelationshipController extends Controller
             // Get the document model
             $document = $this->getDocumentModel($documentType, $documentId);
 
-            if (!$document) {
+            if (! $document) {
                 return response()->json(['error' => 'Document not found'], 404);
             }
 
@@ -51,7 +50,7 @@ class DocumentRelationshipController extends Controller
                 'debug' => [
                     'morph_class' => $morphClass,
                     'raw_relationships_count' => $rawRelationships->count(),
-                    'raw_relationships' => $rawRelationships->toArray()
+                    'raw_relationships' => $rawRelationships->toArray(),
                 ],
                 'document' => [
                     'id' => $document->id,
@@ -67,7 +66,7 @@ class DocumentRelationshipController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'error' => 'Failed to load relationship map: ' . $e->getMessage()
+                'error' => 'Failed to load relationship map: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -90,7 +89,7 @@ class DocumentRelationshipController extends Controller
 
         $modelClass = $modelMap[$documentType] ?? null;
 
-        if (!$modelClass) {
+        if (! $modelClass) {
             return null;
         }
 
@@ -108,7 +107,7 @@ class DocumentRelationshipController extends Controller
             $document->payment_no ??
             $document->receipt_no ??
             $document->do_number ??
-            '#' . $document->id;
+            '#'.$document->id;
     }
 
     /**
@@ -118,7 +117,7 @@ class DocumentRelationshipController extends Controller
     {
         $nodes = [];
         $edges = [];
-        $currentDocumentId = 'doc_' . $document->id;
+        $currentDocumentId = 'doc_'.$document->id;
 
         // Add current document node with detailed information
         $nodes[] = [
@@ -130,11 +129,12 @@ class DocumentRelationshipController extends Controller
             'date' => $this->formatDate($document->date ?? $document->created_at),
             'reference' => $this->getDocumentReference($document),
             'isCurrent' => true,
+            'url' => $this->relationshipService->getDocumentUrl($document),
         ];
 
         // Add base documents (parents) with detailed information
         foreach ($navigationData['base_documents']['documents'] as $baseDoc) {
-            $nodeId = 'doc_' . $baseDoc['id'];
+            $nodeId = 'doc_'.$baseDoc['id'];
             $baseDocumentModel = $this->getDocumentModelById($baseDoc['type'], $baseDoc['id']);
 
             $nodes[] = [
@@ -160,7 +160,7 @@ class DocumentRelationshipController extends Controller
 
         // Add target documents (children) with detailed information
         foreach ($navigationData['target_documents']['documents'] as $targetDoc) {
-            $nodeId = 'doc_' . $targetDoc['id'];
+            $nodeId = 'doc_'.$targetDoc['id'];
             $targetDocumentModel = $this->getDocumentModelById($targetDoc['type'], $targetDoc['id']);
 
             $nodes[] = [
@@ -211,6 +211,7 @@ class DocumentRelationshipController extends Controller
         ];
 
         $modelClass = $modelMap[$type] ?? null;
+
         return $modelClass ? $modelClass::find($id) : null;
     }
 
@@ -219,7 +220,9 @@ class DocumentRelationshipController extends Controller
      */
     private function formatDate($date): string
     {
-        if (!$date) return 'N/A';
+        if (! $date) {
+            return 'N/A';
+        }
 
         if (is_string($date)) {
             $date = \Carbon\Carbon::parse($date);
@@ -249,27 +252,27 @@ class DocumentRelationshipController extends Controller
             'Purchase Order' => [
                 'Goods Receipt PO' => 'receives',
                 'Purchase Invoice' => 'invoices',
-                'Purchase Payment' => 'pays'
+                'Purchase Payment' => 'pays',
             ],
             'Goods Receipt PO' => [
                 'Purchase Invoice' => 'invoices',
-                'Purchase Payment' => 'pays'
+                'Purchase Payment' => 'pays',
             ],
             'Purchase Invoice' => [
-                'Purchase Payment' => 'pays'
+                'Purchase Payment' => 'pays',
             ],
             'Sales Order' => [
                 'Delivery Order' => 'delivers',
                 'Sales Invoice' => 'invoices',
-                'Sales Receipt' => 'receives'
+                'Sales Receipt' => 'receives',
             ],
             'Delivery Order' => [
                 'Sales Invoice' => 'invoices',
-                'Sales Receipt' => 'receives'
+                'Sales Receipt' => 'receives',
             ],
             'Sales Invoice' => [
-                'Sales Receipt' => 'receives'
-            ]
+                'Sales Receipt' => 'receives',
+            ],
         ];
 
         return $relationships[$fromType][$toType] ?? 'relates to';
@@ -304,7 +307,7 @@ class DocumentRelationshipController extends Controller
                         }
 
                         // Add direct relationship if no GRPO path exists
-                        if (!$hasGRPOPath) {
+                        if (! $hasGRPOPath) {
                             $edges[] = [
                                 'from' => $node['id'],
                                 'to' => $targetNode['id'],

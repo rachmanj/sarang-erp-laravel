@@ -26,7 +26,7 @@ class DocumentRelationship extends Model
      */
     public function sourceDocument(): MorphTo
     {
-        return $this->morphTo('source_document', 'source_document_type', 'source_document_id');
+        return $this->morphTo(null, 'source_document_type', 'source_document_id');
     }
 
     /**
@@ -34,7 +34,7 @@ class DocumentRelationship extends Model
      */
     public function targetDocument(): MorphTo
     {
-        return $this->morphTo('target_document', 'target_document_type', 'target_document_id');
+        return $this->morphTo(null, 'target_document_type', 'target_document_id');
     }
 
     /**
@@ -93,6 +93,7 @@ class DocumentRelationship extends Model
     public static function getDocumentPermission(string $documentType): string
     {
         $permissions = self::getDocumentPermissionMap();
+
         return $permissions[$documentType] ?? 'documents.view';
     }
 }

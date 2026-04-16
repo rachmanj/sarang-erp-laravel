@@ -164,11 +164,18 @@ class DeliveryService
             $salesOrder->update(['status' => 'processing']);
             Log::info('DeliveryService: Sales order status updated', ['sales_order_id' => $salesOrder->id]);
 
-            app(DocumentRelationshipService::class)->createBaseRelationship(
+            $relationshipService = app(DocumentRelationshipService::class);
+            $relationshipService->createBaseRelationship(
                 $salesOrder,
                 $do,
                 'Delivery Order created from Sales Order'
             );
+            $relationshipService->createTargetRelationship(
+                $salesOrder,
+                $do,
+                'Delivery Order created from Sales Order'
+            );
+            $relationshipService->clearDocumentCache($salesOrder);
 
             Log::info('DeliveryService: Delivery Order creation completed successfully', ['delivery_order_id' => $do->id]);
 

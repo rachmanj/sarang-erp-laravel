@@ -348,6 +348,15 @@
     classDef default fill:#f8f9fa,stroke:#6c757d,stroke-width:2px,color:#000
         `;
 
+            mermaidData.nodes.forEach(node => {
+                if (!node.url) {
+                    return;
+                }
+                const nodeId = node.id.replace('doc_', '');
+                const safeUrl = String(node.url).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+                definition += `    click ${nodeId} "${safeUrl}" "Open document"\n`;
+            });
+
             return definition;
         }
 
@@ -509,6 +518,10 @@
     .mermaid-container svg {
         max-width: 100%;
         height: auto;
+    }
+
+    #relationshipMapModal .mermaid-container svg g.node {
+        cursor: pointer;
     }
 
     #relationshipMapModal .modal-xl {

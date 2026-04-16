@@ -18,7 +18,7 @@ class DocumentRelationshipService
     /**
      * Get base documents for a given document
      */
-    public function getBaseDocuments($document, User $user = null): Collection
+    public function getBaseDocuments($document, ?User $user = null): Collection
     {
         $cacheKey = "base_documents_{$document->getMorphClass()}_{$document->id}";
 
@@ -45,20 +45,25 @@ class DocumentRelationshipService
     /**
      * Get target documents for a given document
      */
-    public function getTargetDocuments($document, User $user = null): Collection
+    public function getTargetDocuments($document, ?User $user = null): Collection
     {
-        $cacheKey = "target_documents_{$document->getMorphClass()}_{$document->id}";
+        // v3: bust caches from morphTo name mismatch breaking eager-loaded targetDocument/sourceDocument
+        $cacheKey = "target_documents_v3_{$document->getMorphClass()}_{$document->id}";
 
         return Cache::remember($cacheKey, self::CACHE_DURATION, function () use ($document, $user) {
             $relationships = DocumentRelationship::where('source_document_type', $document->getMorphClass())
                 ->where('source_document_id', $document->id)
-                ->where('relationship_type', 'target')
+                ->whereIn('relationship_type', ['base', 'target'])
                 ->with(['targetDocument'])
                 ->get();
 
             $targetDocuments = $relationships->map(function ($relationship) {
                 return $relationship->targetDocument;
             })->filter();
+
+            $targetDocuments = $targetDocuments->unique(function ($doc) {
+                return $doc->getMorphClass().'-'.$doc->getKey();
+            })->values();
 
             // Filter by user permissions if user is provided
             if ($user) {
@@ -76,8 +81,13 @@ class DocumentRelationshipService
     {
         $count = $documents->count();
 
-        if ($count === 0) return 'disabled';
-        if ($count === 1) return 'single';
+        if ($count === 0) {
+            return 'disabled';
+        }
+        if ($count === 1) {
+            return 'single';
+        }
+
         return 'multiple';
     }
 
@@ -90,7 +100,7 @@ class DocumentRelationshipService
         string $targetType,
         int $targetId,
         string $relationshipType = 'related',
-        string $notes = null
+        ?string $notes = null
     ): DocumentRelationship {
         return DocumentRelationship::create([
             'source_document_type' => $sourceType,
@@ -105,7 +115,7 @@ class DocumentRelationshipService
     /**
      * Create base relationship (source -> target)
      */
-    public function createBaseRelationship($sourceDocument, $targetDocument, string $notes = null): DocumentRelationship
+    public function createBaseRelationship($sourceDocument, $targetDocument, ?string $notes = null): DocumentRelationship
     {
         return $this->createRelationship(
             $sourceDocument->getMorphClass(),
@@ -120,7 +130,7 @@ class DocumentRelationshipService
     /**
      * Create target relationship (source -> target)
      */
-    public function createTargetRelationship($sourceDocument, $targetDocument, string $notes = null): DocumentRelationship
+    public function createTargetRelationship($sourceDocument, $targetDocument, ?string $notes = null): DocumentRelationship
     {
         return $this->createRelationship(
             $sourceDocument->getMorphClass(),
@@ -138,10 +148,13 @@ class DocumentRelationshipService
     private function filterByUserPermissions(Collection $documents, User $user): Collection
     {
         return $documents->filter(function ($document) use ($user) {
-            if (!$document) return false;
+            if (! $document) {
+                return false;
+            }
 
             $permission = DocumentRelationship::getDocumentPermission($document->getMorphClass());
-            return $user->can($permission . '.view');
+
+            return $user->can($permission.'.view');
         });
     }
 
@@ -151,16 +164,20 @@ class DocumentRelationshipService
     public function clearDocumentCache($document): void
     {
         $baseCacheKey = "base_documents_{$document->getMorphClass()}_{$document->id}";
-        $targetCacheKey = "target_documents_{$document->getMorphClass()}_{$document->id}";
+        $targetCacheKeyLegacy = "target_documents_{$document->getMorphClass()}_{$document->id}";
+        $targetCacheKeyV2 = "target_documents_v2_{$document->getMorphClass()}_{$document->id}";
+        $targetCacheKey = "target_documents_v3_{$document->getMorphClass()}_{$document->id}";
 
         Cache::forget($baseCacheKey);
+        Cache::forget($targetCacheKeyLegacy);
+        Cache::forget($targetCacheKeyV2);
         Cache::forget($targetCacheKey);
     }
 
     /**
      * Get navigation data for a document
      */
-    public function getNavigationData($document, User $user = null): array
+    public function getNavigationData($document, ?User $user = null): array
     {
         $baseDocuments = $this->getBaseDocuments($document, $user);
         $targetDocuments = $this->getTargetDocuments($document, $user);
@@ -200,9 +217,9 @@ class DocumentRelationshipService
     }
 
     /**
-     * Get URL for a document
+     * Get URL for a document detail page (used by navigation API and relationship map).
      */
-    private function getDocumentUrl($document): string
+    public function getDocumentUrl($document): string
     {
         $type = $document->getMorphClass();
         $id = $document->id;
@@ -211,14 +228,19 @@ class DocumentRelationshipService
             'App\Models\PurchaseOrder' => 'purchase-orders.show',
             'App\Models\GoodsReceiptPO' => 'goods-receipt-pos.show',
             'App\Models\PurchaseInvoice' => 'purchase-invoices.show',
+            'App\Models\Accounting\PurchaseInvoice' => 'purchase-invoices.show',
             'App\Models\PurchasePayment' => 'purchase-payments.show',
+            'App\Models\Accounting\PurchasePayment' => 'purchase-payments.show',
             'App\Models\SalesOrder' => 'sales-orders.show',
             'App\Models\DeliveryOrder' => 'delivery-orders.show',
             'App\Models\SalesInvoice' => 'sales-invoices.show',
+            'App\Models\Accounting\SalesInvoice' => 'sales-invoices.show',
             'App\Models\SalesReceipt' => 'sales-receipts.show',
+            'App\Models\Accounting\SalesReceipt' => 'sales-receipts.show',
         ];
 
         $route = $routes[$type] ?? 'documents.show';
+
         return route($route, $id);
     }
 

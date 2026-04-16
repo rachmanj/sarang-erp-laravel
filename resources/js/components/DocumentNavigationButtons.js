@@ -293,11 +293,15 @@ class DocumentNavigationButtons {
             'App\\Models\\PurchaseOrder': 'Purchase Order',
             'App\\Models\\GoodsReceiptPO': 'Goods Receipt PO',
             'App\\Models\\PurchaseInvoice': 'Purchase Invoice',
+            'App\\Models\\Accounting\\PurchaseInvoice': 'Purchase Invoice',
             'App\\Models\\PurchasePayment': 'Purchase Payment',
+            'App\\Models\\Accounting\\PurchasePayment': 'Purchase Payment',
             'App\\Models\\SalesOrder': 'Sales Order',
             'App\\Models\\DeliveryOrder': 'Delivery Order',
             'App\\Models\\SalesInvoice': 'Sales Invoice',
+            'App\\Models\\Accounting\\SalesInvoice': 'Sales Invoice',
             'App\\Models\\SalesReceipt': 'Sales Receipt',
+            'App\\Models\\Accounting\\SalesReceipt': 'Sales Receipt',
         };
         
         return typeMap[type] || type;

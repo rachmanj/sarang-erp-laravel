@@ -4,8 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Services\DocumentRelationshipService;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class DocumentNavigationController extends Controller
 {
@@ -25,10 +25,10 @@ class DocumentNavigationController extends Controller
             // Get the document model
             $document = $this->getDocumentModel($documentType, $documentId);
 
-            if (!$document) {
+            if (! $document) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Document not found'
+                    'message' => 'Document not found',
                 ], 404);
             }
 
@@ -40,12 +40,12 @@ class DocumentNavigationController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $navigationData
+                'data' => $navigationData,
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Error retrieving navigation data: ' . $e->getMessage()
+                'message' => 'Error retrieving navigation data: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -58,10 +58,10 @@ class DocumentNavigationController extends Controller
         try {
             $document = $this->getDocumentModel($documentType, $documentId);
 
-            if (!$document) {
+            if (! $document) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Document not found'
+                    'message' => 'Document not found',
                 ], 404);
             }
 
@@ -86,12 +86,12 @@ class DocumentNavigationController extends Controller
                     }),
                     'state' => $buttonState,
                     'count' => $baseDocuments->count(),
-                ]
+                ],
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Error retrieving base documents: ' . $e->getMessage()
+                'message' => 'Error retrieving base documents: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -104,10 +104,10 @@ class DocumentNavigationController extends Controller
         try {
             $document = $this->getDocumentModel($documentType, $documentId);
 
-            if (!$document) {
+            if (! $document) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Document not found'
+                    'message' => 'Document not found',
                 ], 404);
             }
 
@@ -132,12 +132,12 @@ class DocumentNavigationController extends Controller
                     }),
                     'state' => $buttonState,
                     'count' => $targetDocuments->count(),
-                ]
+                ],
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Error retrieving target documents: ' . $e->getMessage()
+                'message' => 'Error retrieving target documents: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -160,7 +160,7 @@ class DocumentNavigationController extends Controller
 
         $modelClass = $modelMap[$documentType] ?? null;
 
-        if (!$modelClass) {
+        if (! $modelClass) {
             return null;
         }
 
@@ -172,12 +172,13 @@ class DocumentNavigationController extends Controller
      */
     private function userCanAccessDocument($user, $document): bool
     {
-        if (!$user) {
+        if (! $user) {
             return false;
         }
 
         $permission = \App\Models\DocumentRelationship::getDocumentPermission($document->getMorphClass());
-        return $user->can($permission . '.view');
+
+        return $user->can($permission.'.view');
     }
 
     /**
@@ -192,14 +193,19 @@ class DocumentNavigationController extends Controller
             'App\Models\PurchaseOrder' => 'purchase-orders.show',
             'App\Models\GoodsReceiptPO' => 'goods-receipt-pos.show',
             'App\Models\PurchaseInvoice' => 'purchase-invoices.show',
+            'App\Models\Accounting\PurchaseInvoice' => 'purchase-invoices.show',
             'App\Models\PurchasePayment' => 'purchase-payments.show',
+            'App\Models\Accounting\PurchasePayment' => 'purchase-payments.show',
             'App\Models\SalesOrder' => 'sales-orders.show',
             'App\Models\DeliveryOrder' => 'delivery-orders.show',
             'App\Models\SalesInvoice' => 'sales-invoices.show',
+            'App\Models\Accounting\SalesInvoice' => 'sales-invoices.show',
             'App\Models\SalesReceipt' => 'sales-receipts.show',
+            'App\Models\Accounting\SalesReceipt' => 'sales-receipts.show',
         ];
 
         $route = $routes[$type] ?? 'documents.show';
+
         return route($route, $id);
     }
 }
