@@ -258,43 +258,33 @@
                                         <td class="text-right">{{ number_format($line->qty, 2) }}</td>
                                         <td class="text-right">{{ number_format($line->unit_price, 2) }}</td>
                                         <td>{{ $line->taxCode->code ?? '—' }}</td>
-                                        <td class="text-right">{{ number_format($line->amount, 2) }}</td>
+                                        <td class="text-right">{{ number_format($line->amountFromQtyTimesUnitPrice(), 2) }}</td>
                                     </tr>
                                 @endforeach
                             </tbody>
                             <tfoot class="thead-light">
                                 @php
-                                    $originalTotal = $invoice->lines->sum('amount');
-                                    $totalVat = 0;
-                                    $totalWtax = 0;
-                                    foreach ($invoice->lines as $l) {
-                                        $lineBase = (float) $l->qty * (float) $l->unit_price;
-                                        $vatRate = $l->taxCode ? (float) $l->taxCode->rate : 0;
-                                        $wtaxRate = (float) ($l->wtax_rate ?? 0);
-                                        $totalVat += $lineBase * ($vatRate / 100);
-                                        $totalWtax += $lineBase * ($wtaxRate / 100);
-                                    }
-                                    $amountDue = $originalTotal + $totalVat - $totalWtax;
+                                    $invoiceFooter ??= \App\Services\Accounting\SalesInvoicePostingMath::invoiceFooterTotals($invoice);
                                 @endphp
                                 <tr>
-                                    <th colspan="7" class="text-right">Original Amount</th>
-                                    <th class="text-right">{{ number_format($originalTotal, 2) }}</th>
+                                    <th colspan="7" class="text-right">Subtotal (ex. PPN)</th>
+                                    <th class="text-right">{{ number_format($invoiceFooter['exclusive_subtotal'], 2) }}</th>
                                 </tr>
-                                @if ($totalVat != 0)
+                                @if ($invoiceFooter['total_vat'] != 0)
                                 <tr>
-                                    <th colspan="7" class="text-right">Total VAT</th>
-                                    <th class="text-right">{{ number_format($totalVat, 2) }}</th>
-                                </tr>
-                                @endif
-                                @if ($totalWtax != 0)
-                                <tr>
-                                    <th colspan="7" class="text-right">Total WTax</th>
-                                    <th class="text-right">({{ number_format($totalWtax, 2) }})</th>
+                                    <th colspan="7" class="text-right">PPN / VAT</th>
+                                    <th class="text-right">{{ number_format($invoiceFooter['total_vat'], 2) }}</th>
                                 </tr>
                                 @endif
+                                @if ($invoiceFooter['total_wtax'] != 0)
                                 <tr>
-                                    <th colspan="7" class="text-right">Amount Due</th>
-                                    <th class="text-right">{{ number_format($amountDue, 2) }}</th>
+                                    <th colspan="7" class="text-right">WTax (on DPP)</th>
+                                    <th class="text-right">({{ number_format($invoiceFooter['total_wtax'], 2) }})</th>
+                                </tr>
+                                @endif
+                                <tr>
+                                    <th colspan="7" class="text-right">Total (incl. PPN)</th>
+                                    <th class="text-right"><strong>{{ number_format($invoiceFooter['amount_due'], 2) }}</strong></th>
                                 </tr>
                             </tfoot>
                         </table>
@@ -304,7 +294,7 @@
                         $alloc = \Illuminate\Support\Facades\DB::table('sales_receipt_allocations')
                             ->where('invoice_id', $invoice->id)
                             ->sum('amount');
-                        $remaining = max(0, (float) $amountDue - (float) $alloc);
+                        $remaining = max(0, (float) $invoiceFooter['amount_due'] - (float) $alloc);
                     @endphp
                     <div class="row mt-3">
                         <div class="col-md-6">
@@ -317,15 +307,16 @@
                                         @if ($invoice->is_opening_balance)
                                             <div class="alert alert-light py-2 small mb-0">
                                                 <strong>Opening Balance Invoice:</strong><br>
-                                                D: Piutang Dagang (1.1.2.01) — total invoice + VAT<br>
-                                                C: Saldo Awal Laba Ditahan (3.3.1) — revenue amount<br>
-                                                C: PPN Keluaran (2.1.2) — VAT amount (if applicable)
+                                                D: Piutang Dagang (1.1.2.01) — gross receivable<br>
+                                                C: Saldo Awal Laba Ditahan (3.3.1) — gross − PPN<br>
+                                                C: PPN Keluaran (2.1.2) — PPN (if applicable)
                                             </div>
                                         @else
                                             <div class="alert alert-light py-2 small mb-0">
                                                 <strong>Regular Invoice (from DO):</strong><br>
-                                                D: AR UnInvoice (1.1.2.04) — reduce un-invoiced receivable<br>
-                                                C: Piutang Dagang (1.1.2.01) — create accounts receivable<br>
+                                                C: AR UnInvoice (1.1.2.04) — clear uninvoiced AR (gross)<br>
+                                                D: Piutang Dagang (1.1.2.01) — invoiced AR (gross)<br>
+                                                D: Revenue — reclass PPN from gross revenue<br>
                                                 C: PPN Keluaran (2.1.2) — VAT liability (if applicable)<br>
                                                 <em class="text-muted">Revenue recognition is handled by Delivery Order (Complete Delivery)</em>
                                             </div>

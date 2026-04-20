@@ -1,5 +1,5 @@
 **Purpose**: AI's persistent knowledge base for project context and learnings
-**Last Updated**: 2026-04-16 (Account Statements HELP + AR CM + DO reverse + Relationship Map + HELP)
+**Last Updated**: 2026-04-17 (Sales Invoice PPN posting + UI totals + validate command)
 
 ## Memory Maintenance Guidelines
 
@@ -26,6 +26,14 @@
 ---
 
 ## Project Memory Entries
+
+### [105] Sales Invoice tax-inclusive PPN posting + footer UX + validation command (2026-04-17) ✅ COMPLETE
+
+**Challenge**: Posted SI journals used **`amount × tax_rate`** (treated rate as multiplier) so AR/PPN were wrong; show/print footers **double-counted VAT** (sum inclusive lines + VAT on qty×price); Blade `@include` set footer vars in **child scope** → undefined `$grossTotal`; users expected line **Amount** = qty×unit price.
+
+**Solution**: **`SalesInvoicePostingMath`** (split inclusive gross → DPP/PPN/WTax); **`SalesInvoiceController::post()`** — AR & AR UnInvoice = gross, **debit revenue** per line for PPN reclass, **credit PPN**; opening balance: AR gross, retained = gross−PPN. **`invoiceFooterTotals()`** + controller passes **`$invoiceFooter`**; footer order **Subtotal (ex. PPN) → PPN → Total (incl. PPN)**; line column uses **`SalesInvoiceLine::amountFromQtyTimesUnitPrice()`**. **`sales-invoices:validate-posted-journals`** (Kernel-registered). **`store()`** sets **`currency_id`** (IDR). Tests: `ArInvoicePostingTest`, `SalesInvoicePostingMathTest`, `SalesInvoiceLineTest`.
+
+**Learning**: Never treat `tax_codes.rate` as anything but **percent** on DPP when line `amount` is inclusive; **never** `@include` a partial only to assign parent-scope vars—compute in **service + controller** or parent `@php`; align **screen math** with **`SalesOrderLine::computeAmountFromPricing`**.
 
 ### [104] Account Statements store validation + HELP manuals (2026-04-16) ✅ COMPLETE
 

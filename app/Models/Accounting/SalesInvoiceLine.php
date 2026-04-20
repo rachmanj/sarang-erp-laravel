@@ -64,4 +64,12 @@ class SalesInvoiceLine extends Model
     {
         return $this->belongsTo(\App\Models\DeliveryOrderLine::class, 'delivery_order_line_id');
     }
+
+    /**
+     * Line subtotal from quantity × unit price (excludes PPN; stored `amount` may be tax-inclusive).
+     */
+    public function amountFromQtyTimesUnitPrice(): float
+    {
+        return round((float) $this->qty * (float) $this->unit_price, 2);
+    }
 }

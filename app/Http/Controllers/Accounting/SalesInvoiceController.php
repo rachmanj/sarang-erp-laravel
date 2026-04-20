@@ -12,6 +12,7 @@ use App\Models\SalesOrder;
 use App\Models\SalesOrderLine;
 use App\Models\SalesQuotation;
 use App\Services\Accounting\PostingService;
+use App\Services\Accounting\SalesInvoicePostingMath;
 use App\Services\CompanyEntityService;
 use App\Services\DocumentClosureService;
 use App\Services\DocumentNumberingService;
@@ -500,6 +501,12 @@ class SalesInvoiceController extends Controller
         );
 
         return DB::transaction(function () use ($data, $request, $salesOrder, $deliveryOrders, $salesQuotation, $entity) {
+            $baseCurrencyId = (int) (DB::table('currencies')->where('code', 'IDR')->value('id')
+                ?: DB::table('currencies')->where('is_base_currency', 1)->value('id'));
+            if ($baseCurrencyId < 1) {
+                throw new \RuntimeException('No base currency (IDR) found. Run CurrencySeeder.');
+            }
+
             $invoice = SalesInvoice::create([
                 'invoice_no' => null,
                 'date' => $data['date'],
@@ -512,6 +519,8 @@ class SalesInvoiceController extends Controller
                 'status' => 'draft',
                 'total_amount' => 0,
                 'company_entity_id' => $entity->id,
+                'currency_id' => $baseCurrencyId,
+                'exchange_rate' => 1.0,
                 'created_by' => Auth::id(),
             ]);
 
@@ -650,7 +659,9 @@ class SalesInvoiceController extends Controller
             && ! DB::table('sales_receipt_allocations')->where('invoice_id', $invoice->id)->exists()
             && ! $hasCreditMemo;
 
-        return view('sales_invoices.show', compact('invoice', 'canCreateCreditMemo', 'hasCreditMemo'));
+        $invoiceFooter = SalesInvoicePostingMath::invoiceFooterTotals($invoice);
+
+        return view('sales_invoices.show', compact('invoice', 'canCreateCreditMemo', 'hasCreditMemo', 'invoiceFooter'));
     }
 
     public function print(Request $request, int $id)
@@ -686,14 +697,18 @@ class SalesInvoiceController extends Controller
             $entity = CompanyEntity::where('name', 'CV Cahaya Saranghae')->first();
         }
 
-        return view($view, compact('invoice', 'entity'));
+        $invoiceFooter = SalesInvoicePostingMath::invoiceFooterTotals($invoice);
+
+        return view($view, compact('invoice', 'entity', 'invoiceFooter'));
     }
 
     public function pdf(int $id)
     {
         $invoice = SalesInvoice::with(['lines', 'lines.account', 'lines.taxCode', 'lines.inventoryItem', 'businessPartner', 'businessPartner.primaryAddress', 'businessPartnerProject', 'companyEntity', 'deliveryOrders'])->findOrFail($id);
+        $invoiceFooter = SalesInvoicePostingMath::invoiceFooterTotals($invoice);
         $pdf = app(\App\Services\PdfService::class)->renderViewToString('sales_invoices.print', [
             'invoice' => $invoice,
+            'invoiceFooter' => $invoiceFooter,
         ]);
 
         return response($pdf, 200, [
@@ -705,8 +720,12 @@ class SalesInvoiceController extends Controller
     public function queuePdf(int $id)
     {
         $invoice = SalesInvoice::with(['lines', 'lines.account', 'lines.taxCode', 'lines.inventoryItem', 'businessPartner', 'businessPartner.primaryAddress', 'businessPartnerProject', 'companyEntity', 'deliveryOrders'])->findOrFail($id);
+        $invoiceFooter = SalesInvoicePostingMath::invoiceFooterTotals($invoice);
         $path = 'public/pdfs/invoice-'.$invoice->id.'.pdf';
-        \App\Jobs\GeneratePdfJob::dispatch('sales_invoices.print', ['invoice' => $invoice], $path);
+        \App\Jobs\GeneratePdfJob::dispatch('sales_invoices.print', [
+            'invoice' => $invoice,
+            'invoiceFooter' => $invoiceFooter,
+        ], $path);
         $url = \Illuminate\Support\Facades\Storage::url($path);
 
         return back()->with('success', 'PDF generation started')->with('pdf_url', $url);
@@ -723,18 +742,11 @@ class SalesInvoiceController extends Controller
         $arAccountId = (int) DB::table('accounts')->where('code', '1.1.2.01')->value('id'); // Piutang Dagang
         $ppnOutputId = (int) DB::table('accounts')->where('code', '2.1.2')->value('id');
 
-        $revenueTotal = 0.0;
-        $ppnTotal = 0.0;
+        $totals = SalesInvoicePostingMath::summarizeLinesForPosting($invoice->lines);
+        $grossTotal = $totals['gross_total'];
+        $ppnTotal = $totals['ppn_total'];
+        $ppnByRevenueAccount = $totals['ppn_by_revenue_account'];
         $lines = [];
-
-        // Calculate totals first
-        foreach ($invoice->lines as $l) {
-            $revenueTotal += (float) $l->amount;
-            if (! empty($l->tax_code_id)) {
-                $rate = (float) DB::table('tax_codes')->where('id', $l->tax_code_id)->value('rate');
-                $ppnTotal += round($l->amount * $rate, 2);
-            }
-        }
 
         // Check if this is an opening balance invoice
         // Opening balance invoices post directly to AR and Retained Earnings Opening Balance
@@ -748,10 +760,10 @@ class SalesInvoiceController extends Controller
                 throw new \Exception('Retained Earnings Opening Balance account (3.3.1) not found. Please ensure this account exists in the chart of accounts.');
             }
 
-            // Debit AR Account (creating accounts receivable)
+            // Debit AR for the full tax-inclusive receivable; split exclusive vs PPN on credits.
             $lines[] = [
                 'account_id' => $arAccountId,
-                'debit' => $revenueTotal + $ppnTotal,
+                'debit' => $grossTotal,
                 'credit' => 0,
                 'project_id' => null,
                 'dept_id' => null,
@@ -762,7 +774,7 @@ class SalesInvoiceController extends Controller
             $lines[] = [
                 'account_id' => $retainedEarningsAccountId,
                 'debit' => 0,
-                'credit' => $revenueTotal,
+                'credit' => round($grossTotal - $ppnTotal, 2),
                 'project_id' => null,
                 'dept_id' => null,
                 'memo' => 'Saldo Awal Laba Ditahan - Opening Balance',
@@ -781,14 +793,15 @@ class SalesInvoiceController extends Controller
             }
         } else {
             // Regular invoice: Post using AR UnInvoice flow
-            // At DO completion we debited AR UnInvoice for revenue only. When we invoice we:
-            // 1. Credit AR UnInvoice (reduce - clear the revenue we had as un-invoiced)
-            // 2. Debit AR (create full receivable = revenue + VAT)
-            // 3. Credit PPN (VAT liability)
+            // At DO completion we credited revenue for the tax-inclusive gross. When we invoice we:
+            // 1. Credit AR UnInvoice (clear uninvoiced AR)
+            // 2. Debit AR for the same gross (customer balance)
+            // 3. Debit each line revenue account for its VAT (reclass gross revenue → net + PPN)
+            // 4. Credit PPN (rate is a percent, e.g. 11 = 11%)
             $lines[] = [
                 'account_id' => $arUnInvoiceAccountId,
                 'debit' => 0,
-                'credit' => $revenueTotal,
+                'credit' => $grossTotal,
                 'project_id' => null,
                 'dept_id' => null,
                 'memo' => 'Reduce AR UnInvoice - convert to invoiced AR',
@@ -796,7 +809,7 @@ class SalesInvoiceController extends Controller
 
             $lines[] = [
                 'account_id' => $arAccountId,
-                'debit' => $revenueTotal + $ppnTotal,
+                'debit' => $grossTotal,
                 'credit' => 0,
                 'project_id' => null,
                 'dept_id' => null,
@@ -804,6 +817,20 @@ class SalesInvoiceController extends Controller
             ];
 
             if ($ppnTotal > 0) {
+                foreach ($ppnByRevenueAccount as $revenueAccountId => $ppnPart) {
+                    if ($ppnPart <= 0) {
+                        continue;
+                    }
+                    $lines[] = [
+                        'account_id' => (int) $revenueAccountId,
+                        'debit' => $ppnPart,
+                        'credit' => 0,
+                        'project_id' => null,
+                        'dept_id' => null,
+                        'memo' => 'Reclass VAT from revenue (DO gross → PPN)',
+                    ];
+                }
+
                 $lines[] = [
                     'account_id' => $ppnOutputId,
                     'debit' => 0,

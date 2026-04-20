@@ -1,6 +1,6 @@
 # Sarange ERP - Modules and Features List
 
-**Last Updated**: 2026-04-16  
+**Last Updated**: 2026-04-17  
 **System Status**: Production Ready (95% Complete)  
 **Technology Stack**: Laravel 12, PHP 8.2+, MySQL, AdminLTE 3.14
 
@@ -245,14 +245,17 @@
 ### 21. Sales Invoices
 - **Print Layout Selection**: Dropdown (Standard A4/Laser | Dot Matrix) for formal vs warehouse prints. Six layouts: standard, dotmatrix, pt_csj, cv_saranghae, pt_csj_dotmatrix, cv_saranghae_dotmatrix.
 - **Part No. Column**: Displayed on show page and all print layouts (from part_number_id or delivery_order_line_id).
-- **Totals Section**: Table tfoot pattern (Subtotal, Total VAT, Total WTax, Amount Due) matching Purchase Order layout.
+- **Totals Section**: Footer uses **`SalesInvoicePostingMath::invoiceFooterTotals()`** — **Subtotal (ex. PPN)**, **PPN / VAT**, optional **WTax**, then **Total (incl. PPN)** (single grand total; matches stored `total_amount` / amount due). Avoids double-counting VAT on tax-inclusive lines.
+- **Line Amount Column**: Detail and all print layouts show **qty × unit_price** (`SalesInvoiceLine::amountFromQtyTimesUnitPrice()`); stored line `amount` remains tax-inclusive for posting and SO alignment.
+- **Posting (PPN)**: Shared **`SalesInvoicePostingMath`** — splits inclusive lines using tax code **rate as percent**; journal clears **AR UnInvoice** at gross, books **Piutang Dagang** at gross, **debits revenue** per line for PPN reclass, **credits PPN** output. Opening-balance SI: AR gross, retained opening (3.3.1) for net of PPN, PPN credit when applicable.
+- **Validation Command**: **`php artisan sales-invoices:validate-posted-journals`** (`--id=`, `--limit=`) compares posted journals to line-derived gross/PPN (see `App\Console\Kernel` for registration).
 - **Item Code Resolution**: Server-side resolution when creating from DO—`resolveLineDataFromDeliveryOrder()` fills item_code, item_name, inventory_item_id, part_number_id from DO line when form data missing; index-based fallback when delivery_order_line_id null. Backfill command `sales-invoices:backfill-item-codes` for existing records.
 - **Customer Billing**: Complete sales invoice management
 - **Automatic Numbering**: Entity-aware format `EEYYDDNNNNN` (code 08)
 - **Line Items**: Multiple line items with tax handling
 - **Multi-GRPO Combination**: Support for combining multiple GRPOs in sales invoices
 - **Payment Allocation**: Automatic allocation to sales receipts
-- **AR UnInvoice Accounting**: Intermediate account handling for accrual accounting
+- **AR UnInvoice Accounting**: Posted SI clears uninvoiced AR at **tax-inclusive gross** and recognises output VAT via revenue reclass + PPN (not a simple one-line AR UnInvoice → AR transfer)
 - **Multi-Currency Support**: Foreign currency invoices
 - **Document Closure**: Automatic closure tracking
 - **Sales Credit Memos (AR)**: One credit memo per **posted** Sales Invoice (unique `sales_invoice_id`). Posting via `PostingService`; permissions **`ar.credit-memos.view|create|post`**. Manuals: `docs/manuals/sales-invoice-manual-id.md` (Sales Credit Memo section), `sales-workflow-corrections-help-*.md`.

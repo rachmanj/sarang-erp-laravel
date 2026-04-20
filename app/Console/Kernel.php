@@ -25,6 +25,7 @@ class Kernel extends BaseKernel
         \App\Console\Commands\ReportPurchaseInvoiceInventoryDuplicates::class,
         \App\Console\Commands\HelpReindexCommand::class,
         \App\Console\Commands\SyncDraftDocumentLineAmountsFromSalesOrders::class,
+        \App\Console\Commands\ValidatePostedSalesInvoiceJournalsCommand::class,
     ];
 
     /**

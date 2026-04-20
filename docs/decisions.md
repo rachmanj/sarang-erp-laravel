@@ -1,5 +1,5 @@
 **Purpose**: Record technical decisions and rationale for future reference
-**Last Updated**: 2026-04-16 (Account Statements HELP + validation; AR Sales Credit Memo, DO reverse, Relationship Map labels, HELP corpus)
+**Last Updated**: 2026-04-17 (Sales Invoice PPN posting, footer totals, validate-posted-journals)
 
 # Technical Decision Records
 
@@ -29,6 +29,25 @@ Decision: [Title] - [YYYY-MM-DD]
 ---
 
 ## Recent Decisions
+
+### Decision: Sales Invoice — tax-inclusive PPN posting, footer semantics, and posted-journal validation — 2026-04-17
+
+**Context**: Posted sales-invoice journals treated VAT as **`line_amount × rate`** (rate stored as percent), mis-stating AR and PPN. Detail/print footers **added VAT again** on top of tax-inclusive line totals, so users saw doubled VAT. A Blade partial assigned footer variables in an **included child scope**, causing **`Undefined variable $grossTotal`** on show. Users expected the line **Amount** column to match **qty × unit price** (exclusive base), not the stored inclusive `amount`.
+
+**Options Considered**:
+
+1. **Keep posting as-is; fix only UI** — ❌ Journals would remain wrong for tax-inclusive lines.
+2. **Centralize split math in a service; align posting + display + optional CLI audit** — ✅ Single source of truth; tests and `sales-invoices:validate-posted-journals` for regression and legacy checks.
+
+**Decision**: Implement **`SalesInvoicePostingMath`** (`summarizeLinesForPosting`, `splitTaxInclusiveLineAmount`, `invoiceFooterTotals`, etc.). **Posting**: C AR UnInvoice = gross, D AR = gross, D revenue per line for PPN reclass, C PPN = extracted output VAT (regular); opening balance: D AR gross, C 3.3.1 gross−PPN, C PPN. **UI**: Controller passes **`$invoiceFooter`** to show/print/pdf/queued PDF; footer order **Subtotal (ex. PPN) → PPN → WTax (if any) → Total (incl. PPN)**; line Amount uses **`amountFromQtyTimesUnitPrice()`**. **`store()`** sets **`currency_id`** (IDR) on create. Remove reliance on included partial for parent-scope totals.
+
+**Rationale**: Tax-inclusive storage must match **`SalesOrderLine::computeAmountFromPricing`**; VAT extraction must use **percent on DPP**, not a raw multiplier on the inclusive line. Revenue reclass keeps the journal balanced when clearing AR UnInvoice at gross while booking PPN.
+
+**Implementation**: `app/Services/Accounting/SalesInvoicePostingMath.php`, `SalesInvoiceController` (`post`, `show`, `print`, `pdf`, `queuePdf`, `store`), `SalesInvoiceLine`, Blade show + `print*.blade.php`, `App\Console\Commands\ValidatePostedSalesInvoiceJournalsCommand.php` + **`Kernel.php`** registration; feature/unit tests as listed in `MEMORY.md` **[105]**.
+
+**Review Date**: 2027-04-17
+
+---
 
 ### Decision: Account Statements — conditional-field validation + HELP corpus — 2026-04-16
 

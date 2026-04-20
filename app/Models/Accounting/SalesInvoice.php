@@ -21,6 +21,8 @@ class SalesInvoice extends Model
         'business_partner_id',
         'business_partner_project_id',
         'company_entity_id',
+        'currency_id',
+        'exchange_rate',
         'sales_order_id',
         'reference_no',
         'is_opening_balance',

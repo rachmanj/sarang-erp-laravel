@@ -73,7 +73,7 @@
                                 <thead>
                                     <tr>
                                         <th>Date</th>
-                                        <th>Invoice No</th>
+                                        <th>SI No</th>
                                         <th>Customer</th>
                                         <th>Customer Ref No</th>
                                         <th>Total</th>
@@ -108,6 +108,24 @@
                     }).format(Number(n) || 0);
                 }
 
+                function formatSiDate(iso) {
+                    if (!iso) {
+                        return '';
+                    }
+                    var parts = String(iso).split(/[-T]/);
+                    if (parts.length < 3) {
+                        return iso;
+                    }
+                    var y = parseInt(parts[0], 10);
+                    var m = parseInt(parts[1], 10);
+                    var day = parseInt(parts[2], 10);
+                    var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                    if (!y || !m || !day || m < 1 || m > 12) {
+                        return iso;
+                    }
+                    return String(day).padStart(2, '0') + '-' + months[m - 1] + '-' + y;
+                }
+
                 var table = $('#si-table').DataTable({
                     processing: true,
                     serverSide: true,
@@ -129,7 +147,13 @@
                     },
                     columns: [{
                             data: 'date',
-                            name: 'si.date'
+                            name: 'si.date',
+                            render: function(data, type) {
+                                if (type === 'display' || type === 'filter') {
+                                    return formatSiDate(data);
+                                }
+                                return data;
+                            }
                         },
                         {
                             data: 'invoice_no',

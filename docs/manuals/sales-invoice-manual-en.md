@@ -86,9 +86,27 @@ Open create with **`quotation_id`** (from the quotation workflow). Header and li
 
 ---
 
+## Line amounts, VAT, and totals (what you see vs what is stored)
+
+- **Stored line `amount`**: Tax-inclusive (same idea as **Sales Order** line totals: base = qty × unit price, then PPN on that base and withholding tax if configured). The invoice header **`total_amount`** is the sum of line amounts (plus header-level adjustments if any).
+- **Amount column (screen and print)**: Shows **qty × unit price** (exclusive line subtotal) so it matches the unit price column without looking like VAT was applied twice.
+- **Footer**: **Subtotal (ex. PPN)** → **PPN / VAT** → **WTax** (if any) → **Total (incl. PPN)**. The last line is the amount due and matches the stored gross total—**not** “subtotal + VAT” computed again on inclusive lines.
+
+---
+
 ## Posting and accounting
 
-**Post** locks the document and creates journals (AR, revenue, VAT, etc. per account mapping). **Unpost** may be available for corrections depending on policy and permissions.
+**Post** locks the document and creates journals via **`PostingService`**, using **`SalesInvoicePostingMath`** to derive gross receivable and PPN from tax-inclusive lines. In the usual **from delivery order** case: **Credit AR UnInvoice** and **Debit trade receivables (AR)** for the tax-inclusive gross; **Debit revenue** (per line) for the PPN component carried in the line amount; **Credit PPN output**. **Opening balance** invoices use a different pattern (AR gross, retained opening, PPN as applicable).
+
+**Unpost** may be available for corrections depending on policy and permissions.
+
+### Auditing posted invoices (CLI)
+
+Administrators and support can run:
+
+`php artisan sales-invoices:validate-posted-journals`
+
+Optional filters: `--id=` (single invoice), `--limit=` (batch). The command compares posted journal lines to the expected gross and PPN split from invoice lines. Registered in **`App\Console\Kernel`**.
 
 ---
 

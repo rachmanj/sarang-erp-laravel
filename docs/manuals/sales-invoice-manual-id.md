@@ -10,6 +10,7 @@
 - [Membuat Sales Invoice manual (tanpa DO)](#membuat-sales-invoice-manual-tanpa-do)
 - [Daftar dan filter Sales Invoice](#daftar-dan-filter-sales-invoice)
 - [Detail, edit, hapus (draft)](#detail-edit-hapus-draft)
+- [Jumlah baris, PPN, dan total tampilan](#jumlah-baris-ppn-dan-total-tampilan)
 - [Posting, unpost, dan akuntansi](#posting-unpost-dan-akuntansi)
 - [Cetak dan PDF (layout)](#cetak-dan-pdf-layout)
 - [Import Sales Invoice](#import-sales-invoice)
@@ -140,13 +141,26 @@ Gunakan untuk jasa, penagihan tidak melalui DO, atau skenario khusus sesuai kebi
 
 ---
 
+## Jumlah baris, PPN, dan total tampilan
+
+- **Nilai tersimpan per baris (`amount`)**: **Termasuk PPN** (konsisten dengan logika total baris **Sales Order**: dasar = qty × harga satuan, lalu PPN atas dasar tersebut, serta pemotongan WTax jika ada).
+- **Kolom Jumlah / Amount di layar & cetak**: Menampilkan **qty × harga satuan** (DPP per baris tanpa PPN di kolom tersebut) agar tidak terlihat seperti PPN dihitung dua kali terhadap angka yang sudah termasuk pajak.
+- **Ringkasan bawah faktur**: **Subtotal (ex. PPN)** → **PPN** → **WTax** (jika ada) → **Total (incl. PPN)**. Baris terakhir adalah nilai tagihan bruto dan sejalan dengan **`total_amount`** dokumen—bukan penjumlahan “subtotal + PPN” yang mengulang pajak atas baris yang sudah inclusive.
+
+---
+
 ## Posting, unpost, dan akuntansi
 
-- **Post** — mengunci dokumen dan membuat jurnal (piutang, pendapatan, PPN keluaran, dll. sesuai mapping akun).
+- **Post** — mengunci dokumen dan membuat jurnal melalui **`PostingService`**, dengan perhitungan PPN/AR dari baris inclusive lewat **`SalesInvoicePostingMath`**. Alur dari DO: **Kredit AR UnInvoice** dan **Debit Piutang Dagang** sebesar bruto termasuk PPN; **Debit pendapatan** (per baris) untuk komponen PPN yang “dibawa” di nilai baris; **Kredit PPN keluaran**. SI **opening balance** memakai pola berbeda (AR bruto, saldo awal laba ditahan, PPN sesuai kasus).
 - **Unpost** — membuka kembali untuk koreksi (jika fitur dan izin tersedia).
-- Jurnal mengikuti **PostingService** dan pengaturan akun kategori produk / baris.
 
-Untuk detail jurnal spesifik, koordinasikan dengan tim akuntansi atau lihat dokumentasi modul jurnal.
+### Pemeriksaan jurnal (CLI)
+
+`php artisan sales-invoices:validate-posted-journals`
+
+Opsi: `--id=` (satu SI), `--limit=` (batch). Membandingkan jurnal yang sudah posting dengan bruto/PPN yang diharapkan dari baris faktur. Perintah terdaftar di **`App\Console\Kernel`**.
+
+Untuk detail COA spesifik, koordinasikan dengan tim akuntansi atau lihat **`docs/architecture.md`** (bagian Sales Invoice accounting).
 
 ---
 
