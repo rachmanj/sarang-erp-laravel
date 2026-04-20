@@ -11,7 +11,8 @@ use Illuminate\Support\Facades\DB;
 class PurchaseInvoiceCopyService
 {
     public function __construct(
-        private DocumentNumberingService $documentNumberingService
+        private DocumentNumberingService $documentNumberingService,
+        private DocumentRelationshipService $documentRelationshipService
     ) {}
 
     /**
@@ -102,6 +103,8 @@ class PurchaseInvoiceCopyService
 
             // Update invoice total amount
             $invoice->update(['total_amount' => $totalAmount]);
+
+            $this->documentRelationshipService->syncPurchaseInvoiceRelationships($invoice);
 
             return $invoice;
         });

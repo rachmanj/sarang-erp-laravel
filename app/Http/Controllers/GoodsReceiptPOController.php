@@ -10,6 +10,7 @@ use App\Services\Accounting\PostingService;
 use App\Services\CompanyEntityService;
 use App\Services\DocumentClosureService;
 use App\Services\DocumentNumberingService;
+use App\Services\DocumentRelationshipService;
 use App\Services\GRPOCopyService;
 use App\Services\GRPOJournalService;
 use App\Services\InventoryService;
@@ -27,7 +28,8 @@ class GoodsReceiptPOController extends Controller
         private GRPOJournalService $grpoJournalService,
         private PostingService $postingService,
         private CompanyEntityService $companyEntityService,
-        private InventoryService $inventoryService
+        private InventoryService $inventoryService,
+        private DocumentRelationshipService $documentRelationshipService
     ) {}
 
     public function index()
@@ -131,6 +133,8 @@ class GoodsReceiptPOController extends Controller
 
             // Update total amount
             $grpo->update(['total_amount' => $totalAmount]);
+
+            $this->documentRelationshipService->syncGoodsReceiptPORelationships($grpo);
 
             // Create inventory transactions for each line
             foreach ($data['lines'] as $l) {

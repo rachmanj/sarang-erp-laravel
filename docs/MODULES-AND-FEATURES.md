@@ -1,6 +1,6 @@
 # Sarange ERP - Modules and Features List
 
-**Last Updated**: 2026-04-17  
+**Last Updated**: 2026-04-20  
 **System Status**: Production Ready (95% Complete)  
 **Technology Stack**: Laravel 12, PHP 8.2+, MySQL, AdminLTE 3.14
 
@@ -535,9 +535,10 @@
 - **Open Items Reporting**: Comprehensive reporting for monitoring outstanding documents
 
 ### 52. Document Navigation & Relationship Map
-- **Base/Target Document Navigation**: Navigate between related documents
-- **Relationship Map Visualization**: Mermaid.js flowchart; each node shows **document type**, number, date, **status**, amount (IDR), and optional **Ref** (reference line is not shown as “N/A” status)
-- **Document Relationship Tracking**: Polymorphic relationship storage for all document types; API includes human **`type_label`** for list cards
+- **Base/Target Document Navigation**: Navigate between related documents via `DocumentNavigationButtons.js` → `GET /api/documents/{documentType}/{documentId}/navigation` (`DocumentNavigationController`). Buttons are **disabled** when there are no related documents **or** the current user cannot view them (permission filter on `document_relationships` targets).
+- **Relationship Map Visualization**: Mermaid.js flowchart; each node shows **document type**, number, date, **status**, amount (IDR), and optional **Ref** (reference line is not shown as “N/A” status). Modal calls `GET /api/documents/{documentType}/{documentId}/relationship-map` (`DocumentRelationshipController`). **Note**: navigation API uses **singular** slugs (e.g. `purchase-invoice`); relationship-map API uses **plural** slugs (e.g. `purchase-invoices`) — show pages pass the correct value per endpoint.
+- **Document Relationship Tracking**: Polymorphic rows in `document_relationships`. **Purchase (2026-04-20)**: rows are **synced on create/allocate** — PO↔GRPO on GRPO save/copy; GRPO→PI or PO→PI and PI→PP on PI/PP save; service PI copy included. **Sales**: existing create paths (e.g. DO→SI) unchanged. **Backfill** legacy DBs: `php artisan db:seed --class=DocumentRelationshipSeeder` (`initializeExistingRelationships()`).
+- **Direct Purchase PI**: No PO/GRPO FKs → no upstream navigation (expected). **Target** toward PP only after payment allocations exist (credit path).
 - **Journal Preview**: Preview journal entries before posting
 - **Document Analytics**: Usage tracking and performance analytics
 

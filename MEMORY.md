@@ -1,5 +1,5 @@
 **Purpose**: AI's persistent knowledge base for project context and learnings
-**Last Updated**: 2026-04-17 (Sales Invoice PPN posting + UI totals + validate command)
+**Last Updated**: 2026-04-20 (Purchase document_relationships sync)
 
 ## Memory Maintenance Guidelines
 
@@ -26,6 +26,14 @@
 ---
 
 ## Project Memory Entries
+
+### [106] Purchase document_relationships sync — navigation + Relationship Map (2026-04-20) ✅ COMPLETE
+
+**Challenge**: **Base/Target** buttons and **Relationship Map** for PO→GRPO→PI→PP were empty because `document_relationships` was not written on purchase create (unlike sales). Initializer used wrong PI/PP morph classes; PI-from-PO-only had no backfill.
+
+**Solution**: **`syncGoodsReceiptPORelationships`**, **`syncPurchaseInvoiceRelationships`** (GRPO→PI else PO→PI; PI→PP from allocations), **`syncPurchasePaymentRelationships`**; wired from GRPO/PI/PP create paths + copy services. **`initializeExistingRelationships`**: delete legacy `App\Models\PurchaseInvoice` / `PurchasePayment` rows; **`initializePIPurchaseOrderRelationships`**. Backfill: **`php artisan db:seed --class=DocumentRelationshipSeeder`**.
+
+**Learning**: Treat **navigation + map** as one persistence model; **Direct Purchase** PI correctly has no upstream when PO/GRPO null—disabled Base is expected; users need **`purchase-orders.view`** / **`ap.payments.view`** to see filtered parents/children.
 
 ### [105] Sales Invoice tax-inclusive PPN posting + footer UX + validation command (2026-04-17) ✅ COMPLETE
 

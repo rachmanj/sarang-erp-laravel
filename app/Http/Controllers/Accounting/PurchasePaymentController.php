@@ -11,6 +11,7 @@ use App\Services\Accounting\PostingService;
 use App\Services\CompanyEntityService;
 use App\Services\DocumentClosureService;
 use App\Services\DocumentNumberingService;
+use App\Services\DocumentRelationshipService;
 use App\Services\PurchaseWorkflowAuditService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -24,7 +25,8 @@ class PurchasePaymentController extends Controller
         private PostingService $posting,
         private DocumentNumberingService $documentNumberingService,
         private DocumentClosureService $documentClosureService,
-        private CompanyEntityService $companyEntityService
+        private CompanyEntityService $companyEntityService,
+        private DocumentRelationshipService $documentRelationshipService
     ) {
         $this->middleware(['auth']);
         $this->middleware('permission:ap.payments.view')->only(['index', 'show']);
@@ -168,6 +170,8 @@ class PurchasePaymentController extends Controller
                     'updated_at' => now(),
                 ]);
             }
+
+            $this->documentRelationshipService->syncPurchasePaymentRelationships($payment);
 
             // Attempt to close related Purchase Invoices if fully paid
             try {

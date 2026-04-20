@@ -115,7 +115,9 @@ Modul Manajemen Pembelian mengelola alur procure-to-pay lengkap dan mendukung mu
 
 ### Navigasi Dokumen
 
--   Dari PO, gunakan **Document Navigation** atau **Relationship Map** untuk membuka GRPO/PI/PP terkait.
+-   Dari PO, GRPO, PI, atau PP, gunakan tombol **Base Document** / **Target Document** (di bawah header kartu) atau **Relationship Map** untuk membuka dokumen terkait pada rantai pembelian.
+-   **Perilaku**: Tombol memuat data dari API navigasi; aktif hanya jika ada baris di `document_relationships` **dan** user punya izin lihat dokumen terkait (`purchase-orders.view`, `ap.invoices.view`, `ap.payments.view`, dll.). **Direct Purchase** PI (tanpa PO/GRPO) biasanya membuat **Base Document** nonaktif; **Target Document** ke **Purchase Payment** muncul setelah ada alokasi pembayaran (alur kredit).
+-   **Data lama**: Jika navigasi kosong untuk dokumen yang seharusnya terhubung, admin dapat menjalankan sekali: `php artisan db:seed --class=DocumentRelationshipSeeder`.
 
 ---
 
@@ -253,7 +255,7 @@ Modul Manajemen Pembelian mengelola alur procure-to-pay lengkap dan mendukung mu
 
 -   Invoice **Credit** yang sudah Approved muncul di daftar alokasi Purchase Payment.
 -   Invoice **Direct Cash Purchase** tidak membutuhkan Purchase Payment (sudah dibayar tunai).
--   Gunakan **Document Navigation** untuk memeriksa keterkaitan GRPO/PO.
+-   Gunakan **Document Navigation** untuk memeriksa keterkaitan GRPO/PO. Jika tombol Base/Target tetap nonaktif padahal ada PO/GRPO, periksa izin modul (`purchase-orders.view`, dll.) dan jalankan backfill `php artisan db:seed --class=DocumentRelationshipSeeder` pada basis data lama.
 
 ---
 
@@ -316,6 +318,7 @@ Modul Manajemen Pembelian mengelola alur procure-to-pay lengkap dan mendukung mu
 
 ## Pemecahan Masalah
 
+-   **Tombol Base/Target Document nonaktif di PI/GRPO**: Untuk **Direct Purchase** PI tanpa PO/GRPO, ini normal. Jika seharusnya ada rantai PO→GRPO→PI, jalankan sekali `php artisan db:seed --class=DocumentRelationshipSeeder` pada DB lama dan pastikan role punya izin lihat modul terkait (`purchase-orders.view`, `ap.payments.view`, dll.).
 -   **PO tidak muncul di dropdown GRPO**: Pastikan PO Approved, vendor sama, dan masih ada qty tersisa.
 -   **Over-receipt terblokir**: Cek kolom Remaining Qty; sesuaikan kuantitas ke saldo yang tersedia.
 -   **Invoice tidak bisa dialokasikan**: Pastikan GRPO Approved dan invoice Approved; cek saldo outstanding.

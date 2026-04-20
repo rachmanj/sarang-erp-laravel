@@ -4,6 +4,23 @@
 **Status**: ✅ COMPLETE  
 **Priority**: P0 (Critical Feature)
 
+## Update: Purchase chain persistence (2026-04-20)
+
+**Problem**: Relationship Map and **Base/Target Document** navigation for purchase (PO → GRPO → PI → PP) often showed only the current document because `document_relationships` was not populated when purchase documents were created (unlike sales). Some initializer rows used incorrect morph classes (`App\Models\PurchaseInvoice` instead of `App\Models\Accounting\PurchaseInvoice`).
+
+**Changes** (`DocumentRelationshipService`):
+
+-   `syncGoodsReceiptPORelationships(GoodsReceiptPO)` — PO ↔ GRPO when `purchase_order_id` set; invoked from `GoodsReceiptPOController@store` and `GRPOCopyService`.
+-   `syncPurchaseInvoiceRelationships(PurchaseInvoice)` — GRPO → PI if `goods_receipt_id`, else PO → PI if `purchase_order_id`; PI → PP from `purchase_payment_allocations`; invoked from `PurchaseInvoiceController@store` and `PurchaseInvoiceCopyService`.
+-   `syncPurchasePaymentRelationships(PurchasePayment)` — PI → PP for allocations; invoked from `PurchasePaymentController@store`.
+-   `initializeExistingRelationships()` — removes legacy PI/PP morph aliases; fixes PI/PP class names in PI/PP initializers; adds `initializePIPurchaseOrderRelationships()` for PI linked to PO only.
+
+**Operations**: After deploy on databases that already have purchase documents, run once:
+
+`php artisan db:seed --class=DocumentRelationshipSeeder`
+
+**Direct Purchase**: PI without PO/GRPO correctly has no upstream relationships; Base Document stays disabled until a real link exists.
+
 ## Overview
 
 Successfully implemented comprehensive Document Relationship Map feature providing visual workflow representation across all document types in the ERP system. The feature enables users to understand complete document chains (PO→GRPO→PI→PP, SO→DO→SI→SR) through interactive Mermaid.js flowcharts with professional AdminLTE modal interface.

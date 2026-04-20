@@ -2,7 +2,11 @@
 
 namespace App\Services;
 
+use App\Models\Accounting\PurchaseInvoice;
+use App\Models\Accounting\PurchasePayment;
 use App\Models\DocumentRelationship;
+use App\Models\GoodsReceiptPO;
+use App\Models\PurchaseOrder;
 use App\Models\User;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -174,6 +178,113 @@ class DocumentRelationshipService
         Cache::forget($targetCacheKey);
     }
 
+    public function syncGoodsReceiptPORelationships(GoodsReceiptPO $grpo): void
+    {
+        $morphGrpo = $grpo->getMorphClass();
+        $morphPo = (new PurchaseOrder)->getMorphClass();
+
+        DocumentRelationship::where(function ($q) use ($grpo, $morphGrpo, $morphPo) {
+            $q->where(function ($q2) use ($grpo, $morphGrpo, $morphPo) {
+                $q2->where('source_document_type', $morphPo)
+                    ->where('target_document_type', $morphGrpo)
+                    ->where('target_document_id', $grpo->id);
+            })->orWhere(function ($q2) use ($grpo, $morphGrpo, $morphPo) {
+                $q2->where('source_document_type', $morphGrpo)
+                    ->where('source_document_id', $grpo->id)
+                    ->where('target_document_type', $morphPo);
+            });
+        })->whereIn('relationship_type', ['base', 'target'])->delete();
+
+        if ($grpo->purchase_order_id) {
+            $po = PurchaseOrder::find($grpo->purchase_order_id);
+            if ($po) {
+                $this->createBaseRelationship($po, $grpo);
+                $this->createTargetRelationship($po, $grpo);
+                $this->clearDocumentCache($po);
+            }
+        }
+
+        $this->clearDocumentCache($grpo);
+    }
+
+    public function syncPurchaseInvoiceRelationships(PurchaseInvoice $invoice): void
+    {
+        $morphPi = $invoice->getMorphClass();
+        $morphPp = (new PurchasePayment)->getMorphClass();
+
+        DocumentRelationship::where('target_document_type', $morphPi)
+            ->where('target_document_id', $invoice->id)
+            ->whereIn('source_document_type', [PurchaseOrder::class, GoodsReceiptPO::class])
+            ->whereIn('relationship_type', ['base', 'target'])
+            ->delete();
+
+        DocumentRelationship::where('source_document_type', $morphPi)
+            ->where('source_document_id', $invoice->id)
+            ->where('target_document_type', $morphPp)
+            ->whereIn('relationship_type', ['base', 'target'])
+            ->delete();
+
+        if ($invoice->goods_receipt_id) {
+            $grpo = GoodsReceiptPO::find($invoice->goods_receipt_id);
+            if ($grpo) {
+                $this->createBaseRelationship($grpo, $invoice);
+                $this->createTargetRelationship($grpo, $invoice);
+                $this->clearDocumentCache($grpo);
+            }
+        } elseif ($invoice->purchase_order_id) {
+            $po = PurchaseOrder::find($invoice->purchase_order_id);
+            if ($po) {
+                $this->createBaseRelationship($po, $invoice);
+                $this->createTargetRelationship($po, $invoice);
+                $this->clearDocumentCache($po);
+            }
+        }
+
+        $paymentIds = DB::table('purchase_payment_allocations')
+            ->where('invoice_id', $invoice->id)
+            ->pluck('payment_id')
+            ->unique()
+            ->filter();
+
+        foreach ($paymentIds as $paymentId) {
+            $payment = PurchasePayment::find($paymentId);
+            if ($payment) {
+                $this->createBaseRelationship($invoice, $payment);
+                $this->createTargetRelationship($invoice, $payment);
+                $this->clearDocumentCache($payment);
+            }
+        }
+
+        $this->clearDocumentCache($invoice);
+    }
+
+    public function syncPurchasePaymentRelationships(PurchasePayment $payment): void
+    {
+        $morphPayment = $payment->getMorphClass();
+        $morphInvoice = (new PurchaseInvoice)->getMorphClass();
+
+        DocumentRelationship::where('target_document_type', $morphPayment)
+            ->where('target_document_id', $payment->id)
+            ->where('source_document_type', $morphInvoice)
+            ->whereIn('relationship_type', ['base', 'target'])
+            ->delete();
+
+        $invoiceIds = DB::table('purchase_payment_allocations')
+            ->where('payment_id', $payment->id)
+            ->pluck('invoice_id');
+
+        foreach ($invoiceIds as $invoiceId) {
+            $invoice = PurchaseInvoice::find($invoiceId);
+            if ($invoice) {
+                $this->createBaseRelationship($invoice, $payment);
+                $this->createTargetRelationship($invoice, $payment);
+                $this->clearDocumentCache($invoice);
+            }
+        }
+
+        $this->clearDocumentCache($payment);
+    }
+
     public function labelForMorphClass(string $morphClass): string
     {
         $labels = [
@@ -270,11 +381,19 @@ class DocumentRelationshipService
     public function initializeExistingRelationships(): void
     {
         DB::transaction(function () {
+            DocumentRelationship::where('target_document_type', 'App\Models\PurchaseInvoice')->delete();
+            DocumentRelationship::where('source_document_type', 'App\Models\PurchaseInvoice')->delete();
+            DocumentRelationship::where('target_document_type', 'App\Models\PurchasePayment')->delete();
+            DocumentRelationship::where('source_document_type', 'App\Models\PurchasePayment')->delete();
+
             // Initialize GRPO -> PO relationships
             $this->initializeGRPORelationships();
 
             // Initialize PI -> GRPO relationships
             $this->initializePIRelationships();
+
+            // Initialize PI -> PO (no GRPO) relationships
+            $this->initializePIPurchaseOrderRelationships();
 
             // Initialize PP -> PI relationships
             $this->initializePPRelationships();
@@ -329,11 +448,13 @@ class DocumentRelationshipService
             ->whereNotNull('goods_receipt_id')
             ->get();
 
+        $morphPi = (new PurchaseInvoice)->getMorphClass();
+
         foreach ($pis as $pi) {
             DocumentRelationship::updateOrCreate([
                 'source_document_type' => 'App\Models\GoodsReceiptPO',
                 'source_document_id' => $pi->goods_receipt_id,
-                'target_document_type' => 'App\Models\PurchaseInvoice',
+                'target_document_type' => $morphPi,
                 'target_document_id' => $pi->id,
                 'relationship_type' => 'target',
             ]);
@@ -341,7 +462,38 @@ class DocumentRelationshipService
             DocumentRelationship::updateOrCreate([
                 'source_document_type' => 'App\Models\GoodsReceiptPO',
                 'source_document_id' => $pi->goods_receipt_id,
-                'target_document_type' => 'App\Models\PurchaseInvoice',
+                'target_document_type' => $morphPi,
+                'target_document_id' => $pi->id,
+                'relationship_type' => 'base',
+            ]);
+        }
+    }
+
+    /**
+     * Initialize PI -> PO relationships when invoice is tied to PO only (no GRPO).
+     */
+    private function initializePIPurchaseOrderRelationships(): void
+    {
+        $pis = DB::table('purchase_invoices')
+            ->whereNotNull('purchase_order_id')
+            ->whereNull('goods_receipt_id')
+            ->get();
+
+        $morphPi = (new PurchaseInvoice)->getMorphClass();
+
+        foreach ($pis as $pi) {
+            DocumentRelationship::updateOrCreate([
+                'source_document_type' => 'App\Models\PurchaseOrder',
+                'source_document_id' => $pi->purchase_order_id,
+                'target_document_type' => $morphPi,
+                'target_document_id' => $pi->id,
+                'relationship_type' => 'target',
+            ]);
+
+            DocumentRelationship::updateOrCreate([
+                'source_document_type' => 'App\Models\PurchaseOrder',
+                'source_document_id' => $pi->purchase_order_id,
+                'target_document_type' => $morphPi,
                 'target_document_id' => $pi->id,
                 'relationship_type' => 'base',
             ]);
@@ -359,19 +511,22 @@ class DocumentRelationshipService
             ->select('purchase_payments.id as payment_id', 'purchase_invoices.id as invoice_id')
             ->get();
 
+        $morphPi = (new PurchaseInvoice)->getMorphClass();
+        $morphPp = (new PurchasePayment)->getMorphClass();
+
         foreach ($allocations as $allocation) {
             DocumentRelationship::updateOrCreate([
-                'source_document_type' => 'App\Models\PurchaseInvoice',
+                'source_document_type' => $morphPi,
                 'source_document_id' => $allocation->invoice_id,
-                'target_document_type' => 'App\Models\PurchasePayment',
+                'target_document_type' => $morphPp,
                 'target_document_id' => $allocation->payment_id,
                 'relationship_type' => 'target',
             ]);
 
             DocumentRelationship::updateOrCreate([
-                'source_document_type' => 'App\Models\PurchaseInvoice',
+                'source_document_type' => $morphPi,
                 'source_document_id' => $allocation->invoice_id,
-                'target_document_type' => 'App\Models\PurchasePayment',
+                'target_document_type' => $morphPp,
                 'target_document_id' => $allocation->payment_id,
                 'relationship_type' => 'base',
             ]);

@@ -14,6 +14,7 @@ use App\Services\Accounting\PostingService;
 use App\Services\CompanyEntityService;
 use App\Services\DocumentClosureService;
 use App\Services\DocumentNumberingService;
+use App\Services\DocumentRelationshipService;
 use App\Services\PurchaseInvoiceService;
 use App\Services\PurchaseWorkflowAuditService;
 use App\Services\UnitConversionService;
@@ -33,7 +34,8 @@ class PurchaseInvoiceController extends Controller
         private DocumentClosureService $documentClosureService,
         private CompanyEntityService $companyEntityService,
         private PurchaseInvoiceService $purchaseInvoiceService,
-        private UnitConversionService $unitConversionService
+        private UnitConversionService $unitConversionService,
+        private DocumentRelationshipService $documentRelationshipService
     ) {
         $this->middleware(['auth']);
         $this->middleware('permission:ap.invoices.view')->only(['index', 'show']);
@@ -346,6 +348,8 @@ class PurchaseInvoiceController extends Controller
                     ]);
                 }
             }
+
+            $this->documentRelationshipService->syncPurchaseInvoiceRelationships($invoice);
 
             return redirect()->route('purchase-invoices.show', $invoice->id)->with('success', 'Purchase invoice created');
         });

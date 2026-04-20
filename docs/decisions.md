@@ -1,5 +1,5 @@
 **Purpose**: Record technical decisions and rationale for future reference
-**Last Updated**: 2026-04-17 (Sales Invoice PPN posting, footer totals, validate-posted-journals)
+**Last Updated**: 2026-04-20 (Purchase document_relationships sync for navigation + Relationship Map)
 
 # Technical Decision Records
 
@@ -29,6 +29,25 @@ Decision: [Title] - [YYYY-MM-DD]
 ---
 
 ## Recent Decisions
+
+### Decision: Purchase workflow — persist `document_relationships` for navigation and Relationship Map — 2026-04-20
+
+**Context**: **Base Document** / **Target Document** buttons and the **Relationship Map** modal both read from `document_relationships` via `DocumentRelationshipService`. Sales-side links were created when documents were saved (e.g. DO → SI), but **purchase** documents relied mainly on one-off initialization / missing writes, so PI/GRPO/PP often had **no edges**—buttons stayed disabled and maps showed only the current node. Initializer code also stored wrong morph types (`App\Models\PurchaseInvoice` vs `App\Models\Accounting\PurchaseInvoice`).
+
+**Options Considered**:
+
+1. **UI-only**: Infer links from FK columns (`purchase_order_id`, `goods_receipt_id`) without `document_relationships` — ❌ Duplicates logic; breaks permission filtering and caching already built around the polymorphic table.
+2. **Sync on write + fix backfill** — ✅ Single source of truth; aligns purchase with sales; seeder repairs legacy DBs.
+
+**Decision**: Add **`syncGoodsReceiptPORelationships`**, **`syncPurchaseInvoiceRelationships`**, **`syncPurchasePaymentRelationships`** on `DocumentRelationshipService`; call them from GRPO create/copy, PI create/copy, and PP store. Fix `initializePIRelationships` / `initializePPRelationships` morph classes; strip legacy wrong-class rows; add **`initializePIPurchaseOrderRelationships`** for PI-with-PO-only. **Direct Purchase** PI (no PO/GRPO, no allocations) correctly has **no upstream** navigation.
+
+**Rationale**: Keeps navigation, map, and permissions consistent; existing data backfilled via `DocumentRelationshipSeeder` (`initializeExistingRelationships()`).
+
+**Implementation**: `app/Services/DocumentRelationshipService.php`; `GoodsReceiptPOController`, `GRPOCopyService`, `PurchaseInvoiceController` (store), `PurchaseInvoiceCopyService`, `PurchasePaymentController` (store). Docs: `architecture.md`, `MODULES-AND-FEATURES.md`, `relationship-map-implementation-summary.md`, `purchase-module-manual*.md`, `MEMORY.md`, `todo.md`.
+
+**Review Date**: 2027-04-20
+
+---
 
 ### Decision: Sales Invoice — tax-inclusive PPN posting, footer semantics, and posted-journal validation — 2026-04-17
 

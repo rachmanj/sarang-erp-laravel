@@ -115,7 +115,9 @@ The Purchase Management Module manages the full procure-to-pay workflow and supp
 
 ### Base/Target Navigation
 
--   From PO, use **Document Navigation** or **Relationship Map** to open related GRPO/PI/PP documents.
+-   From PO, GRPO, PI, or PP, use **Base Document** / **Target Document** (under the document header) or **Relationship Map** to open related documents in the purchase chain.
+-   **Behavior**: Buttons call the navigation API; they are **enabled** only when `document_relationships` has related documents **and** your user can view them (`purchase-orders.view`, `ap.invoices.view`, `ap.payments.view`, etc.). **Direct Purchase** PI (no PO/GRPO) usually has **Base Document** disabled; **Target Document** enables toward **Purchase Payment** after allocations exist (credit purchases).
+-   **Legacy data**: If older invoices show empty navigation, an administrator can backfill links with: `php artisan db:seed --class=DocumentRelationshipSeeder`.
 
 ---
 
@@ -244,6 +246,7 @@ The Purchase Management Module manages the full procure-to-pay workflow and supp
 
 ## Troubleshooting
 
+-   **Base/Target Document disabled on PI/GRPO**: Normal for **Direct Purchase** PI with no PO/GRPO. Otherwise confirm PO→GRPO→PI links exist, run `DocumentRelationshipSeeder` once on legacy DBs, and verify your role has **view** permission on related modules (e.g. PO links require `purchase-orders.view`).
 -   **PO not visible in GRPO dropdown**: Ensure PO is approved, vendor matches, and PO has remaining qty.
 -   **Over-receipt blocked**: Check Remaining Qty column; adjust to available quantity.
 -   **Invoice cannot allocate**: Confirm GRPO approved and invoice approved; verify outstanding amounts.

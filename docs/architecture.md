@@ -1,5 +1,5 @@
 Purpose: Technical reference for understanding system design and development patterns
-Last Updated: 2026-04-17 (Sales Invoice tax-inclusive PPN posting, `SalesInvoicePostingMath`, footer totals, `sales-invoices:validate-posted-journals`; prior: AR CM, DO reverse, Relationship Map, HELP)
+Last Updated: 2026-04-20 (Purchase document_relationships sync for Relationship Map + Base/Target navigation; prior: 2026-04-17 SI PPN posting)
 
 ## Architecture Documentation Guidelines
 
@@ -1069,6 +1069,12 @@ The Document Navigation & Journal Preview system provides comprehensive workflow
 -   Core relationship management logic
 -   Permission-based access control
 -   Relationship initialization and maintenance
+-   **Purchase chain sync (2026-04-20)**: Writes `document_relationships` when purchase documents are created or linked so **Relationship Map** and **Base/Target Document** buttons match the PO → GRPO → PI → PP workflow:
+    -   `syncGoodsReceiptPORelationships()` — after GRPO create/copy (`GoodsReceiptPOController@store`, `GRPOCopyService`); PO ↔ GRPO edges when `purchase_order_id` is set.
+    -   `syncPurchaseInvoiceRelationships()` — after PI create/copy (`PurchaseInvoiceController@store`, `PurchaseInvoiceCopyService`); upstream prefers **GRPO → PI** when `goods_receipt_id` is set, else **PO → PI** when `purchase_order_id` only; downstream **PI → PP** from `purchase_payment_allocations`.
+    -   `syncPurchasePaymentRelationships()` — after PP store (`PurchasePaymentController@store`).
+    -   `initializeExistingRelationships()` / `DocumentRelationshipSeeder`: correct morph classes `App\Models\Accounting\PurchaseInvoice` and `App\Models\Accounting\PurchasePayment`; removes legacy rows using `App\Models\PurchaseInvoice` / `App\Models\PurchasePayment`; adds **PI → PO (no GRPO)** backfill via `initializePIPurchaseOrderRelationships()`.
+-   **API slug note**: `DocumentNavigationController` uses **singular** route keys (e.g. `purchase-invoice`, `goods-receipt-po`). `DocumentRelationshipController` (Relationship Map modal) uses **plural** keys (e.g. `purchase-invoices`, `goods-receipt-pos`). Blade show pages pass the slug expected by each endpoint.
 
 **DocumentRelationshipCacheService**
 
@@ -1216,10 +1222,10 @@ The Menu Search System provides global search functionality for navigating menu 
 
 #### Document Relationship Flow
 
-1. **Relationship Initialization**: Automatic detection of existing document relationships
-2. **Permission Filtering**: User-based access control for document visibility
-3. **Caching Layer**: Intelligent caching for performance optimization
-4. **API Response**: Structured data delivery to frontend components
+1. **Relationship persistence**: Sales documents still create links from controllers/services (e.g. DO → SI). Purchase documents now **sync** `document_relationships` on create/allocate as listed under `DocumentRelationshipService` above; legacy environments run `php artisan db:seed --class=DocumentRelationshipSeeder` once to backfill.
+2. **Permission Filtering**: User-based access control for document visibility (`*.view` per morph class); empty filtered lists leave Base/Target buttons **disabled**.
+3. **Caching Layer**: Per-document cache keys in `DocumentRelationshipService`; `clearDocumentCache()` invoked after purchase syncs.
+4. **API Response**: `GET /api/documents/{type}/{id}/navigation` (navigation) and `GET /api/documents/{type}/{id}/relationship-map` (map) — **type string differs** between the two controllers for the same business document; see slug note above.
 
 #### Relationship Map Flow
 
