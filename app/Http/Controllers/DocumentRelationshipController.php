@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\DocumentRelationshipService;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -42,8 +43,15 @@ class DocumentRelationshipController extends Controller
             // Get navigation data
             $navigationData = $this->relationshipService->getNavigationData($document, Auth::user());
 
-            // Generate Mermaid diagram data
-            $mermaidData = $this->generateMermaidDiagram($document, $navigationData);
+            $useExpansion = $this->relationshipService->isSalesChainExpansionRoot($document)
+                && ! $request->boolean('legacy_map');
+
+            if ($useExpansion) {
+                $packed = $this->relationshipService->expandSalesRelationshipMapGraph($document, Auth::user());
+                $mermaidData = $this->buildMermaidFromExpandedGraph($document, $packed['models'], $packed['edges']);
+            } else {
+                $mermaidData = $this->generateMermaidDiagram($document, $navigationData);
+            }
 
             return response()->json([
                 'success' => true,
@@ -87,6 +95,7 @@ class DocumentRelationshipController extends Controller
             'sales-invoices' => \App\Models\Accounting\SalesInvoice::class,
             'sales-receipts' => \App\Models\Accounting\SalesReceipt::class,
             'sales-credit-memos' => \App\Models\Accounting\SalesCreditMemo::class,
+            'sales-quotations' => \App\Models\SalesQuotation::class,
         ];
 
         $modelClass = $modelMap[$documentType] ?? null;
@@ -110,7 +119,74 @@ class DocumentRelationshipController extends Controller
             $document->receipt_no ??
             $document->do_number ??
             $document->memo_no ??
+            $document->quotation_no ??
             '#'.$document->id;
+    }
+
+    /**
+     * Stable Mermaid node id (avoids collisions between document types that share numeric ids).
+     */
+    private function graphNodeId(Model $document): string
+    {
+        $prefix = match (true) {
+            $document instanceof \App\Models\PurchaseOrder => 'PO',
+            $document instanceof \App\Models\GoodsReceiptPO => 'GRPO',
+            $document instanceof \App\Models\Accounting\PurchaseInvoice => 'PI',
+            $document instanceof \App\Models\Accounting\PurchasePayment => 'PP',
+            $document instanceof \App\Models\SalesOrder => 'SO',
+            $document instanceof \App\Models\DeliveryOrder => 'DO',
+            $document instanceof \App\Models\Accounting\SalesInvoice => 'SI',
+            $document instanceof \App\Models\Accounting\SalesReceipt => 'SR',
+            $document instanceof \App\Models\Accounting\SalesCreditMemo => 'SCM',
+            $document instanceof \App\Models\SalesQuotation => 'SQ',
+            default => 'DOC',
+        };
+
+        return 'doc_'.$prefix.'_'.$document->getKey();
+    }
+
+    /**
+     * @param  array<string, Model>  $models
+     * @param  list<array{from: Model, to: Model}>  $edgeList
+     */
+    private function buildMermaidFromExpandedGraph(Model $rootDocument, array $models, array $edgeList): array
+    {
+        $nodes = [];
+        $edges = [];
+
+        foreach ($models as $model) {
+            $nodes[] = [
+                'id' => $this->graphNodeId($model),
+                'label' => $this->getDocumentNumber($model),
+                'type' => $this->getDocumentTypeLabel($model),
+                'status' => $model->status ?? 'N/A',
+                'amount' => $model->total_amount ?? $model->amount ?? 0,
+                'date' => $this->formatDate($model->date ?? $model->created_at),
+                'reference' => $this->getDocumentReference($model),
+                'isCurrent' => $rootDocument->is($model),
+                'url' => $this->relationshipService->getDocumentUrl($model),
+            ];
+        }
+
+        foreach ($edgeList as $edge) {
+            $edges[] = [
+                'from' => $this->graphNodeId($edge['from']),
+                'to' => $this->graphNodeId($edge['to']),
+                'label' => $this->getRelationshipLabel(
+                    $this->getDocumentTypeLabel($edge['from']),
+                    $this->getDocumentTypeLabel($edge['to'])
+                ),
+                'type' => 'direct',
+            ];
+        }
+
+        $this->addCrossRelationships($nodes, $edges);
+
+        return [
+            'nodes' => $nodes,
+            'edges' => $edges,
+            'layout' => $this->determineLayout($nodes),
+        ];
     }
 
     /**
@@ -120,7 +196,7 @@ class DocumentRelationshipController extends Controller
     {
         $nodes = [];
         $edges = [];
-        $currentDocumentId = 'doc_'.$document->id;
+        $currentDocumentId = $this->graphNodeId($document);
 
         // Add current document node with detailed information
         $nodes[] = [
@@ -137,8 +213,11 @@ class DocumentRelationshipController extends Controller
 
         // Add base documents (parents) with detailed information
         foreach ($navigationData['base_documents']['documents'] as $baseDoc) {
-            $nodeId = 'doc_'.$baseDoc['id'];
             $baseDocumentModel = $this->getDocumentModelById($baseDoc['type'], $baseDoc['id']);
+            if (! $baseDocumentModel) {
+                continue;
+            }
+            $nodeId = $this->graphNodeId($baseDocumentModel);
 
             $nodes[] = [
                 'id' => $nodeId,
@@ -166,8 +245,11 @@ class DocumentRelationshipController extends Controller
 
         // Add target documents (children) with detailed information
         foreach ($navigationData['target_documents']['documents'] as $targetDoc) {
-            $nodeId = 'doc_'.$targetDoc['id'];
             $targetDocumentModel = $this->getDocumentModelById($targetDoc['type'], $targetDoc['id']);
+            if (! $targetDocumentModel) {
+                continue;
+            }
+            $nodeId = $this->graphNodeId($targetDocumentModel);
 
             $nodes[] = [
                 'id' => $nodeId,
@@ -218,6 +300,7 @@ class DocumentRelationshipController extends Controller
             'App\\Models\\Accounting\\SalesInvoice' => \App\Models\Accounting\SalesInvoice::class,
             'App\\Models\\Accounting\\SalesReceipt' => \App\Models\Accounting\SalesReceipt::class,
             'App\\Models\\Accounting\\SalesCreditMemo' => \App\Models\Accounting\SalesCreditMemo::class,
+            'App\\Models\\SalesQuotation' => \App\Models\SalesQuotation::class,
         ];
 
         $modelClass = $modelMap[$type] ?? null;
@@ -274,6 +357,10 @@ class DocumentRelationshipController extends Controller
             'Purchase Invoice' => [
                 'Purchase Payment' => 'pays',
             ],
+            'Sales Quotation' => [
+                'Sales Order' => 'converts to',
+                'Sales Invoice' => 'invoices',
+            ],
             'Sales Order' => [
                 'Delivery Order' => 'delivers',
                 'Sales Invoice' => 'invoices',
@@ -285,6 +372,11 @@ class DocumentRelationshipController extends Controller
             ],
             'Sales Invoice' => [
                 'Sales Receipt' => 'receives',
+                'Sales Credit Memo' => 'credit memo',
+            ],
+            'Goods Receipt PO' => [
+                'Sales Invoice' => 'invoices',
+                'Purchase Invoice' => 'invoices',
             ],
         ];
 
@@ -351,6 +443,7 @@ class DocumentRelationshipController extends Controller
             \App\Models\Accounting\SalesInvoice::class => 'Sales Invoice',
             \App\Models\Accounting\SalesReceipt::class => 'Sales Receipt',
             \App\Models\Accounting\SalesCreditMemo::class => 'Sales Credit Memo',
+            \App\Models\SalesQuotation::class => 'Sales Quotation',
         ];
 
         return $labels[$class] ?? 'Document';
@@ -371,6 +464,7 @@ class DocumentRelationshipController extends Controller
             'App\\Models\\Accounting\\SalesInvoice' => 'Sales Invoice',
             'App\\Models\\Accounting\\SalesReceipt' => 'Sales Receipt',
             'App\\Models\\Accounting\\SalesCreditMemo' => 'Sales Credit Memo',
+            'App\\Models\\SalesQuotation' => 'Sales Quotation',
         ];
 
         return $labels[$type] ?? 'Document';

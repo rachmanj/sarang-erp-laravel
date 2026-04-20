@@ -11,6 +11,7 @@ use App\Services\Accounting\PostingService;
 use App\Services\CompanyEntityService;
 use App\Services\DocumentClosureService;
 use App\Services\DocumentNumberingService;
+use App\Services\DocumentRelationshipService;
 use App\Services\SalesWorkflowAuditService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -163,6 +164,15 @@ class SalesReceiptController extends Controller
                     'updated_at' => now(),
                 ]);
             }
+
+            $relationshipService = app(DocumentRelationshipService::class);
+            foreach ($data['allocations'] as $alloc) {
+                $inv = SalesInvoice::query()->find($alloc['invoice_id']);
+                if ($inv) {
+                    $relationshipService->clearDocumentCache($inv);
+                }
+            }
+            $relationshipService->clearDocumentCache($receipt);
 
             // Attempt to close related Sales Invoices if fully paid
             try {

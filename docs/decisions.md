@@ -1,5 +1,5 @@
 **Purpose**: Record technical decisions and rationale for future reference
-**Last Updated**: 2026-04-20 (Purchase document_relationships sync for navigation + Relationship Map)
+**Last Updated**: 2026-04-21 (Relationship Map extended scope documented — full sales chain, SQ, trading)
 
 # Technical Decision Records
 
@@ -29,6 +29,25 @@ Decision: [Title] - [YYYY-MM-DD]
 ---
 
 ## Recent Decisions
+
+### Decision: Relationship Map — extended visualization scope (full sales chain, Sales Quotation, trading / GRPO) — 2026-04-21
+
+**Context**: The **Document workflow** modal effectively shows **one hop** of `document_relationships` via `getNavigationData()`, so users often miss **Sales Order**, **Sales Receipt**, and any **quotation** or **GRPO** context even when FKs and combination tables hold the truth. Product wants one place to see the **complete sales-related** story.
+
+**Options Considered**:
+
+1. **Status quo** — ❌ Continues support burden and “missing SO” confusion.
+2. **Document programme in action plan + promote to living docs** — ✅ Single scope reference for T1 core chain (SO→DO→SI→SR), T2 **Sales Quotation**, T3 **trading overlay** (GRPO→SI, optional PO→GRPO); implement later via BFS + FK/pivot enrichment per `docs/action-plans/relationship-map-complete-sales-chain.md`.
+
+**Decision**: Adopt the **tiered scope** in that action plan as the authoritative roadmap. **Living docs**: `.cursorrules` (*Document Relationship Map* subsection), `docs/architecture.md` (DocumentRelationshipController + Relationship Map Flow), this file, `docs/relationship-map-implementation-summary.md`, `docs/todo.md`.
+
+**Rationale**: Matches purchase-side lesson (persist + sync + backfill); quotation and trading are **explicit phases** so implementers do not relegate them to informal “out of scope” footnotes.
+
+**Implementation**: No code change in this documentation-only step; implementation tickets follow Phases 1–9 of the action plan.
+
+**Review Date**: 2027-04-21
+
+---
 
 ### Decision: Purchase workflow — persist `document_relationships` for navigation and Relationship Map — 2026-04-20
 

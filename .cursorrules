@@ -107,6 +107,15 @@ Periodically (when todo.md gets cluttered):
 -   Update multiple files when changes affect multiple areas
 -   Maintain consistency between memory, architecture, and task tracking
 
+### Document Relationship Map (living roadmap)
+
+When changing **Base/Target navigation** or the **Relationship Map** modal (`DocumentRelationshipService`, `DocumentRelationshipController`, `relationship-map-modal.blade.php`):
+
+1. Treat **`docs/action-plans/relationship-map-complete-sales-chain.md`** as the **scope source** for the planned **full sales chain** (SO→DO→SI→SR), **Sales Quotation** nodes, and **trading / GRPO** overlay on SI.
+2. Keep **`docs/architecture.md`** → *Document Navigation & Journal Preview System Architecture* updated: distinguish **current behaviour** (e.g. one-hop map from `getNavigationData`) vs **shipped** multi-hop / enrichment once implemented.
+3. Append implementation notes to **`docs/relationship-map-implementation-summary.md`**; log non-trivial product/technical choices in **`docs/decisions.md`**; use **`docs/todo.md`** / **`docs/backlog.md`** for delivery tracking.
+4. After behaviour changes, note important learnings in **`MEMORY.md`** per the Memory guidelines above.
+
 since this app already launched, you need to consider existing data in db. live db already restore to this local db for you to access.
 After making change, test it in the browser using chrome-devtools MCP, assume the server is already running
 

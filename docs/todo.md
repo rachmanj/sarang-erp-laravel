@@ -1,5 +1,5 @@
 **Purpose**: Track current work and immediate priorities
-**Last Updated**: 2026-04-20 (Purchase document_relationships sync + docs)
+**Last Updated**: 2026-04-22 (Relationship Map expansion shipped)
 
 ## Task Management Guidelines
 
@@ -45,6 +45,7 @@ Include relevant context in brackets to help with future AI-assisted coding:
 
 ## Recently Completed
 
+-   `[done] P2: Relationship Map — expanded sales graph (API) [expandSalesRelationshipMapGraph BFS+enrichment; DO↔SI pivot; SI SR/CM/SO/GRPO/PO; SQ↔SO; graphNodeId prefixes; legacy_map=1; SalesReceiptController clearDocumentCache; ar.quotations permission+URL+modal style; DocumentRelationshipMapExpansionTest; architecture + implementation-summary + MEMORY [108]; action-plan T1/T2/T3 partial] (completed: 2026-04-22)`
 -   `[done] P1: Purchase document_relationships sync — Relationship Map + Base/Target navigation [DocumentRelationshipService: syncGoodsReceiptPORelationships, syncPurchaseInvoiceRelationships, syncPurchasePaymentRelationships; initializePIPurchaseOrderRelationships; fix PI/PP morph + delete legacy rows in initializeExistingRelationships; GoodsReceiptPOController@store, GRPOCopyService, PurchaseInvoiceController@store, PurchaseInvoiceCopyService, PurchasePaymentController@store; backfill: php artisan db:seed --class=DocumentRelationshipSeeder; docs: architecture, decisions, MEMORY [106], MODULES §52, relationship-map-implementation-summary, purchase-module-manual EN/ID, todo] (completed: 2026-04-20)`
 -   `[done] P1: Sales Invoice PPN posting + inclusive totals UX + validate command [SalesInvoicePostingMath; post() AR/AR UnInvoice gross + revenue debit PPN reclass + PPN credit; opening balance path; invoiceFooterTotals + $invoiceFooter on show/print/pdf/queuePdf; line Amount = amountFromQtyTimesUnitPrice; store() currency_id IDR; sales-invoices:validate-posted-journals in Kernel; ArInvoicePostingTest + unit tests; docs: architecture, decisions, MEMORY, MODULES, manuals EN/ID, todo] (completed: 2026-04-17)`
 -   `[done] P1: Account Statements validation UX + HELP corpus [nullable+required_if on store for account_id/business_partner_id; account-statements-module-manual-en/id; help-navigation.json account-statements-formal; ACCOUNT-STATEMENTS-IMPLEMENTATION.md + MODULES + architecture + decisions + MEMORY; in-app-help cross-links; reindex: php artisan help:reindex] (completed: 2026-04-16)`

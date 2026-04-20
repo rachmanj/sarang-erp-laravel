@@ -1,5 +1,5 @@
 **Purpose**: AI's persistent knowledge base for project context and learnings
-**Last Updated**: 2026-04-20 (Purchase document_relationships sync)
+**Last Updated**: 2026-04-22 (Relationship Map expanded sales graph shipped)
 
 ## Memory Maintenance Guidelines
 
@@ -26,6 +26,18 @@
 ---
 
 ## Project Memory Entries
+
+### [108] Relationship Map — expandSalesRelationshipMapGraph + type-prefixed Mermaid ids (2026-04-22) ✅ COMPLETE
+
+**Challenge**: Modal used **one-hop** `document_relationships`; **SO/SR/SQ/GRPO** missing from chart; **doc_{id}** could **collide** across document types.
+
+**Solution**: **`DocumentRelationshipService::expandSalesRelationshipMapGraph()`** — BFS (depth 8, uncached direct loads) + enrichment (DO `sales_order_id` + **salesInvoices** pivot, SI allocations/CM/DO/SO/GRPO/PO, SQ↔SO, CM↔SI). **`DocumentRelationshipController`**: sales roots use expansion; **`legacy_map=1`** for old behaviour; **`graphNodeId()`** prefixes (`doc_SI_12`). **Permissions**: **`SalesQuotation`** → `ar.quotations.view`. **SR store**: **`clearDocumentCache`** on allocated invoices + receipt. Tests: **`DocumentRelationshipMapExpansionTest`**.
+
+**Learning**: Enrich **DO→SI** from **pivot**, not only `document_relationships`; bust **SI** cache when SR allocations change.
+
+### [107] Relationship Map roadmap docs (2026-04-21) ✅ SUPERSEDED by [108]
+
+Scope tiers and living-doc pointers remain in **`docs/action-plans/relationship-map-complete-sales-chain.md`**; core expansion shipped 2026-04-22 — see **[108]**.
 
 ### [106] Purchase document_relationships sync — navigation + Relationship Map (2026-04-20) ✅ COMPLETE
 

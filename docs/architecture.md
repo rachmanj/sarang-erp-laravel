@@ -1,5 +1,5 @@
 Purpose: Technical reference for understanding system design and development patterns
-Last Updated: 2026-04-20 (Purchase document_relationships sync for Relationship Map + Base/Target navigation; prior: 2026-04-17 SI PPN posting)
+Last Updated: 2026-04-22 (Relationship Map: expanded sales-chain API via DocumentRelationshipService::expandSalesRelationshipMapGraph; prior: 2026-04-21 roadmap docs)
 
 ## Architecture Documentation Guidelines
 
@@ -1114,6 +1114,7 @@ The Document Navigation & Journal Preview system provides comprehensive workflow
 -   Mermaid.js compatible graph generation
 -   Document workflow visualization
 -   Comprehensive relationship data formatting
+-   **Relationship map (sales documents):** `GET /api/documents/{type}/{id}/relationship-map` uses **`DocumentRelationshipService::expandSalesRelationshipMapGraph()`** when the root is a sales-chain document (SO, DO, SI, SR, CM, SQ): **BFS** over `document_relationships` (direct queries, permission-filtered) up to depth 8, then **enrichment** from FKs/pivots (DO `sales_order_id` and `salesInvoices`; SI `sales_order_id`, `deliveryOrders`, `creditMemo`, `sales_receipt_allocations`, `sales_invoice_grpo_combinations` + PO→GRPO; SQ `converted_to_sales_order_id`; CM `sales_invoice_id`). **`?legacy_map=1`** restores the former **single-hop** graph from `getNavigationData()` only. Node ids are **type-prefixed** (e.g. `doc_SI_12`) for Mermaid. Purchase documents still use the one-hop builder; see **`docs/action-plans/relationship-map-complete-sales-chain.md`** for future polish.
 
 **JournalPreviewController**
 
@@ -1231,7 +1232,7 @@ The Menu Search System provides global search functionality for navigating menu 
 
 1. **Document Selection**: User clicks Relationship Map button on any document show page
 2. **API Request**: Frontend calls `/api/documents/{documentType}/{documentId}/relationship-map`
-3. **Data Retrieval**: DocumentRelationshipController fetches all related documents using DocumentRelationshipService
+3. **Data Retrieval**: DocumentRelationshipController uses `expandSalesRelationshipMapGraph()` for sales roots, else `getNavigationData()` one-hop bases/targets (`?legacy_map=1` forces the latter for sales)
 4. **Graph Generation**: Mermaid.js compatible graph definition created with document nodes and relationships
 5. **Modal Display**: Professional AdminLTE modal renders with document info, relationship summary, and interactive flowchart
 6. **User Interaction**: Users can zoom, navigate, and click on document nodes for direct navigation

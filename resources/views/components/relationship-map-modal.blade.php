@@ -370,6 +370,7 @@
     classDef salesInvoice fill:#fff8e1,stroke:#ffa000,stroke-width:2px,color:#000
     classDef salesReceipt fill:#e0f2f1,stroke:#00796b,stroke-width:2px,color:#000
     classDef salesCreditMemo fill:#fce4ec,stroke:#ad1457,stroke-width:2px,color:#000
+    classDef salesQuotation fill:#e8eaf6,stroke:#3949ab,stroke-width:2px,color:#000
     classDef default fill:#f8f9fa,stroke:#6c757d,stroke-width:2px,color:#000
         `;
 
@@ -396,7 +397,8 @@
                 'Delivery Order': 'deliveryOrder',
                 'Sales Invoice': 'salesInvoice',
                 'Sales Receipt': 'salesReceipt',
-                'Sales Credit Memo': 'salesCreditMemo'
+                'Sales Credit Memo': 'salesCreditMemo',
+                'Sales Quotation': 'salesQuotation'
             };
             return typeMap[type] || 'default';
         }

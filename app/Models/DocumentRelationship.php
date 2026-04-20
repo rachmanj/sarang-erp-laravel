@@ -85,6 +85,7 @@ class DocumentRelationship extends Model
             'App\Models\Accounting\SalesInvoice' => 'ar.invoices',
             'App\Models\Accounting\SalesCreditMemo' => 'ar.credit-memos',
             'App\Models\Accounting\SalesReceipt' => 'ar.receipts',
+            'App\Models\SalesQuotation' => 'ar.quotations',
         ];
     }
 

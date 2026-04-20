@@ -4,10 +4,17 @@ namespace App\Services;
 
 use App\Models\Accounting\PurchaseInvoice;
 use App\Models\Accounting\PurchasePayment;
+use App\Models\Accounting\SalesCreditMemo;
+use App\Models\Accounting\SalesInvoice;
+use App\Models\Accounting\SalesReceipt;
+use App\Models\DeliveryOrder;
 use App\Models\DocumentRelationship;
 use App\Models\GoodsReceiptPO;
 use App\Models\PurchaseOrder;
+use App\Models\SalesOrder;
+use App\Models\SalesQuotation;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -18,6 +25,11 @@ class DocumentRelationshipService
      * Cache duration in minutes
      */
     private const CACHE_DURATION = 60;
+
+    /**
+     * Max BFS depth when expanding the relationship map for sales documents (SO→DO→SI→SR, etc.).
+     */
+    private const SALES_MAP_MAX_DEPTH = 8;
 
     /**
      * Get base documents for a given document
@@ -297,6 +309,7 @@ class DocumentRelationshipService
             'App\Models\Accounting\SalesInvoice' => 'Sales Invoice',
             'App\Models\Accounting\SalesReceipt' => 'Sales Receipt',
             'App\Models\Accounting\SalesCreditMemo' => 'Sales Credit Memo',
+            'App\Models\SalesQuotation' => 'Sales Quotation',
         ];
 
         return $labels[$morphClass] ?? 'Document';
@@ -368,6 +381,7 @@ class DocumentRelationshipService
             'App\Models\SalesReceipt' => 'sales-receipts.show',
             'App\Models\Accounting\SalesReceipt' => 'sales-receipts.show',
             'App\Models\Accounting\SalesCreditMemo' => 'sales-credit-memos.show',
+            'App\Models\SalesQuotation' => 'sales-quotations.show',
         ];
 
         $route = $routes[$type] ?? 'documents.show';
@@ -645,5 +659,277 @@ class DocumentRelationshipService
                 'relationship_type' => 'base',
             ]);
         }
+    }
+
+    /**
+     * Use expanded sales-chain graph on the relationship-map API for these document types.
+     */
+    public function isSalesChainExpansionRoot(Model $document): bool
+    {
+        return $document instanceof SalesOrder
+            || $document instanceof DeliveryOrder
+            || $document instanceof SalesInvoice
+            || $document instanceof SalesReceipt
+            || $document instanceof SalesCreditMemo
+            || $document instanceof SalesQuotation;
+    }
+
+    /**
+     * Build the full sales (and optional trading) document set and directed edges for the Relationship Map modal.
+     *
+     * @return array{models: array<string, Model>, edges: list<array{from: Model, to: Model}>}
+     */
+    public function expandSalesRelationshipMapGraph(Model $root, ?User $user = null): array
+    {
+        $stableKey = static fn (Model $m): string => $m->getMorphClass().':'.$m->getKey();
+
+        $edgeKeys = [];
+        $edges = [];
+        $addEdge = static function (Model $from, Model $to) use (&$edges, &$edgeKeys, $stableKey): void {
+            $k = $stableKey($from).'|'.$stableKey($to);
+            if (isset($edgeKeys[$k])) {
+                return;
+            }
+            $edgeKeys[$k] = true;
+            $edges[] = ['from' => $from, 'to' => $to];
+        };
+
+        $models = [];
+        $rk = $stableKey($root);
+        $models[$rk] = $root;
+
+        $expanded = [];
+        $queue = new \SplQueue;
+        $queue->enqueue([$root, 0]);
+
+        while (! $queue->isEmpty()) {
+            /** @var Model $doc */
+            [$doc, $depth] = $queue->dequeue();
+            $sk = $stableKey($doc);
+            if (isset($expanded[$sk])) {
+                continue;
+            }
+            $expanded[$sk] = true;
+
+            if ($depth >= self::SALES_MAP_MAX_DEPTH) {
+                continue;
+            }
+
+            if (! $this->shouldTraverseEdgesFrom($doc)) {
+                continue;
+            }
+
+            $bases = $this->loadBaseDocumentsDirect($doc, $user);
+            foreach ($bases as $parent) {
+                if (! $this->canUserViewDocument($parent, $user)) {
+                    continue;
+                }
+                $models[$stableKey($parent)] = $parent;
+                $addEdge($parent, $doc);
+                $queue->enqueue([$parent, $depth + 1]);
+            }
+
+            $targets = $this->loadTargetDocumentsDirect($doc, $user);
+            foreach ($targets as $child) {
+                if (! $this->canUserViewDocument($child, $user)) {
+                    continue;
+                }
+                $models[$stableKey($child)] = $child;
+                $addEdge($doc, $child);
+                $queue->enqueue([$child, $depth + 1]);
+            }
+        }
+
+        $this->enrichSalesRelationshipMapGraph($models, $addEdge, $user);
+
+        return ['models' => $models, 'edges' => $edges];
+    }
+
+    private function shouldTraverseEdgesFrom(Model $document): bool
+    {
+        return $document instanceof SalesOrder
+            || $document instanceof DeliveryOrder
+            || $document instanceof SalesInvoice
+            || $document instanceof SalesReceipt
+            || $document instanceof SalesQuotation;
+    }
+
+    private function canUserViewDocument(?Model $document, ?User $user): bool
+    {
+        if (! $document || ! $user) {
+            return true;
+        }
+
+        $permission = DocumentRelationship::getDocumentPermission($document->getMorphClass());
+
+        return $user->can($permission.'.view');
+    }
+
+    /**
+     * @param  array<string, Model>  $models
+     * @param  callable(Model, Model): void  $addEdge
+     */
+    private function enrichSalesRelationshipMapGraph(array &$models, callable $addEdge, ?User $user): void
+    {
+        $stableKey = static fn (Model $m): string => $m->getMorphClass().':'.$m->getKey();
+
+        for ($pass = 0; $pass < 8; $pass++) {
+            $beforeCount = count($models);
+            foreach (array_values($models) as $model) {
+                $this->enrichSalesRelationshipMapGraphForModel($model, $models, $addEdge, $user, $stableKey);
+            }
+            if (count($models) === $beforeCount) {
+                break;
+            }
+        }
+    }
+
+    /**
+     * @param  array<string, Model>  $models
+     * @param  callable(Model, Model): void  $addEdge
+     * @param  callable(Model): string  $stableKey
+     */
+    private function enrichSalesRelationshipMapGraphForModel(
+        Model $model,
+        array &$models,
+        callable $addEdge,
+        ?User $user,
+        callable $stableKey
+    ): void {
+        if ($model instanceof DeliveryOrder) {
+            if ($model->sales_order_id) {
+                $so = SalesOrder::query()->find($model->sales_order_id);
+                if ($so && $this->canUserViewDocument($so, $user)) {
+                    $models[$stableKey($so)] = $so;
+                    $addEdge($so, $model);
+                }
+            }
+
+            $model->loadMissing(['salesInvoices']);
+            foreach ($model->salesInvoices as $invoice) {
+                if ($this->canUserViewDocument($invoice, $user)) {
+                    $models[$stableKey($invoice)] = $invoice;
+                    $addEdge($model, $invoice);
+                }
+            }
+        }
+
+        if ($model instanceof SalesOrder) {
+            $quotations = SalesQuotation::query()
+                ->where('converted_to_sales_order_id', $model->id)
+                ->get();
+            foreach ($quotations as $sq) {
+                if ($this->canUserViewDocument($sq, $user)) {
+                    $models[$stableKey($sq)] = $sq;
+                    $addEdge($sq, $model);
+                }
+            }
+        }
+
+        if ($model instanceof SalesQuotation && $model->converted_to_sales_order_id) {
+            $so = SalesOrder::query()->find($model->converted_to_sales_order_id);
+            if ($so && $this->canUserViewDocument($so, $user)) {
+                $models[$stableKey($so)] = $so;
+                $addEdge($model, $so);
+            }
+        }
+
+        if ($model instanceof SalesInvoice) {
+            if ($model->sales_order_id) {
+                $so = SalesOrder::query()->find($model->sales_order_id);
+                if ($so && $this->canUserViewDocument($so, $user)) {
+                    $models[$stableKey($so)] = $so;
+                    $addEdge($so, $model);
+                }
+            }
+
+            $model->loadMissing(['deliveryOrders', 'creditMemo']);
+
+            foreach ($model->deliveryOrders as $do) {
+                if ($this->canUserViewDocument($do, $user)) {
+                    $models[$stableKey($do)] = $do;
+                    $addEdge($do, $model);
+                }
+            }
+
+            $memo = $model->creditMemo;
+            if ($memo && $this->canUserViewDocument($memo, $user)) {
+                $models[$stableKey($memo)] = $memo;
+                $addEdge($model, $memo);
+            }
+
+            $receiptIds = DB::table('sales_receipt_allocations')
+                ->where('invoice_id', $model->id)
+                ->pluck('receipt_id');
+            foreach ($receiptIds as $rid) {
+                $sr = SalesReceipt::query()->find($rid);
+                if ($sr && $this->canUserViewDocument($sr, $user)) {
+                    $models[$stableKey($sr)] = $sr;
+                    $addEdge($model, $sr);
+                }
+            }
+
+            $grpoIds = DB::table('sales_invoice_grpo_combinations')
+                ->where('sales_invoice_id', $model->id)
+                ->pluck('goods_receipt_id');
+            foreach ($grpoIds as $grpoId) {
+                $grpo = GoodsReceiptPO::query()->find($grpoId);
+                if ($grpo && $this->canUserViewDocument($grpo, $user)) {
+                    $models[$stableKey($grpo)] = $grpo;
+                    $addEdge($grpo, $model);
+                    if ($grpo->purchase_order_id) {
+                        $po = PurchaseOrder::query()->find($grpo->purchase_order_id);
+                        if ($po && $this->canUserViewDocument($po, $user)) {
+                            $models[$stableKey($po)] = $po;
+                            $addEdge($po, $grpo);
+                        }
+                    }
+                }
+            }
+        }
+
+        if ($model instanceof SalesCreditMemo && $model->sales_invoice_id) {
+            $si = SalesInvoice::query()->find($model->sales_invoice_id);
+            if ($si && $this->canUserViewDocument($si, $user)) {
+                $models[$stableKey($si)] = $si;
+                $addEdge($si, $model);
+            }
+        }
+    }
+
+    private function loadBaseDocumentsDirect(Model $document, ?User $user): Collection
+    {
+        $relationships = DocumentRelationship::query()
+            ->where('target_document_type', $document->getMorphClass())
+            ->where('target_document_id', $document->id)
+            ->where('relationship_type', 'base')
+            ->with(['sourceDocument'])
+            ->get();
+
+        $baseDocuments = $relationships->map(fn ($relationship) => $relationship->sourceDocument)->filter();
+        if ($user) {
+            $baseDocuments = $this->filterByUserPermissions($baseDocuments, $user);
+        }
+
+        return $baseDocuments;
+    }
+
+    private function loadTargetDocumentsDirect(Model $document, ?User $user): Collection
+    {
+        $relationships = DocumentRelationship::query()
+            ->where('source_document_type', $document->getMorphClass())
+            ->where('source_document_id', $document->id)
+            ->whereIn('relationship_type', ['base', 'target'])
+            ->with(['targetDocument'])
+            ->get();
+
+        $targetDocuments = $relationships->map(fn ($relationship) => $relationship->targetDocument)->filter();
+        $targetDocuments = $targetDocuments->unique(fn ($doc) => $doc->getMorphClass().'-'.$doc->getKey())->values();
+
+        if ($user) {
+            $targetDocuments = $this->filterByUserPermissions($targetDocuments, $user);
+        }
+
+        return $targetDocuments;
     }
 }
