@@ -1,12 +1,18 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>DO {{ $deliveryOrder->do_number }}</title>
     <style>
+        /*
+         * Tuned for Epson LX-310 (9.5" tractor / ~8" printable @ 10 CPI ≈ 80 cols).
+         * Use driver: continuous form, same width; disable fit-to-page if output scales wrong.
+         */
         @page {
-            size: 9.5in;
-            margin: 0.25in;
+            size: 241mm 297mm;
+            margin: 4mm 5mm;
         }
 
         * {
@@ -14,70 +20,75 @@
         }
 
         body {
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 11px;
-            line-height: 1.2;
+            font-family: 'Courier New', 'Liberation Mono', Courier, monospace;
+            font-size: 9.5pt;
+            line-height: 1.15;
             margin: 0;
-            padding: 8px;
-            max-width: 9.5in;
+            padding: 6px;
+            max-width: 80ch;
             width: 100%;
             background: #fff;
+            color: #000;
         }
 
         .company-header {
             text-align: center;
-            margin-bottom: 8px;
-            padding-bottom: 4px;
+            margin-bottom: 6px;
+            padding-bottom: 3px;
             border-bottom: 1px solid #000;
         }
 
         .company-logo {
-            margin-bottom: 4px;
+            margin-bottom: 2px;
             background: #fff;
-            padding: 4px;
+            padding: 2px;
             display: inline-block;
         }
 
         .company-logo img {
-            height: 40px;
+            height: 36px;
+            max-width: 100%;
+            image-rendering: crisp-edges;
         }
 
         .company-name {
-            font-size: 12px;
+            font-size: 10.5pt;
             font-weight: bold;
-            margin-bottom: 2px;
+            margin-bottom: 1px;
         }
 
         .company-details {
-            font-size: 10px;
+            font-size: 8.5pt;
         }
 
         .header {
             text-align: center;
-            margin: 8px 0;
+            margin: 6px 0;
         }
 
         .header h1 {
-            font-size: 14px;
-            margin: 0 0 2px 0;
+            font-size: 11pt;
+            margin: 0 0 1px 0;
             font-weight: bold;
         }
 
         .header .do-number {
-            font-size: 12px;
+            font-size: 9.5pt;
         }
 
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 8px;
-            font-size: 10px;
+            margin-bottom: 6px;
+            font-size: 8.5pt;
         }
 
         th, td {
             border: 1px solid #000;
-            padding: 3px 4px;
+            padding: 1px 3px;
             text-align: left;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
         }
 
         th {
@@ -90,7 +101,7 @@
 
         .info-table td {
             border: none;
-            padding: 1px 4px;
+            padding: 0 3px 1px 0;
             vertical-align: top;
         }
 
@@ -102,25 +113,42 @@
 
         .delivery-address-cell {
             white-space: pre-line;
-            max-width: 0;
+            overflow-wrap: anywhere;
+            word-break: break-word;
         }
 
-        .items-table th:nth-child(1) { width: 5%; }
-        .items-table th:nth-child(2) { width: 12%; }
-        .items-table th:nth-child(3) { width: 8%; }
-        .items-table th:nth-child(4) { width: 45%; }
-        .items-table th:nth-child(5) { width: 12%; }
-        .items-table th:nth-child(6) { width: 8%; }
-        .items-table th:nth-child(7) { width: 3%; }
+        .items-table {
+            table-layout: fixed;
+        }
+
+        .items-table th:nth-child(1),
+        .items-table td:nth-child(1) { width: 4%; }
+        .items-table th:nth-child(2),
+        .items-table td:nth-child(2) { width: 11%; }
+        .items-table th:nth-child(3),
+        .items-table td:nth-child(3) { width: 9%; }
+        .items-table th:nth-child(4),
+        .items-table td:nth-child(4) { width: 46%; }
+        .items-table th:nth-child(5),
+        .items-table td:nth-child(5) { width: 12%; }
+        .items-table th:nth-child(6),
+        .items-table td:nth-child(6) { width: 10%; }
+        .items-table th:nth-child(7),
+        .items-table td:nth-child(7) { width: 8%; }
+
+        .items-table td:nth-child(4) {
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
 
         .signature-row {
-            margin-top: 24px;
-            font-size: 10px;
+            margin-top: 14pt;
+            font-size: 8.5pt;
         }
 
         .signature-row td {
             border: none;
-            padding: 8px 4px;
+            padding: 4px 2px;
             vertical-align: top;
         }
 
@@ -138,8 +166,16 @@
         }
 
         @media print {
-            body { padding: 0; margin: 0; background: #fff; }
+            body {
+                padding: 0;
+                margin: 0;
+                background: #fff;
+                max-width: none;
+            }
             .company-logo { background: #fff !important; }
+            .company-logo img {
+                height: 28px;
+            }
             .no-print { display: none !important; }
         }
     </style>
@@ -236,12 +272,12 @@
         <thead>
             <tr>
                 <th class="text-center">No</th>
-                <th>Item Code</th>
-                <th>Part No.</th>
-                <th>Item Name</th>
+                <th>Code</th>
+                <th>Part#</th>
+                <th>Description</th>
                 <th class="text-right">Qty</th>
                 <th class="text-center">UOM</th>
-                <th class="text-center">[ ]</th>
+                <th class="text-center">Ok</th>
             </tr>
         </thead>
         <tbody>
