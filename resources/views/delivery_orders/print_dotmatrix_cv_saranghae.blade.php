@@ -7,8 +7,9 @@
     <title>DO {{ $deliveryOrder->do_number }}</title>
     <style>
         /*
-         * Tuned for Epson LX-310 (9.5" tractor / ~8" printable @ 10 CPI ≈ 80 cols).
-         * Use driver: continuous form, same width; disable fit-to-page if output scales wrong.
+         * Epson LX-310: small TrueType from the browser often rasterizes as faint, thin
+         * strokes. Use larger pt sizes + semibold/bold + print smoothing off so pins get
+         * solid bitmaps (closer to Excel/driver text). Driver: 100% scale, draft ok.
          */
         @page {
             size: 241mm 297mm;
@@ -20,12 +21,14 @@
         }
 
         body {
-            font-family: 'Courier New', 'Liberation Mono', Courier, monospace;
-            font-size: 9.5pt;
-            line-height: 1.15;
+            font-family: 'Courier New', Consolas, 'Liberation Mono', Courier, monospace;
+            font-size: 12pt;
+            font-weight: 600;
+            line-height: 1.22;
+            letter-spacing: 0.02em;
             margin: 0;
             padding: 6px;
-            max-width: 80ch;
+            max-width: 72ch;
             width: 100%;
             background: #fff;
             color: #000;
@@ -52,13 +55,14 @@
         }
 
         .company-name {
-            font-size: 10.5pt;
-            font-weight: bold;
+            font-size: 13pt;
+            font-weight: 700;
             margin-bottom: 1px;
         }
 
         .company-details {
-            font-size: 8.5pt;
+            font-size: 10.5pt;
+            font-weight: 600;
         }
 
         .header {
@@ -67,32 +71,36 @@
         }
 
         .header h1 {
-            font-size: 11pt;
+            font-size: 14pt;
             margin: 0 0 1px 0;
-            font-weight: bold;
+            font-weight: 700;
         }
 
         .header .do-number {
-            font-size: 9.5pt;
+            font-size: 12pt;
+            font-weight: 600;
         }
 
         table {
             width: 100%;
             border-collapse: collapse;
             margin-bottom: 6px;
-            font-size: 8.5pt;
+            font-size: 11pt;
+            font-weight: 600;
+            font-variant-numeric: tabular-nums;
         }
 
         th, td {
             border: 1px solid #000;
-            padding: 1px 3px;
+            padding: 2px 3px;
             text-align: left;
+            color: #000;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
         }
 
         th {
-            font-weight: bold;
+            font-weight: 700;
             background: #fff;
         }
 
@@ -143,7 +151,8 @@
 
         .signature-row {
             margin-top: 14pt;
-            font-size: 8.5pt;
+            font-size: 10.5pt;
+            font-weight: 600;
         }
 
         .signature-row td {
@@ -171,6 +180,13 @@
                 margin: 0;
                 background: #fff;
                 max-width: none;
+                -webkit-font-smoothing: none;
+                -moz-osx-font-smoothing: unset;
+                font-smooth: never;
+                text-rendering: optimizeSpeed;
+            }
+            body, table, th, td, .company-header, .header, .signature-row {
+                color: #000 !important;
             }
             .company-logo { background: #fff !important; }
             .company-logo img {
