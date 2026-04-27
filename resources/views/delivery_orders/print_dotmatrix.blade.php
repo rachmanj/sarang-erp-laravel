@@ -1,12 +1,18 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>DO {{ $deliveryOrder->do_number }}</title>
     <style>
+        /*
+         * Epson LX-310: larger pt + semibold/bold + print smoothing off for readable pins.
+         * Driver: 100% scale, continuous 9.5" form; disable fit-to-page if scaled wrong.
+         */
         @page {
-            size: 9.5in;
-            margin: 0.25in;
+            size: 241mm 297mm;
+            margin: 4mm 5mm;
         }
 
         * {
@@ -14,67 +20,79 @@
         }
 
         body {
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 11px;
-            line-height: 1.2;
+            font-family: 'Courier New', Consolas, 'Liberation Mono', Courier, monospace;
+            font-size: 12pt;
+            font-weight: 600;
+            line-height: 1.22;
+            letter-spacing: 0.02em;
             margin: 0;
-            padding: 8px;
-            max-width: 9.5in;
+            padding: 6px;
+            max-width: 72ch;
             width: 100%;
+            background: #fff;
+            color: #000;
         }
 
         .company-header {
             text-align: center;
-            margin-bottom: 8px;
-            padding-bottom: 4px;
+            margin-bottom: 6px;
+            padding-bottom: 3px;
             border-bottom: 1px solid #000;
         }
 
         .company-header .logo {
-            max-height: 48px;
-            margin-bottom: 4px;
+            max-height: 36px;
+            margin-bottom: 2px;
+            image-rendering: crisp-edges;
         }
 
         .company-name {
-            font-size: 12px;
-            font-weight: bold;
-            margin-bottom: 2px;
+            font-size: 13pt;
+            font-weight: 700;
+            margin-bottom: 1px;
         }
 
         .company-details {
-            font-size: 10px;
+            font-size: 10.5pt;
+            font-weight: 600;
         }
 
         .header {
             text-align: center;
-            margin: 8px 0;
+            margin: 6px 0;
         }
 
         .header h1 {
-            font-size: 14px;
-            margin: 0 0 2px 0;
-            font-weight: bold;
+            font-size: 14pt;
+            margin: 0 0 1px 0;
+            font-weight: 700;
         }
 
         .header .do-number {
-            font-size: 12px;
+            font-size: 12pt;
+            font-weight: 600;
         }
 
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 8px;
-            font-size: 10px;
+            margin-bottom: 6px;
+            font-size: 11pt;
+            font-weight: 600;
+            font-variant-numeric: tabular-nums;
         }
 
         th, td {
             border: 1px solid #000;
-            padding: 3px 4px;
+            padding: 2px 3px;
             text-align: left;
+            color: #000;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
         }
 
         th {
-            font-weight: bold;
+            font-weight: 700;
             background: #fff;
         }
 
@@ -83,7 +101,7 @@
 
         .info-table td {
             border: none;
-            padding: 1px 4px;
+            padding: 0 3px 1px 0;
             vertical-align: top;
         }
 
@@ -95,25 +113,43 @@
 
         .delivery-address-cell {
             white-space: pre-line;
-            max-width: 0;
+            overflow-wrap: anywhere;
+            word-break: break-word;
         }
 
-        .items-table th:nth-child(1) { width: 5%; }
-        .items-table th:nth-child(2) { width: 12%; }
-        .items-table th:nth-child(3) { width: 8%; }
-        .items-table th:nth-child(4) { width: 45%; }
-        .items-table th:nth-child(5) { width: 12%; }
-        .items-table th:nth-child(6) { width: 8%; }
-        .items-table th:nth-child(7) { width: 3%; }
+        .items-table {
+            table-layout: fixed;
+        }
+
+        .items-table th:nth-child(1),
+        .items-table td:nth-child(1) { width: 4%; }
+        .items-table th:nth-child(2),
+        .items-table td:nth-child(2) { width: 11%; }
+        .items-table th:nth-child(3),
+        .items-table td:nth-child(3) { width: 9%; }
+        .items-table th:nth-child(4),
+        .items-table td:nth-child(4) { width: 46%; }
+        .items-table th:nth-child(5),
+        .items-table td:nth-child(5) { width: 12%; }
+        .items-table th:nth-child(6),
+        .items-table td:nth-child(6) { width: 10%; }
+        .items-table th:nth-child(7),
+        .items-table td:nth-child(7) { width: 8%; }
+
+        .items-table td:nth-child(4) {
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
 
         .signature-row {
-            margin-top: 24px;
-            font-size: 10px;
+            margin-top: 14pt;
+            font-size: 10.5pt;
+            font-weight: 600;
         }
 
         .signature-row td {
             border: none;
-            padding: 8px 4px;
+            padding: 4px 2px;
             vertical-align: top;
         }
 
@@ -131,7 +167,22 @@
         }
 
         @media print {
-            body { padding: 0; margin: 0; }
+            body {
+                padding: 0;
+                margin: 0;
+                background: #fff;
+                max-width: none;
+                -webkit-font-smoothing: none;
+                -moz-osx-font-smoothing: unset;
+                font-smooth: never;
+                text-rendering: optimizeSpeed;
+            }
+            body, table, th, td, .company-header, .header, .signature-row {
+                color: #000 !important;
+            }
+            .company-header .logo {
+                max-height: 28px;
+            }
             .no-print { display: none !important; }
         }
     </style>
@@ -212,12 +263,12 @@
         <thead>
             <tr>
                 <th class="text-center">No</th>
-                <th>Item Code</th>
-                <th>Part No.</th>
-                <th>Item Name</th>
+                <th>Code</th>
+                <th>Part#</th>
+                <th>Description</th>
                 <th class="text-right">Qty</th>
                 <th class="text-center">UOM</th>
-                <th class="text-center">[ ]</th>
+                <th class="text-center">Ok</th>
             </tr>
         </thead>
         <tbody>
