@@ -58,7 +58,7 @@ php artisan help:reindex
 
 - Ensure **`help:reindex`** ran after the first deploy.
 - Add clearer wording in manuals (match how users ask).
-- Add a dedicated manual file for new topics, then **reindex**.
+- Add a dedicated manual file for new topics, then **reindex** (e.g. **Sales Receipt** create/edit/post: `sales-receipt-manual-en.md` / `sales-receipt-manual-id.md`).
 
 ### Feedback email
 

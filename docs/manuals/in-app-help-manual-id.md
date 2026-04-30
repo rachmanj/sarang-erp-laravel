@@ -58,7 +58,7 @@ php artisan help:reindex
 
 - Pastikan **`help:reindex`** sudah dijalankan setelah deploy pertama.
 - Tambahkan isi di manual yang lebih spesifik (kata kunci yang sama dengan yang ditanyakan pengguna).
-- Untuk topik baru, buat berkas manual baru, misalnya `nama-modul-manual-id.md`, lalu **reindex**.
+- Untuk topik baru, buat berkas manual baru, misalnya `nama-modul-manual-id.md`, lalu **reindex** (contoh Sales Receipt: `sales-receipt-manual-id.md` / `sales-receipt-manual-en.md`, termasuk **edit draft**).
 
 ### Email notifikasi feedback
 

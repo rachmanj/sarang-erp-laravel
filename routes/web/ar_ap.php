@@ -71,6 +71,8 @@ Route::prefix('sales-receipts')->group(function () {
     Route::get('/create', [SalesReceiptController::class, 'create'])->middleware('permission:ar.receipts.create')->name('sales-receipts.create');
     Route::get('/api/document-number', [SalesReceiptController::class, 'getDocumentNumber'])->middleware('permission:ar.receipts.create')->name('sales-receipts.api.document-number');
     Route::post('/', [SalesReceiptController::class, 'store'])->middleware('permission:ar.receipts.create')->name('sales-receipts.store');
+    Route::get('/{id}/edit', [SalesReceiptController::class, 'edit'])->middleware('permission:ar.receipts.create')->name('sales-receipts.edit');
+    Route::put('/{id}', [SalesReceiptController::class, 'update'])->middleware('permission:ar.receipts.create')->name('sales-receipts.update');
     Route::get('/{id}', [SalesReceiptController::class, 'show'])->middleware('permission:ar.receipts.view')->name('sales-receipts.show');
     Route::post('/{id}/post', [SalesReceiptController::class, 'post'])->middleware('permission:ar.receipts.post')->name('sales-receipts.post');
     Route::get('/{id}/print', function ($id) {

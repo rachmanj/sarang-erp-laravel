@@ -2,18 +2,18 @@
 
 namespace App\Services;
 
-use App\Models\PurchaseOrder;
-use App\Models\GoodsReceipt;
 use App\Models\Accounting\PurchaseInvoice;
 use App\Models\Accounting\PurchasePayment;
-use App\Models\SalesOrder;
-use App\Models\DeliveryOrder;
 use App\Models\Accounting\SalesInvoice;
 use App\Models\Accounting\SalesReceipt;
 use App\Models\Accounting\SalesReceiptAllocation;
+use App\Models\DeliveryOrder;
 use App\Models\ErpParameter;
-use Illuminate\Support\Facades\DB;
+use App\Models\GoodsReceipt;
+use App\Models\PurchaseOrder;
+use App\Models\SalesOrder;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class DocumentClosureService
 {
@@ -32,7 +32,7 @@ class DocumentClosureService
                 'closed_by_document_type' => 'goods_receipt',
                 'closed_by_document_id' => $grpoId,
                 'closed_at' => now(),
-                'closed_by_user_id' => $userId ?? Auth::id()
+                'closed_by_user_id' => $userId ?? Auth::id(),
             ]);
 
             return true;
@@ -56,7 +56,7 @@ class DocumentClosureService
                 'closed_by_document_type' => 'purchase_invoice',
                 'closed_by_document_id' => $piId,
                 'closed_at' => now(),
-                'closed_by_user_id' => $userId ?? Auth::id()
+                'closed_by_user_id' => $userId ?? Auth::id(),
             ]);
 
             return true;
@@ -80,7 +80,7 @@ class DocumentClosureService
                 'closed_by_document_type' => 'purchase_payment',
                 'closed_by_document_id' => $paymentId,
                 'closed_at' => now(),
-                'closed_by_user_id' => $userId ?? Auth::id()
+                'closed_by_user_id' => $userId ?? Auth::id(),
             ]);
 
             return true;
@@ -104,7 +104,7 @@ class DocumentClosureService
                 'closed_by_document_type' => 'delivery_order',
                 'closed_by_document_id' => $doId,
                 'closed_at' => now(),
-                'closed_by_user_id' => $userId ?? Auth::id()
+                'closed_by_user_id' => $userId ?? Auth::id(),
             ]);
 
             return true;
@@ -137,12 +137,53 @@ class DocumentClosureService
                     'closed_by_document_type' => 'sales_receipt',
                     'closed_by_document_id' => $receiptId,
                     'closed_at' => now(),
-                    'closed_by_user_id' => $userId ?? Auth::id()
+                    'closed_by_user_id' => $userId ?? Auth::id(),
                 ]);
             }
         }
 
         return true;
+    }
+
+    /**
+     * After a draft sales receipt is updated, reopen sales invoices that are no longer
+     * fully allocated, then re-apply closure for invoices that are now fully paid.
+     */
+    public function syncSalesInvoiceClosuresAfterSalesReceiptDraftUpdated(int $receiptId, ?int $userId = null, ?int $previousBusinessPartnerId = null): void
+    {
+        $receipt = SalesReceipt::findOrFail($receiptId);
+        $userId = $userId ?? Auth::id();
+
+        $partnerIds = array_values(array_unique(array_filter([
+            $previousBusinessPartnerId,
+            (int) $receipt->business_partner_id,
+        ])));
+
+        foreach ($partnerIds as $partnerId) {
+            $invoices = SalesInvoice::query()
+                ->where('business_partner_id', $partnerId)
+                ->where('status', 'posted')
+                ->get();
+
+            foreach ($invoices as $invoice) {
+                $allocatedAmount = SalesReceiptAllocation::where('invoice_id', $invoice->id)->sum('amount');
+                $remainingAmount = (float) $invoice->total_amount - (float) $allocatedAmount;
+
+                if ($remainingAmount > 0.01
+                    && $invoice->closure_status === 'closed'
+                    && $invoice->closed_by_document_type === 'sales_receipt') {
+                    $invoice->forceFill([
+                        'closure_status' => 'open',
+                        'closed_by_document_type' => null,
+                        'closed_by_document_id' => null,
+                        'closed_at' => null,
+                        'closed_by_user_id' => null,
+                    ])->save();
+                }
+            }
+        }
+
+        $this->closeSalesInvoiceByReceipt($receiptId, $userId);
     }
 
     /**
@@ -160,7 +201,7 @@ class DocumentClosureService
                 'closed_by_document_type' => 'sales_invoice',
                 'closed_by_document_id' => $siId,
                 'closed_at' => now(),
-                'closed_by_user_id' => $userId ?? Auth::id()
+                'closed_by_user_id' => $userId ?? Auth::id(),
             ]);
 
             return true;
@@ -184,7 +225,7 @@ class DocumentClosureService
                 'closed_by_document_type' => 'sales_receipt',
                 'closed_by_document_id' => $receiptId,
                 'closed_at' => now(),
-                'closed_by_user_id' => $userId ?? Auth::id()
+                'closed_by_user_id' => $userId ?? Auth::id(),
             ]);
 
             return true;
@@ -195,7 +236,7 @@ class DocumentClosureService
 
     /**
      * Close Purchase Invoices by Payment
-     * 
+     *
      * Checks all invoices associated with a payment and closes them if fully paid
      */
     public function closePurchaseInvoiceByPayment($paymentId, $userId = null)
@@ -226,7 +267,7 @@ class DocumentClosureService
                     'closed_by_document_type' => 'purchase_payment',
                     'closed_by_document_id' => $paymentId,
                     'closed_at' => now(),
-                    'closed_by_user_id' => $userId ?? Auth::id()
+                    'closed_by_user_id' => $userId ?? Auth::id(),
                 ]);
                 $closedCount++;
             }
@@ -310,10 +351,11 @@ class DocumentClosureService
         $doTotalQty = $do->lines->sum('delivered_qty');
 
         $siQtyForDo = $si->lines->filter(function ($line) use ($doId) {
-            if (!$line->delivery_order_line_id) {
+            if (! $line->delivery_order_line_id) {
                 return false;
             }
             $doLine = $line->deliveryOrderLine;
+
             return $doLine && (int) $doLine->delivery_order_id === (int) $doId;
         })->sum('qty');
 
@@ -389,7 +431,7 @@ class DocumentClosureService
         $document = $model::findOrFail($documentId);
 
         // Check if user has permission to manually close documents
-        if (!Auth::user()->can('close-documents')) {
+        if (! Auth::user()->can('close-documents')) {
             throw new \Exception('Insufficient permissions to close documents');
         }
 
@@ -398,7 +440,7 @@ class DocumentClosureService
             'closed_by_document_type' => 'manual',
             'closed_by_document_id' => null,
             'closed_at' => now(),
-            'closed_by_user_id' => $userId ?? Auth::id()
+            'closed_by_user_id' => $userId ?? Auth::id(),
         ]);
 
         return true;
@@ -413,7 +455,7 @@ class DocumentClosureService
         $document = $model::findOrFail($documentId);
 
         // Check if user has permission to reverse document closure
-        if (!Auth::user()->can('reverse-document-closure')) {
+        if (! Auth::user()->can('reverse-document-closure')) {
             throw new \Exception('Insufficient permissions to reverse document closure');
         }
 
@@ -422,7 +464,7 @@ class DocumentClosureService
             'closed_by_document_type' => null,
             'closed_by_document_id' => null,
             'closed_at' => null,
-            'closed_by_user_id' => null
+            'closed_by_user_id' => null,
         ]);
 
         return true;
@@ -438,7 +480,7 @@ class DocumentClosureService
             ->where('is_active', true)
             ->first();
 
-        if (!$parameter) {
+        if (! $parameter) {
             return $default;
         }
 
@@ -471,7 +513,7 @@ class DocumentClosureService
             'sales_receipt' => SalesReceipt::class,
         ];
 
-        if (!isset($models[$documentType])) {
+        if (! isset($models[$documentType])) {
             throw new \Exception("Unknown document type: {$documentType}");
         }
 

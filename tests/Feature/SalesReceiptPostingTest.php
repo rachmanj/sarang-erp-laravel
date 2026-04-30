@@ -2,10 +2,10 @@
 
 namespace Tests\Feature;
 
-use Illuminate\Foundation\Testing\RefreshDatabase;
-use Tests\TestCase;
 use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Tests\TestCase;
 
 class SalesReceiptPostingTest extends TestCase
 {
@@ -32,13 +32,17 @@ class SalesReceiptPostingTest extends TestCase
             ->where('status', 'posted')
             ->value('id');
 
-        if (!$invoiceId) {
+        if (! $invoiceId) {
+            $currencyId = (int) DB::table('currencies')->orderBy('id')->value('id');
             $invoiceId = DB::table('sales_invoices')->insertGetId([
                 'invoice_no' => 'SI-TEST-001',
                 'date' => now()->toDateString(),
                 'business_partner_id' => $customerId,
                 'company_entity_id' => $entityId,
+                'currency_id' => $currencyId,
+                'exchange_rate' => 1,
                 'total_amount' => 150,
+                'total_amount_foreign' => 150,
                 'status' => 'posted',
                 'posted_at' => now(),
                 'created_at' => now(),
@@ -63,13 +67,13 @@ class SalesReceiptPostingTest extends TestCase
         $receiptId = (int) preg_replace('/[^0-9]/', '', (string) substr($location, strrpos($location, '/')));
         $this->assertDatabaseHas('sales_receipts', ['id' => $receiptId, 'total_amount' => 150.00]);
 
-        $postResp = $this->post('/sales-receipts/' . $receiptId . '/post');
+        $postResp = $this->post('/sales-receipts/'.$receiptId.'/post');
         $postResp->assertRedirect();
 
         $this->assertDatabaseHas('sales_receipts', ['id' => $receiptId, 'status' => 'posted']);
         $jid = (int) DB::table('journals')->where(['source_type' => 'sales_receipt', 'source_id' => $receiptId])->value('id');
         $this->assertGreaterThan(0, $jid);
         $sum = DB::table('journal_lines')->where('journal_id', $jid)->selectRaw('SUM(debit) d, SUM(credit) c')->first();
-        $this->assertEqualsWithDelta((float)$sum->d, (float)$sum->c, 0.01);
+        $this->assertEqualsWithDelta((float) $sum->d, (float) $sum->c, 0.01);
     }
 }

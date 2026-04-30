@@ -22,6 +22,11 @@
                             toastr.success(@json(session('success')));
                         </script>
                     @endif
+                    @if (session('error'))
+                        <script>
+                            toastr.error(@json(session('error')));
+                        </script>
+                    @endif
                     @if (session('pdf_url'))
                         <div class="alert alert-info">PDF ready: <a href="{{ session('pdf_url') }}"
                                 target="_blank">Download</a></div>
@@ -39,6 +44,14 @@
                                     onclick="showRelationshipMap('sales-receipts', {{ $receipt->id }})">
                                     <i class="fas fa-sitemap"></i> Relationship Map
                                 </button>
+                                @can('ar.receipts.create')
+                                    @if ($receipt->status === 'draft')
+                                        <a class="btn btn-sm btn-warning mr-1"
+                                            href="{{ route('sales-receipts.edit', $receipt->id) }}">
+                                            <i class="fas fa-edit"></i> Edit
+                                        </a>
+                                    @endif
+                                @endcan
                                 @can('ar.receipts.post')
                                     @if ($receipt->status !== 'posted')
                                         <form method="post" action="{{ route('sales-receipts.post', $receipt->id) }}"

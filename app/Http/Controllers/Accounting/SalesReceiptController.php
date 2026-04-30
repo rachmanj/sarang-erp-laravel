@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Accounting;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\UpdateSalesReceiptRequest;
 use App\Models\Accounting\SalesInvoice;
 use App\Models\Accounting\SalesReceipt;
 use App\Models\Accounting\SalesReceiptLine;
@@ -29,7 +30,7 @@ class SalesReceiptController extends Controller
     ) {
         $this->middleware(['auth']);
         $this->middleware('permission:ar.receipts.view')->only(['index', 'show']);
-        $this->middleware('permission:ar.receipts.create')->only(['create', 'store', 'getAvailableInvoices', 'previewAllocation']);
+        $this->middleware('permission:ar.receipts.create')->only(['create', 'store', 'edit', 'update', 'getAvailableInvoices', 'previewAllocation']);
         $this->middleware('permission:ar.receipts.post')->only(['post']);
     }
 
@@ -209,6 +210,150 @@ class SalesReceiptController extends Controller
             }
 
             return redirect()->route('sales-receipts.show', $receipt->id)->with('success', 'Receipt created');
+        });
+    }
+
+    public function edit(int $id)
+    {
+        $receipt = SalesReceipt::with('lines')->findOrFail($id);
+
+        if ($receipt->status !== 'draft') {
+            return redirect()->route('sales-receipts.show', $id)
+                ->with('error', 'Only draft sales receipts can be edited.');
+        }
+
+        $customers = DB::table('business_partners')->where('partner_type', 'customer')->orderBy('name')->get();
+        $accounts = DB::table('accounts')->where('is_postable', 1)->orderBy('code')->get();
+        $entities = $this->companyEntityService->getActiveEntities();
+        $defaultEntity = $this->companyEntityService->getDefaultEntity();
+        $allocations = DB::table('sales_receipt_allocations')
+            ->where('receipt_id', $receipt->id)
+            ->get();
+
+        return view('sales_receipts.edit', compact(
+            'receipt',
+            'customers',
+            'accounts',
+            'entities',
+            'defaultEntity',
+            'allocations'
+        ));
+    }
+
+    public function update(UpdateSalesReceiptRequest $request, int $id)
+    {
+        $receipt = SalesReceipt::with('lines')->findOrFail($id);
+
+        if ($receipt->status !== 'draft') {
+            return redirect()->route('sales-receipts.show', $id)
+                ->with('error', 'Only draft sales receipts can be edited.');
+        }
+
+        $data = $request->validated();
+        $entity = $this->companyEntityService->getEntity($data['company_entity_id']);
+        $previousBusinessPartnerId = (int) $receipt->business_partner_id;
+        $previousAllocationInvoiceIds = DB::table('sales_receipt_allocations')
+            ->where('receipt_id', $receipt->id)
+            ->pluck('invoice_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        return DB::transaction(function () use ($data, $entity, $receipt, $previousBusinessPartnerId, $previousAllocationInvoiceIds) {
+            $totalReceipt = 0;
+            foreach ($data['lines'] as $l) {
+                $totalReceipt += (float) $l['amount'];
+            }
+
+            $totalAllocation = 0;
+            foreach ($data['allocations'] as $alloc) {
+                $totalAllocation += (float) $alloc['amount'];
+            }
+
+            if (abs($totalReceipt - $totalAllocation) > 0.01) {
+                return back()->withErrors(['lines' => 'Receipt total must match allocation total.'])->withInput();
+            }
+
+            foreach ($data['allocations'] as $alloc) {
+                $invoice = SalesInvoice::findOrFail($alloc['invoice_id']);
+
+                if ($invoice->business_partner_id != $data['business_partner_id']) {
+                    return back()->withErrors(['allocations' => 'Selected invoice does not belong to selected customer.'])->withInput();
+                }
+
+                if ($invoice->status !== 'posted') {
+                    return back()->withErrors(['allocations' => 'Invoice must be posted before receipt allocation.'])->withInput();
+                }
+
+                $allocatedOthers = DB::table('sales_receipt_allocations')
+                    ->where('invoice_id', $invoice->id)
+                    ->where('receipt_id', '!=', $receipt->id)
+                    ->sum('amount');
+                $remaining = (float) $invoice->total_amount - (float) $allocatedOthers;
+                $allocAmount = (float) $alloc['amount'];
+
+                if ($allocAmount > $remaining + 0.01) {
+                    return back()->withErrors(['allocations' => "Allocation amount for invoice {$invoice->invoice_no} exceeds remaining balance."])->withInput();
+                }
+            }
+
+            DB::table('sales_receipt_allocations')->where('receipt_id', $receipt->id)->delete();
+            SalesReceiptLine::query()->where('receipt_id', $receipt->id)->delete();
+
+            $receipt->update([
+                'date' => $data['date'],
+                'business_partner_id' => $data['business_partner_id'],
+                'company_entity_id' => $entity->id,
+                'description' => $data['description'] ?? null,
+                'total_amount' => $totalReceipt,
+            ]);
+
+            foreach ($data['lines'] as $l) {
+                SalesReceiptLine::create([
+                    'receipt_id' => $receipt->id,
+                    'account_id' => $l['account_id'],
+                    'description' => $l['description'] ?? null,
+                    'amount' => (float) $l['amount'],
+                ]);
+            }
+
+            foreach ($data['allocations'] as $alloc) {
+                DB::table('sales_receipt_allocations')->insert([
+                    'receipt_id' => $receipt->id,
+                    'invoice_id' => $alloc['invoice_id'],
+                    'amount' => (float) $alloc['amount'],
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+
+            $relationshipService = app(DocumentRelationshipService::class);
+            $invoiceIdsToRefresh = array_unique(array_merge(
+                $previousAllocationInvoiceIds,
+                collect($data['allocations'])->pluck('invoice_id')->map(fn ($i) => (int) $i)->all()
+            ));
+            foreach ($invoiceIdsToRefresh as $invId) {
+                $inv = SalesInvoice::query()->find($invId);
+                if ($inv) {
+                    $relationshipService->clearDocumentCache($inv);
+                }
+            }
+            $receipt->refresh();
+            $relationshipService->clearDocumentCache($receipt);
+
+            try {
+                $this->documentClosureService->syncSalesInvoiceClosuresAfterSalesReceiptDraftUpdated(
+                    $receipt->id,
+                    auth()->id(),
+                    $previousBusinessPartnerId !== (int) $receipt->business_partner_id ? $previousBusinessPartnerId : null
+                );
+            } catch (\Exception $closureException) {
+                Log::warning('Failed to sync sales invoice closures after receipt update', [
+                    'receipt_id' => $receipt->id,
+                    'error' => $closureException->getMessage(),
+                ]);
+            }
+
+            return redirect()->route('sales-receipts.show', $receipt->id)->with('success', 'Receipt updated');
         });
     }
 
@@ -404,7 +549,25 @@ class SalesReceiptController extends Controller
     {
         $request->validate([
             'business_partner_id' => ['required', 'integer', 'exists:business_partners,id'],
+            'receipt_id' => ['nullable', 'integer', 'exists:sales_receipts,id'],
         ]);
+
+        $partnerId = (int) $request->input('business_partner_id');
+        $editingReceiptId = null;
+        if ($request->filled('receipt_id')) {
+            $editingReceipt = SalesReceipt::query()->find((int) $request->input('receipt_id'));
+            if (
+                $editingReceipt
+                && $editingReceipt->status === 'draft'
+                && (int) $editingReceipt->business_partner_id === $partnerId
+            ) {
+                $editingReceiptId = $editingReceipt->id;
+            }
+        }
+
+        $remainingBalanceSql = $editingReceiptId
+            ? 'si.total_amount - COALESCE(SUM(sra.amount), 0) + COALESCE(SUM(CASE WHEN sra.receipt_id = '.((int) $editingReceiptId).' THEN sra.amount ELSE 0 END), 0) as remaining_balance'
+            : 'si.total_amount - COALESCE(SUM(sra.amount), 0) as remaining_balance';
 
         $invoices = DB::table('sales_invoices as si')
             ->leftJoin('sales_receipt_allocations as sra', 'sra.invoice_id', '=', 'si.id')
@@ -416,11 +579,11 @@ class SalesReceiptController extends Controller
                 'si.due_date',
                 'si.total_amount',
                 DB::raw('COALESCE(SUM(sra.amount), 0) as allocated_amount'),
-                DB::raw('si.total_amount - COALESCE(SUM(sra.amount), 0) as remaining_balance'),
+                DB::raw($remainingBalanceSql),
                 DB::raw('COALESCE(si.due_date, si.date) as effective_due_date'),
                 DB::raw('DATEDIFF(CURDATE(), COALESCE(si.due_date, si.date)) as days_overdue')
             )
-            ->where('si.business_partner_id', (int) $request->input('business_partner_id'))
+            ->where('si.business_partner_id', $partnerId)
             ->where('si.status', 'posted')
             ->groupBy('si.id', 'si.invoice_no', 'si.reference_no', 'si.date', 'si.due_date', 'si.total_amount')
             ->havingRaw('remaining_balance > 0')

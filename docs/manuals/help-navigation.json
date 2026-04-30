@@ -89,10 +89,11 @@
             "id": "sales-receipts",
             "title_en": "Sales Receipts",
             "title_id": "Penerimaan penjualan",
-            "menu_path_en": "Sidebar → Sales → Sales Receipts (customer payments against invoices).",
-            "menu_path_id": "Menu samping → Sales → Sales Receipts (pelunasan faktur).",
-            "keywords_en": ["sales receipt", "SR", "payment", "collection"],
-            "keywords_id": ["sales receipt", "penerimaan", "pelunasan", "kas masuk"]
+            "menu_path_en": "Sidebar → Sales → Sales Receipts (customer payments against invoices). Draft receipts: View → Edit; posted receipts cannot be edited.",
+            "menu_path_id": "Menu samping → Sales → Sales Receipts (pelunasan faktur). Draft: buka detail → Edit; yang sudah posted tidak bisa diedit.",
+            "keywords_en": ["sales receipt", "SR", "payment", "collection", "edit draft receipt", "change sales receipt", "update allocation", "draft receipt", "ar.receipts.create", "ar.receipts.post", "ar.receipts.view", "correct SR before post"],
+            "keywords_id": ["sales receipt", "penerimaan", "pelunasan", "kas masuk", "edit sales receipt", "ubah draft", "koreksi alokasi", "penerimaan penjualan", "ar.receipts.create", "ar.receipts.post", "perbaiki SR"],
+            "notes": "Manuals: sales-receipt-manual-en.md, sales-receipt-manual-id.md. Reindex: php artisan help:reindex"
         },
         {
             "id": "sales-credit-memos",
