@@ -411,6 +411,7 @@ class SalesReceiptController extends Controller
             ->select(
                 'si.id',
                 'si.invoice_no',
+                'si.reference_no',
                 'si.date',
                 'si.due_date',
                 'si.total_amount',
@@ -421,7 +422,7 @@ class SalesReceiptController extends Controller
             )
             ->where('si.business_partner_id', (int) $request->input('business_partner_id'))
             ->where('si.status', 'posted')
-            ->groupBy('si.id', 'si.invoice_no', 'si.date', 'si.due_date', 'si.total_amount')
+            ->groupBy('si.id', 'si.invoice_no', 'si.reference_no', 'si.date', 'si.due_date', 'si.total_amount')
             ->havingRaw('remaining_balance > 0')
             ->orderBy('effective_due_date', 'ASC')
             ->orderBy('si.id', 'ASC')
@@ -432,6 +433,7 @@ class SalesReceiptController extends Controller
                 return [
                     'id' => $inv->id,
                     'invoice_no' => $inv->invoice_no,
+                    'reference_no' => $inv->reference_no,
                     'date' => $inv->date,
                     'due_date' => $inv->due_date,
                     'total_amount' => (float) $inv->total_amount,

@@ -148,12 +148,12 @@
                                                             <input type="checkbox" id="select-all-checkbox"
                                                                 onchange="toggleAllInvoices()">
                                                         </th>
-                                                        <th style="width: 12%">Invoice #</th>
-                                                        <th style="width: 10%">Date</th>
-                                                        <th style="width: 10%">Due Date</th>
-                                                        <th style="width: 12%" class="text-right">Total Amount</th>
-                                                        <th style="width: 12%" class="text-right">Allocated</th>
-                                                        <th style="width: 12%" class="text-right">Remaining</th>
+                                                        <th style="width: 11%">Invoice #</th>
+                                                        <th style="width: 14%">Customer Ref No</th>
+                                                        <th style="width: 9%">Date</th>
+                                                        <th style="width: 9%">Due Date</th>
+                                                        <th style="width: 11%" class="text-right">Total Amount</th>
+                                                        <th style="width: 11%" class="text-right">Remaining</th>
                                                         <th style="width: 15%" class="text-right">Allocation Amount <span
                                                                 class="text-danger">*</span></th>
                                                         <th style="width: 10%">Status</th>
@@ -346,11 +346,11 @@
                                 data-invoice-id="${invoice.id}" 
                                 onchange="toggleInvoiceSelection(${invoice.id})">
                         </td>
-                        <td>${invoice.invoice_no}</td>
+                        <td>${escapeHtml(invoice.invoice_no)}</td>
+                        <td>${invoice.reference_no ? escapeHtml(invoice.reference_no) : '<span class="text-muted">—</span>'}</td>
                         <td>${formatDate(invoice.date)}</td>
                         <td>${invoice.due_date ? formatDate(invoice.due_date) : '-'}</td>
                         <td class="text-right">${formatCurrency(invoice.total_amount)}</td>
-                        <td class="text-right">${formatCurrency(invoice.allocated_amount)}</td>
                         <td class="text-right"><strong>${formatCurrency(invoice.remaining_balance)}</strong></td>
                         <td>
                             <input type="number" 
@@ -614,6 +614,17 @@
                 month: 'short',
                 year: 'numeric'
             });
+        }
+
+        function escapeHtml(text) {
+            if (text == null || text === '') {
+                return '';
+            }
+            return String(text)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
         }
 
         $('#receipt-form').on('submit', function(e) {
