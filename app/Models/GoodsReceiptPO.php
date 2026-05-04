@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class GoodsReceiptPO extends Model
@@ -41,6 +42,15 @@ class GoodsReceiptPO extends Model
     public function lines(): HasMany
     {
         return $this->hasMany(GoodsReceiptPOLine::class, 'grpo_id');
+    }
+
+    /**
+     * @return BelongsToMany<\App\Models\Accounting\PurchaseInvoice, GoodsReceiptPO>
+     */
+    public function purchaseInvoices(): BelongsToMany
+    {
+        return $this->belongsToMany(\App\Models\Accounting\PurchaseInvoice::class, 'goods_receipt_po_purchase_invoice', 'grpo_id', 'purchase_invoice_id')
+            ->withTimestamps();
     }
 
     public function businessPartner(): BelongsTo

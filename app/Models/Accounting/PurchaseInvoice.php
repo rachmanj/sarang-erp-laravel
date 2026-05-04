@@ -2,11 +2,14 @@
 
 namespace App\Models\Accounting;
 
+use App\Models\GoodsReceiptPO;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Support\Facades\DB;
 
 class PurchaseInvoice extends Model
 {
@@ -16,11 +19,14 @@ class PurchaseInvoice extends Model
         'invoice_no',
         'date',
         'business_partner_id', // Changed from vendor_id to match controller
+        'currency_id',
+        'exchange_rate',
         'company_entity_id',
         'purchase_order_id',
         'goods_receipt_id',
         'description',
         'total_amount',
+        'total_amount_foreign',
         'discount_amount',
         'discount_percentage',
         'status',
@@ -77,6 +83,59 @@ class PurchaseInvoice extends Model
     public function inventoryTransactions(): MorphMany
     {
         return $this->morphMany(\App\Models\InventoryTransaction::class, 'reference', 'reference_type', 'reference_id');
+    }
+
+    /**
+     * Goods Receipt PO documents combined into this invoice (one PI, many GRPOs).
+     *
+     * @return BelongsToMany<GoodsReceiptPO, PurchaseInvoice>
+     */
+    public function grpos(): BelongsToMany
+    {
+        return $this->belongsToMany(GoodsReceiptPO::class, 'goods_receipt_po_purchase_invoice', 'purchase_invoice_id', 'grpo_id')
+            ->withTimestamps();
+    }
+
+    /**
+     * Invoice is tied to inventory receipt flow (single legacy column and/or pivot GRPOs).
+     */
+    public function isLinkedToGoodsReceiptPo(): bool
+    {
+        if ($this->goods_receipt_id) {
+            return true;
+        }
+
+        if ($this->relationLoaded('grpos')) {
+            return $this->grpos->isNotEmpty();
+        }
+
+        if (! $this->exists) {
+            return false;
+        }
+
+        return DB::table('goods_receipt_po_purchase_invoice')
+            ->where('purchase_invoice_id', $this->id)
+            ->exists();
+    }
+
+    /**
+     * Distinct GRPO ids for this invoice (pivot + legacy column).
+     *
+     * @return list<int>
+     */
+    public function linkedGoodsReceiptPoIds(): array
+    {
+        $fromPivot = DB::table('goods_receipt_po_purchase_invoice')
+            ->where('purchase_invoice_id', $this->id)
+            ->pluck('grpo_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        if ($this->goods_receipt_id) {
+            $fromPivot[] = (int) $this->goods_receipt_id;
+        }
+
+        return array_values(array_unique($fromPivot));
     }
 
     public function paymentAllocations(): HasMany

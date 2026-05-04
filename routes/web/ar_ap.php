@@ -51,6 +51,8 @@ Route::prefix('purchase-invoices')->group(function () {
     Route::get('/export', [PurchaseInvoiceController::class, 'export'])->middleware('permission:ap.invoices.view')->name('purchase-invoices.export');
     Route::get('/create', [PurchaseInvoiceController::class, 'create'])->middleware('permission:ap.invoices.create')->name('purchase-invoices.create');
     Route::get('/api/document-number', [PurchaseInvoiceController::class, 'getDocumentNumber'])->middleware('permission:ap.invoices.create')->name('purchase-invoices.api.document-number');
+    Route::get('/api/grpos-available', [PurchaseInvoiceController::class, 'availableGrposForSupplier'])->middleware('permission:ap.invoices.create')->name('purchase-invoices.api.grpos-available');
+    Route::post('/api/prefill-from-grpos', [PurchaseInvoiceController::class, 'prefillFromGrpos'])->middleware('permission:ap.invoices.create')->name('purchase-invoices.api.prefill-from-grpos');
     Route::post('/', [PurchaseInvoiceController::class, 'store'])->middleware('permission:ap.invoices.create')->name('purchase-invoices.store');
     Route::get('/{id}', [PurchaseInvoiceController::class, 'show'])->middleware('permission:ap.invoices.view')->name('purchase-invoices.show');
     Route::get('/{id}/edit', [PurchaseInvoiceController::class, 'edit'])->middleware('permission:ap.invoices.create')->name('purchase-invoices.edit');

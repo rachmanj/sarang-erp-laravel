@@ -15,6 +15,7 @@ use App\Services\CompanyEntityService;
 use App\Services\DocumentClosureService;
 use App\Services\DocumentNumberingService;
 use App\Services\DocumentRelationshipService;
+use App\Services\PurchaseInvoiceGrpoAggregationService;
 use App\Services\PurchaseInvoiceService;
 use App\Services\PurchaseWorkflowAuditService;
 use App\Services\UnitConversionService;
@@ -35,11 +36,12 @@ class PurchaseInvoiceController extends Controller
         private CompanyEntityService $companyEntityService,
         private PurchaseInvoiceService $purchaseInvoiceService,
         private UnitConversionService $unitConversionService,
-        private DocumentRelationshipService $documentRelationshipService
+        private DocumentRelationshipService $documentRelationshipService,
+        private PurchaseInvoiceGrpoAggregationService $purchaseInvoiceGrpoAggregationService
     ) {
         $this->middleware(['auth']);
         $this->middleware('permission:ap.invoices.view')->only(['index', 'show']);
-        $this->middleware('permission:ap.invoices.create')->only(['create', 'store']);
+        $this->middleware('permission:ap.invoices.create')->only(['create', 'store', 'availableGrposForSupplier', 'prefillFromGrpos']);
         $this->middleware('permission:ap.invoices.post')->only(['post']);
     }
 
@@ -110,6 +112,53 @@ class PurchaseInvoiceController extends Controller
         }
     }
 
+    public function availableGrposForSupplier(Request $request)
+    {
+        $data = $request->validate([
+            'business_partner_id' => ['required', 'integer', 'exists:business_partners,id'],
+            'company_entity_id' => ['nullable', 'integer', 'exists:company_entities,id'],
+        ]);
+
+        $entityFilter = isset($data['company_entity_id']) ? (int) $data['company_entity_id'] : null;
+
+        $rows = $this->purchaseInvoiceGrpoAggregationService->getAvailableGrposForSupplier(
+            (int) $data['business_partner_id'],
+            $entityFilter
+        );
+
+        return response()->json([
+            'data' => $rows->map(fn ($g) => [
+                'id' => $g->id,
+                'grn_no' => $g->grn_no,
+                'date' => $g->date?->toDateString(),
+                'total_amount' => (float) $g->total_amount,
+                'status' => $g->status,
+                'company_entity_id' => $g->company_entity_id,
+                'entity_code' => $g->relationLoaded('companyEntity') ? $g->companyEntity?->code : null,
+                'entity_name' => $g->relationLoaded('companyEntity') ? $g->companyEntity?->name : null,
+            ])->values()->all(),
+        ]);
+    }
+
+    public function prefillFromGrpos(Request $request)
+    {
+        $request->validate([
+            'business_partner_id' => ['required', 'integer', 'exists:business_partners,id'],
+            'grpo_ids' => ['required', 'array', 'min:1'],
+            'grpo_ids.*' => ['integer', 'exists:goods_receipt_po,id'],
+        ]);
+
+        $grpos = $this->purchaseInvoiceGrpoAggregationService->assertGrposCanBeMergedIntoInvoice(
+            array_map('intval', $request->input('grpo_ids')),
+            (int) $request->input('business_partner_id'),
+            null
+        );
+
+        $prefill = $this->purchaseInvoiceGrpoAggregationService->buildPrefillFromGrpos($grpos);
+
+        return response()->json(['prefill' => $prefill]);
+    }
+
     public function store(Request $request)
     {
         $isAccountingUser = auth()->user()->can('accounts.view');
@@ -125,6 +174,8 @@ class PurchaseInvoiceController extends Controller
             'description' => ['nullable', 'string', 'max:255'],
             'discount_amount' => ['nullable', 'numeric', 'min:0'],
             'discount_percentage' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'goods_receipt_ids' => ['nullable', 'array'],
+            'goods_receipt_ids.*' => ['integer', 'exists:goods_receipt_po,id'],
             'lines' => ['required', 'array', 'min:1'],
             'lines.*.description' => ['nullable', 'string', 'max:255'],
             'lines.*.qty' => ['required', 'numeric', 'min:0.01'],
@@ -151,24 +202,52 @@ class PurchaseInvoiceController extends Controller
             'date.before_or_equal' => 'The invoice date cannot be later than today unless this is marked as opening balance or you have permission for future-dated invoices.',
         ]);
 
+        $mergedGrpoIds = $this->purchaseInvoiceGrpoAggregationService->normalizeGrpoIdsFromRequest(
+            $request->filled('goods_receipt_id') ? (int) $request->input('goods_receipt_id') : null,
+            $request->input('goods_receipt_ids', [])
+        );
+
+        if ($request->filled('purchase_order_id') && $mergedGrpoIds !== []) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'goods_receipt_ids' => ['You cannot combine a purchase order reference with goods receipt (GRPO) selection.'],
+            ]);
+        }
+
+        if ($mergedGrpoIds !== []) {
+            $this->purchaseInvoiceGrpoAggregationService->assertGrposCanBeMergedIntoInvoice(
+                $mergedGrpoIds,
+                (int) $data['business_partner_id'],
+                (int) $data['company_entity_id']
+            );
+        }
+
         $purchaseOrder = $request->input('purchase_order_id')
             ? PurchaseOrder::select('id', 'company_entity_id')->find($request->input('purchase_order_id'))
             : null;
-        $goodsReceipt = $request->input('goods_receipt_id')
-            ? GoodsReceiptPO::select('id', 'company_entity_id')->find($request->input('goods_receipt_id'))
+        $representativeGrpo = $mergedGrpoIds !== []
+            ? GoodsReceiptPO::select('id', 'company_entity_id')->whereKey($mergedGrpoIds)->orderBy('id')->first()
             : null;
+        $goodsReceiptSingle = $representativeGrpo
+            ?? (
+                $request->input('goods_receipt_id')
+                    ? GoodsReceiptPO::select('id', 'company_entity_id')->find($request->input('goods_receipt_id'))
+                    : null
+            );
+
+        $storedGoodsReceiptColumn = count($mergedGrpoIds) === 1 ? $mergedGrpoIds[0] : null;
+
         $entity = $this->companyEntityService->resolveFromModel(
             $request->input('company_entity_id'),
-            $goodsReceipt ?? $purchaseOrder
+            $goodsReceiptSingle ?? $purchaseOrder
         );
 
-        return DB::transaction(function () use ($data, $request, $purchaseOrder, $goodsReceipt, $entity) {
+        return DB::transaction(function () use ($data, $request, $purchaseOrder, $goodsReceiptSingle, $entity, $mergedGrpoIds, $storedGoodsReceiptColumn) {
             // Log the data being used to create the invoice
             \Log::info('Creating Purchase Invoice with data:', [
                 'date' => $data['date'],
                 'business_partner_id' => $data['business_partner_id'],
                 'purchase_order_id' => $request->input('purchase_order_id'),
-                'goods_receipt_id' => $request->input('goods_receipt_id'),
+                'goods_receipt_ids' => $mergedGrpoIds,
                 'description' => $data['description'] ?? null,
             ]);
 
@@ -176,7 +255,7 @@ class PurchaseInvoiceController extends Controller
                 'date' => $data['date'],
                 'business_partner_id' => $data['business_partner_id'] ?? null,
                 'purchase_order_id' => $request->input('purchase_order_id'),
-                'goods_receipt_id' => $request->input('goods_receipt_id'),
+                'goods_receipt_ids' => $mergedGrpoIds,
                 'description' => $data['description'] ?? null,
             ]);
 
@@ -191,7 +270,7 @@ class PurchaseInvoiceController extends Controller
             if (
                 $data['payment_method'] === 'cash' &&
                 ! $request->input('purchase_order_id') &&
-                ! $request->input('goods_receipt_id')
+                $mergedGrpoIds === []
             ) {
                 $isDirectPurchase = true;
             } else {
@@ -199,16 +278,26 @@ class PurchaseInvoiceController extends Controller
                 $isDirectPurchase = $request->boolean('is_direct_purchase', false);
             }
 
+            $currencyId = (int) (DB::table('business_partners')
+                ->where('id', $data['business_partner_id'])
+                ->value('default_currency_id') ?? DB::table('currencies')->orderBy('id')->value('id'));
+            if ($currencyId <= 0) {
+                throw new \RuntimeException('No currency is configured; cannot create purchase invoice.');
+            }
+
             // Create invoice data array with all required fields
             $invoiceData = [
                 'invoice_no' => null,
                 'date' => $data['date'],
                 'business_partner_id' => $data['business_partner_id'],
+                'currency_id' => $currencyId,
+                'exchange_rate' => 1,
                 'purchase_order_id' => $request->input('purchase_order_id'),
-                'goods_receipt_id' => $request->input('goods_receipt_id'),
+                'goods_receipt_id' => $storedGoodsReceiptColumn,
                 'description' => $data['description'] ?? null,
                 'status' => 'draft',
                 'total_amount' => 0,
+                'total_amount_foreign' => 0,
                 'company_entity_id' => $entity->id,
                 'payment_method' => $data['payment_method'],
                 'is_direct_purchase' => $isDirectPurchase,
@@ -330,19 +419,21 @@ class PurchaseInvoiceController extends Controller
                 'due_date' => $dueDate,
             ]);
 
+            $this->purchaseInvoiceGrpoAggregationService->persistInvoiceGrpoPivot($invoice, $mergedGrpoIds);
+
             // Log invoice creation in Purchase Order audit trail
             if ($purchaseOrder) {
                 app(PurchaseWorkflowAuditService::class)->logPurchaseInvoiceCreation($purchaseOrder, $invoice->id);
             }
 
-            // Attempt to close related documents if this PI was created from GRPO
-            if ($goodsReceipt) {
+            // Attempt to close GRPO only for single-receipt linkage (combined GRPO invoicing skips auto-closure).
+            if (count($mergedGrpoIds) === 1 && $goodsReceiptSingle) {
                 try {
-                    $this->documentClosureService->closeGoodsReceipt($goodsReceipt->id, $invoice->id, auth()->id());
+                    $this->documentClosureService->closeGoodsReceipt($goodsReceiptSingle->id, $invoice->id, auth()->id());
                 } catch (\Exception $closureException) {
                     // Log closure failure but don't fail the PI creation
                     \Log::warning('Failed to close Goods Receipt after PI creation', [
-                        'grpo_id' => $request->input('goods_receipt_id'),
+                        'grpo_id' => $goodsReceiptSingle->id,
                         'pi_id' => $invoice->id,
                         'error' => $closureException->getMessage(),
                     ]);
@@ -368,6 +459,7 @@ class PurchaseInvoiceController extends Controller
             'journal',
             'inventoryTransactions.item',
             'inventoryTransactions.warehouse',
+            'grpos',
         ])->findOrFail($id);
 
         // Calculate totals
@@ -380,12 +472,16 @@ class PurchaseInvoiceController extends Controller
 
         // Get related documents
         $purchaseOrder = null;
-        $goodsReceipt = null;
         if ($invoice->purchase_order_id) {
             $purchaseOrder = DB::table('purchase_orders')->find($invoice->purchase_order_id);
         }
-        if ($invoice->goods_receipt_id) {
-            $goodsReceipt = DB::table('goods_receipt_pos')->find($invoice->goods_receipt_id);
+
+        $linkedGoodsReceiptPos = collect();
+        if ($invoice->linkedGoodsReceiptPoIds() !== []) {
+            $linkedGoodsReceiptPos = GoodsReceiptPO::query()
+                ->whereIn('id', $invoice->linkedGoodsReceiptPoIds())
+                ->orderBy('id')
+                ->get(['id', 'grn_no', 'date', 'total_amount', 'status']);
         }
 
         // Get cash account info if direct purchase
@@ -401,14 +497,14 @@ class PurchaseInvoiceController extends Controller
             'totalAllocated',
             'remainingBalance',
             'purchaseOrder',
-            'goodsReceipt',
+            'linkedGoodsReceiptPos',
             'cashAccount'
         ));
     }
 
     public function edit(int $id)
     {
-        $invoice = PurchaseInvoice::with(['lines.inventoryItem', 'lines.warehouse', 'lines.orderUnit'])->findOrFail($id);
+        $invoice = PurchaseInvoice::with(['lines.inventoryItem', 'lines.warehouse', 'lines.orderUnit', 'grpos'])->findOrFail($id);
 
         // Only allow editing of draft invoices
         if ($invoice->status !== 'draft') {
@@ -513,7 +609,7 @@ class PurchaseInvoiceController extends Controller
             if (
                 $data['payment_method'] === 'cash' &&
                 ! $invoice->purchase_order_id &&
-                ! $invoice->goods_receipt_id
+                ! $invoice->isLinkedToGoodsReceiptPo()
             ) {
                 $isDirectPurchase = true;
             } else {
@@ -1004,7 +1100,7 @@ class PurchaseInvoiceController extends Controller
 
         // Calculate totals and group by account for opening balance or direct credit (no GRPO)
         $expenseByAccount = [];
-        $useLineAccounts = $invoice->is_opening_balance || ! $invoice->goods_receipt_id;
+        $useLineAccounts = $invoice->is_opening_balance || ! $invoice->isLinkedToGoodsReceiptPo();
         foreach ($invoice->lines as $l) {
             $lineAmount = ($l->net_amount > 0) ? (float) $l->net_amount : (float) $l->amount;
             $expenseTotal += $lineAmount;

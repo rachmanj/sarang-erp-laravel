@@ -13,7 +13,9 @@ use App\Services\DocumentNumberingService;
 use App\Services\DocumentRelationshipService;
 use App\Services\GRPOCopyService;
 use App\Services\GRPOJournalService;
+use App\Services\GrpoLinePurchaseOrderPricingService;
 use App\Services\InventoryService;
+use App\Services\PurchaseInvoiceGrpoAggregationService;
 use App\Services\PurchaseWorkflowAuditService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -29,7 +31,9 @@ class GoodsReceiptPOController extends Controller
         private PostingService $postingService,
         private CompanyEntityService $companyEntityService,
         private InventoryService $inventoryService,
-        private DocumentRelationshipService $documentRelationshipService
+        private DocumentRelationshipService $documentRelationshipService,
+        private PurchaseInvoiceGrpoAggregationService $purchaseInvoiceGrpoAggregationService,
+        private GrpoLinePurchaseOrderPricingService $grpoLinePurchaseOrderPricingService,
     ) {}
 
     public function index()
@@ -113,21 +117,31 @@ class GoodsReceiptPOController extends Controller
             ]);
             $grpo->update(['grn_no' => $grpoNo]);
             $totalAmount = 0;
-            foreach ($data['lines'] as $l) {
-                // Get item details to set unit_price
+            $lineEconomics = [];
+            foreach ($data['lines'] as $idx => $l) {
                 $item = InventoryItem::find($l['item_id']);
-                $unitPrice = $item ? $item->purchase_price : 0;
+                $purchaseOrderId = isset($data['purchase_order_id']) ? (int) $data['purchase_order_id'] : null;
+                $economics = $this->grpoLinePurchaseOrderPricingService->economicsForIncomingGrpoLine(
+                    $purchaseOrderId,
+                    (int) $l['item_id'],
+                    $item,
+                    $idx,
+                );
+                $lineEconomics[$idx] = $economics;
+
+                $unitPrice = $economics['unit_price'];
                 $amount = $unitPrice * (float) $l['qty'];
                 $totalAmount += $amount;
 
                 GoodsReceiptPOLine::create([
                     'grpo_id' => $grpo->id,
                     'item_id' => $l['item_id'],
-                    'account_id' => 0, // Set a default account_id to avoid the error
+                    'account_id' => $economics['account_id'],
                     'description' => $l['description'] ?? null,
                     'qty' => (float) $l['qty'],
                     'unit_price' => $unitPrice,
                     'amount' => $amount,
+                    'tax_code_id' => $economics['tax_code_id'],
                 ]);
             }
 
@@ -137,15 +151,16 @@ class GoodsReceiptPOController extends Controller
             $this->documentRelationshipService->syncGoodsReceiptPORelationships($grpo);
 
             // Create inventory transactions for each line
-            foreach ($data['lines'] as $l) {
+            foreach ($data['lines'] as $idx => $l) {
                 $item = InventoryItem::find($l['item_id']);
                 if ($item) {
                     try {
+                        $economics = $lineEconomics[$idx];
                         $description = $l['description'] ?? $item->name;
                         $this->inventoryService->processPurchaseTransaction(
                             $l['item_id'],
                             (float) $l['qty'],
-                            $item->purchase_price,
+                            $economics['unit_price'],
                             'goods_receipt_po',
                             $grpo->id,
                             "GRPO {$grpoNo}: {$description}",
@@ -288,23 +303,7 @@ class GoodsReceiptPOController extends Controller
             ->orderBy('code')
             ->get(['id', 'code', 'name']);
 
-        $prefill = [
-            'date' => now()->toDateString(),
-            'business_partner_id' => $grpo->business_partner_id,
-            'company_entity_id' => $grpo->company_entity_id,
-            'description' => 'From GRPO '.($grpo->grn_no ?: ('#'.$grpo->id)),
-            'lines' => $grpo->lines->map(function ($l) {
-                return [
-                    'account_id' => (int) $l->account_id,
-                    'inventory_item_id' => $l->item_id,
-                    'warehouse_id' => $grpo->warehouse_id,
-                    'description' => $l->description,
-                    'qty' => (float) $l->qty,
-                    'unit_price' => (float) $l->unit_price,
-                    'tax_code_id' => $l->tax_code_id,
-                ];
-            })->toArray(),
-        ];
+        $prefill = $this->purchaseInvoiceGrpoAggregationService->buildPrefillFromGrpos(collect([$grpo]));
 
         return view('purchase_invoices.create', compact('accounts', 'vendors', 'taxCodes', 'projects', 'departments', 'warehouses', 'entities', 'defaultEntity', 'showAccounts', 'cashAccounts') + ['prefill' => $prefill, 'goods_receipt_id' => $grpo->id]);
     }

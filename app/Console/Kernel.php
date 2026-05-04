@@ -23,6 +23,7 @@ class Kernel extends BaseKernel
         \App\Console\Commands\FixSaleTransactionWarehouseIds::class,
         \App\Console\Commands\FixDuplicateInventoryTransaction::class,
         \App\Console\Commands\ReportPurchaseInvoiceInventoryDuplicates::class,
+        \App\Console\Commands\RepairGrpoLinesFromPurchaseOrderPricingCommand::class,
         \App\Console\Commands\HelpReindexCommand::class,
         \App\Console\Commands\SyncDraftDocumentLineAmountsFromSalesOrders::class,
         \App\Console\Commands\ValidatePostedSalesInvoiceJournalsCommand::class,

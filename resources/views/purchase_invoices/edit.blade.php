@@ -434,38 +434,44 @@
                                                 </tbody>
                                                 <tfoot>
                                                     <tr>
-                                                        <th colspan="{{ $showAccounts ?? false ? '4' : '3' }}"
-                                                            class="text-right">Subtotal:</th>
-                                                        <th class="text-right" id="original-amount">0.00</th>
-                                                        <th class="text-right" id="total-vat">0.00</th>
-                                                        <th class="text-right" id="total-wtax">0.00</th>
-                                                        <th colspan="2"></th>
-                                                        <th class="text-right" id="total-amount">0.00</th>
-                                                        <th colspan="3"></th>
+                                                        <th colspan="7"
+                                                            class="text-right align-middle">Net subtotal (excl. VAT /
+                                                            WTax):</th>
+                                                        <th colspan="2" class="border-0 bg-transparent"></th>
+                                                        <th colspan="2" class="border-0 bg-transparent"></th>
+                                                        <th class="text-right align-middle" id="total-net-subtotal">0.00</th>
+                                                        <th colspan="3" class="border-0 bg-transparent"></th>
                                                     </tr>
                                                     <tr>
-                                                        <th colspan="{{ $showAccounts ?? false ? '4' : '3' }}"
-                                                            class="text-right">Line Discounts:</th>
-                                                        <th colspan="4" class="text-right" id="total-line-discount">0.00</th>
-                                                        <th colspan="4"></th>
+                                                        <th colspan="7" class="text-right align-middle">VAT:</th>
+                                                        <th colspan="2" class="border-0 bg-transparent"></th>
+                                                        <th colspan="2" class="border-0 bg-transparent"></th>
+                                                        <th class="text-right align-middle" id="total-vat">0.00</th>
+                                                        <th colspan="3" class="border-0 bg-transparent"></th>
                                                     </tr>
                                                     <tr>
-                                                        <th colspan="{{ $showAccounts ?? false ? '4' : '3' }}"
-                                                            class="text-right">Header Discount:</th>
-                                                        <th colspan="4" class="text-right" id="total-header-discount">0.00</th>
-                                                        <th colspan="4"></th>
+                                                        <th colspan="7" class="text-right align-middle">WTax:</th>
+                                                        <th colspan="2" class="border-0 bg-transparent"></th>
+                                                        <th colspan="2" class="border-0 bg-transparent"></th>
+                                                        <th class="text-right align-middle" id="total-wtax">0.00</th>
+                                                        <th colspan="3" class="border-0 bg-transparent"></th>
                                                     </tr>
                                                     <tr>
-                                                        <th colspan="{{ $showAccounts ?? false ? '4' : '3' }}"
-                                                            class="text-right">Total Discount:</th>
-                                                        <th colspan="4" class="text-right" id="total-discount">0.00</th>
-                                                        <th colspan="4"></th>
+                                                        <th colspan="7"
+                                                            class="text-right align-middle">Total discount:</th>
+                                                        <th colspan="2" class="border-0 bg-transparent"></th>
+                                                        <th colspan="2" class="border-0 bg-transparent"></th>
+                                                        <th class="text-right align-middle" id="total-discount">0.00</th>
+                                                        <th colspan="3" class="border-0 bg-transparent"></th>
                                                     </tr>
                                                     <tr>
-                                                        <th colspan="{{ $showAccounts ?? false ? '4' : '3' }}"
-                                                            class="text-right">Amount Due:</th>
-                                                        <th colspan="4" class="text-right" id="amount-due">0.00</th>
-                                                        <th colspan="4"></th>
+                                                        <th colspan="7" class="text-right align-middle font-weight-bold">Amount
+                                                            due:</th>
+                                                        <th colspan="2" class="border-0 bg-transparent"></th>
+                                                        <th colspan="2" class="border-0 bg-transparent"></th>
+                                                        <th class="text-right font-weight-bold align-middle" id="amount-due">
+                                                            0.00</th>
+                                                        <th colspan="3" class="border-0 bg-transparent"></th>
                                                     </tr>
                                                 </tfoot>
                                             </table>
@@ -1109,10 +1115,11 @@
         }
 
         function updateTotals() {
+            let netSubtotal = 0;
             let totalVat = 0;
             let totalWtax = 0;
             let totalLineDiscount = 0;
-            let subtotal = 0;
+            let subtotalBeforeHeader = 0;
 
             $('#lines tr').each(function() {
                 const qty = parseFloat($(this).find('.qty-input').val() || 0);
@@ -1126,16 +1133,17 @@
                 const wtaxAmount = netAmount * (wtaxRate / 100);
                 const lineAmount = netAmount + vatAmount - wtaxAmount;
 
+                netSubtotal += netAmount;
                 totalVat += vatAmount;
                 totalWtax += wtaxAmount;
                 totalLineDiscount += discountAmount;
-                subtotal += lineAmount;
+                subtotalBeforeHeader += lineAmount;
             });
 
             const headerDiscountPct = parseFloat($('#discount_percentage').val() || 0);
             let headerDiscountAmount = parseFloat($('#discount_amount').val() || 0);
             if (headerDiscountPct > 0 && headerDiscountAmount === 0) {
-                headerDiscountAmount = subtotal * headerDiscountPct / 100;
+                headerDiscountAmount = subtotalBeforeHeader * headerDiscountPct / 100;
                 if (!updatingHeaderDiscount) {
                     updatingHeaderDiscount = true;
                     $('#discount_amount').val(headerDiscountAmount.toFixed(2));
@@ -1143,9 +1151,9 @@
                 }
             }
             const totalDiscount = totalLineDiscount + headerDiscountAmount;
-            const amountDue = subtotal - headerDiscountAmount;
+            const amountDue = subtotalBeforeHeader - headerDiscountAmount;
 
-            $('#original-amount').text(subtotal.toLocaleString('id-ID', {
+            $('#total-net-subtotal').text(netSubtotal.toLocaleString('id-ID', {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2
             }));
@@ -1156,21 +1164,6 @@
             }));
 
             $('#total-wtax').text(totalWtax.toLocaleString('id-ID', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2
-            }));
-
-            $('#total-amount').text(subtotal.toLocaleString('id-ID', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2
-            }));
-
-            $('#total-line-discount').text(totalLineDiscount.toLocaleString('id-ID', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2
-            }));
-
-            $('#total-header-discount').text(headerDiscountAmount.toLocaleString('id-ID', {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2
             }));
@@ -1191,7 +1184,7 @@
             const paymentMethod = $('#payment_method').val();
             // Check if invoice was created from PO/GRPO (read-only, can't change)
             const hasPO = {{ $invoice->purchase_order_id ? 'true' : 'false' }};
-            const hasGRPO = {{ $invoice->goods_receipt_id ? 'true' : 'false' }};
+            const hasGRPO = {{ $invoice->isLinkedToGoodsReceiptPo() ? 'true' : 'false' }};
 
             // Show cash account field when: Cash payment AND no PO/GRPO (direct purchase)
             if (paymentMethod === 'cash' && !hasPO && !hasGRPO) {

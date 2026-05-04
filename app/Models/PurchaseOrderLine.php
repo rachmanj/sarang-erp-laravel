@@ -36,7 +36,7 @@ class PurchaseOrderLine extends Model
         'vat_rate',
         'wtax_rate',
         'notes',
-        'status'
+        'status',
     ];
 
     protected $casts = [
@@ -116,6 +116,7 @@ class PurchaseOrderLine extends Model
         if ($this->unit_conversion_factor && $this->unit_conversion_factor > 0) {
             return $this->qty * $this->unit_conversion_factor;
         }
+
         return $this->qty;
     }
 
@@ -124,6 +125,7 @@ class PurchaseOrderLine extends Model
         if ($this->unit_conversion_factor && $this->unit_conversion_factor > 0) {
             return $this->unit_price / $this->unit_conversion_factor;
         }
+
         return $this->unit_price;
     }
 
@@ -170,5 +172,21 @@ class PurchaseOrderLine extends Model
         $this->discount_percentage = $discountPercentage;
         $this->discount_amount = ($originalAmount * $discountPercentage) / 100;
         $this->net_amount = $originalAmount - $this->discount_amount;
+    }
+
+    /**
+     * Net unit price for purchasing (after line discount when `net_amount` is set), matching GRPO copy-from-PO logic.
+     */
+    public function effectivePurchasingUnitPrice(): float
+    {
+        $qty = (float) $this->qty;
+        $denominator = $qty > 0 ? $qty : 1.0;
+        $netAmount = (float) $this->net_amount;
+
+        if ($netAmount > 0) {
+            return $netAmount / $denominator;
+        }
+
+        return (float) $this->unit_price;
     }
 }

@@ -173,6 +173,8 @@
 - **Remaining Quantity Tracking**: Dedicated "Remaining Qty" column
 - **PO-Based Item Filtering**: Item selection modal filters items from selected PO
 - **Warehouse Defaulting**: Defaults to PO's warehouse but allows manual changes
+- **PO pricing on save**: When `purchase_order_id` is set, GRPO line `unit_price` / `amount`, `account_id`, and `tax_code_id` copy from matched PO lines (qty still user-entered). GRPO saves without PO continue to derive card-level prices from Inventory Item master pricing.
+- **Backfill mismatched receipts**: Artisan `grpo:repair-lines-from-po-pricing` registers in `App\Console\Kernel`—use `--dry-run` or `--grpo=` for staged fixes; reruns reconcile header `total_amount` from line sums but **never** rewinds journals or inventory transactions automatically.
 
 ### 16. Purchase Invoices
 - **Vendor Billing**: Complete purchase invoice management
@@ -189,6 +191,7 @@
 - **Payment Allocation**: Automatic allocation to purchase payments
 - **AP UnInvoice Accounting**: Intermediate account handling for accrual accounting
 - **Multi-Currency Support**: Foreign currency invoices with exchange rate handling
+- **Multi-GRPO helper on create**: Invoice-from-GRPO panel lists uninvoiced GRPOs for the supplier across entities (entity labelled per row); prefilled PI lines reuse PO economics when GRPO retains `purchase_order_id`
 - **Document Closure**: Automatic closure tracking
 
 ### 17. Purchase Payments

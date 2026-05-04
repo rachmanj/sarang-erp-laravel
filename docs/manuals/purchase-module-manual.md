@@ -136,6 +136,8 @@ The Purchase Management Module manages the full procure-to-pay workflow and supp
 -   **Remaining Qty Column**: Shows balance per line to avoid over-receipt.
 -   **Warehouse Default**: Defaults to PO warehouse; can be overridden if allowed.
 -   **Status**: Draft → Pending Approval → Approved.
+-   **Purchasing Prices vs Quantities**: **Quantities received** belong to the GRPO. When **`purchase_order_id`** is filled (manual receipt or copied from PO), **unit_price**, extended **amount**, **account**, and **tax_code** lines are sourced from matching **purchase order lines**—not from standalone inventory-card prices unless the GRPO has **no PO link**.
+-   **Historical data repair**: `php artisan grpo:repair-lines-from-po-pricing` (`--dry-run`, `--grpo=id`) adjusts stored GRPO line amounts vs the linked PO (`App\Console\Kernel` registers this command).
 
 ### Creating a GRPO
 
@@ -170,6 +172,11 @@ The Purchase Management Module manages the full procure-to-pay workflow and supp
 -   **Accounting**: Uses AP UnInvoice intermediate account; moves to AP on payment.
 -   **Multi-Currency**: Capture exchange rate date; store base and foreign amounts.
 -   **Closure**: Tracks invoiced vs received quantities and closes when complete.
+
+### Purchase Invoice prefill behaviour
+
+-   **Qty** comes from the selected Goods Receipt PO line(s).
+-   **Prices** derive from matching **purchase order lines** whenever the contributing GRPOs record a **`purchase_order_id`**—including the optional **Combine multiple GRPOs** assistant on Purchase Invoice Create (supplier-wide open receipts list labelled by entity; **pull lines** aligns company/header values when applicable).
 
 ### Creating a PI
 

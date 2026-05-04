@@ -65,9 +65,7 @@ class GRPOCopyService
                     throw new \Exception('Only item-type inventory items can be copied to GRPO');
                 }
 
-                $effectiveUnitPrice = ($line->net_amount > 0)
-                    ? $line->net_amount / max(1, $line->qty)
-                    : $line->unit_price;
+                $effectiveUnitPrice = $line->effectivePurchasingUnitPrice();
                 $lineAmount = ($line->net_amount > 0)
                     ? $line->net_amount
                     : $line->qty * $line->unit_price;

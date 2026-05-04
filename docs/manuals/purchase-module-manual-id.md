@@ -136,6 +136,8 @@ Modul Manajemen Pembelian mengelola alur procure-to-pay lengkap dan mendukung mu
 -   **Kolom Remaining Qty**: Menunjukkan saldo per baris untuk mencegah over-receipt.
 -   **Gudang Default**: Mengikuti gudang PO; bisa diubah jika diizinkan.
 -   **Status**: Draft → Pending Approval → Approved.
+-   **Kuantitas vs harga pembelian**: **Kuantitas** diterima dicatat di GRPO. Jika **`purchase_order_id`** diisi saat menyimpan GRPO disalin/copy dari PO, sistem mengisi **`unit_price`**, **`amount`**, **`account_id`**, dan **`tax_code_id`** sesuai **baris PO** (item pertama cocok `(PO, SKU)`); GRPO **tanpa** tautan PO mengikuti harga kartu inventori seperti sebelumnya.
+-   **Perbaikan data lama**: `php artisan grpo:repair-lines-from-po-pricing` (`--dry-run`, `--grpo=id`) menyelaraskan baris GRPO yang sudah tersimpan dari PO untuk header yang punya `purchase_order_id` (periksa dokumentasi lengkap Purchase Invoice untuk batasannya).
 
 ### Membuat GRPO
 
@@ -176,6 +178,11 @@ Modul Manajemen Pembelian mengelola alur procure-to-pay lengkap dan mendukung mu
 -   **Multi-Mata Uang**: Simpan kurs pada tanggal invoice; menyimpan nilai dasar dan asing.
 -   **Penutupan**: Melacak kuantitas yang ditagih vs diterima; menutup ketika selesai.
 
+### Mengisi baris PI dari beberapa GRPO
+
+-   Pada **Purchase Invoice Create**, aksesori **Gabung beberapa GRPO** menampilkan GRPO supplier yang belum ada PI (label memuat entitas hukum untuk memilah PT/CV).
+-   **Tarik garis dari GRPO**: kuantitas dari GRPO, **harga** dari PO yang sama bila **`purchase_order_id`** ada di GRPO; field **Company** pada invoice dapat disegarkan dari prefill.
+
 ### Membuat PI
 
 -   Masuk ke `Purchase > Purchase Invoices` lalu klik **Add**.
@@ -193,7 +200,7 @@ Modul Manajemen Pembelian mengelola alur procure-to-pay lengkap dan mendukung mu
 -   Periksa **Total**; pastikan pajak sesuai aturan.
 -   Simpan dan setujui untuk memposting akrual.
 
-### Direct Cash Purchase (Pembelian Tunai Langsung)----
+### Direct Cash Purchase (Pembelian Tunai Langsung)
 
 **Kapan Menggunakan**:
 

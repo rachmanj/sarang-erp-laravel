@@ -46,6 +46,40 @@
                                     <input type="hidden" name="goods_receipt_id" value="{{ $goods_receipt_id }}" />
                                 @endisset
 
+                                @empty($purchase_order_id)
+                                    <div class="card card-outline card-info mb-3" id="pi-grpo-merge-panel">
+                                        <div class="card-header py-2">
+                                            <h3 class="card-title text-sm mb-0">
+                                                <i class="fas fa-boxes mr-1"></i>
+                                                Invoice from supplier GRPO (combine multiple receipts)
+                                            </h3>
+                                        </div>
+                                        <div class="card-body py-2">
+                                            <p class="text-muted small mb-2">Select vendor first. Open GRPOs are listed
+                                                for all company entities until you invoice them; each row shows which entity it
+                                                belongs to. Pull lines to set invoice company and vendor to match.</p>
+                                            <div class="form-row align-items-end">
+                                                <div class="col-md-8 mb-2 mb-md-0">
+                                                    <label for="grpo_multi_select" class="small mb-0 d-block">Open GRPOs</label>
+                                                    <select id="grpo_multi_select" class="form-control form-control-sm" multiple
+                                                        size="6"></select>
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <button type="button" class="btn btn-sm btn-outline-primary btn-block"
+                                                        id="btn-refresh-grpo-list" type="button">
+                                                        <i class="fas fa-sync"></i> Refresh list
+                                                    </button>
+                                                    <button type="button" class="btn btn-sm btn-success btn-block mt-1"
+                                                        id="btn-merge-grpo-lines" type="button">
+                                                        <i class="fas fa-file-import"></i> Pull lines from selected GRPOs
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div id="grpo-selected-ids"></div>
+                                @endempty
+
                                 <div class="row">
                                     <div class="col-md-4">
                                         <div class="form-group row mb-2">
@@ -412,38 +446,44 @@
                                                 </tbody>
                                                 <tfoot>
                                                     <tr>
-                                                        <th colspan="{{ $showAccounts ?? false ? '4' : '3' }}"
-                                                            class="text-right">Subtotal:</th>
-                                                        <th class="text-right" id="original-amount">0.00</th>
-                                                        <th class="text-right" id="total-vat">0.00</th>
-                                                        <th class="text-right" id="total-wtax">0.00</th>
-                                                        <th colspan="2"></th>
-                                                        <th class="text-right" id="total-amount">0.00</th>
-                                                        <th colspan="3"></th>
+                                                        <th colspan="7"
+                                                            class="text-right align-middle">Net subtotal (excl. VAT /
+                                                            WTax):</th>
+                                                        <th colspan="2" class="border-0 bg-transparent"></th>
+                                                        <th colspan="2" class="border-0 bg-transparent"></th>
+                                                        <th class="text-right align-middle" id="total-net-subtotal">0.00</th>
+                                                        <th colspan="3" class="border-0 bg-transparent"></th>
                                                     </tr>
                                                     <tr>
-                                                        <th colspan="{{ $showAccounts ?? false ? '4' : '3' }}"
-                                                            class="text-right">Line Discounts:</th>
-                                                        <th colspan="4" class="text-right" id="total-line-discount">0.00</th>
-                                                        <th colspan="4"></th>
+                                                        <th colspan="7" class="text-right align-middle">VAT:</th>
+                                                        <th colspan="2" class="border-0 bg-transparent"></th>
+                                                        <th colspan="2" class="border-0 bg-transparent"></th>
+                                                        <th class="text-right align-middle" id="total-vat">0.00</th>
+                                                        <th colspan="3" class="border-0 bg-transparent"></th>
                                                     </tr>
                                                     <tr>
-                                                        <th colspan="{{ $showAccounts ?? false ? '4' : '3' }}"
-                                                            class="text-right">Header Discount:</th>
-                                                        <th colspan="4" class="text-right" id="total-header-discount">0.00</th>
-                                                        <th colspan="4"></th>
+                                                        <th colspan="7" class="text-right align-middle">WTax:</th>
+                                                        <th colspan="2" class="border-0 bg-transparent"></th>
+                                                        <th colspan="2" class="border-0 bg-transparent"></th>
+                                                        <th class="text-right align-middle" id="total-wtax">0.00</th>
+                                                        <th colspan="3" class="border-0 bg-transparent"></th>
                                                     </tr>
                                                     <tr>
-                                                        <th colspan="{{ $showAccounts ?? false ? '4' : '3' }}"
-                                                            class="text-right">Total Discount:</th>
-                                                        <th colspan="4" class="text-right" id="total-discount">0.00</th>
-                                                        <th colspan="4"></th>
+                                                        <th colspan="7"
+                                                            class="text-right align-middle">Total discount:</th>
+                                                        <th colspan="2" class="border-0 bg-transparent"></th>
+                                                        <th colspan="2" class="border-0 bg-transparent"></th>
+                                                        <th class="text-right align-middle" id="total-discount">0.00</th>
+                                                        <th colspan="3" class="border-0 bg-transparent"></th>
                                                     </tr>
                                                     <tr>
-                                                        <th colspan="{{ $showAccounts ?? false ? '4' : '3' }}"
-                                                            class="text-right">Amount Due:</th>
-                                                        <th colspan="4" class="text-right" id="amount-due">0.00</th>
-                                                        <th colspan="4"></th>
+                                                        <th colspan="7" class="text-right align-middle font-weight-bold">Amount
+                                                            due:</th>
+                                                        <th colspan="2" class="border-0 bg-transparent"></th>
+                                                        <th colspan="2" class="border-0 bg-transparent"></th>
+                                                        <th class="text-right font-weight-bold align-middle" id="amount-due">
+                                                            0.00</th>
+                                                        <th colspan="3" class="border-0 bg-transparent"></th>
                                                     </tr>
                                                 </tfoot>
                                             </table>
@@ -590,11 +630,8 @@
                 }
             });
 
-            // Handle prefill data from GRPO
-            @if (isset($prefill))
-                const prefill = @json($prefill);
-
-                // Prefill header fields
+            function applyPurchaseInvoicePrefill(prefill) {
+                if (!prefill) return;
                 if (prefill.date) {
                     $('input[name="date"]').val(prefill.date);
                 }
@@ -607,114 +644,178 @@
                 if (prefill.description) {
                     $('input[name="description"]').val(prefill.description);
                 }
+                if (!prefill.lines || prefill.lines.length === 0) {
+                    return;
+                }
+                $('#lines').empty();
+                idx = 0;
 
-                // Prefill lines
-                if (prefill.lines && prefill.lines.length > 0) {
-                    // Remove the default empty line
-                    $('#lines tr:first').remove();
-                    idx = 0;
+                prefill.lines.forEach(function(lineData) {
+                    addLine();
+                    const row = $('#lines tr').last();
 
-                    prefill.lines.forEach(function(lineData, arrayIndex) {
-                        if (arrayIndex > 0) {
-                            addLine();
+                    if (lineData.account_id) {
+                        row.find('.account-select, .account-input').val(lineData.account_id);
+                        if (row.find('.account-select').length) {
+                            row.find('.account-select').trigger('change');
                         }
-
-                        const row = $('#lines tr').eq(arrayIndex);
-                        const lineIndex = arrayIndex; // Use array index as line index
-
-                        // Set account
-                        if (lineData.account_id) {
-                            row.find('.account-select, .account-input').val(lineData.account_id);
-                            if (row.find('.account-select').length) {
-                                row.find('.account-select').trigger('change');
-                            }
-                        }
-
-                        // Set inventory item
-                        if (lineData.inventory_item_id) {
-                            row.find('.item-id-input').val(lineData.inventory_item_id);
-
-                            // Load item details and account via AJAX
-                            $.ajax({
-                                url: `/inventory/api/items/${lineData.inventory_item_id}/account`,
-                                method: 'GET',
-                                success: function(response) {
-                                    if (response.success) {
-                                        // Update account field
-                                        const accountInput = row.find('.account-input');
-                                        const accountSelect = row.find('.account-select');
-
-                                        if (accountInput.length) {
-                                            accountInput.val(response.account_id);
-                                        }
-                                        if (accountSelect.length) {
-                                            accountSelect.val(response.account_id).trigger(
-                                                'change');
-                                        }
-
-                                        // Show account info - find the account display element
-                                        const accountDisplay = row.find(
-                                            '[class*="account-display"]');
-                                        if (accountDisplay.length) {
-                                            accountDisplay.text(
-                                                `${response.account_code} - ${response.account_name}`
-                                            ).show();
-                                        }
+                    }
+                    if (lineData.inventory_item_id) {
+                        row.find('.item-id-input').val(lineData.inventory_item_id);
+                        $.ajax({
+                            url: `/inventory/api/items/${lineData.inventory_item_id}/account`,
+                            method: 'GET',
+                            success: function(response) {
+                                if (response.success) {
+                                    const accountInput = row.find('.account-input');
+                                    const accountSelect = row.find('.account-select');
+                                    if (accountInput.length) {
+                                        accountInput.val(response.account_id);
+                                    }
+                                    if (accountSelect.length) {
+                                        accountSelect.val(response.account_id).trigger('change');
+                                    }
+                                    const accountDisplay = row.find('[class*="account-display"]');
+                                    if (accountDisplay.length) {
+                                        accountDisplay.text(
+                                                `${response.account_code} - ${response.account_name}`)
+                                            .show();
                                     }
                                 }
-                            });
+                            }
+                        });
+                        $.get('/purchase-orders/api/item/' + lineData.inventory_item_id, function(item) {
+                            const itemDisplay = row.find('[class*="item-name-display"]');
+                            if (itemDisplay.length) {
+                                itemDisplay.text(item.code + ' - ' + item.name).show();
+                            }
+                        }).fail(function() {
+                            const itemDisplay = row.find('[class*="item-name-display"]');
+                            if (itemDisplay.length) {
+                                itemDisplay.text('Item #' + lineData.inventory_item_id).show();
+                            }
+                        });
+                        loadItemUnits(lineData.inventory_item_id, row);
+                    }
+                    if (lineData.warehouse_id) {
+                        row.find('.warehouse-select').val(lineData.warehouse_id).trigger('change');
+                    }
+                    if (lineData.description) {
+                        row.find('input[name*="[description]"]').val(lineData.description);
+                    }
+                    if (lineData.qty) {
+                        row.find('.qty-input').val(lineData.qty).trigger('input');
+                    }
+                    if (lineData.unit_price) {
+                        row.find('.price-input').val(lineData.unit_price).trigger('input');
+                    }
+                    if (lineData.tax_code_id) {
+                        const sel = row.find('.tax-code-select');
+                        sel.val(String(lineData.tax_code_id)).trigger('change');
+                    }
+                    updateLineAmount(row);
+                });
+                idx = prefill.lines.length;
+                updateTotals();
+            }
 
-                            // Load item name
-                            $.get('/purchase-orders/api/item/' + lineData.inventory_item_id, function(
-                                item) {
-                                const itemDisplay = row.find('[class*="item-name-display"]');
-                                if (itemDisplay.length) {
-                                    itemDisplay.text(item.code + ' - ' + item.name).show();
-                                }
-                            }).fail(function() {
-                                // Fallback: just show item ID
-                                const itemDisplay = row.find('[class*="item-name-display"]');
-                                if (itemDisplay.length) {
-                                    itemDisplay.text('Item #' + lineData.inventory_item_id).show();
-                                }
-                            });
-
-                            // Load units for the item
-                            loadItemUnits(lineData.inventory_item_id, row);
-                        }
-
-                        // Set warehouse
-                        if (lineData.warehouse_id) {
-                            row.find('.warehouse-select').val(lineData.warehouse_id).trigger('change');
-                        }
-
-                        // Set description
-                        if (lineData.description) {
-                            row.find('input[name*="[description]"]').val(lineData.description);
-                        }
-
-                        // Set quantity and price
-                        if (lineData.qty) {
-                            row.find('.qty-input').val(lineData.qty).trigger('input');
-                        }
-                        if (lineData.unit_price) {
-                            row.find('.price-input').val(lineData.unit_price).trigger('input');
-                        }
-
-                        // Set tax code (convert to VAT/WTax rates if needed)
-                        if (lineData.tax_code_id) {
-                            // You may need to fetch tax code details to set VAT/WTax rates
-                            // For now, we'll leave it as is since the form uses VAT/WTax rates
-                        }
-
-                        // Update line amount
-                        updateLineAmount(row);
-                    });
-
-                    idx = prefill.lines.length;
-                    updateTotals();
-                }
+            @if (isset($prefill))
+                applyPurchaseInvoicePrefill(@json($prefill));
             @endif
+
+            @unless (isset($purchase_order_id))
+            function syncGrpoHiddenIds(ids) {
+                const box = $('#grpo-selected-ids');
+                box.empty();
+                (ids || []).forEach(function(id) {
+                    box.append($('<input>', { type: 'hidden', name: 'goods_receipt_ids[]', value: id }));
+                });
+                toggleCashAccountField();
+            }
+
+            function reloadGrpoMultiOptions() {
+                const vendorId = $('select[name="business_partner_id"]').val();
+                const sel = $('#grpo_multi_select');
+                if (!vendorId) {
+                    sel.empty();
+                    sel.append(new Option('-- Select vendor first --', '', true, true));
+                    return;
+                }
+                $.ajax({
+                    url: '{{ route('purchase-invoices.api.grpos-available') }}',
+                    data: {
+                        business_partner_id: vendorId
+                    },
+                    success: function(res) {
+                        sel.empty();
+                        (res.data || []).forEach(function(row) {
+                            const bits = [row.entity_code, row.entity_name].filter(Boolean);
+                            const ent = bits.length ? ' [' + bits.join(' — ') + ']' : '';
+                            const label =
+                                `${row.grn_no || '#' + row.id}${ent} — ${row.date} — ${row.status} — ${Number(row.total_amount).toLocaleString('id-ID')}`;
+                            sel.append(new Option(label, row.id));
+                        });
+                    },
+                    error: function() {
+                        sel.empty();
+                        sel.append(new Option('Unable to load GRPO list', '', true, true));
+                    }
+                });
+            }
+
+            $('select[name="business_partner_id"]').on('change', reloadGrpoMultiOptions);
+
+            $('#btn-refresh-grpo-list').on('click', function() {
+                reloadGrpoMultiOptions();
+            });
+
+            $('#btn-merge-grpo-lines').on('click', function() {
+                const vendorId = $('select[name="business_partner_id"]').val();
+                const raw = $('#grpo_multi_select').val() || [];
+                const grpoIds = raw.map(function(v) {
+                    return parseInt(v, 10);
+                }).filter(function(x) {
+                    return x > 0;
+                });
+                if (!vendorId) {
+                    toastr.error('Select vendor first.');
+                    return;
+                }
+                if (grpoIds.length === 0) {
+                    toastr.error('Select at least one GRPO.');
+                    return;
+                }
+                $.ajax({
+                    url: '{{ route('purchase-invoices.api.prefill-from-grpos') }}',
+                    method: 'POST',
+                    data: {
+                        _token: $('meta[name="csrf-token"]').attr('content'),
+                        business_partner_id: vendorId,
+                        grpo_ids: grpoIds
+                    },
+                    success: function(res) {
+                        applyPurchaseInvoicePrefill(res.prefill);
+                        syncGrpoHiddenIds(grpoIds);
+                        toastr.success('Lines loaded from selected GRPOs.');
+                    },
+                    error: function(xhr) {
+                        let msg = 'Could not load GRPO lines.';
+                        if (xhr.responseJSON && xhr.responseJSON.message) {
+                            msg = xhr.responseJSON.message;
+                        }
+                        if (xhr.responseJSON && xhr.responseJSON.errors) {
+                            const e = xhr.responseJSON.errors;
+                            msg = Object.keys(e).map(function(k) {
+                                return e[k].join(' ');
+                            }).join(' ');
+                        }
+                        toastr.error(msg);
+                    }
+                });
+            });
+
+            reloadGrpoMultiOptions();
+            @endunless
 
             // Remove line
             $(document).on('click', '.rm', function() {
@@ -1210,11 +1311,11 @@
         }
 
         function updateTotals() {
-            let originalTotal = 0;
+            let netSubtotal = 0;
             let totalVat = 0;
             let totalWtax = 0;
             let totalLineDiscount = 0;
-            let subtotal = 0;
+            let subtotalBeforeHeader = 0;
 
             $('#lines tr').each(function() {
                 const qty = parseFloat($(this).find('.qty-input').val() || 0);
@@ -1228,17 +1329,17 @@
                 const wtaxAmount = netAmount * (wtaxRate / 100);
                 const lineAmount = netAmount + vatAmount - wtaxAmount;
 
-                originalTotal += originalAmount;
+                netSubtotal += netAmount;
                 totalVat += vatAmount;
                 totalWtax += wtaxAmount;
                 totalLineDiscount += discountAmount;
-                subtotal += lineAmount;
+                subtotalBeforeHeader += lineAmount;
             });
 
             const headerDiscountPct = parseFloat($('#discount_percentage').val() || 0);
             let headerDiscountAmount = parseFloat($('#discount_amount').val() || 0);
             if (headerDiscountPct > 0 && headerDiscountAmount === 0) {
-                headerDiscountAmount = subtotal * headerDiscountPct / 100;
+                headerDiscountAmount = subtotalBeforeHeader * headerDiscountPct / 100;
                 if (!updatingHeaderDiscount) {
                     updatingHeaderDiscount = true;
                     $('#discount_amount').val(headerDiscountAmount.toFixed(2));
@@ -1246,9 +1347,9 @@
                 }
             }
             const totalDiscount = totalLineDiscount + headerDiscountAmount;
-            const amountDue = subtotal - headerDiscountAmount;
+            const amountDue = subtotalBeforeHeader - headerDiscountAmount;
 
-            $('#original-amount').text(subtotal.toLocaleString('id-ID', {
+            $('#total-net-subtotal').text(netSubtotal.toLocaleString('id-ID', {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2
             }));
@@ -1259,21 +1360,6 @@
             }));
 
             $('#total-wtax').text(totalWtax.toLocaleString('id-ID', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2
-            }));
-
-            $('#total-amount').text(subtotal.toLocaleString('id-ID', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2
-            }));
-
-            $('#total-line-discount').text(totalLineDiscount.toLocaleString('id-ID', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2
-            }));
-
-            $('#total-header-discount').text(headerDiscountAmount.toLocaleString('id-ID', {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2
             }));
@@ -1293,7 +1379,8 @@
         function toggleCashAccountField() {
             const paymentMethod = $('#payment_method').val();
             const hasPO = $('input[name="purchase_order_id"]').length > 0 && $('input[name="purchase_order_id"]').val();
-            const hasGRPO = $('input[name="goods_receipt_id"]').length > 0 && $('input[name="goods_receipt_id"]').val();
+            const hasGRPO = ($('input[name="goods_receipt_id"]').length > 0 && $('input[name="goods_receipt_id"]').val()) ||
+                ($('input[name="goods_receipt_ids[]"]').length > 0);
 
             // Show cash account field when: Cash payment AND no PO/GRPO (direct purchase)
             if (paymentMethod === 'cash' && !hasPO && !hasGRPO) {

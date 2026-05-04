@@ -216,7 +216,7 @@
                             </div>
 
                             {{-- Related Documents Section --}}
-                            @if ($purchaseOrder || $goodsReceipt)
+                            @if ($purchaseOrder || $linkedGoodsReceiptPos->isNotEmpty())
                                 <div class="row mb-4">
                                     <div class="col-12">
                                         <div class="card bg-light">
@@ -233,13 +233,13 @@
                                                         #{{ $purchaseOrder->order_no ?? $invoice->purchase_order_id }}
                                                     </a>
                                                 @endif
-                                                @if ($goodsReceipt)
-                                                    <a href="{{ route('goods-receipts.show', $invoice->goods_receipt_id) }}"
+                                                @foreach ($linkedGoodsReceiptPos as $gr)
+                                                    <a href="{{ route('goods-receipt-pos.show', $gr->id) }}"
                                                         class="badge badge-success mr-2">
-                                                        <i class="fas fa-box mr-1"></i> Goods Receipt
-                                                        #{{ $goodsReceipt->receipt_no ?? $invoice->goods_receipt_id }}
+                                                        <i class="fas fa-box mr-1"></i> Goods Receipt PO
+                                                        {{ $gr->grn_no ?? ('#'.$gr->id) }}
                                                     </a>
-                                                @endif
+                                                @endforeach
                                             </div>
                                         </div>
                                     </div>

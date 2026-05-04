@@ -15,7 +15,8 @@
 11. [Direct Cash Purchase](#direct-cash-purchase)
 12. [Opening Balance Invoice](#opening-balance-invoice)
 13. [Validasi tanggal invoice](#validasi-tanggal-invoice)
-14. [Pemecahan Masalah](#pemecahan-masalah)
+14. [Pemeliharaan: sinkron harga GRPO dari PO](#pemeliharaan-sinkron-harga-grpo-dari-po)
+15. [Pemecahan Masalah](#pemecahan-masalah)
 
 ---
 
@@ -32,6 +33,14 @@ Purchase Invoice (PI) adalah dokumen penagihan dari vendor yang mencatat hutang 
 | **Dari GRPO** | Baris diimpor dari Goods Receipt PO; inventory sudah diterima saat GRPO |
 | **Dari PO** | Referensi ke Purchase Order (untuk service PO) |
 | **Direct Purchase** | Tanpa PO/GRPO; entry manual untuk pembelian langsung |
+
+### Harga pembelian bila ada PO dan GRPO
+
+- **KUANTITAS diterima** dicatat di **Goods Receipt PO (GRPO)**.
+- **HARGA NEGOSIASI (per barang)** mengacu ke **Purchase Order (PO)**:
+  - Saat menyimpan GRPO dengan **Purchase Order** terpilih, sistem mengisi **`unit_price`**, **`amount`**, akun (`account_id`), dan **`tax_code_id`** pada baris GRPO sesuai **baris PO** yang cocok (**item pertama** untuk pasangan `(PO, sku)` yang sama).
+  - Saat membuat **Purchase Invoice** lewat tombol dari GRPO, **Pull lines**, atau kombinasi GRPO dari halaman PI, **harga satuan PI** juga diambil dari **PO yang tertaut pada GRPO** (bukan dari harga kartu inventori secara otomatis). Kuantitas baris tetap mengikuti **GRPO**.
+- GRPO tanpa tautan PO: harga dapat mengacu ke **purchase price** di master **Inventory Item**, seperti perilaku penyimpanan GRPO mandiri.
 
 ### Metode Pembayaran
 
@@ -123,13 +132,17 @@ Contoh: `72260300007` = PI ke-7 tahun 2026 untuk entitas 72.
 | Amount | | Auto: Qty × Unit Price |
 | Project / Dept | | Dimensi opsional |
 
-### Footer Totals
+### Footer Totals (Invoice Lines)
 
-- **Subtotal**: Jumlah amount setelah VAT per baris
-- **Line Discounts**: Total diskon baris
-- **Header Discount**: Diskon header (dihitung dari subtotal)
-- **Total Discount**: Line Discounts + Header Discount
-- **Amount Due**: Subtotal − Header Discount (total akhir)
+| Baris footer | Makna |
+|----------------|-------|
+| **Net subtotal (excl. VAT / WTax)** | Jumlah `Qty × Unit Price` per baris setelah **diskon baris**, sebelum pajak VAT / WTax |
+| **VAT** | Total PPN (dari kombinasi kode pajak per baris) |
+| **WTax** | Total pemotongan (withholding tax) sesuai setelan baris |
+| **Total discount** | Diskon baris **+** diskon header (kedua-duanya dari field header/disc baris form) |
+| **Amount due** | Grand total hingga pembayaran (setelah pajak dikurangkan WTax, lalu diskon header) |
+
+**Catatan**: Diskon **baris** (kolom Disc % / Disc Amt) tetap bisa diisi; ringkasan diskon gabungan ada di satu baris **Total discount**.
 
 ---
 
@@ -319,18 +332,25 @@ Tombol **Select Item** pada baris membuka modal pencarian item.
 ```
 Purchase Order (approved)
     ↓ Copy to GRPO
-Goods Receipt PO (GRPO)  ← Menerima barang, update inventory
-    ↓ Create Invoice
-Purchase Invoice (PI)    ← Menagih vendor, catat AP
+Goods Receipt PO (GRPO)  ← Penerimaan kuantitas, update inventori (harga acuan mengikuti PO jika tautan PO ada)
+    ↓ Create Invoice / Pull dari daftar GRPO
+Purchase Invoice (PI)    ← Menagih vendor, catat AP (harga diisi dari PO bila GRPO punya tautan PO)
 ```
 
-### Membuat PI dari GRPO
+### Gabung beberapa GRPO dari halaman Create PI
+
+- Pada form **Create Purchase Invoice**, jika Anda **tidak** memilih satu PO sebagai sumber utama, panel **Invoice from supplier GRPO** menampilkan daftar **Open GRPOs** untuk **vendor yang dipilih** (semua entitas hukum dapat muncul; label menunjukkan kode/nama **Company** untuk membedakan PT/CV dll.).
+- Anda **tidak** perlu mencocokkan **Company** hanya untuk memuat daftar GRPO terbuka — pilih **Vendor**, **Refresh list**, pilah GRPO sesuai entitas dari labelnya.
+- Klik **Pull lines from selected GRPOs**: baris akan terisi (**qty dari GRPO**, **harga satuan dari baris PO** yang cocok untuk GRPO yang tertaut PO), dan field **Company** pada invoice akan diselaraskan ke entitas dokumen tersebut.
+- Hanya GRPO berstatus **belum** tertaut Purchase Invoice tertentu yang muncul.
+
+### Membuat PI dari satu GRPO (tombol dari detail GRPO)
 
 1. Buka `Purchase > Goods Receipt PO`
 2. Pilih GRPO yang ingin ditagih
 3. Klik **Create Invoice**
-4. Form PI terbuka dengan baris terisi dari GRPO
-5. Sesuaikan jika perlu (harga, diskon, pajak)
+4. Form PI terbuka dengan baris (**qty**, **deskripsi** dari GRPN, **Unit price** sesuai aturan PO seperti di atas)
+5. Sesuaikan jika perlu (diskon, pajak, dimensi—harga bisa diedit tetapi disarankan selaras dokumen pembelian)
 6. Simpan dan Post
 
 ### Perbedaan PI dari GRPO vs Direct
@@ -338,7 +358,7 @@ Purchase Invoice (PI)    ← Menagih vendor, catat AP
 | Aspek | Dari GRPO | Direct Purchase |
 |-------|-----------|-----------------|
 | Inventory | Sudah diterima GRPO | Dibuat saat Post PI |
-| goods_receipt_id | Terisi | Kosong |
+| goods_receipt_id | Terisi (satu atau banyak via pemilihan beberapa GRPO) | Kosong |
 | is_direct_purchase | false | true |
 | Document closure | GRPO bisa ditutup | — |
 
@@ -404,6 +424,29 @@ Validasi di `PurchaseInvoiceController` (`store` dan `update`); posting dari dra
 
 ---
 
+## Pemeliharaan: sinkron harga GRPO dari PO
+
+Untuk dokumentasi dengan **`purchase_order_id`** yang sebelumnya tersimpan harga salah di baris GRPO (misalnya dari versi aplikasi yang memakai harga kartu item alih-alih PO), Anda dapat menyelaraskan ulang **`goods_receipt_po_lines`** dari baris Purchase Order secara massal atau per dokumen:
+
+```bash
+# Pratinjau perubahan (tidak menyimpan)
+php artisan grpo:repair-lines-from-po-pricing --dry-run
+
+# Terapkan satu GRPO dengan id tertentu
+php artisan grpo:repair-lines-from-po-pricing --grpo=123
+
+# Terapkan semua GRPO yang punya tautan PO
+php artisan grpo:repair-lines-from-po-pricing
+```
+
+Perintah ini akan:
+
+- Mengisi **`unit_price`**, **`amount`** (= harga × `qty` pada baris GRPO), **`account_id`**, dan **`tax_code_id`** untuk setiap baris inventori sesuai **baris pertama** pada PO untuk pasangan **`(purchase_order_id, item_id)`** (sama seperti logika baru saat simpan GRPO + prefill PI).
+- Menjadikan **`goods_receipt_po.total_amount`** sama dengan penjumlahan **`amount`** baris.
+- **Tidak** mengubah jurnal yang sudah dipost atau transaksi inventori yang sudah tercipta — jika Anda sudah mempost GRPO secara akuntansi, tinjau ulang pembukuan Anda setelah pembenahan.
+
+---
+
 ## Pemecahan Masalah
 
 | Masalah | Solusi |
@@ -417,6 +460,8 @@ Validasi di `PurchaseInvoiceController` (`store` dan `update`); posting dari dra
 | Tidak bisa Unpost | Pastikan belum ada payment allocation; belum closed |
 | Tanggal ditolak (tidak boleh masa depan) | Gunakan tanggal ≤ hari ini, centang **Opening Balance** jika memang saldo awal, atau minta permission **`ap.invoices.future_date`** |
 | Print error | Pastikan vendor (business partner) terisi |
+| **Open GRPOs** kosong padahal harus ada penerimaan | Pastikan vendor benar dan GRPO tersebut belum tertaut Purchase Invoice lain; pemilihan PT/CV di header tidak membatasi daftar lagi — pilih GRPO berdasarkan label entitas |
+| Simpan GRPO dengan PO: item ditolak | Item harus ada **pada PO yang dipilih**; gunakan baris dari salinan PO ke GRPO atau hapus item yang tidak termasuk PO |
 
 ---
 
@@ -425,6 +470,8 @@ Validasi di `PurchaseInvoiceController` (`store` dan `update`); posting dari dra
 - **Menu**: `Purchase > Purchase Invoices`
 - **Format**: `EEYYDDNNNNN` (kode dokumen 03)
 - **Alur**: PO → GRPO → PI → PP
+- **Harga pembelian (PO tertaut GRPO/PI)**: qty di GRPO, harga acuan dari **baris PO**; jalankan **`php artisan grpo:repair-lines-from-po-pricing --dry-run`** bila ada data GRPO historis salah
 - **Diskon**: Baris (per item) + Header (per invoice)
 - **VAT**: Dihitung dari Net Amount (setelah diskon baris)
 - **Available Qty**: Dari warehouse stock (akurat)
+- **HELP in-app**: Setelah mengubah manual ini, jalankan **`php artisan help:reindex`** di tiap lingkungan yang memakai bantuan internal.

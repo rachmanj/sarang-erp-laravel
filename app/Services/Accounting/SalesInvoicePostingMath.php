@@ -42,6 +42,8 @@ final class SalesInvoicePostingMath
 
     /**
      * Split a tax-inclusive line gross into DPP, output VAT, and withholding tax on DPP.
+     * Gross is authoritative: {{ dpp + output_vat − wtax = grossAmount }} after rounding so footers reconcile.
+     * DPP = round(gross ÷ (1 + VAT − WTax), 2); WTax from DPP × rate; VAT = residual when VAT applies (ties to gross).
      *
      * @return array{dpp: float, output_vat: float, wtax: float}
      */
@@ -59,8 +61,8 @@ final class SalesInvoicePostingMath
         }
 
         $dpp = round($grossAmount / $denominator, 2);
-        $outputVat = $vatRatePercent > 0 ? round($dpp * $vat, 2) : 0.0;
         $wtaxAmt = $wtaxRatePercent > 0 ? round($dpp * $wtax, 2) : 0.0;
+        $outputVat = $vatRatePercent > 0 ? round($grossAmount - $dpp + $wtaxAmt, 2) : 0.0;
 
         return ['dpp' => $dpp, 'output_vat' => $outputVat, 'wtax' => $wtaxAmt];
     }
@@ -79,6 +81,7 @@ final class SalesInvoicePostingMath
 
     /**
      * Footer figures for invoice screens/prints (line amounts are tax-inclusive gross).
+     * exclusive_subtotal = Σ DPP from each line’s inclusive amount & tax split (consistent with PPN/WTax rows).
      *
      * @return array{exclusive_subtotal: float, gross_total: float, total_vat: float, total_wtax: float, amount_due: float}
      */
@@ -90,13 +93,13 @@ final class SalesInvoicePostingMath
         $totalWtax = 0.0;
 
         foreach ($invoice->lines as $l) {
-            $exclusiveSubtotal += round((float) $l->qty * (float) $l->unit_price, 2);
             $vatRate = (float) ($l->taxCode?->rate ?? 0);
             if ($vatRate === 0.0 && $l->tax_code_id) {
                 $vatRate = (float) (DB::table('tax_codes')->where('id', $l->tax_code_id)->value('rate') ?? 0);
             }
             $wtaxRate = (float) ($l->wtax_rate ?? 0);
             $parts = self::splitTaxInclusiveLineAmount((float) $l->amount, $vatRate, $wtaxRate);
+            $exclusiveSubtotal += $parts['dpp'];
             $totalVat += $parts['output_vat'];
             $totalWtax += $parts['wtax'];
         }
@@ -104,8 +107,8 @@ final class SalesInvoicePostingMath
         return [
             'exclusive_subtotal' => round($exclusiveSubtotal, 2),
             'gross_total' => $grossTotal,
-            'total_vat' => $totalVat,
-            'total_wtax' => $totalWtax,
+            'total_vat' => round($totalVat, 2),
+            'total_wtax' => round($totalWtax, 2),
             'amount_due' => $grossTotal,
         ];
     }
