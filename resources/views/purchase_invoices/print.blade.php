@@ -150,9 +150,38 @@
             @endforeach
         </tbody>
         <tfoot>
+            @php
+                $invoiceFooter ??= \App\Services\Accounting\PurchaseInvoiceFooterMath::invoiceFooterTotals($invoice);
+                $footerLabelSpan = $invoice->lines->sum('discount_amount') > 0 ? 6 : 4;
+            @endphp
+            <tr>
+                <th colspan="{{ $footerLabelSpan }}" style="text-align:right">Subtotal (ex. PPN)</th>
+                <th style="text-align:right">{{ number_format($invoiceFooter['exclusive_subtotal'], 2) }}</th>
+                @if ($invoice->lines->sum('discount_amount') > 0)
+                <th colspan="2"></th>
+                @endif
+            </tr>
+            @if ($invoiceFooter['total_vat'] != 0)
+            <tr>
+                <th colspan="{{ $footerLabelSpan }}" style="text-align:right">PPN / VAT</th>
+                <th style="text-align:right">{{ number_format($invoiceFooter['total_vat'], 2) }}</th>
+                @if ($invoice->lines->sum('discount_amount') > 0)
+                <th colspan="2"></th>
+                @endif
+            </tr>
+            @endif
+            @if ($invoiceFooter['total_wtax'] != 0)
+            <tr>
+                <th colspan="{{ $footerLabelSpan }}" style="text-align:right">WTax (on DPP)</th>
+                <th style="text-align:right">({{ number_format($invoiceFooter['total_wtax'], 2) }})</th>
+                @if ($invoice->lines->sum('discount_amount') > 0)
+                <th colspan="2"></th>
+                @endif
+            </tr>
+            @endif
             @if (($invoice->discount_amount ?? 0) > 0)
             <tr>
-                <th colspan="{{ $invoice->lines->sum('discount_amount') > 0 ? 6 : 4 }}" style="text-align:right">Discount
+                <th colspan="{{ $footerLabelSpan }}" style="text-align:right">Discount
                     @if (($invoice->discount_percentage ?? 0) > 0)
                         ({{ number_format($invoice->discount_percentage, 2) }}%)
                     @endif
@@ -164,8 +193,8 @@
             </tr>
             @endif
             <tr>
-                <th colspan="{{ $invoice->lines->sum('discount_amount') > 0 ? 6 : 4 }}" style="text-align:right">Total</th>
-                <th style="text-align:right">{{ number_format($invoice->total_amount, 2) }}</th>
+                <th colspan="{{ $footerLabelSpan }}" style="text-align:right">Total (incl. PPN)</th>
+                <th style="text-align:right">{{ number_format($invoiceFooter['amount_due'], 2) }}</th>
                 @if ($invoice->lines->sum('discount_amount') > 0)
                 <th colspan="2"></th>
                 @endif

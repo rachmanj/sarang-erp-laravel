@@ -258,8 +258,8 @@
                                         <div class="card-body py-2">
                                             <div class="row">
                                                 <div class="col-md-3">
-                                                    <strong>Subtotal:</strong><br>
-                                                    <span class="text-muted">Rp {{ number_format($totalAmountAfterVat, 2) }}</span>
+                                                    <strong>Subtotal (ex. PPN):</strong><br>
+                                                    <span class="text-muted">Rp {{ number_format($invoiceFooter['exclusive_subtotal'], 2) }}</span>
                                                 </div>
                                                 @if (($invoice->discount_amount ?? 0) > 0)
                                                 <div class="col-md-3">
@@ -272,12 +272,18 @@
                                                 </div>
                                                 @endif
                                                 <div class="col-md-3">
-                                                    <strong>Total VAT:</strong><br>
-                                                    <span class="text-muted">Rp {{ number_format($totalVat, 2) }}</span>
+                                                    <strong>PPN / VAT:</strong><br>
+                                                    <span class="text-muted">Rp {{ number_format($invoiceFooter['total_vat'], 2) }}</span>
                                                 </div>
+                                                @if ($invoiceFooter['total_wtax'] != 0)
                                                 <div class="col-md-3">
-                                                    <strong>Total Amount:</strong><br>
-                                                    <span class="text-primary font-weight-bold">Rp {{ number_format($invoice->total_amount, 2) }}</span>
+                                                    <strong>WTax (on DPP):</strong><br>
+                                                    <span class="text-muted">({{ number_format($invoiceFooter['total_wtax'], 2) }})</span>
+                                                </div>
+                                                @endif
+                                                <div class="col-md-3">
+                                                    <strong>Total (incl. PPN):</strong><br>
+                                                    <span class="text-primary font-weight-bold">Rp {{ number_format($invoiceFooter['amount_due'], 2) }}</span>
                                                 </div>
                                                 <div class="col-md-3">
                                                     <strong>Payment Status:</strong><br>
@@ -286,7 +292,7 @@
                                                         <small class="text-muted">Remaining: Rp {{ number_format($remainingBalance, 2) }}</small>
                                                     @else
                                                         <span class="badge badge-warning">Unpaid</span><br>
-                                                        <small class="text-muted">Balance: Rp {{ number_format($invoice->total_amount, 2) }}</small>
+                                                        <small class="text-muted">Balance: Rp {{ number_format($invoiceFooter['amount_due'], 2) }}</small>
                                                     @endif
                                                 </div>
                                             </div>
@@ -380,11 +386,26 @@
                                                 @endforeach
                                             </tbody>
                                             <tfoot class="thead-light">
-                                                @php $colspan = $invoice->lines->sum('discount_amount') > 0 ? 11 : 9; @endphp
+                                                @php
+                                                    $invoiceFooter ??= \App\Services\Accounting\PurchaseInvoiceFooterMath::invoiceFooterTotals($invoice);
+                                                    $colspan = $invoice->lines->sum('discount_amount') > 0 ? 11 : 9;
+                                                @endphp
                                                 <tr>
-                                                    <th colspan="{{ $colspan }}" class="text-right">Subtotal:</th>
-                                                    <th class="text-right"><strong>Rp {{ number_format($totalAmountAfterVat, 2) }}</strong></th>
+                                                    <th colspan="{{ $colspan }}" class="text-right">Subtotal (ex. PPN)</th>
+                                                    <th class="text-right">Rp {{ number_format($invoiceFooter['exclusive_subtotal'], 2) }}</th>
                                                 </tr>
+                                                @if ($invoiceFooter['total_vat'] != 0)
+                                                <tr>
+                                                    <th colspan="{{ $colspan }}" class="text-right">PPN / VAT</th>
+                                                    <th class="text-right">Rp {{ number_format($invoiceFooter['total_vat'], 2) }}</th>
+                                                </tr>
+                                                @endif
+                                                @if ($invoiceFooter['total_wtax'] != 0)
+                                                <tr>
+                                                    <th colspan="{{ $colspan }}" class="text-right">WTax (on DPP)</th>
+                                                    <th class="text-right">({{ number_format($invoiceFooter['total_wtax'], 2) }})</th>
+                                                </tr>
+                                                @endif
                                                 @if (($invoice->discount_amount ?? 0) > 0)
                                                 <tr>
                                                     <th colspan="{{ $colspan }}" class="text-right">Discount
@@ -396,8 +417,8 @@
                                                 </tr>
                                                 @endif
                                                 <tr>
-                                                    <th colspan="{{ $colspan }}" class="text-right">Total:</th>
-                                                    <th class="text-right"><strong>Rp {{ number_format($invoice->total_amount, 2) }}</strong></th>
+                                                    <th colspan="{{ $colspan }}" class="text-right">Total (incl. PPN)</th>
+                                                    <th class="text-right"><strong>Rp {{ number_format($invoiceFooter['amount_due'], 2) }}</strong></th>
                                                 </tr>
                                             </tfoot>
                                         </table>

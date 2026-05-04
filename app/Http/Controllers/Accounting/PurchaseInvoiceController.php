@@ -11,6 +11,7 @@ use App\Models\InventoryItem;
 use App\Models\PurchaseOrder;
 use App\Models\Warehouse;
 use App\Services\Accounting\PostingService;
+use App\Services\Accounting\PurchaseInvoiceFooterMath;
 use App\Services\CompanyEntityService;
 use App\Services\DocumentClosureService;
 use App\Services\DocumentNumberingService;
@@ -462,13 +463,10 @@ class PurchaseInvoiceController extends Controller
             'grpos',
         ])->findOrFail($id);
 
-        // Calculate totals
-        $totalVat = $invoice->lines->sum('vat_amount');
-        $totalAmountAfterVat = $invoice->lines->sum(function ($line) {
-            return ($line->amount_after_vat && $line->amount_after_vat > 0) ? $line->amount_after_vat : $line->amount;
-        });
+        $invoiceFooter = PurchaseInvoiceFooterMath::invoiceFooterTotals($invoice);
+
         $totalAllocated = $invoice->paymentAllocations->sum('amount');
-        $remainingBalance = $invoice->total_amount - $totalAllocated;
+        $remainingBalance = $invoiceFooter['amount_due'] - $totalAllocated;
 
         // Get related documents
         $purchaseOrder = null;
@@ -492,8 +490,7 @@ class PurchaseInvoiceController extends Controller
 
         return view('purchase_invoices.show', compact(
             'invoice',
-            'totalVat',
-            'totalAmountAfterVat',
+            'invoiceFooter',
             'totalAllocated',
             'remainingBalance',
             'purchaseOrder',
@@ -1200,16 +1197,19 @@ class PurchaseInvoiceController extends Controller
 
     public function print(int $id)
     {
-        $invoice = PurchaseInvoice::with(['lines', 'businessPartner'])->findOrFail($id);
+        $invoice = PurchaseInvoice::with(['lines.taxCode', 'businessPartner'])->findOrFail($id);
+        $invoiceFooter = PurchaseInvoiceFooterMath::invoiceFooterTotals($invoice);
 
-        return view('purchase_invoices.print', compact('invoice'));
+        return view('purchase_invoices.print', compact('invoice', 'invoiceFooter'));
     }
 
     public function pdf(int $id)
     {
-        $invoice = PurchaseInvoice::with(['lines', 'businessPartner'])->findOrFail($id);
+        $invoice = PurchaseInvoice::with(['lines.taxCode', 'businessPartner'])->findOrFail($id);
+        $invoiceFooter = PurchaseInvoiceFooterMath::invoiceFooterTotals($invoice);
         $pdf = app(\App\Services\PdfService::class)->renderViewToString('purchase_invoices.print', [
             'invoice' => $invoice,
+            'invoiceFooter' => $invoiceFooter,
         ]);
 
         return response($pdf, 200, [
@@ -1220,9 +1220,13 @@ class PurchaseInvoiceController extends Controller
 
     public function queuePdf(int $id)
     {
-        $invoice = PurchaseInvoice::with('lines')->findOrFail($id);
+        $invoice = PurchaseInvoice::with(['lines.taxCode'])->findOrFail($id);
         $path = 'public/pdfs/purchase-invoice-'.$invoice->id.'.pdf';
-        \App\Jobs\GeneratePdfJob::dispatch('purchase_invoices.print', ['invoice' => $invoice], $path);
+        $invoiceFooter = PurchaseInvoiceFooterMath::invoiceFooterTotals($invoice);
+        \App\Jobs\GeneratePdfJob::dispatch('purchase_invoices.print', [
+            'invoice' => $invoice,
+            'invoiceFooter' => $invoiceFooter,
+        ], $path);
         $url = \Illuminate\Support\Facades\Storage::url($path);
 
         return back()->with('success', 'PDF generation started')->with('pdf_url', $url);

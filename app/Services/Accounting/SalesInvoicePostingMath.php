@@ -3,11 +3,69 @@
 namespace App\Services\Accounting;
 
 use App\Models\Accounting\SalesInvoice;
+use App\Models\Accounting\SalesInvoiceLine;
+use App\Models\DeliveryOrderLine;
+use App\Models\SalesOrderLine;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 final class SalesInvoicePostingMath
 {
+    /**
+     * Line gross total (DPP + VAT − WTax on base) for persistence, matching store/update and
+     * {@see SalesOrderLine::computeAmountFromPricing()}.
+     */
+    public static function computedGrossAmountForLine(SalesInvoiceLine $line): float
+    {
+        $qty = (float) $line->qty;
+        $unitPrice = (float) $line->unit_price;
+        if ($line->delivery_order_line_id) {
+            $dol = DeliveryOrderLine::with('salesOrderLine')->find($line->delivery_order_line_id);
+            $sol = $dol?->salesOrderLine;
+            if ($sol) {
+                return SalesOrderLine::computeAmountFromPricing(
+                    $qty,
+                    $unitPrice,
+                    $sol->vat_rate,
+                    $sol->wtax_rate
+                );
+            }
+        }
+
+        $vatRate = self::vatRatePercentForLine($line);
+
+        return SalesOrderLine::computeAmountFromPricing(
+            $qty,
+            $unitPrice,
+            $vatRate,
+            (float) ($line->wtax_rate ?? 0)
+        );
+    }
+
+    /**
+     * DPP / output VAT / WTax / gross receivable from qty × unit_price (tax-exclusive base), matching
+     * {@see SalesOrderLine::computeAmountFromPricing()}. Persisted {@see SalesInvoiceLine::$amount} may be stale;
+     * footer and posting use this split so VAT is added on top of DPP, not backed out of line gross.
+     *
+     * @return array{dpp: float, output_vat: float, wtax: float, gross: float}
+     */
+    public static function splitLineFromTaxExclusivePricing(SalesInvoiceLine $line): array
+    {
+        $dpp = round((float) $line->qty * (float) $line->unit_price, 2);
+        $vatRate = self::vatRatePercentForLine($line);
+        $wtaxRate = (float) ($line->wtax_rate ?? 0);
+        $outputVat = $vatRate > 0.0 ? round($dpp * ($vatRate / 100), 2) : 0.0;
+        $wtaxAmt = $wtaxRate > 0.0 ? round($dpp * ($wtaxRate / 100), 2) : 0.0;
+        $gross = round($dpp + $outputVat - $wtaxAmt, 2);
+
+        return [
+            'dpp' => $dpp,
+            'output_vat' => $outputVat,
+            'wtax' => $wtaxAmt,
+            'gross' => $gross,
+        ];
+    }
+
     /**
      * @param  Collection<int, \App\Models\Accounting\SalesInvoiceLine>|iterable<\App\Models\Accounting\SalesInvoiceLine>  $lines
      * @return array{gross_total: float, ppn_total: float, ppn_by_revenue_account: array<int, float>}
@@ -19,90 +77,44 @@ final class SalesInvoicePostingMath
         $ppnByRevenueAccount = [];
 
         foreach ($lines as $l) {
-            $amount = (float) $l->amount;
-            $grossTotal += $amount;
-            if (empty($l->tax_code_id)) {
-                continue;
+            $parts = self::splitLineFromTaxExclusivePricing($l);
+            $grossTotal += $parts['gross'];
+            if ($parts['output_vat'] > 0.0) {
+                $revenueAccountId = (int) $l->account_id;
+                $ppnByRevenueAccount[$revenueAccountId] = round(($ppnByRevenueAccount[$revenueAccountId] ?? 0) + $parts['output_vat'], 2);
             }
-            $ratePercent = (float) (DB::table('tax_codes')->where('id', $l->tax_code_id)->value('rate') ?? 0);
-            $wtaxPercent = (float) ($l->wtax_rate ?? 0);
-            $linePpn = self::computeOutputVatFromTaxInclusiveLineAmount($amount, $ratePercent, $wtaxPercent);
-            $revenueAccountId = (int) $l->account_id;
-            $ppnByRevenueAccount[$revenueAccountId] = round(($ppnByRevenueAccount[$revenueAccountId] ?? 0) + $linePpn, 2);
         }
 
         $ppnTotalRounded = round(array_sum($ppnByRevenueAccount), 2);
 
         return [
-            'gross_total' => $grossTotal,
+            'gross_total' => round($grossTotal, 2),
             'ppn_total' => $ppnTotalRounded,
             'ppn_by_revenue_account' => $ppnByRevenueAccount,
         ];
     }
 
     /**
-     * Split a tax-inclusive line gross into DPP, output VAT, and withholding tax on DPP.
-     * Gross is authoritative: {{ dpp + output_vat − wtax = grossAmount }} after rounding so footers reconcile.
-     * DPP = round(gross ÷ (1 + VAT − WTax), 2); WTax from DPP × rate; VAT = residual when VAT applies (ties to gross).
-     *
-     * @return array{dpp: float, output_vat: float, wtax: float}
-     */
-    public static function splitTaxInclusiveLineAmount(float $grossAmount, float $vatRatePercent, float $wtaxRatePercent): array
-    {
-        if ($grossAmount <= 0) {
-            return ['dpp' => 0.0, 'output_vat' => 0.0, 'wtax' => 0.0];
-        }
-
-        $vat = $vatRatePercent / 100;
-        $wtax = $wtaxRatePercent / 100;
-        $denominator = 1 + $vat - $wtax;
-        if ($denominator <= 0) {
-            return ['dpp' => round($grossAmount, 2), 'output_vat' => 0.0, 'wtax' => 0.0];
-        }
-
-        $dpp = round($grossAmount / $denominator, 2);
-        $wtaxAmt = $wtaxRatePercent > 0 ? round($dpp * $wtax, 2) : 0.0;
-        $outputVat = $vatRatePercent > 0 ? round($grossAmount - $dpp + $wtaxAmt, 2) : 0.0;
-
-        return ['dpp' => $dpp, 'output_vat' => $outputVat, 'wtax' => $wtaxAmt];
-    }
-
-    /**
-     * Line amount is tax-inclusive gross: base + (base × VAT%) − (base × WTax%), aligned with {@see \App\Models\SalesOrderLine::computeAmountFromPricing}.
-     */
-    public static function computeOutputVatFromTaxInclusiveLineAmount(float $grossAmount, float $vatRatePercent, float $wtaxRatePercent): float
-    {
-        if ($grossAmount <= 0 || $vatRatePercent <= 0) {
-            return 0.0;
-        }
-
-        return self::splitTaxInclusiveLineAmount($grossAmount, $vatRatePercent, $wtaxRatePercent)['output_vat'];
-    }
-
-    /**
-     * Footer figures for invoice screens/prints (line amounts are tax-inclusive gross).
-     * exclusive_subtotal = Σ DPP from each line’s inclusive amount & tax split (consistent with PPN/WTax rows).
+     * Footer figures for invoice screens/prints (DPP from tax-exclusive unit_price; gross = DPP + PPN − WTax per line).
      *
      * @return array{exclusive_subtotal: float, gross_total: float, total_vat: float, total_wtax: float, amount_due: float}
      */
     public static function invoiceFooterTotals(SalesInvoice $invoice): array
     {
-        $grossTotal = (float) $invoice->lines->sum(fn ($l) => (float) $l->amount);
+        $grossTotal = 0.0;
         $exclusiveSubtotal = 0.0;
         $totalVat = 0.0;
         $totalWtax = 0.0;
 
         foreach ($invoice->lines as $l) {
-            $vatRate = (float) ($l->taxCode?->rate ?? 0);
-            if ($vatRate === 0.0 && $l->tax_code_id) {
-                $vatRate = (float) (DB::table('tax_codes')->where('id', $l->tax_code_id)->value('rate') ?? 0);
-            }
-            $wtaxRate = (float) ($l->wtax_rate ?? 0);
-            $parts = self::splitTaxInclusiveLineAmount((float) $l->amount, $vatRate, $wtaxRate);
+            $parts = self::splitLineFromTaxExclusivePricing($l);
             $exclusiveSubtotal += $parts['dpp'];
             $totalVat += $parts['output_vat'];
             $totalWtax += $parts['wtax'];
+            $grossTotal += $parts['gross'];
         }
+
+        $grossTotal = round($grossTotal, 2);
 
         return [
             'exclusive_subtotal' => round($exclusiveSubtotal, 2),
@@ -111,5 +123,15 @@ final class SalesInvoicePostingMath
             'total_wtax' => round($totalWtax, 2),
             'amount_due' => $grossTotal,
         ];
+    }
+
+    private static function vatRatePercentForLine(SalesInvoiceLine $line): float
+    {
+        $fromRelation = (float) ($line->taxCode?->rate ?? 0);
+        if ($fromRelation !== 0.0 || ! $line->tax_code_id) {
+            return $fromRelation;
+        }
+
+        return (float) (DB::table('tax_codes')->where('id', $line->tax_code_id)->value('rate') ?? 0);
     }
 }

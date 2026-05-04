@@ -9,7 +9,6 @@ use App\Models\CompanyEntity;
 use App\Models\DeliveryOrder;
 use App\Models\DeliveryOrderLine;
 use App\Models\SalesOrder;
-use App\Models\SalesOrderLine;
 use App\Models\SalesQuotation;
 use App\Services\Accounting\PostingService;
 use App\Services\Accounting\SalesInvoicePostingMath;
@@ -323,23 +322,15 @@ class SalesInvoiceController extends Controller
      */
     private function resolveSalesInvoiceLineAmount(array $l): float
     {
-        $qty = (float) $l['qty'];
-        $unitPrice = (float) $l['unit_price'];
-        $dolId = $l['delivery_order_line_id'] ?? null;
-        if ($dolId) {
-            $dol = DeliveryOrderLine::with('salesOrderLine')->find($dolId);
-            $sol = $dol?->salesOrderLine;
-            if ($sol) {
-                return SalesOrderLine::computeAmountFromPricing(
-                    $qty,
-                    $unitPrice,
-                    $sol->vat_rate,
-                    $sol->wtax_rate
-                );
-            }
-        }
+        $line = new SalesInvoiceLine([
+            'qty' => (float) $l['qty'],
+            'unit_price' => (float) $l['unit_price'],
+            'delivery_order_line_id' => $l['delivery_order_line_id'] ?? null,
+            'tax_code_id' => $l['tax_code_id'] ?? null,
+            'wtax_rate' => $l['wtax_rate'] ?? 0,
+        ]);
 
-        return $qty * $unitPrice;
+        return SalesInvoicePostingMath::computedGrossAmountForLine($line);
     }
 
     public function edit(int $id)
