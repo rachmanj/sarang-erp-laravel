@@ -98,6 +98,9 @@ Modul Manajemen Pembelian mengelola alur procure-to-pay lengkap dan mendukung mu
 
 ### Membuat PO
 
+-   **Diskon header**: **Diskon (%)** dan **Jumlah diskon** di header mempengaruhi total baris melalui penyesuaian (skala) pada nilai terutang per baris. Jika **Diskon (%) = 0**, sistem menganggap tidak ada diskon header; pastikan jumlah rupiah diskon juga nol agar jumlah baris = qty × harga (setelah diskon baris dan pajak per baris). Pada **Buat** dan **Edit** PO perilaku ini diselaraskan di JavaScript form.
+-   **Tombol cari item**: Ikon kaca pembesar di kolom Item membuka modal pilih item. Inisialisasi skrip form harus selesai tanpa error agar tombol ini terdaftar—perbaikan teknis terkait urutan inisialisasi variabel diskon header (2026-05-04) mendukung keandalan ini pada halaman **Edit**.
+
 1. Buka `Purchase > Purchase Orders` lalu klik **Add**.
 2. Pilih **Vendor** (menentukan filter PO selanjutnya).
 3. Pilih **Currency** dan **Exchange Rate** jika mata uang asing.

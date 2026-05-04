@@ -117,6 +117,6 @@ When changing **Base/Target navigation** or the **Relationship Map** modal (`Doc
 4. After behaviour changes, note important learnings in **`MEMORY.md`** per the Memory guidelines above.
 
 since this app already launched, you need to consider existing data in db. live db already restore to this local db for you to access.
-After making change, test it in the browser using chrome-devtools MCP, assume the server is already running
+After making change, do browser testing, assume the server is already running
 
 Remember: These documents should provide comprehensive context for future development and AI assistance, evolving as living documentation that stays current with your codebase.

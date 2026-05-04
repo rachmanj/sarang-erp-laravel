@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Accounting\PurchaseInvoice;
 use App\Models\Accounting\PurchaseInvoiceLine;
 use App\Models\PurchaseOrder;
+use App\Services\Accounting\PurchaseDocumentHeaderDiscountApplier;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
@@ -12,7 +13,8 @@ class PurchaseInvoiceCopyService
 {
     public function __construct(
         private DocumentNumberingService $documentNumberingService,
-        private DocumentRelationshipService $documentRelationshipService
+        private DocumentRelationshipService $documentRelationshipService,
+        private PurchaseDocumentHeaderDiscountApplier $purchaseDocumentHeaderDiscountApplier,
     ) {}
 
     /**
@@ -31,6 +33,10 @@ class PurchaseInvoiceCopyService
         }
 
         return DB::transaction(function () use ($po) {
+            $po->loadMissing('lines');
+            $lineDiscountSum = (float) $po->lines->sum('discount_amount');
+            $headerDiscount = (float) ($po->discount_amount ?? 0);
+
             // Create Purchase Invoice with copied data
             $invoice = PurchaseInvoice::create([
                 'invoice_no' => null, // Will be generated
@@ -41,7 +47,7 @@ class PurchaseInvoiceCopyService
                 'description' => 'From Service PO: '.$po->order_no,
                 'status' => 'draft',
                 'total_amount' => 0,
-                'discount_amount' => $po->discount_amount ?? 0,
+                'discount_amount' => $lineDiscountSum + $headerDiscount,
                 'discount_percentage' => $po->discount_percentage ?? 0,
                 'freight_cost' => $po->freight_cost ?? 0,
                 'handling_cost' => $po->handling_cost ?? 0,
@@ -58,7 +64,6 @@ class PurchaseInvoiceCopyService
             $invoice->update(['invoice_no' => $invoiceNo]);
 
             // Copy all lines with discount
-            $subtotal = 0;
             foreach ($po->lines as $line) {
                 // Validate line item type
                 if ($line->inventoryItem && $line->inventoryItem->item_type !== 'service') {
@@ -71,7 +76,6 @@ class PurchaseInvoiceCopyService
                 $netAmount = ($line->net_amount > 0) ? $line->net_amount : $originalAmount;
                 $vatAmount = $netAmount * (($line->vat_rate ?? 0) / 100);
                 $amountAfterVat = $netAmount + $vatAmount;
-                $subtotal += $amountAfterVat;
 
                 PurchaseInvoiceLine::create([
                     'invoice_id' => $invoice->id,
@@ -87,6 +91,7 @@ class PurchaseInvoiceCopyService
                     'amount' => $originalAmount,
                     'discount_amount' => $lineDiscountAmount,
                     'discount_percentage' => $lineDiscountPct,
+                    'header_discount_allocated' => 0,
                     'net_amount' => $netAmount,
                     'vat_amount' => $vatAmount,
                     'amount_after_vat' => $amountAfterVat,
@@ -98,11 +103,11 @@ class PurchaseInvoiceCopyService
                 ]);
             }
 
-            $headerDiscountAmount = (float) ($po->discount_amount ?? 0);
-            $totalAmount = $subtotal - $headerDiscountAmount;
+            $invoice->load(['lines' => fn ($q) => $q->orderBy('id')]);
+            $this->purchaseDocumentHeaderDiscountApplier->recalculatePurchaseInvoiceLines($invoice);
 
-            // Update invoice total amount
-            $invoice->update(['total_amount' => $totalAmount]);
+            $payableTotal = round((float) $invoice->lines()->sum('amount_after_vat'), 2);
+            $invoice->update(['total_amount' => $payableTotal]);
 
             $this->documentRelationshipService->syncPurchaseInvoiceRelationships($invoice);
 

@@ -9,8 +9,8 @@ use Illuminate\Support\Facades\DB;
 final class PurchaseInvoiceFooterMath
 {
     /**
-     * Footer aligned with AP posting: DPP = net after line discount; PPN and WTax are rates on that DPP.
-     * Grand total payable uses persisted {@see PurchaseInvoice::$total_amount} so payment allocations stay consistent.
+     * Footer aligned with AP posting: DPP after header scaling; PPN and WTax use that DPP.
+     * Header discount on the payable total is modeled as a uniform scale on line payables.
      *
      * @return array{
      *     exclusive_subtotal: float,
@@ -24,17 +24,24 @@ final class PurchaseInvoiceFooterMath
      */
     public static function invoiceFooterTotals(PurchaseInvoice $invoice): array
     {
+        $invoice->loadMissing(['lines' => fn ($q) => $q->orderBy('id')]);
+
+        $scaledRows = HeaderDiscountAllocation::purchaseInvoiceLineScaled($invoice);
+        $dppByLineId = collect($scaledRows)->keyBy('line_id');
+
         $exclusiveSubtotal = 0.0;
         $totalVat = 0.0;
         $totalWtax = 0.0;
         $sumLineAmountAfterVat = 0.0;
 
-        foreach ($invoice->lines as $line) {
-            $dpp = self::lineDpp($line);
+        foreach ($invoice->lines->sortBy('id') as $line) {
+            /** @var PurchaseInvoiceLine $line */
+            $dpp = (float) ($dppByLineId[$line->id]['dpp'] ?? HeaderDiscountAllocation::piLineNetBeforeHeader($line));
             $exclusiveSubtotal += $dpp;
-            $sumLineAmountAfterVat += self::lineAmountAfterTax($line);
 
             if (! $line->tax_code_id) {
+                $sumLineAmountAfterVat += round((float) ($line->amount_after_vat ?? 0), 2);
+
                 continue;
             }
 
@@ -43,6 +50,8 @@ final class PurchaseInvoiceFooterMath
                 : DB::table('tax_codes')->where('id', $line->tax_code_id)->first();
 
             if (! $tax) {
+                $sumLineAmountAfterVat += round((float) ($line->amount_after_vat ?? 0), 2);
+
                 continue;
             }
 
@@ -51,9 +60,14 @@ final class PurchaseInvoiceFooterMath
             $name = strtolower((string) ($tax->name ?? ''));
 
             if (str_contains($name, 'ppn') || $type === 'ppn_input') {
-                $totalVat += round($dpp * ($rate / 100), 2);
+                $vatPart = round($dpp * ($rate / 100), 2);
+                $totalVat += $vatPart;
+                $sumLineAmountAfterVat += round($dpp + $vatPart, 2);
             } elseif ($type === 'withholding') {
                 $totalWtax += round($dpp * ($rate / 100), 2);
+                $sumLineAmountAfterVat += round($dpp, 2);
+            } else {
+                $sumLineAmountAfterVat += round((float) ($line->amount_after_vat ?? 0), 2);
             }
         }
 
@@ -61,8 +75,7 @@ final class PurchaseInvoiceFooterMath
         $invoiceDiscount = round((float) ($invoice->discount_amount ?? 0), 2);
         $headerDiscount = round(max(0.0, $invoiceDiscount - $lineDiscountSum), 2);
 
-        $linesTotalAfterVat = round($sumLineAmountAfterVat, 2);
-        $computedPayable = round($linesTotalAfterVat - $headerDiscount, 2);
+        $computedPayable = round($sumLineAmountAfterVat, 2);
         $storedPayable = round((float) $invoice->total_amount, 2);
 
         $amountDue = abs($computedPayable - $storedPayable) <= 0.05 ? $computedPayable : $storedPayable;
@@ -71,28 +84,10 @@ final class PurchaseInvoiceFooterMath
             'exclusive_subtotal' => round($exclusiveSubtotal, 2),
             'total_vat' => round($totalVat, 2),
             'total_wtax' => round($totalWtax, 2),
-            'sum_line_amount_after_vat' => $linesTotalAfterVat,
+            'sum_line_amount_after_vat' => round($sumLineAmountAfterVat, 2),
             'line_discount_sum' => $lineDiscountSum,
             'header_discount' => $headerDiscount,
             'amount_due' => $amountDue,
         ];
-    }
-
-    private static function lineDpp(PurchaseInvoiceLine $line): float
-    {
-        if ((float) $line->net_amount > 0) {
-            return round((float) $line->net_amount, 2);
-        }
-
-        return round((float) $line->amount - (float) ($line->discount_amount ?? 0), 2);
-    }
-
-    private static function lineAmountAfterTax(PurchaseInvoiceLine $line): float
-    {
-        if ((float) ($line->amount_after_vat ?? 0) > 0) {
-            return round((float) $line->amount_after_vat, 2);
-        }
-
-        return round((float) $line->amount, 2);
     }
 }

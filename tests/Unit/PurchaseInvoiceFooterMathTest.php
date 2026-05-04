@@ -6,10 +6,12 @@ use App\Models\Accounting\PurchaseInvoice;
 use App\Models\Accounting\PurchaseInvoiceLine;
 use App\Services\Accounting\PurchaseInvoiceFooterMath;
 use Illuminate\Database\Eloquent\Collection;
-use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\Test;
+use Tests\TestCase;
 
 class PurchaseInvoiceFooterMathTest extends TestCase
 {
+    #[Test]
     public function test_footer_additive_ppn_on_net_amount_single_line(): void
     {
         $taxCode = (object) ['rate' => 11.0, 'type' => 'ppn_input', 'name' => 'PPN Masukan'];

@@ -1,5 +1,5 @@
 **Purpose**: AI's persistent knowledge base for project context and learnings
-**Last Updated**: 2026-04-22 (Relationship Map expanded sales graph shipped)
+**Last Updated**: 2026-05-04 (PO create/edit Blade totals + item search JS fix)
 
 ## Memory Maintenance Guidelines
 
@@ -26,6 +26,14 @@
 ---
 
 ## Project Memory Entries
+
+### [109] PO form Blade — `updatingHeaderDiscount` TDZ + header discount / line amounts (2026-05-04) ✅ COMPLETE
+
+**Challenge**: On **Purchase Order edit**, `initializeExistingLines()` ran `updateTotals()` before `let updatingHeaderDiscount` executed → **ReferenceError** (temporal dead zone), aborting the whole `$(document).ready` so **item search** and other delegated handlers never bound. Separately, **header discount % = 0** with a **stale `discount_amount`** still scaled line amounts (wrong **Amount**). **Session** flash strings in `toastr.success('...')` could break script parsing if they contained quotes.
+
+**Solution**: Declare **`let updatingHeaderDiscount = false`** at the **top** of ready in **`purchase_orders/edit.blade.php`** and **`purchase_orders/create.blade.php`** (before first `updateTotals()` / Add Line trigger). Align **edit** `updateTotals()` with **create** (recalc header amount from % when % > 0; zero % clears stale rupiah; robust VAT/WTax from Select2). Header discount handlers use **`input change`**. **Toastr** uses **`@json(session(...))`**. Optional **backend** context: header discount as payable scale is documented in services (`HeaderDiscountAllocation`, `PurchaseService`) where implemented.
+
+**Learning**: Any `let` / `const` used inside functions called from **early** init must be **initialized before** those calls. Never emit raw session text into JS string literals.
 
 ### [108] Relationship Map — expandSalesRelationshipMapGraph + type-prefixed Mermaid ids (2026-04-22) ✅ COMPLETE
 

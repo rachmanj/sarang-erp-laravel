@@ -2,34 +2,33 @@
 
 namespace App\Services;
 
-use App\Models\PurchaseOrder;
-use App\Models\PurchaseOrderLine;
-use App\Models\PurchaseOrderApproval;
-use App\Models\InventoryItem;
-use App\Models\InventoryTransaction;
-use App\Models\SupplierPerformance;
 use App\Models\Accounting\Account;
-use App\Services\InventoryService;
-use App\Services\DocumentNumberingService;
-use App\Services\UnitConversionService;
-use App\Services\ApprovalWorkflowService;
-use App\Services\CurrencyService;
-use App\Services\ExchangeRateService;
-use App\Services\PurchaseWorkflowAuditService;
-use App\Services\CompanyEntityService;
-use Illuminate\Support\Facades\DB;
+use App\Models\InventoryItem;
+use App\Models\PurchaseOrder;
+use App\Models\PurchaseOrderApproval;
+use App\Models\PurchaseOrderLine;
+use App\Models\SupplierPerformance;
+use App\Services\Accounting\HeaderDiscountAllocation;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class PurchaseService
 {
     protected $inventoryService;
+
     protected $documentNumberingService;
+
     protected $unitConversionService;
+
     protected $approvalWorkflowService;
+
     protected $currencyService;
+
     protected $exchangeRateService;
+
     protected $workflowAuditService;
+
     protected $companyEntityService;
 
     public function __construct(
@@ -86,20 +85,20 @@ class PurchaseService
                     'approval_status' => 'pending',
                     'created_by' => Auth::id(),
                 ]);
-                Log::info('Purchase Order header created with ID: ' . ($po->id ?? 'null'));
+                Log::info('Purchase Order header created with ID: '.($po->id ?? 'null'));
             } catch (\Exception $e) {
-                Log::error('Error creating Purchase Order header: ' . $e->getMessage());
+                Log::error('Error creating Purchase Order header: '.$e->getMessage());
                 Log::error($e->getTraceAsString());
                 throw $e;
             }
 
-            $totalAmount = 0;
             $totalAmountForeign = 0;
             $totalFreightCost = 0;
             $totalFreightCostForeign = 0;
             $totalHandlingCost = 0;
             $totalHandlingCostForeign = 0;
 
+            $prepared = [];
             foreach ($data['lines'] as $index => $lineData) {
                 try {
                     Log::info("Processing line {$index} with data:", $lineData);
@@ -113,25 +112,16 @@ class PurchaseService
                         $lineDiscountPct = $originalAmount > 0 ? ($lineDiscountAmount / $originalAmount) * 100 : 0;
                     }
                     $netAmount = $originalAmount - $lineDiscountAmount;
-                    $vatAmount = $netAmount * ($lineData['vat_rate'] / 100);
-                    $wtaxAmount = $netAmount * ($lineData['wtax_rate'] / 100);
-                    $amount = $netAmount + $vatAmount - $wtaxAmount;
 
-                    // Calculate foreign currency amounts
                     $unitPriceForeign = $lineData['unit_price_foreign'] ?? $lineData['unit_price'];
                     $amountForeign = $lineData['qty'] * $unitPriceForeign;
-
-                    $totalAmount += $amount;
                     $totalAmountForeign += $amountForeign;
 
-                    // Determine if this is an inventory item or account based on order type
                     $inventoryItemId = null;
                     $accountId = null;
 
                     if ($data['order_type'] === 'item') {
                         $inventoryItemId = $lineData['item_id'];
-                        // For inventory items, use a default inventory account
-                        // You can modify this to get the account from inventory item if it has one
                         $accountId = $this->getDefaultInventoryAccount();
                         Log::info("Line {$index} is inventory item with ID: {$inventoryItemId}, using account ID: {$accountId}");
                     } else {
@@ -139,9 +129,9 @@ class PurchaseService
                         Log::info("Line {$index} is service with account ID: {$accountId}");
                     }
 
-                    // Process unit conversion if order_unit_id is provided
                     $baseQuantity = $lineData['qty'];
                     $conversionFactor = 1;
+                    $processedLine = $lineData;
 
                     if (isset($lineData['order_unit_id']) && $lineData['order_unit_id'] && $inventoryItemId) {
                         Log::info("Processing unit conversion for line {$index}");
@@ -151,11 +141,57 @@ class PurchaseService
                         Log::info("Unit conversion result: baseQty={$baseQuantity}, factor={$conversionFactor}");
                     }
 
+                    $prepared[] = [
+                        'lineData' => $lineData,
+                        'processedLine' => $processedLine,
+                        'lineDiscountAmount' => $lineDiscountAmount,
+                        'lineDiscountPct' => $lineDiscountPct,
+                        'netAmount' => $netAmount,
+                        'baseQuantity' => $baseQuantity,
+                        'conversionFactor' => $conversionFactor,
+                        'unitPriceForeign' => $unitPriceForeign,
+                        'amountForeign' => $amountForeign,
+                        'inventoryItemId' => $inventoryItemId,
+                        'accountId' => $accountId,
+                    ];
+                } catch (\Exception $e) {
+                    Log::error('Error preparing purchase order line '.$index.': '.$e->getMessage());
+                    Log::error($e->getTraceAsString());
+                    throw $e;
+                }
+            }
+
+            $tempScaling = collect($prepared)->map(fn (array $p) => (object) [
+                'net_amount' => $p['netAmount'],
+                'vat_rate' => $p['lineData']['vat_rate'],
+                'wtax_rate' => $p['lineData']['wtax_rate'],
+            ]);
+
+            $subtotalPreHeader = round(collect(HeaderDiscountAllocation::purchaseOrderLineScaled($tempScaling, 0))->sum('payable'), 2);
+
+            $headerDiscountAmount = (float) ($data['discount_amount'] ?? 0);
+            $headerDiscountPct = (float) ($data['discount_percentage'] ?? 0);
+            if ($headerDiscountPct > 0 && $headerDiscountAmount == 0) {
+                $headerDiscountAmount = ($subtotalPreHeader * $headerDiscountPct) / 100;
+            } elseif ($headerDiscountAmount > 0 && $headerDiscountPct == 0) {
+                $headerDiscountPct = $subtotalPreHeader > 0 ? ($headerDiscountAmount / $subtotalPreHeader) * 100 : 0;
+            }
+
+            $scaledRows = HeaderDiscountAllocation::purchaseOrderLineScaled($tempScaling, $headerDiscountAmount);
+
+            $totalAmount = 0;
+            foreach ($prepared as $index => $p) {
+                $scaled = $scaledRows[$index];
+                $amount = $scaled['payable'];
+                $totalAmount += $amount;
+
+                try {
                     Log::info("Creating purchase order line for PO ID: {$po->id}");
+                    $lineData = $p['lineData'];
                     $line = PurchaseOrderLine::create([
                         'order_id' => $po->id,
-                        'account_id' => $accountId,
-                        'inventory_item_id' => $inventoryItemId,
+                        'account_id' => $p['accountId'],
+                        'inventory_item_id' => $p['inventoryItemId'],
                         'part_number_id' => $lineData['part_number_id'] ?? null,
                         'item_code' => null,
                         'item_name' => null,
@@ -163,17 +199,18 @@ class PurchaseService
                         'order_unit_id' => $lineData['order_unit_id'] ?? null,
                         'description' => $lineData['description'] ?? null,
                         'qty' => $lineData['qty'],
-                        'base_quantity' => $baseQuantity,
-                        'unit_conversion_factor' => $conversionFactor,
+                        'base_quantity' => $p['baseQuantity'],
+                        'unit_conversion_factor' => $p['conversionFactor'],
                         'received_qty' => 0,
                         'pending_qty' => $lineData['qty'],
                         'unit_price' => $lineData['unit_price'],
-                        'unit_price_foreign' => $unitPriceForeign,
+                        'unit_price_foreign' => $p['unitPriceForeign'],
                         'amount' => $amount,
-                        'amount_foreign' => $amountForeign,
-                        'discount_amount' => $lineDiscountAmount,
-                        'discount_percentage' => $lineDiscountPct,
-                        'net_amount' => $netAmount,
+                        'amount_foreign' => $p['amountForeign'],
+                        'discount_amount' => $p['lineDiscountAmount'],
+                        'discount_percentage' => $p['lineDiscountPct'],
+                        'net_amount' => $p['netAmount'],
+                        'header_discount_allocated' => $scaled['header_share'],
                         'freight_cost' => 0,
                         'handling_cost' => 0,
                         'tax_code_id' => null,
@@ -182,28 +219,17 @@ class PurchaseService
                         'notes' => $lineData['notes'] ?? null,
                         'status' => 'pending',
                     ]);
-                    Log::info("Purchase order line created with ID: " . ($line->id ?? 'null'));
-
-                    // Log line item addition
+                    Log::info('Purchase order line created with ID: '.($line->id ?? 'null'));
                     $line->load('inventoryItem');
                     $this->workflowAuditService->logLineItemChange($po, $line, 'added');
                 } catch (\Exception $e) {
-                    Log::error("Error creating purchase order line {$index}: " . $e->getMessage());
+                    Log::error('Error creating purchase order line '.$index.': '.$e->getMessage());
                     Log::error($e->getTraceAsString());
                     throw $e;
                 }
             }
 
-            // Apply header discount
-            $subtotal = $totalAmount;
-            $headerDiscountAmount = (float) ($data['discount_amount'] ?? 0);
-            $headerDiscountPct = (float) ($data['discount_percentage'] ?? 0);
-            if ($headerDiscountPct > 0 && $headerDiscountAmount == 0) {
-                $headerDiscountAmount = ($subtotal * $headerDiscountPct) / 100;
-            } elseif ($headerDiscountAmount > 0 && $headerDiscountPct == 0) {
-                $headerDiscountPct = $subtotal > 0 ? ($headerDiscountAmount / $subtotal) * 100 : 0;
-            }
-            $totalAmount = $subtotal - $headerDiscountAmount;
+            $totalAmount = round($totalAmount, 2);
 
             // Update totals
             try {
@@ -220,9 +246,9 @@ class PurchaseService
                     'total_cost' => $totalAmount + $totalFreightCost + $totalHandlingCost,
                     'total_cost_foreign' => $totalAmountForeign + $totalFreightCostForeign + $totalHandlingCostForeign,
                 ]);
-                Log::info("Purchase Order totals updated successfully");
+                Log::info('Purchase Order totals updated successfully');
             } catch (\Exception $e) {
-                Log::error("Error updating Purchase Order totals: " . $e->getMessage());
+                Log::error('Error updating Purchase Order totals: '.$e->getMessage());
                 Log::error($e->getTraceAsString());
                 throw $e;
             }
@@ -231,15 +257,16 @@ class PurchaseService
             try {
                 Log::info("Creating approval workflow for Purchase Order ID: {$po->id}");
                 $this->createApprovalWorkflow($po);
-                Log::info("Approval workflow created successfully");
+                Log::info('Approval workflow created successfully');
             } catch (\Exception $e) {
-                Log::error("Error creating approval workflow: " . $e->getMessage());
+                Log::error('Error creating approval workflow: '.$e->getMessage());
                 Log::error($e->getTraceAsString());
                 // Don't throw the exception for testing - just log the error
                 // throw $e;
             }
 
             Log::info("Purchase Order creation completed successfully, returning PO with ID: {$po->id}");
+
             return $po;
         });
     }
@@ -289,17 +316,15 @@ class PurchaseService
             $po->lines()->delete();
 
             // Create new lines
-            $totalAmount = 0;
             $newLineIds = [];
+            $prepared = [];
             foreach ($data['lines'] as $lineData) {
-                // Process unit conversion if order_unit_id is provided
                 if (isset($lineData['order_unit_id']) && $lineData['order_unit_id']) {
                     $processedLine = $this->unitConversionService->processOrderLine($lineData, $lineData['item_id']);
                 } else {
                     $processedLine = $lineData;
                 }
 
-                // Calculate amounts with discount
                 $originalAmount = $processedLine['qty'] * $processedLine['unit_price'];
                 $lineDiscountAmount = (float) ($lineData['discount_amount'] ?? 0);
                 $lineDiscountPct = (float) ($lineData['discount_percentage'] ?? 0);
@@ -309,34 +334,67 @@ class PurchaseService
                     $lineDiscountPct = $originalAmount > 0 ? ($lineDiscountAmount / $originalAmount) * 100 : 0;
                 }
                 $netAmount = $originalAmount - $lineDiscountAmount;
-                $vatAmount = $netAmount * ($processedLine['vat_rate'] / 100);
-                $wtaxAmount = $netAmount * ($processedLine['wtax_rate'] / 100);
-                $amount = $netAmount + $vatAmount - $wtaxAmount;
 
-                // Determine if this is an inventory item or account based on order type
                 $inventoryItemId = null;
                 $accountId = null;
 
                 if ($data['order_type'] === 'item') {
                     $inventoryItemId = $processedLine['item_id'];
-                    // For inventory items, use a default inventory account
                     $accountId = $this->getDefaultInventoryAccount();
                 } else {
                     $accountId = $processedLine['item_id'];
                 }
 
+                $prepared[] = [
+                    'lineData' => $lineData,
+                    'processedLine' => $processedLine,
+                    'lineDiscountAmount' => $lineDiscountAmount,
+                    'lineDiscountPct' => $lineDiscountPct,
+                    'netAmount' => $netAmount,
+                    'inventoryItemId' => $inventoryItemId,
+                    'accountId' => $accountId,
+                ];
+            }
+
+            $tempScaling = collect($prepared)->map(fn (array $p) => (object) [
+                'net_amount' => $p['netAmount'],
+                'vat_rate' => $p['processedLine']['vat_rate'],
+                'wtax_rate' => $p['processedLine']['wtax_rate'],
+            ]);
+
+            $subtotalPreHeader = round(collect(HeaderDiscountAllocation::purchaseOrderLineScaled($tempScaling, 0))->sum('payable'), 2);
+
+            $headerDiscountAmount = (float) ($data['discount_amount'] ?? 0);
+            $headerDiscountPct = (float) ($data['discount_percentage'] ?? 0);
+            if ($headerDiscountPct > 0 && $headerDiscountAmount == 0) {
+                $headerDiscountAmount = ($subtotalPreHeader * $headerDiscountPct) / 100;
+            } elseif ($headerDiscountAmount > 0 && $headerDiscountPct == 0) {
+                $headerDiscountPct = $subtotalPreHeader > 0 ? ($headerDiscountAmount / $subtotalPreHeader) * 100 : 0;
+            }
+
+            $scaledRows = HeaderDiscountAllocation::purchaseOrderLineScaled($tempScaling, $headerDiscountAmount);
+
+            $totalAmount = 0;
+            foreach ($prepared as $index => $p) {
+                $scaled = $scaledRows[$index];
+                $amount = $scaled['payable'];
+                $totalAmount += $amount;
+                $processedLine = $p['processedLine'];
+                $lineData = $p['lineData'];
+
                 $line = PurchaseOrderLine::create([
                     'order_id' => $po->id,
-                    'inventory_item_id' => $inventoryItemId,
+                    'inventory_item_id' => $p['inventoryItemId'],
                     'part_number_id' => $processedLine['part_number_id'] ?? $lineData['part_number_id'] ?? null,
-                    'account_id' => $accountId,
+                    'account_id' => $p['accountId'],
                     'description' => $processedLine['description'],
                     'qty' => $processedLine['qty'],
                     'unit_price' => $processedLine['unit_price'],
                     'amount' => $amount,
-                    'discount_amount' => $lineDiscountAmount,
-                    'discount_percentage' => $lineDiscountPct,
-                    'net_amount' => $netAmount,
+                    'discount_amount' => $p['lineDiscountAmount'],
+                    'discount_percentage' => $p['lineDiscountPct'],
+                    'net_amount' => $p['netAmount'],
+                    'header_discount_allocated' => $scaled['header_share'],
                     'order_unit_id' => $processedLine['order_unit_id'] ?? null,
                     'base_quantity' => $processedLine['base_quantity'] ?? $processedLine['qty'],
                     'unit_conversion_factor' => $processedLine['unit_conversion_factor'] ?? 1,
@@ -346,14 +404,11 @@ class PurchaseService
                 ]);
 
                 $newLineIds[] = $line->id;
-                $totalAmount += $amount;
-
-                // Log line item addition (since we delete all and recreate)
                 $line->load('inventoryItem');
                 $this->workflowAuditService->logLineItemChange($po, $line, 'added');
             }
 
-            // Log removed lines
+            $totalAmount = round($totalAmount, 2);
             $removedLineIds = array_diff($existingLineIds, $newLineIds);
             foreach ($removedLineIds as $lineId) {
                 $line = $existingLines->get($lineId);
@@ -362,17 +417,6 @@ class PurchaseService
                     $this->workflowAuditService->logLineItemChange($po, $line, 'removed', $line->toArray());
                 }
             }
-
-            // Apply header discount
-            $subtotal = $totalAmount;
-            $headerDiscountAmount = (float) ($data['discount_amount'] ?? 0);
-            $headerDiscountPct = (float) ($data['discount_percentage'] ?? 0);
-            if ($headerDiscountPct > 0 && $headerDiscountAmount == 0) {
-                $headerDiscountAmount = ($subtotal * $headerDiscountPct) / 100;
-            } elseif ($headerDiscountAmount > 0 && $headerDiscountPct == 0) {
-                $headerDiscountPct = $subtotal > 0 ? ($headerDiscountAmount / $subtotal) * 100 : 0;
-            }
-            $totalAmount = $subtotal - $headerDiscountAmount;
 
             // Update total amount and header discount
             $po->update([
@@ -415,7 +459,7 @@ class PurchaseService
                 ->first();
 
             // If no approval record exists, try to create workflow or allow superadmin to approve
-            if (!$approval) {
+            if (! $approval) {
                 // Check if user is superadmin (has superadmin role via Spatie)
                 $user = \App\Models\User::find($userId);
                 if ($user && $user->hasRole('superadmin')) {
@@ -428,7 +472,7 @@ class PurchaseService
                         'comments' => $comments,
                         'approved_at' => now(),
                     ]);
-                    
+
                     // Directly approve the PO since superadmin bypasses workflow
                     $po->update([
                         'approval_status' => 'approved',
@@ -449,11 +493,11 @@ class PurchaseService
                                 ->where('status', 'pending')
                                 ->first();
                         } catch (\Exception $e) {
-                            Log::error("Failed to create approval workflow: " . $e->getMessage());
+                            Log::error('Failed to create approval workflow: '.$e->getMessage());
                         }
                     }
-                    
-                    if (!$approval) {
+
+                    if (! $approval) {
                         throw new \Exception('No pending approval found for this user. You may not have the required role to approve this purchase order.');
                     }
                 }
@@ -505,7 +549,7 @@ class PurchaseService
                 ->where('status', 'pending')
                 ->first();
 
-            if (!$approval) {
+            if (! $approval) {
                 throw new \Exception('No pending approval found for this user');
             }
 
@@ -534,20 +578,20 @@ class PurchaseService
         return DB::transaction(function () use ($purchaseOrderId, $receiptData) {
             $po = PurchaseOrder::with('lines')->findOrFail($purchaseOrderId);
 
-            if (!$po->canBeReceived()) {
+            if (! $po->canBeReceived()) {
                 throw new \Exception('Purchase order cannot be received in current status');
             }
 
             foreach ($receiptData['lines'] as $lineData) {
                 $line = $po->lines()->find($lineData['line_id']);
 
-                if (!$line) {
+                if (! $line) {
                     continue;
                 }
 
                 $receivedQty = $lineData['received_qty'];
 
-                if (!$line->canReceiveQuantity($receivedQty)) {
+                if (! $line->canReceiveQuantity($receivedQty)) {
                     throw new \Exception("Cannot receive {$receivedQty} for line {$line->id}. Pending quantity: {$line->pending_qty}");
                 }
 
@@ -584,7 +628,7 @@ class PurchaseService
 
             // Log status change
             if ($oldStatus != $po->status) {
-                $this->workflowAuditService->logStatusChange($po, $oldStatus, $po->status, "Goods received");
+                $this->workflowAuditService->logStatusChange($po, $oldStatus, $po->status, 'Goods received');
             }
 
             // Update supplier performance metrics
@@ -599,7 +643,7 @@ class PurchaseService
         $po = PurchaseOrder::findOrFail($purchaseOrderId);
         $oldStatus = $po->status;
 
-        if (!$po->canBeClosed()) {
+        if (! $po->canBeClosed()) {
             throw new \Exception('Purchase order cannot be closed in current status');
         }
 
@@ -608,7 +652,7 @@ class PurchaseService
 
         // Log status change
         if ($oldStatus != $po->status) {
-            $this->workflowAuditService->logStatusChange($po, $oldStatus, $po->status, "Purchase order closed");
+            $this->workflowAuditService->logStatusChange($po, $oldStatus, $po->status, 'Purchase order closed');
         }
 
         return $po;
@@ -635,7 +679,7 @@ class PurchaseService
             $vendorId = $line->order->business_partner_id;
             $vendor = $line->order->vendor;
 
-            if (!isset($supplierData[$vendorId])) {
+            if (! isset($supplierData[$vendorId])) {
                 $supplierData[$vendorId] = [
                     'vendor' => $vendor,
                     'recent_prices' => [],
@@ -652,7 +696,7 @@ class PurchaseService
 
         // Calculate averages and performance metrics
         foreach ($supplierData as $vendorId => &$data) {
-            if (!empty($data['recent_prices'])) {
+            if (! empty($data['recent_prices'])) {
                 $data['avg_price'] = array_sum($data['recent_prices']) / count($data['recent_prices']);
             }
 
@@ -672,6 +716,7 @@ class PurchaseService
         uasort($supplierData, function ($a, $b) {
             $scoreA = ($a['performance_rating'] * 0.6) - ($a['avg_price'] / 1000 * 0.4);
             $scoreB = ($b['performance_rating'] * 0.6) - ($b['avg_price'] / 1000 * 0.4);
+
             return $scoreB <=> $scoreA;
         });
 
@@ -698,9 +743,9 @@ class PurchaseService
                 ]);
             }
 
-            Log::info("Approval workflow created successfully for PO {$purchaseOrder->order_no} with " . count($approvalRecords) . " approval records");
+            Log::info("Approval workflow created successfully for PO {$purchaseOrder->order_no} with ".count($approvalRecords).' approval records');
         } catch (\Exception $e) {
-            Log::error("Error creating approval workflow: " . $e->getMessage());
+            Log::error('Error creating approval workflow: '.$e->getMessage());
             throw $e;
         }
     }
@@ -729,6 +774,7 @@ class PurchaseService
     {
         try {
             $purchaseOrder->validateOrderTypeConsistency();
+
             return true;
         } catch (\Exception $e) {
             throw new \Exception($e->getMessage());
@@ -761,7 +807,7 @@ class PurchaseService
             ->where('name', 'like', '%inventory%')
             ->first();
 
-        if (!$account) {
+        if (! $account) {
             // Fallback: find any asset account
             $account = Account::where('code', 'like', '1.%')
                 ->first();

@@ -326,6 +326,30 @@ Decision: [Title] - [YYYY-MM-DD]
 
 ---
 
+### Decision: Purchase Order form JavaScript — totals, header discount, initialization order - 2026-05-04
+
+**Context**: Users reported incorrect **line Amount** on PO when VAT/WTax were off and line discount zero (totals implied a hidden header discount still applied), and the **item search** button on PO **edit** did nothing. Investigation showed two issues: (1) **Temporal dead zone** — `initializeExistingLines()` called `updateTotals()` before `let updatingHeaderDiscount` ran in the same `$(document).ready` callback, throwing **ReferenceError** and preventing registration of all handlers bound later in that callback (including `.item-search-btn`). The same init order risk existed on **create** when Add Line fired before the header-discount `let`. (2) **Stale header Discount Amount** when **Discount (%)** was zero caused the UI to keep scaling line payables. (3) Raw **`toastr.success('{{ session(...) }}')`** could inject unescaped quotes and break the script parser.
+
+**Options Considered**:
+
+1. **Option A**: Document as user error only  
+   - Pros: No code change  
+   - Cons: Broken edit page and wrong totals remain
+
+2. **Option B**: Fix init order, align edit/create `updateTotals`, harden toastr output  
+   - Pros: Reliable modal and correct amounts when header discount is truly zero  
+   - Cons: Blade/JS touch in two views
+
+**Decision**: Adopt Option B. **Implementation**: Declare **`updatingHeaderDiscount`** at the **top** of `$(document).ready` in **`purchase_orders/create.blade.php`** and **`purchase_orders/edit.blade.php`**. Align **edit** `updateTotals` with **create** (recalculate header rupiah from % when % > 0; when % ≤ 0 treat header discount as zero and clear stale amount field; finite guards on sum payables; VAT/WTax from Select2). Bind **`input`** and **`change`** on header discount fields on edit. Use **`@json(session('success'))` / `@json(session('error'))`** for toastr on edit.
+
+**Rationale**: `let` bindings are not hoisted like `var`; early `updateTotals()` must not read variables before their initializer runs. Stale numeric fields must not contradict zero percent. Session messages must not be embedded raw in JS strings.
+
+**Implementation**: `resources/views/purchase_orders/create.blade.php`, `resources/views/purchase_orders/edit.blade.php`; docs: `docs/architecture.md`, `docs/decisions.md`, `MEMORY.md` **[109]**, `docs/todo.md`, `docs/manuals/purchase-module-manual.md`, `docs/manuals/purchase-module-manual-id.md`.
+
+**Review Date**: 2027-05-04.
+
+---
+
 ### Decision: Print Layout Selection (Standard vs Dot Matrix) - 2026-02-19
 
 **Context**: Users need to print documents on different printer types—A4/laser for formal copies and dot matrix (80-column) for warehouse/delivery receipts. Single print layout did not suit both.

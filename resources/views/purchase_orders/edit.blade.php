@@ -440,6 +440,7 @@
         $(document).ready(function() {
             let i = {{ count($order->lines) }};
             const $tb = $('#lines tbody');
+            let updatingHeaderDiscount = false;
 
             // Initialize Select2BS4
             $('.select2bs4').select2({
@@ -581,24 +582,28 @@
             });
 
             // Header discount sync
-            let updatingHeaderDiscount = false;
             function getSubtotal() {
                 let s = 0;
                 $('#lines tbody tr').each(function() {
                     const qty = parseFloat($(this).find('.qty-input').val() || 0);
                     const price = parseFloat($(this).find('.price-input').val() || 0);
-                    const vatRate = parseFloat($(this).find('.vat-select').val() || 0);
-                    const wtaxRate = parseFloat($(this).find('.wtax-select').val() || 0);
+                    const vatRaw = $(this).find('.vat-select').val();
+                    const wtaxRaw = $(this).find('.wtax-select').val();
+                    let vatRate = parseFloat(vatRaw == null || vatRaw === '' ? 0 : vatRaw);
+                    let wtaxRate = parseFloat(wtaxRaw == null || wtaxRaw === '' ? 0 : wtaxRaw);
+                    if (!Number.isFinite(vatRate)) vatRate = 0;
+                    if (!Number.isFinite(wtaxRate)) wtaxRate = 0;
                     const discountAmount = parseFloat($(this).find('.line-discount-amount').val() || 0);
                     const originalAmount = qty * price;
                     const netAmount = originalAmount - discountAmount;
                     const vatAmount = netAmount * (vatRate / 100);
                     const wtaxAmount = netAmount * (wtaxRate / 100);
-                    s += netAmount + vatAmount - wtaxAmount;
+                    const line = netAmount + vatAmount - wtaxAmount;
+                    s += Number.isFinite(line) ? line : 0;
                 });
-                return s;
+                return Number.isFinite(s) ? s : 0;
             }
-            $('#discount_percentage').on('input', function() {
+            $('#discount_percentage').on('input change', function() {
                 if (updatingHeaderDiscount) return;
                 const subtotal = getSubtotal();
                 const pct = parseFloat($(this).val() || 0);
@@ -607,7 +612,7 @@
                 updatingHeaderDiscount = false;
                 updateTotals();
             });
-            $('#discount_amount').on('input', function() {
+            $('#discount_amount').on('input change', function() {
                 if (updatingHeaderDiscount) return;
                 const subtotal = getSubtotal();
                 const amt = parseFloat($(this).val() || 0);
@@ -750,7 +755,6 @@
                 });
 
                 updateLineAmount(tr);
-                updateTotals();
             }
 
             function updateAllLineDropdowns() {
@@ -771,8 +775,6 @@
             function updateLineAmount(row) {
                 const qty = parseFloat($(row).find('.qty-input').val() || 0);
                 const price = parseFloat($(row).find('.price-input').val() || 0);
-                const vatRate = parseFloat($(row).find('.vat-select').val() || 0);
-                const wtaxRate = parseFloat($(row).find('.wtax-select').val() || 0);
                 let discountAmount = parseFloat($(row).find('.line-discount-amount').val() || 0);
                 const discountPct = parseFloat($(row).find('.line-discount-percentage').val() || 0);
 
@@ -784,55 +786,91 @@
                     const pct = originalAmount > 0 ? (discountAmount / originalAmount * 100) : 0;
                     $(row).find('.line-discount-percentage').val(pct.toFixed(2));
                 }
-                const netAmount = originalAmount - discountAmount;
-                const vatAmount = netAmount * (vatRate / 100);
-                const wtaxAmount = netAmount * (wtaxRate / 100);
-                const lineAmount = netAmount + vatAmount - wtaxAmount;
-
-                $(row).find('.line-amount').text(lineAmount.toLocaleString('id-ID', {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2
-                }));
+                updateTotals();
             }
 
             function updateTotals() {
-                let subtotal = 0;
-                let totalLineDiscount = 0;
-                let totalVat = 0;
-                let totalWtax = 0;
-
+                const rows = [];
                 $('#lines tbody tr').each(function() {
-                    const qty = parseFloat($(this).find('.qty-input').val() || 0);
-                    const price = parseFloat($(this).find('.price-input').val() || 0);
-                    const vatRate = parseFloat($(this).find('.vat-select').val() || 0);
-                    const wtaxRate = parseFloat($(this).find('.wtax-select').val() || 0);
-                    const discountAmount = parseFloat($(this).find('.line-discount-amount').val() || 0);
-
+                    const $tr = $(this);
+                    const qty = parseFloat($tr.find('.qty-input').val() || 0);
+                    const price = parseFloat($tr.find('.price-input').val() || 0);
+                    const vatRaw = $tr.find('.vat-select').val();
+                    const wtaxRaw = $tr.find('.wtax-select').val();
+                    let vatRate = parseFloat(vatRaw == null || vatRaw === '' ? 0 : vatRaw);
+                    let wtaxRate = parseFloat(wtaxRaw == null || wtaxRaw === '' ? 0 : wtaxRaw);
+                    if (!Number.isFinite(vatRate)) vatRate = 0;
+                    if (!Number.isFinite(wtaxRate)) wtaxRate = 0;
+                    const discountAmount = parseFloat($tr.find('.line-discount-amount').val() || 0);
                     const originalAmount = qty * price;
                     const netAmount = originalAmount - discountAmount;
-                    const vatAmount = netAmount * (vatRate / 100);
-                    const wtaxAmount = netAmount * (wtaxRate / 100);
-                    const lineAmount = netAmount + vatAmount - wtaxAmount;
-
-                    subtotal += lineAmount;
-                    totalLineDiscount += discountAmount;
-                    totalVat += vatAmount;
-                    totalWtax += wtaxAmount;
+                    const payablePre = netAmount + netAmount * (vatRate / 100) - netAmount * (wtaxRate / 100);
+                    rows.push({
+                        $tr,
+                        netAmount: Number.isFinite(netAmount) ? netAmount : 0,
+                        vatRate,
+                        wtaxRate,
+                        lineDisc: discountAmount,
+                        payablePre: Number.isFinite(payablePre) ? payablePre : 0
+                    });
                 });
 
-                const headerDiscountPct = parseFloat($('#discount_percentage').val() || 0);
-                let headerDiscountAmount = parseFloat($('#discount_amount').val() || 0);
-                if (headerDiscountPct > 0 && headerDiscountAmount === 0) {
-                    headerDiscountAmount = subtotal * headerDiscountPct / 100;
-                    if (typeof updatingHeaderDiscount !== 'undefined' && !updatingHeaderDiscount) {
+                let sumPayables = 0;
+                rows.forEach(r => {
+                    sumPayables += r.payablePre;
+                });
+                if (!Number.isFinite(sumPayables)) {
+                    sumPayables = 0;
+                }
+
+                let headerDiscountPct = parseFloat(String($('#discount_percentage').val() || '').replace(',', '.') || 0);
+                let headerDiscountAmount = parseFloat(String($('#discount_amount').val() || '').replace(',', '.') || 0);
+                if (!Number.isFinite(headerDiscountPct) || headerDiscountPct < 0) headerDiscountPct = 0;
+                if (!Number.isFinite(headerDiscountAmount) || headerDiscountAmount < 0) headerDiscountAmount = 0;
+
+                if (headerDiscountPct > 0 && sumPayables > 0) {
+                    headerDiscountAmount = sumPayables * headerDiscountPct / 100;
+                    if (!updatingHeaderDiscount) {
                         updatingHeaderDiscount = true;
                         $('#discount_amount').val(headerDiscountAmount.toFixed(2));
                         updatingHeaderDiscount = false;
                     }
+                } else if (headerDiscountPct <= 0) {
+                    headerDiscountAmount = 0;
+                    const currentHdr = parseFloat(String($('#discount_amount').val() || '').replace(',', '.') || 0);
+                    if (!updatingHeaderDiscount && currentHdr > 0) {
+                        updatingHeaderDiscount = true;
+                        $('#discount_amount').val((0).toFixed(2));
+                        updatingHeaderDiscount = false;
+                    }
                 }
-                const amountDue = subtotal - headerDiscountAmount;
 
-                $('#original-amount').text(subtotal.toLocaleString('id-ID', {
+                headerDiscountAmount = Math.min(headerDiscountAmount, Math.max(0, sumPayables));
+
+                const s = sumPayables <= 0 ? 1 :
+                    (headerDiscountAmount >= sumPayables ? 0 : (sumPayables - headerDiscountAmount) / sumPayables);
+
+                let subtotalScaled = 0;
+                let totalLineDiscount = 0;
+                let totalVat = 0;
+                let totalWtax = 0;
+
+                rows.forEach(r => {
+                    totalLineDiscount += r.lineDisc;
+                    const dpp = r.netAmount * s;
+                    const vatAmount = dpp * (r.vatRate / 100);
+                    const wtaxAmount = dpp * (r.wtaxRate / 100);
+                    const lineAmount = dpp + vatAmount - wtaxAmount;
+                    subtotalScaled += lineAmount;
+                    totalVat += vatAmount;
+                    totalWtax += wtaxAmount;
+                    r.$tr.find('.line-amount').text(lineAmount.toLocaleString('id-ID', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                    }));
+                });
+
+                $('#original-amount').text(sumPayables.toLocaleString('id-ID', {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2
                 }));
@@ -857,7 +895,7 @@
                     maximumFractionDigits: 2
                 }));
 
-                $('#amount-due').text(amountDue.toLocaleString('id-ID', {
+                $('#amount-due').text(subtotalScaled.toLocaleString('id-ID', {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2
                 }));
@@ -1018,11 +1056,11 @@
 
             // Display success/error messages from session
             @if (session('success'))
-                toastr.success('{{ session('success') }}');
+                toastr.success(@json(session('success')));
             @endif
 
             @if (session('error'))
-                toastr.error('{{ session('error') }}');
+                toastr.error(@json(session('error')));
             @endif
         });
 

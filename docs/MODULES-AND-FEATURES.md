@@ -1,6 +1,6 @@
 # Sarange ERP - Modules and Features List
 
-**Last Updated**: 2026-04-20  
+**Last Updated**: 2026-05-04  
 **System Status**: Production Ready (95% Complete)  
 **Technology Stack**: Laravel 12, PHP 8.2+, MySQL, AdminLTE 3.14
 
@@ -155,8 +155,7 @@
 - **Approval Workflow**: Multi-level approval process
 - **Document Closure**: Automatic closure tracking
 - **Company Entity Support**: Multi-letterhead support for different legal entities
-
-**Features**:
+- **Create/Edit form reliability (2026-05-04)**: Shared Blade/JavaScript totals on create and edit; header discount **0%** clears stale amount and rescales line payables correctly; `updatingHeaderDiscount` initialized before first `updateTotals()` so item-search modal and other handlers always register on edit. See `docs/decisions.md` (PO form JS decision) and `MEMORY.md` **[109]**.
 - CRUD operations
 - Edit functionality with sophisticated calculation engine
 - Document navigation (Base/Target documents)

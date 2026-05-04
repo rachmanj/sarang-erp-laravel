@@ -93,10 +93,10 @@ The Purchase Management Module manages the full procure-to-pay workflow and supp
 -   **Warehouse**: One destination warehouse per order (defaults to selected warehouse, non-transit only).
 -   **Item vs Service Lines**: Items affect inventory; services do not.
 -   **Taxes**: VAT and withholding tax per line or document.
+-   **Header discount**: **Discount (%)** and **Discount Amount** scale each line’s payable (net + VAT − WTax) when a header discount applies. If **Discount (%)** is **0**, the form treats there as no header discount—any leftover rupiah amount is cleared on recalc so line **Amount** matches qty × price (plus line-level tax/discount rules). Create and Edit PO pages share the same JS behaviour.
+-   **Item search**: The magnifying-glass button on a line opens the item selection modal. Page scripts must initialize without errors for this to work; a 2026-05-04 fix ensures the edit form registers handlers by initializing header-discount flags before the first total recalculation.
 -   **Approval Workflow**: Draft → Pending Approval → Approved.
 -   **Closure**: Automatic closure based on GRPO/PI completion or configured auto-close days.
-
-### Creating a PO
 
 1. Go to `Purchase > Purchase Orders` and click **Add**.
 2. Select **Vendor** (filters PO selection later).

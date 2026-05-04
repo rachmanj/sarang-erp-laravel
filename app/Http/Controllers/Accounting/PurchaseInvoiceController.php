@@ -10,7 +10,9 @@ use App\Models\GoodsReceiptPO;
 use App\Models\InventoryItem;
 use App\Models\PurchaseOrder;
 use App\Models\Warehouse;
+use App\Services\Accounting\HeaderDiscountAllocation;
 use App\Services\Accounting\PostingService;
+use App\Services\Accounting\PurchaseDocumentHeaderDiscountApplier;
 use App\Services\Accounting\PurchaseInvoiceFooterMath;
 use App\Services\CompanyEntityService;
 use App\Services\DocumentClosureService;
@@ -38,7 +40,8 @@ class PurchaseInvoiceController extends Controller
         private PurchaseInvoiceService $purchaseInvoiceService,
         private UnitConversionService $unitConversionService,
         private DocumentRelationshipService $documentRelationshipService,
-        private PurchaseInvoiceGrpoAggregationService $purchaseInvoiceGrpoAggregationService
+        private PurchaseInvoiceGrpoAggregationService $purchaseInvoiceGrpoAggregationService,
+        private PurchaseDocumentHeaderDiscountApplier $purchaseDocumentHeaderDiscountApplier,
     ) {
         $this->middleware(['auth']);
         $this->middleware('permission:ap.invoices.view')->only(['index', 'show']);
@@ -409,16 +412,20 @@ class PurchaseInvoiceController extends Controller
             } elseif ($headerDiscountAmount > 0 && $headerDiscountPct == 0) {
                 $headerDiscountPct = $subtotal > 0 ? ($headerDiscountAmount / $subtotal) * 100 : 0;
             }
-            $total = $subtotal - $headerDiscountAmount;
             $termsDays = (int) ($request->input('terms_days') ?? 0);
             $dueDate = $termsDays > 0 ? date('Y-m-d', strtotime($data['date'].' +'.$termsDays.' days')) : null;
             $invoice->update([
-                'total_amount' => $total,
                 'discount_amount' => $totalLineDiscountAmount + $headerDiscountAmount,
                 'discount_percentage' => $headerDiscountPct,
                 'terms_days' => $termsDays ?: null,
                 'due_date' => $dueDate,
             ]);
+
+            $invoice->load(['lines' => fn ($q) => $q->orderBy('id')]);
+            $this->purchaseDocumentHeaderDiscountApplier->recalculatePurchaseInvoiceLines($invoice);
+
+            $payableTotal = round((float) $invoice->lines()->sum('amount_after_vat'), 2);
+            $invoice->update(['total_amount' => $payableTotal]);
 
             $this->purchaseInvoiceGrpoAggregationService->persistInvoiceGrpoPivot($invoice, $mergedGrpoIds);
 
@@ -723,16 +730,20 @@ class PurchaseInvoiceController extends Controller
             } elseif ($headerDiscountAmount > 0 && $headerDiscountPct == 0) {
                 $headerDiscountPct = $subtotal > 0 ? ($headerDiscountAmount / $subtotal) * 100 : 0;
             }
-            $total = $subtotal - $headerDiscountAmount;
             $termsDays = (int) ($request->input('terms_days') ?? 0);
             $dueDate = $termsDays > 0 ? date('Y-m-d', strtotime($data['date'].' +'.$termsDays.' days')) : null;
             $invoice->update([
-                'total_amount' => $total,
                 'discount_amount' => $totalLineDiscountAmount + $headerDiscountAmount,
                 'discount_percentage' => $headerDiscountPct,
                 'terms_days' => $termsDays ?: null,
                 'due_date' => $dueDate,
             ]);
+
+            $invoice->load(['lines' => fn ($q) => $q->orderBy('id')]);
+            $this->purchaseDocumentHeaderDiscountApplier->recalculatePurchaseInvoiceLines($invoice);
+
+            $payableTotal = round((float) $invoice->lines()->sum('amount_after_vat'), 2);
+            $invoice->update(['total_amount' => $payableTotal]);
 
             return redirect()->route('purchase-invoices.show', $invoice->id)->with('success', 'Purchase invoice updated');
         });
@@ -915,10 +926,21 @@ class PurchaseInvoiceController extends Controller
     }
 
     /**
-     * Post direct cash purchase invoice
-     * Normal flow: Debit Inventory Account, Credit Cash Account
-     * Opening balance flow: Debit Line Accounts, Credit Cash Account
+     * DPP per line after header discount scaling (aligned with {@see PurchaseInvoiceFooterMath} and line storage).
+     *
+     * @return array<int, float>
      */
+    private function scaledDppByPurchaseInvoiceLineId(PurchaseInvoice $invoice): array
+    {
+        $invoice->load(['lines' => fn ($q) => $q->orderBy('id')]);
+        $map = [];
+        foreach (HeaderDiscountAllocation::purchaseInvoiceLineScaled($invoice) as $row) {
+            $map[$row['line_id']] = (float) $row['dpp'];
+        }
+
+        return $map;
+    }
+
     /**
      * Calculate VAT amount from tax code
      */
@@ -942,6 +964,11 @@ class PurchaseInvoiceController extends Controller
         return 0.0;
     }
 
+    /**
+     * Post direct cash purchase invoice
+     * Normal flow: Debit Inventory Account, Credit Cash Account
+     * Opening balance flow: Debit Line Accounts, Credit Cash Account
+     */
     private function postDirectCashPurchase(PurchaseInvoice $invoice): void
     {
         // Use selected cash account, or fallback to default (Kas di Tangan)
@@ -959,8 +986,11 @@ class PurchaseInvoiceController extends Controller
         // Group by account for opening balance invoices
         $expenseByAccount = [];
 
+        $dppByLineId = $this->scaledDppByPurchaseInvoiceLineId($invoice);
+
         foreach ($invoice->lines as $line) {
-            $lineAmount = ($line->net_amount > 0) ? (float) $line->net_amount : (float) $line->amount;
+            $lineAmount = $dppByLineId[$line->id]
+                ?? (($line->net_amount > 0) ? (float) $line->net_amount : (float) $line->amount);
             $totalAmount += $lineAmount;
 
             // Group by account for opening balance invoices
@@ -1098,8 +1128,10 @@ class PurchaseInvoiceController extends Controller
         // Calculate totals and group by account for opening balance or direct credit (no GRPO)
         $expenseByAccount = [];
         $useLineAccounts = $invoice->is_opening_balance || ! $invoice->isLinkedToGoodsReceiptPo();
+        $dppByLineId = $this->scaledDppByPurchaseInvoiceLineId($invoice);
         foreach ($invoice->lines as $l) {
-            $lineAmount = ($l->net_amount > 0) ? (float) $l->net_amount : (float) $l->amount;
+            $lineAmount = $dppByLineId[$l->id]
+                ?? (($l->net_amount > 0) ? (float) $l->net_amount : (float) $l->amount);
             $expenseTotal += $lineAmount;
 
             if ($useLineAccounts) {
