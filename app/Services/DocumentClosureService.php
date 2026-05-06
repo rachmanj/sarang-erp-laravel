@@ -9,7 +9,7 @@ use App\Models\Accounting\SalesReceipt;
 use App\Models\Accounting\SalesReceiptAllocation;
 use App\Models\DeliveryOrder;
 use App\Models\ErpParameter;
-use App\Models\GoodsReceipt;
+use App\Models\GoodsReceiptPO;
 use App\Models\PurchaseOrder;
 use App\Models\SalesOrder;
 use Illuminate\Support\Facades\Auth;
@@ -23,7 +23,7 @@ class DocumentClosureService
     public function closePurchaseOrder($poId, $grpoId, $userId = null)
     {
         $po = PurchaseOrder::findOrFail($poId);
-        $grpo = GoodsReceipt::findOrFail($grpoId);
+        $grpo = GoodsReceiptPO::findOrFail($grpoId);
 
         // Check if PO can be closed (quantity-based closure)
         if ($this->canClosePurchaseOrder($poId, $grpoId)) {
@@ -46,7 +46,7 @@ class DocumentClosureService
      */
     public function closeGoodsReceipt($grpoId, $piId, $userId = null)
     {
-        $grpo = GoodsReceipt::findOrFail($grpoId);
+        $grpo = GoodsReceiptPO::findOrFail($grpoId);
         $pi = PurchaseInvoice::findOrFail($piId);
 
         // Check if GRPO can be closed (quantity-based closure)
@@ -282,11 +282,11 @@ class DocumentClosureService
     public function canClosePurchaseOrder($poId, $grpoId)
     {
         $po = PurchaseOrder::with('lines')->findOrFail($poId);
-        $grpo = GoodsReceipt::with('lines')->findOrFail($grpoId);
+        $grpo = GoodsReceiptPO::with('lines')->findOrFail($grpoId);
 
         // Get total quantities
-        $poTotalQty = $po->lines->sum('quantity');
-        $grpoTotalQty = $grpo->lines->sum('quantity');
+        $poTotalQty = $po->lines->sum('qty');
+        $grpoTotalQty = $grpo->lines->sum('qty');
 
         // Check if GRPO quantity >= PO quantity
         return $grpoTotalQty >= $poTotalQty;
@@ -297,12 +297,12 @@ class DocumentClosureService
      */
     public function canCloseGoodsReceipt($grpoId, $piId)
     {
-        $grpo = GoodsReceipt::with('lines')->findOrFail($grpoId);
+        $grpo = GoodsReceiptPO::with('lines')->findOrFail($grpoId);
         $pi = PurchaseInvoice::with('lines')->findOrFail($piId);
 
         // Get total quantities
-        $grpoTotalQty = $grpo->lines->sum('quantity');
-        $piTotalQty = $pi->lines->sum('quantity');
+        $grpoTotalQty = $grpo->lines->sum('qty');
+        $piTotalQty = $pi->lines->sum('qty');
 
         // Check if PI quantity >= GRPO quantity
         return $piTotalQty >= $grpoTotalQty;
@@ -504,7 +504,7 @@ class DocumentClosureService
     {
         $models = [
             'purchase_order' => PurchaseOrder::class,
-            'goods_receipt' => GoodsReceipt::class,
+            'goods_receipt' => GoodsReceiptPO::class,
             'purchase_invoice' => PurchaseInvoice::class,
             'purchase_payment' => PurchasePayment::class,
             'sales_order' => SalesOrder::class,

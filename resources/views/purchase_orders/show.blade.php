@@ -58,6 +58,10 @@
                             <i class="fas fa-arrow-left"></i> Back to Purchase Orders
                         </a>
                         @if ($order->status === 'draft')
+                            <a href="{{ route('purchase-orders.edit', $order->id) }}" class="btn btn-sm btn-warning mr-1"
+                                aria-label="Edit Purchase Order">
+                                <i class="fas fa-edit"></i> Edit
+                            </a>
                             @php
                                 $canApprove = false;
                                 if (auth()->user()->hasRole('superadmin')) {

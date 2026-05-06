@@ -211,6 +211,46 @@ class PurchaseInvoiceMultiGrpoTest extends TestCase
         ]);
     }
 
+    public function test_store_single_grpo_closes_grpo_when_invoice_qty_covers_receipt(): void
+    {
+        $base = $this->baseIds();
+        $grpo = $this->createGrpoWithLine('T-SINGLE-CLOSE', $base, 1);
+
+        $prefill = $this->postJson(route('purchase-invoices.api.prefill-from-grpos'), [
+            'business_partner_id' => $base['vendorId'],
+            'grpo_ids' => [$grpo->id],
+        ]);
+        $prefill->assertOk();
+        $lines = $prefill->json('prefill.lines');
+
+        $payload = [
+            'date' => now()->toDateString(),
+            'business_partner_id' => $base['vendorId'],
+            'company_entity_id' => $base['entityId'],
+            'payment_method' => 'credit',
+            'description' => 'From GRPO',
+            'goods_receipt_id' => $grpo->id,
+            'lines' => array_map(static function ($l) use ($base) {
+                return [
+                    'inventory_item_id' => $base['itemId'],
+                    'account_id' => $base['accountId'],
+                    'warehouse_id' => $base['warehouseId'],
+                    'description' => $l['description'] ?? 'x',
+                    'qty' => $l['qty'],
+                    'unit_price' => $l['unit_price'],
+                    'tax_code_id' => null,
+                ];
+            }, $lines),
+        ];
+
+        $resp = $this->post('/purchase-invoices', $payload);
+        $resp->assertRedirect();
+
+        $grpo->refresh();
+        $this->assertSame('closed', $grpo->closure_status);
+        $this->assertSame('purchase_invoice', $grpo->closed_by_document_type);
+    }
+
     public function test_prefill_from_grpo_uses_linked_purchase_order_net_unit_price(): void
     {
         $base = $this->baseIds();

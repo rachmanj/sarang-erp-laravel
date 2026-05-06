@@ -27,12 +27,18 @@ class GoodsReceiptPO extends Model
         'journal_id',
         'journal_posted_at',
         'journal_posted_by',
+        'closure_status',
+        'closed_by_document_type',
+        'closed_by_document_id',
+        'closed_at',
+        'closed_by_user_id',
     ];
 
     protected $casts = [
         'date' => 'date',
         'total_amount' => 'decimal:2',
         'journal_posted_at' => 'datetime',
+        'closed_at' => 'datetime',
     ];
 
     protected $auditLogIgnore = ['updated_at', 'created_at'];
