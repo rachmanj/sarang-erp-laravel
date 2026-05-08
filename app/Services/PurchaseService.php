@@ -447,9 +447,14 @@ class PurchaseService
             $oldStatus = $po->status;
             $oldApprovalStatus = $po->approval_status;
 
-            // Check if PO is in draft status
             if ($po->status !== 'draft') {
-                throw new \Exception('Only draft purchase orders can be approved');
+                $hasPendingStepForUser = $po->approvals()
+                    ->where('user_id', $userId)
+                    ->where('status', 'pending')
+                    ->exists();
+                if (! $hasPendingStepForUser) {
+                    throw new \Exception('Only draft purchase orders can be approved');
+                }
             }
 
             // Find the approval record
@@ -463,6 +468,12 @@ class PurchaseService
                 // Check if user is superadmin (has superadmin role via Spatie)
                 $user = \App\Models\User::find($userId);
                 if ($user && $user->hasRole('superadmin')) {
+                    if ($po->approvals()->where('status', 'pending')->exists()) {
+                        throw new \Exception(
+                            'Cannot finalize this purchase order while other approvers still have pending steps.'
+                        );
+                    }
+
                     // Superadmin can approve without approval records - create one for audit trail
                     $approval = PurchaseOrderApproval::create([
                         'purchase_order_id' => $po->id,

@@ -57,24 +57,20 @@
                         <a href="{{ route('purchase-orders.index') }}" class="btn btn-sm btn-secondary mr-1">
                             <i class="fas fa-arrow-left"></i> Back to Purchase Orders
                         </a>
+                        @php
+                            $pendingApprovalForCurrentUser = $order->approvals()
+                                ->where('user_id', auth()->id())
+                                ->where('status', 'pending')
+                                ->exists();
+                            $canShowApproveButton = $pendingApprovalForCurrentUser
+                                || (auth()->user()->hasRole('superadmin') && $order->status === 'draft');
+                        @endphp
                         @if ($order->status === 'draft')
                             <a href="{{ route('purchase-orders.edit', $order->id) }}" class="btn btn-sm btn-warning mr-1"
                                 aria-label="Edit Purchase Order">
                                 <i class="fas fa-edit"></i> Edit
                             </a>
-                            @php
-                                $canApprove = false;
-                                if (auth()->user()->hasRole('superadmin')) {
-                                    $canApprove = true;
-                                } else {
-                                    $pendingApproval = $order->approvals()
-                                        ->where('user_id', auth()->id())
-                                        ->where('status', 'pending')
-                                        ->exists();
-                                    $canApprove = $pendingApproval;
-                                }
-                            @endphp
-                            @if ($canApprove)
+                            @if ($canShowApproveButton)
                                 <form method="post" action="{{ route('purchase-orders.approve', $order->id) }}" class="d-inline"
                                     data-confirm="Approve this Purchase Order?">
                                     @csrf
@@ -89,6 +85,14 @@
                                 @method('DELETE')
                                 <button class="btn btn-sm btn-danger" aria-label="Delete Purchase Order" type="submit">
                                     <i class="fas fa-trash"></i> Delete
+                                </button>
+                            </form>
+                        @elseif ($pendingApprovalForCurrentUser)
+                            <form method="post" action="{{ route('purchase-orders.approve', $order->id) }}" class="d-inline mr-1"
+                                data-confirm="Approve this Purchase Order?">
+                                @csrf
+                                <button class="btn btn-sm btn-primary" aria-label="Approve Purchase Order">
+                                    <i class="fas fa-check"></i> Approve
                                 </button>
                             </form>
                         @endif
