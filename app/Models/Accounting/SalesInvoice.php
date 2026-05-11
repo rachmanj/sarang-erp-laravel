@@ -75,6 +75,11 @@ class SalesInvoice extends Model
         return $this->belongsTo(\App\Models\SalesOrder::class, 'sales_order_id');
     }
 
+    public function currency(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Currency::class, 'currency_id');
+    }
+
     public function deliveryOrders(): BelongsToMany
     {
         return $this->belongsToMany(\App\Models\DeliveryOrder::class, 'delivery_order_sales_invoice', 'sales_invoice_id', 'delivery_order_id')

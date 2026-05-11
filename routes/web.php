@@ -7,6 +7,7 @@ use App\Http\Controllers\Accounting\PeriodController;
 use App\Http\Controllers\ActivityDashboardController;
 use App\Http\Controllers\Admin\ApprovalWorkflowController;
 use App\Http\Controllers\Admin\AssistantReportController;
+use App\Http\Controllers\Admin\CustomerApiKeyController;
 use App\Http\Controllers\Admin\PermissionController as AdminPermissionController;
 use App\Http\Controllers\Admin\RoleController as AdminRoleController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
@@ -191,6 +192,12 @@ Route::middleware('auth')->group(function () {
         Route::post('/approval-workflows/thresholds', [ApprovalWorkflowController::class, 'storeThreshold'])->name('admin.approval-workflows.thresholds.store');
         Route::put('/approval-workflows/thresholds/{approvalThreshold}', [ApprovalWorkflowController::class, 'updateThreshold'])->name('admin.approval-workflows.thresholds.update');
         Route::delete('/approval-workflows/thresholds/{approvalThreshold}', [ApprovalWorkflowController::class, 'destroyThreshold'])->name('admin.approval-workflows.thresholds.destroy');
+
+        Route::middleware(['permission:business_partners.manage'])->group(function () {
+            Route::get('/customers/{businessPartner}/api-keys', [CustomerApiKeyController::class, 'index'])->name('admin.customers.api-keys.index');
+            Route::post('/customers/{businessPartner}/api-keys', [CustomerApiKeyController::class, 'store'])->name('admin.customers.api-keys.store');
+            Route::delete('/customers/{businessPartner}/api-keys/{customerApiKey}', [CustomerApiKeyController::class, 'destroy'])->name('admin.customers.api-keys.destroy');
+        });
     });
 
     // ERP Parameters

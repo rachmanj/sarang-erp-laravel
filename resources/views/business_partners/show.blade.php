@@ -19,6 +19,12 @@
                     <h3 class="card-title">Business Partner Details</h3>
                     <div class="card-tools">
                         @can('business_partners.manage')
+                            @if ($businessPartner->partner_type === 'customer')
+                                <a href="{{ route('admin.customers.api-keys.index', $businessPartner) }}"
+                                    class="btn btn-sm btn-outline-secondary">
+                                    <i class="fas fa-key"></i> API keys
+                                </a>
+                            @endif
                             <a href="{{ route('business_partners.edit', $businessPartner) }}" class="btn btn-sm btn-warning">
                                 <i class="fas fa-edit"></i> Edit
                             </a>

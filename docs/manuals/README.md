@@ -1,6 +1,8 @@
 # `docs/manuals` — User & HELP Knowledge Base
 
-This folder holds **Markdown manuals** for Sarang ERP. The **in-app HELP** assistant (navbar **?**) retrieves chunks from these files after an administrator runs:
+This folder holds **Markdown manuals** for Sarang ERP. The **in-app HELP** assistant (navbar **?**) retrieves chunks from these files after an administrator runs **`php artisan help:reindex`** (see below).
+
+For a **portable implementation reference** (RAG, routes, DB, reindex, API contract) to reuse in another codebase, see **`docs/HELP-CHATBOX-REFERENCE.md`**.
 
 ```bash
 php artisan help:reindex

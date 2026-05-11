@@ -3,9 +3,9 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class BusinessPartner extends Model
 {
@@ -29,6 +29,7 @@ class BusinessPartner extends Model
     ];
 
     protected $auditLogIgnore = ['updated_at', 'created_at'];
+
     protected $auditEntityType = 'business_partner';
 
     // Relationships
@@ -123,6 +124,11 @@ class BusinessPartner extends Model
         return $this->hasMany(CustomerItemPriceLevel::class, 'business_partner_id');
     }
 
+    public function apiKeys(): HasMany
+    {
+        return $this->hasMany(CustomerApiKey::class, 'business_partner_id');
+    }
+
     // Scopes
     public function scopeCustomers($query)
     {
@@ -163,6 +169,7 @@ class BusinessPartner extends Model
     public function getDefaultShippingAddressAttribute()
     {
         $addr = $this->getAddressByType('shipping') ?? $this->getAddressByType('billing') ?? $this->primaryAddress;
+
         return $addr ? $addr->full_address : null;
     }
 
@@ -170,12 +177,14 @@ class BusinessPartner extends Model
     {
         $contact = $this->primaryContact ?? $this->contacts()->first();
         $name = $contact?->name;
+
         return $name ? trim($name, " \t\n\r\0\x0B\"") : null;
     }
 
     public function getPrimaryContactPhoneAttribute()
     {
         $contact = $this->primaryContact ?? $this->contacts()->first();
+
         return $contact ? ($contact->mobile ?: $contact->phone) : null;
     }
 
@@ -242,8 +251,8 @@ class BusinessPartner extends Model
     public function getPaymentTermsDays()
     {
         $paymentTerms = $this->getDetailBySection('terms', 'payment_terms');
-        
-        if (!$paymentTerms) {
+
+        if (! $paymentTerms) {
             return 30;
         }
 
@@ -256,7 +265,7 @@ class BusinessPartner extends Model
         ];
 
         $termValue = $paymentTerms->field_value;
-        
+
         return $termsMapping[$termValue] ?? 30;
     }
 }

@@ -1,12 +1,13 @@
 <?php
 
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\Customer\InvoiceController as CustomerInvoiceController;
+use App\Http\Controllers\Api\DocumentAnalyticsController;
 use App\Http\Controllers\Api\DocumentNavigationController;
 use App\Http\Controllers\Api\JournalPreviewController;
-use App\Http\Controllers\Api\DocumentAnalyticsController;
 use App\Http\Controllers\DocumentRelationshipController;
 use App\Http\Controllers\UnitOfMeasureController;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
@@ -21,6 +22,12 @@ use App\Http\Controllers\UnitOfMeasureController;
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
+});
+
+Route::middleware('customer.api')->prefix('v1')->group(function () {
+    Route::get('/invoices', [CustomerInvoiceController::class, 'index']);
+    Route::get('/invoices/{invoice_no}', [CustomerInvoiceController::class, 'show'])
+        ->where('invoice_no', '[A-Za-z0-9._\-]+');
 });
 
 // Document Navigation API Routes
