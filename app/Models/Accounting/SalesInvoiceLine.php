@@ -21,6 +21,9 @@ class SalesInvoiceLine extends Model
         'qty',
         'unit_price',
         'amount',
+        'discount_amount',
+        'discount_percentage',
+        'net_amount',
         'tax_code_id',
         'wtax_rate',
         'project_id',
@@ -32,6 +35,9 @@ class SalesInvoiceLine extends Model
         'qty' => 'float',
         'unit_price' => 'float',
         'amount' => 'float',
+        'discount_amount' => 'decimal:2',
+        'discount_percentage' => 'decimal:2',
+        'net_amount' => 'decimal:2',
         'wtax_rate' => 'decimal:2',
     ];
 

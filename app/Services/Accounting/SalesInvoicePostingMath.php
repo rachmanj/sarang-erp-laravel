@@ -19,6 +19,8 @@ final class SalesInvoicePostingMath
     {
         $qty = (float) $line->qty;
         $unitPrice = (float) $line->unit_price;
+        $dppDisc = (float) ($line->discount_amount ?? 0);
+
         if ($line->delivery_order_line_id) {
             $dol = DeliveryOrderLine::with('salesOrderLine')->find($line->delivery_order_line_id);
             $sol = $dol?->salesOrderLine;
@@ -27,7 +29,8 @@ final class SalesInvoicePostingMath
                     $qty,
                     $unitPrice,
                     $sol->vat_rate,
-                    $sol->wtax_rate
+                    $sol->wtax_rate,
+                    $dppDisc
                 );
             }
         }
@@ -38,7 +41,8 @@ final class SalesInvoicePostingMath
             $qty,
             $unitPrice,
             $vatRate,
-            (float) ($line->wtax_rate ?? 0)
+            (float) ($line->wtax_rate ?? 0),
+            $dppDisc
         );
     }
 
@@ -51,7 +55,9 @@ final class SalesInvoicePostingMath
      */
     public static function splitLineFromTaxExclusivePricing(SalesInvoiceLine $line): array
     {
-        $dpp = round((float) $line->qty * (float) $line->unit_price, 2);
+        $grossDpp = round((float) $line->qty * (float) $line->unit_price, 2);
+        $lineDisc = round(min((float) ($line->discount_amount ?? 0), $grossDpp), 2);
+        $dpp = round(max(0.0, $grossDpp - $lineDisc), 2);
         $vatRate = self::vatRatePercentForLine($line);
         $wtaxRate = (float) ($line->wtax_rate ?? 0);
         $outputVat = $vatRate > 0.0 ? round($dpp * ($vatRate / 100), 2) : 0.0;
@@ -60,6 +66,8 @@ final class SalesInvoicePostingMath
 
         return [
             'dpp' => $dpp,
+            'dpp_gross' => $grossDpp,
+            'line_discount' => $lineDisc,
             'output_vat' => $outputVat,
             'wtax' => $wtaxAmt,
             'gross' => $gross,
@@ -97,7 +105,7 @@ final class SalesInvoicePostingMath
     /**
      * Footer figures for invoice screens/prints (DPP from tax-exclusive unit_price; gross = DPP + PPN − WTax per line).
      *
-     * @return array{exclusive_subtotal: float, gross_total: float, total_vat: float, total_wtax: float, amount_due: float}
+     * @return array{exclusive_subtotal: float, gross_total: float, total_vat: float, total_wtax: float, line_discount_total: float, header_discount_total: float, amount_due: float}
      */
     public static function invoiceFooterTotals(SalesInvoice $invoice): array
     {
@@ -105,6 +113,7 @@ final class SalesInvoicePostingMath
         $exclusiveSubtotal = 0.0;
         $totalVat = 0.0;
         $totalWtax = 0.0;
+        $lineDiscountTotal = 0.0;
 
         foreach ($invoice->lines as $l) {
             $parts = self::splitLineFromTaxExclusivePricing($l);
@@ -112,16 +121,21 @@ final class SalesInvoicePostingMath
             $totalVat += $parts['output_vat'];
             $totalWtax += $parts['wtax'];
             $grossTotal += $parts['gross'];
+            $lineDiscountTotal += $parts['line_discount'];
         }
 
         $grossTotal = round($grossTotal, 2);
+        $headerDiscount = round((float) ($invoice->discount_amount ?? 0), 2);
+        $amountDue = round($grossTotal - $headerDiscount, 2);
 
         return [
             'exclusive_subtotal' => round($exclusiveSubtotal, 2),
             'gross_total' => $grossTotal,
             'total_vat' => round($totalVat, 2),
             'total_wtax' => round($totalWtax, 2),
-            'amount_due' => $grossTotal,
+            'line_discount_total' => round($lineDiscountTotal, 2),
+            'header_discount_total' => $headerDiscount,
+            'amount_due' => $amountDue,
         ];
     }
 

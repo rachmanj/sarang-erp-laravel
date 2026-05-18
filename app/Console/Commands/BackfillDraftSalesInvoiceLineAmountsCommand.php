@@ -50,7 +50,7 @@ class BackfillDraftSalesInvoiceLineAmountsCommand extends Command
                 ];
 
                 if (! $dryRun) {
-                    SalesInvoiceLine::whereKey($line->id)->update(['amount' => $newAmount]);
+                    SalesInvoiceLine::whereKey($line->id)->update(['amount' => $newAmount, 'net_amount' => $newAmount]);
                 }
                 $invoiceIdsToRetotal[$invoice->id] = true;
             }
@@ -67,8 +67,11 @@ class BackfillDraftSalesInvoiceLineAmountsCommand extends Command
         if (! $dryRun && $invoiceIdsToRetotal !== []) {
             DB::transaction(function () use ($invoiceIdsToRetotal) {
                 foreach (array_keys($invoiceIdsToRetotal) as $invoiceId) {
-                    $total = (float) SalesInvoiceLine::where('invoice_id', $invoiceId)->sum('amount');
-                    SalesInvoice::whereKey($invoiceId)->update(['total_amount' => $total]);
+                    $invoice = SalesInvoice::find($invoiceId);
+                    $lineSum = (float) SalesInvoiceLine::where('invoice_id', $invoiceId)->sum('amount');
+                    $headerDisc = (float) ($invoice?->discount_amount ?? 0);
+                    $net = round($lineSum - $headerDisc, 2);
+                    SalesInvoice::whereKey($invoiceId)->update(['total_amount' => $net]);
                 }
             });
         }

@@ -21,6 +21,8 @@ class InvoiceResource extends JsonResource
             'terms_days' => $this->terms_days,
             'status' => $this->status,
             'total_amount' => (float) $this->total_amount,
+            'discount_amount' => (float) ($this->discount_amount ?? 0),
+            'discount_percentage' => (float) ($this->discount_percentage ?? 0),
             'reference_no' => $this->reference_no,
             'description' => $this->description,
             'posted_at' => $this->posted_at?->toIso8601String(),

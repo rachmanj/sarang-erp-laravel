@@ -16,7 +16,10 @@ class InvoiceLineResource extends JsonResource
     {
         $subtotal = $this->amountFromQtyTimesUnitPrice();
         $amount = (float) $this->amount;
-        $discount = $subtotal > $amount ? round($subtotal - $amount, 2) : 0.0;
+        $lineDisc = (float) ($this->discount_amount ?? 0);
+        $discount = $lineDisc > 0.00001
+            ? round($lineDisc, 2)
+            : ($subtotal > $amount ? round($subtotal - $amount, 2) : 0.0);
 
         $itemParts = array_filter([$this->item_code, $this->item_name]);
         $item = $itemParts !== [] ? implode(' ', $itemParts) : null;
@@ -26,6 +29,8 @@ class InvoiceLineResource extends JsonResource
             'description' => $this->description,
             'qty' => (float) $this->qty,
             'unit_price' => (float) $this->unit_price,
+            'discount_amount' => round($lineDisc, 2),
+            'discount_percentage' => (float) ($this->discount_percentage ?? 0),
             'discount' => $discount,
             'total' => $amount,
         ];

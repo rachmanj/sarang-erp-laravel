@@ -1,6 +1,6 @@
 # Sarange ERP - Modules and Features List
 
-**Last Updated**: 2026-05-04  
+**Last Updated**: 2026-05-11  
 **System Status**: Production Ready (95% Complete)  
 **Technology Stack**: Laravel 12, PHP 8.2+, MySQL, AdminLTE 3.14
 
@@ -218,6 +218,7 @@
 - **Warehouse Selection**: Single source warehouse per order
 - **Item/Service Types**: Support for both items and services
 - **Tax Handling**: VAT and Withholding Tax calculation
+- **Discounts (header and line)**: Same rules as **Sales Quotation**: percentage or amount per line reduces **DPP** before VAT/WTax; header discount applies to the **sum of line totals** (document level); entering % or amount syncs the other. Manual discounts skip automatic business-partner tier discount (`SalesService::applyCustomerPricingTier`). Header **`total_amount`** = Σ line amounts; **`net_amount`** = `total_amount` − header discount.
 - **Approval Workflow**: Multi-level approval process
 - **Document Closure**: Automatic closure tracking
 - **Company Entity Support**: Multi-letterhead support
@@ -247,20 +248,21 @@
 ### 21. Sales Invoices
 - **Print Layout Selection**: Dropdown (Standard A4/Laser | Dot Matrix) for formal vs warehouse prints. Six layouts: standard, dotmatrix, pt_csj, cv_saranghae, pt_csj_dotmatrix, cv_saranghae_dotmatrix.
 - **Part No. Column**: Displayed on show page and all print layouts (from part_number_id or delivery_order_line_id).
-- **Totals Section**: Footer uses **`SalesInvoicePostingMath::invoiceFooterTotals()`** — **Subtotal (ex. PPN)**, **PPN / VAT**, optional **WTax**, then **Total (incl. PPN)** (single grand total; matches stored `total_amount` / amount due). Avoids double-counting VAT on tax-inclusive lines.
-- **Line Amount Column**: Detail and all print layouts show **qty × unit_price** (`SalesInvoiceLine::amountFromQtyTimesUnitPrice()`); stored line `amount` remains tax-inclusive for posting and SO alignment.
-- **Posting (PPN)**: Shared **`SalesInvoicePostingMath`** — splits inclusive lines using tax code **rate as percent**; journal clears **AR UnInvoice** at gross, books **Piutang Dagang** at gross, **debits revenue** per line for PPN reclass, **credits PPN** output. Opening-balance SI: AR gross, retained opening (3.3.1) for net of PPN, PPN credit when applicable.
-- **Validation Command**: **`php artisan sales-invoices:validate-posted-journals`** (`--id=`, `--limit=`) compares posted journals to line-derived gross/PPN (see `App\Console\Kernel` for registration).
+- **Discounts (header and line)**: **Line** `discount_amount` / `discount_percentage` reduce **DPP** before PPN and WTax (`SalesInvoicePostingMath::splitLineFromTaxExclusivePricing` aligned with `SalesOrderLine::computeAmountFromPricing`). **Header** discount applies after line totals; **`total_amount`** on the invoice is **amount due** (line gross sum **minus** header discount), consistent with allocations and posting net AR. Create/edit UI includes discount columns and footer breakdown; creating from DO prefills line/header discounts from the **Sales Order** when available (scaled line discount by delivered qty when SO line uses a flat amount).
+- **Totals Section**: Footer uses **`SalesInvoicePostingMath::invoiceFooterTotals()`** — **Subtotal (ex. PPN)** (net DPP after line discounts), **PPN / VAT**, optional **WTax**, optional **Gross total** + **Header discount** when header discount &gt; 0, then **Amount due** (matches stored `total_amount`).
+- **Line Amount Column (show / print)**: Displays **stored line `amount`** (tax-inclusive gross for the line: net DPP + PPN − WTax on that line). A **Discount** column shows line **DPP** discount when present.
+- **Posting (PPN)**: Shared **`SalesInvoicePostingMath`** — splits lines using tax code **rate as percent** on **net DPP** after line discount; posting uses **amount due** (after header discount) for net AR where applicable; revenue reclass and PPN per `SalesInvoiceController::post`. Opening-balance SI uses a separate pattern. **`php artisan sales-invoices:validate-posted-journals`** compares posted journals to line-derived expectations vs **`total_amount`** (amount due).
+- **Multi-GRPO Combination**: Combine multiple **Goods Receipt PO** records via `SalesInvoiceService` / `sales_invoice_grpo_combination` (`goods_receipt_id` = GRPO id). Model relation: **`GoodsReceiptPO`**.
 - **Item Code Resolution**: Server-side resolution when creating from DO—`resolveLineDataFromDeliveryOrder()` fills item_code, item_name, inventory_item_id, part_number_id from DO line when form data missing; index-based fallback when delivery_order_line_id null. Backfill command `sales-invoices:backfill-item-codes` for existing records.
 - **Customer Billing**: Complete sales invoice management
 - **Automatic Numbering**: Entity-aware format `EEYYDDNNNNN` (code 08)
 - **Line Items**: Multiple line items with tax handling
-- **Multi-GRPO Combination**: Support for combining multiple GRPOs in sales invoices
 - **Payment Allocation**: Automatic allocation to sales receipts
-- **AR UnInvoice Accounting**: Posted SI clears uninvoiced AR at **tax-inclusive gross** and recognises output VAT via revenue reclass + PPN (not a simple one-line AR UnInvoice → AR transfer)
+- **AR UnInvoice Accounting**: Posted SI from DO clears uninvoiced AR and recognises output VAT via revenue reclass + PPN; amounts align with **tax-inclusive** line math and **header discount** on the invoice where entered.
 - **Multi-Currency Support**: Foreign currency invoices
 - **Document Closure**: Automatic closure tracking
 - **Sales Credit Memos (AR)**: One credit memo per **posted** Sales Invoice (unique `sales_invoice_id`). Posting via `PostingService`; permissions **`ar.credit-memos.view|create|post`**. Manuals: `docs/manuals/sales-invoice-manual-id.md` (Sales Credit Memo section), `sales-workflow-corrections-help-*.md`.
+- **Customer Invoice API (external read)**: **`GET /api/v1/invoices`** (paginated, filters) and **`GET /api/v1/invoices/{invoice_no}`** (with lines) for the authenticated **customer** business partner; Bearer token via **`customer_api_keys`**. Maintainer reference: **`docs/customer-invoice-api-reference.md`**.
 
 ### 22. Sales Receipts
 - **Invoice-First Flow**: Select customer → load outstanding Sales Invoices via `getAvailableInvoices` API → select invoices to receive payment with checkboxes (Select All/Deselect All) → enter allocation amount per invoice → receipt lines auto-populated from total allocation
@@ -345,6 +347,7 @@
 - Flexible data storage (custom fields)
 - Partner detail **Transactions** tab lists recent operational documents (orders, invoices, payments) where implemented
 - Partner detail **Account statement** tab: posted journal lines matching trade-account and partner-link rules; running balance; pagination and filtering
+- **Customer API keys** (customers only): **`/admin/customers/{businessPartner}/api-keys`** — issue/revoke tokens for the **Customer Invoice API** (`view-admin` + **`business_partners.manage`**). Link from partner detail (**API keys**) when permitted. See **`docs/customer-invoice-api-reference.md`**.
 
 ---
 
@@ -630,6 +633,7 @@
 - **JSON Responses**: Structured JSON responses for all operations
 - **Document Navigation API**: API endpoints for document relationships
 - **Journal Preview API**: API endpoints for journal preview
+- **Customer Invoice API**: Token-based (**Bearer**) read API under **`/api/v1/invoices`** for **sales invoices** belonging to the authenticated customer partner; middleware **`customer.api`**; DB table **`customer_api_keys`**. Admin lifecycle **`/admin/customers/{businessPartner}/api-keys`**. Reference: **`docs/customer-invoice-api-reference.md`**.
 
 ### 65. Caching & Performance
 - **Dashboard Caching**: 300s TTL caching for dashboard data
@@ -702,6 +706,7 @@
 
 ### Technical Documentation
 - Architecture Documentation (`docs/architecture.md`)
+- Customer Invoice API (`docs/customer-invoice-api-reference.md`)
 - Task Management (`docs/todo.md`)
 - Feature Backlog (`docs/backlog.md`)
 - Decision Records (`docs/decisions.md`)
@@ -715,5 +720,5 @@
 
 ---
 
-**Note**: This document reflects the current state of the Sarange ERP system as of 2026-02-19. For the most up-to-date information, refer to the architecture documentation and task management files.
+**Note**: This document reflects the current state of the Sarange ERP system as of 2026-05-11. For the most up-to-date information, refer to the architecture documentation and task management files.
 

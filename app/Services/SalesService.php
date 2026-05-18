@@ -43,9 +43,6 @@ class SalesService
     public function createSalesOrder($data)
     {
         return DB::transaction(function () use ($data) {
-            // Check credit limit
-            $this->checkCreditLimit($data['business_partner_id'], $data['total_amount']);
-
             $entityId = $data['company_entity_id'] ?? $this->companyEntityService->getDefaultEntity()->id;
 
             $so = SalesOrder::create([
@@ -70,8 +67,11 @@ class SalesService
                 'freight_cost' => $data['freight_cost'] ?? 0,
                 'handling_cost' => $data['handling_cost'] ?? 0,
                 'insurance_cost' => $data['insurance_cost'] ?? 0,
-                'discount_amount' => $data['discount_amount'] ?? 0,
-                'discount_percentage' => $data['discount_percentage'] ?? 0,
+                'discount_amount' => 0,
+                'discount_percentage' => 0,
+                'total_amount' => 0,
+                'total_amount_foreign' => 0,
+                'net_amount' => 0,
                 'order_type' => $data['order_type'] ?? 'item',
                 'status' => 'draft',
                 'approval_status' => 'pending',
@@ -82,14 +82,21 @@ class SalesService
             $totalAmountForeign = 0;
             $totalFreightCost = 0;
             $totalHandlingCost = 0;
-            $totalDiscountAmount = 0;
 
             foreach ($data['lines'] as $lineData) {
+                [$dppDisc, $lineDiscPct] = SalesOrderLine::resolveLineDppDiscount(
+                    (float) $lineData['qty'],
+                    (float) $lineData['unit_price'],
+                    isset($lineData['discount_percentage']) ? (float) $lineData['discount_percentage'] : null,
+                    isset($lineData['discount_amount']) ? (float) $lineData['discount_amount'] : null
+                );
+
                 $amount = SalesOrderLine::computeAmountFromPricing(
                     (float) $lineData['qty'],
                     (float) $lineData['unit_price'],
                     $lineData['vat_rate'] ?? 0,
-                    $lineData['wtax_rate'] ?? 0
+                    $lineData['wtax_rate'] ?? 0,
+                    $dppDisc
                 );
 
                 $totalAmount += $amount;
@@ -129,8 +136,8 @@ class SalesService
                     'amount_foreign' => $amountForeign,
                     'freight_cost' => 0,
                     'handling_cost' => 0,
-                    'discount_amount' => 0,
-                    'discount_percentage' => 0,
+                    'discount_amount' => $dppDisc,
+                    'discount_percentage' => $lineDiscPct,
                     'net_amount' => $amount,
                     'tax_code_id' => null,
                     'vat_rate' => $lineData['vat_rate'],
@@ -149,18 +156,30 @@ class SalesService
                 }
             }
 
-            // Update totals
+            [$headerDiscountAmount, $headerDiscountPct] = SalesOrder::resolveHeaderDiscountAgainstLineTotal(
+                $totalAmount,
+                isset($data['discount_percentage']) ? (float) $data['discount_percentage'] : null,
+                isset($data['discount_amount']) ? (float) $data['discount_amount'] : null
+            );
+            $netAmount = round($totalAmount - $headerDiscountAmount, 2);
+
+            $this->checkCreditLimit($data['business_partner_id'], $netAmount);
+
             $so->update([
-                'total_amount' => $totalAmount,
+                'total_amount' => round($totalAmount, 2),
                 'total_amount_foreign' => $totalAmountForeign,
                 'freight_cost' => $totalFreightCost,
                 'handling_cost' => $totalHandlingCost,
-                'discount_amount' => $totalDiscountAmount,
-                'net_amount' => $totalAmount - $totalDiscountAmount,
+                'discount_amount' => $headerDiscountAmount,
+                'discount_percentage' => $headerDiscountPct,
+                'net_amount' => $netAmount,
             ]);
 
             // Apply customer pricing tier discounts
             $this->applyCustomerPricingTier($so);
+
+            $so->refresh();
+            $this->checkCreditLimit($data['business_partner_id'], (float) $so->net_amount);
 
             // Create approval workflow
             $this->createApprovalWorkflow($so);
@@ -180,9 +199,6 @@ class SalesService
             if ($so->status !== 'draft') {
                 throw new \Exception('Sales Order can only be updated when in draft status');
             }
-
-            // Check credit limit
-            $this->checkCreditLimit($data['business_partner_id'], $data['total_amount']);
 
             $entityId = $data['company_entity_id'] ?? $so->company_entity_id;
 
@@ -208,8 +224,6 @@ class SalesService
                 'freight_cost' => $data['freight_cost'] ?? 0,
                 'handling_cost' => $data['handling_cost'] ?? 0,
                 'insurance_cost' => $data['insurance_cost'] ?? 0,
-                'discount_amount' => $data['discount_amount'] ?? 0,
-                'discount_percentage' => $data['discount_percentage'] ?? 0,
                 'order_type' => $data['order_type'] ?? 'item',
                 'updated_by' => Auth::id(),
             ]);
@@ -221,15 +235,22 @@ class SalesService
             $totalAmountForeign = 0;
             $totalFreightCost = 0;
             $totalHandlingCost = 0;
-            $totalDiscountAmount = 0;
 
             // Create new lines
             foreach ($data['lines'] as $lineData) {
+                [$dppDisc, $lineDiscPct] = SalesOrderLine::resolveLineDppDiscount(
+                    (float) $lineData['qty'],
+                    (float) $lineData['unit_price'],
+                    isset($lineData['discount_percentage']) ? (float) $lineData['discount_percentage'] : null,
+                    isset($lineData['discount_amount']) ? (float) $lineData['discount_amount'] : null
+                );
+
                 $amount = SalesOrderLine::computeAmountFromPricing(
                     (float) $lineData['qty'],
                     (float) $lineData['unit_price'],
                     $lineData['vat_rate'] ?? 0,
-                    $lineData['wtax_rate'] ?? 0
+                    $lineData['wtax_rate'] ?? 0,
+                    $dppDisc
                 );
 
                 $totalAmount += $amount;
@@ -268,8 +289,8 @@ class SalesService
                     'amount_foreign' => $amountForeign,
                     'freight_cost' => 0,
                     'handling_cost' => 0,
-                    'discount_amount' => 0,
-                    'discount_percentage' => 0,
+                    'discount_amount' => $dppDisc,
+                    'discount_percentage' => $lineDiscPct,
                     'net_amount' => $amount,
                     'tax_code_id' => null,
                     'vat_rate' => $lineData['vat_rate'],
@@ -288,18 +309,30 @@ class SalesService
                 }
             }
 
-            // Update totals
+            [$headerDiscountAmount, $headerDiscountPct] = SalesOrder::resolveHeaderDiscountAgainstLineTotal(
+                $totalAmount,
+                isset($data['discount_percentage']) ? (float) $data['discount_percentage'] : null,
+                isset($data['discount_amount']) ? (float) $data['discount_amount'] : null
+            );
+            $netAmount = round($totalAmount - $headerDiscountAmount, 2);
+
+            $this->checkCreditLimit($data['business_partner_id'], $netAmount);
+
             $so->update([
-                'total_amount' => $totalAmount,
+                'total_amount' => round($totalAmount, 2),
                 'total_amount_foreign' => $totalAmountForeign,
                 'freight_cost' => $totalFreightCost,
                 'handling_cost' => $totalHandlingCost,
-                'discount_amount' => $totalDiscountAmount,
-                'net_amount' => $totalAmount - $totalDiscountAmount,
+                'discount_amount' => $headerDiscountAmount,
+                'discount_percentage' => $headerDiscountPct,
+                'net_amount' => $netAmount,
             ]);
 
             // Apply customer pricing tier discounts
             $this->applyCustomerPricingTier($so);
+
+            $so->refresh();
+            $this->checkCreditLimit($data['business_partner_id'], (float) $so->net_amount);
 
             // Recreate approval workflow if needed
             $existingApprovals = $so->approvals()->count();
@@ -325,7 +358,7 @@ class SalesService
             // If no approval records exist, create them
             $existingApprovals = $so->approvals()->count();
             if ($existingApprovals === 0 && $so->approval_status === 'pending') {
-                \Log::warning("No approval records found for SO {$so->order_no}, creating them now");
+                Log::warning("No approval records found for SO {$so->order_no}, creating them now");
                 $this->createApprovalWorkflow($so);
                 $so->refresh();
             }
@@ -534,29 +567,57 @@ class SalesService
 
     public function applyCustomerPricingTier($salesOrder)
     {
-        $pricingTier = $salesOrder->getCustomerPricingTier();
+        $salesOrder->load('lines');
 
-        if (! $pricingTier) {
+        if ($salesOrder->lines->contains(fn ($l) => (float) $l->discount_amount > 0.0 || (float) $l->discount_percentage > 0.0)) {
             return;
         }
 
-        $discountAmount = ($salesOrder->total_amount * $pricingTier->discount_percentage) / 100;
+        if ((float) $salesOrder->discount_amount > 0.0 || (float) $salesOrder->discount_percentage > 0.0) {
+            return;
+        }
+
+        $pricingTier = $salesOrder->getCustomerPricingTier();
+
+        if (! $pricingTier || (float) $pricingTier->discount_percentage <= 0.0) {
+            return;
+        }
+
+        $tierPct = (float) $pricingTier->discount_percentage;
+        $totalAmount = 0.0;
+
+        foreach ($salesOrder->lines as $line) {
+            [$dppDisc, $lineDiscPct] = SalesOrderLine::resolveLineDppDiscount(
+                (float) $line->qty,
+                (float) $line->unit_price,
+                $tierPct,
+                null
+            );
+
+            $amount = SalesOrderLine::computeAmountFromPricing(
+                (float) $line->qty,
+                (float) $line->unit_price,
+                $line->vat_rate,
+                $line->wtax_rate,
+                $dppDisc
+            );
+
+            $line->update([
+                'discount_amount' => $dppDisc,
+                'discount_percentage' => $lineDiscPct,
+                'amount' => $amount,
+                'net_amount' => $amount,
+            ]);
+
+            $totalAmount += $amount;
+        }
 
         $salesOrder->update([
-            'discount_percentage' => $pricingTier->discount_percentage,
-            'discount_amount' => $discountAmount,
-            'net_amount' => $salesOrder->total_amount - $discountAmount,
+            'total_amount' => round($totalAmount, 2),
+            'discount_amount' => 0,
+            'discount_percentage' => $tierPct,
+            'net_amount' => round($totalAmount, 2),
         ]);
-
-        // Apply discount to each line
-        foreach ($salesOrder->lines as $line) {
-            $lineDiscountAmount = ($line->amount * $pricingTier->discount_percentage) / 100;
-            $line->update([
-                'discount_percentage' => $pricingTier->discount_percentage,
-                'discount_amount' => $lineDiscountAmount,
-                'net_amount' => $line->amount - $lineDiscountAmount,
-            ]);
-        }
     }
 
     public function analyzeCustomerProfitability($customerId, $startDate = null, $endDate = null)
@@ -618,9 +679,9 @@ class SalesService
                 ]);
             }
 
-            \Log::info("Approval workflow created successfully for SO {$salesOrder->order_no} with ".count($approvalRecords).' approval records');
+            Log::info("Approval workflow created successfully for SO {$salesOrder->order_no} with ".count($approvalRecords).' approval records');
         } catch (\Exception $e) {
-            \Log::error('Error creating approval workflow: '.$e->getMessage());
+            Log::error('Error creating approval workflow: '.$e->getMessage());
             throw $e;
         }
     }

@@ -28,6 +28,8 @@ class SalesInvoice extends Model
         'is_opening_balance',
         'description',
         'total_amount',
+        'discount_amount',
+        'discount_percentage',
         'status',
         'posted_at',
         'created_by',
@@ -38,6 +40,8 @@ class SalesInvoice extends Model
         'due_date' => 'date',
         'posted_at' => 'datetime',
         'total_amount' => 'float',
+        'discount_amount' => 'decimal:2',
+        'discount_percentage' => 'decimal:2',
         'is_opening_balance' => 'boolean',
     ];
 

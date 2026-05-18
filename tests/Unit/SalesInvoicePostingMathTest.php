@@ -141,4 +141,47 @@ class SalesInvoicePostingMathTest extends TestCase
         $gross = SalesInvoicePostingMath::computedGrossAmountForLine($line);
         $this->assertEqualsWithDelta(66600.0, $gross, 0.01);
     }
+
+    public function test_split_line_reduces_dpp_when_line_discount_present(): void
+    {
+        $taxCode = (object) ['rate' => 11.0];
+        $line = new SalesInvoiceLine([
+            'qty' => 10,
+            'unit_price' => 1000,
+            'discount_amount' => 1000,
+            'tax_code_id' => 1,
+            'wtax_rate' => 0,
+        ]);
+        $line->setRelation('taxCode', $taxCode);
+
+        $parts = SalesInvoicePostingMath::splitLineFromTaxExclusivePricing($line);
+        $this->assertEqualsWithDelta(9000.0, $parts['dpp'], 0.01);
+        $this->assertEqualsWithDelta(1000.0, $parts['line_discount'], 0.01);
+        $this->assertEqualsWithDelta(990.0, $parts['output_vat'], 0.01);
+        $this->assertEqualsWithDelta(9990.0, $parts['gross'], 0.01);
+    }
+
+    public function test_invoice_footer_applies_header_discount_to_amount_due(): void
+    {
+        $taxCode = (object) ['rate' => 11.0];
+        $line = new SalesInvoiceLine([
+            'qty' => 2,
+            'unit_price' => 30000,
+            'amount' => 66600,
+            'tax_code_id' => 1,
+            'wtax_rate' => 0,
+        ]);
+        $line->setRelation('taxCode', $taxCode);
+
+        $invoice = new SalesInvoice([
+            'discount_amount' => 6600,
+        ]);
+        $invoice->setRelation('lines', new Collection([$line]));
+
+        $footer = SalesInvoicePostingMath::invoiceFooterTotals($invoice);
+        $this->assertEqualsWithDelta(66600.0, $footer['gross_total'], 0.01);
+        $this->assertEqualsWithDelta(6600.0, $footer['header_discount_total'], 0.01);
+        $this->assertEqualsWithDelta(60000.0, $footer['amount_due'], 0.01);
+        $this->assertEqualsWithDelta(0.0, $footer['line_discount_total'], 0.01);
+    }
 }

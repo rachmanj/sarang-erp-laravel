@@ -91,11 +91,6 @@ class SalesOrderLine extends Model
     }
 
     // Accessors
-    public function getNetAmountAttribute()
-    {
-        return $this->amount - $this->discount_amount;
-    }
-
     public function getTotalCostAttribute()
     {
         return $this->amount + $this->freight_cost + $this->handling_cost;
@@ -151,29 +146,61 @@ class SalesOrderLine extends Model
 
     public function getGrossProfitAttribute()
     {
-        return $this->net_amount - $this->total_cost;
+        return (float) $this->net_amount - $this->total_cost;
     }
 
     public function getGrossProfitMarginAttribute()
     {
-        if ($this->net_amount == 0) {
+        if ((float) $this->net_amount == 0.0) {
             return 0;
         }
 
-        return round(($this->gross_profit / $this->net_amount) * 100, 2);
+        return round(($this->gross_profit / (float) $this->net_amount) * 100, 2);
     }
 
     /**
-     * Line gross amount: (qty × unit_price) + VAT − withholding tax on base.
+     * Resolve line DPP discount from percentage and/or amount (caps at gross DPP).
+     *
+     * @return array{0: float, 1: float, 2: float} [discountAmount, discountPercentage, grossDpp]
+     */
+    public static function resolveLineDppDiscount(float $qty, float $unitPrice, ?float $discountPercentage, ?float $discountAmount): array
+    {
+        $grossDpp = round($qty * $unitPrice, 2);
+        $pct = (float) ($discountPercentage ?? 0);
+        $amt = (float) ($discountAmount ?? 0);
+
+        if ($pct > 0) {
+            $disc = round($grossDpp * ($pct / 100), 2);
+            if ($disc > $grossDpp) {
+                $disc = $grossDpp;
+            }
+            $pctOut = $grossDpp > 0 ? round(($disc / $grossDpp) * 100, 2) : 0.0;
+
+            return [$disc, $pctOut, $grossDpp];
+        }
+
+        if ($amt > 0) {
+            $disc = round(min($amt, $grossDpp), 2);
+            $pctOut = $grossDpp > 0 ? round(($disc / $grossDpp) * 100, 2) : 0.0;
+
+            return [$disc, $pctOut, $grossDpp];
+        }
+
+        return [0.0, 0.0, $grossDpp];
+    }
+
+    /**
+     * Line gross amount: (DPP − line DPP discount) + VAT − WTax on that net DPP.
      * Must stay aligned with {@see SalesService} create/update order line logic.
      */
-    public static function computeAmountFromPricing(float $qty, float $unitPrice, $vatRate = null, $wtaxRate = null): float
+    public static function computeAmountFromPricing(float $qty, float $unitPrice, $vatRate = null, $wtaxRate = null, float $dppDiscountAmount = 0.0): float
     {
-        $originalAmount = $qty * $unitPrice;
-        $vat = $originalAmount * (((float) ($vatRate ?? 0)) / 100);
-        $wtax = $originalAmount * (((float) ($wtaxRate ?? 0)) / 100);
+        $grossDpp = $qty * $unitPrice;
+        $dppNet = max(0.0, $grossDpp - max(0.0, $dppDiscountAmount));
+        $vat = $dppNet * (((float) ($vatRate ?? 0)) / 100);
+        $wtax = $dppNet * (((float) ($wtaxRate ?? 0)) / 100);
 
-        return $originalAmount + $vat - $wtax;
+        return round($dppNet + $vat - $wtax, 2);
     }
 
     public function computeAmountForQuantity(float $qty): float
@@ -182,7 +209,8 @@ class SalesOrderLine extends Model
             $qty,
             (float) $this->unit_price,
             $this->vat_rate,
-            $this->wtax_rate
+            $this->wtax_rate,
+            (float) $this->discount_amount
         );
     }
 
@@ -210,9 +238,22 @@ class SalesOrderLine extends Model
 
     public function calculateDiscount($discountPercentage)
     {
-        $this->discount_percentage = $discountPercentage;
-        $this->discount_amount = ($this->amount * $discountPercentage) / 100;
-        $this->net_amount = $this->amount - $this->discount_amount;
+        [$disc, $pct] = self::resolveLineDppDiscount(
+            (float) $this->qty,
+            (float) $this->unit_price,
+            (float) $discountPercentage,
+            null
+        );
+        $this->discount_percentage = $pct;
+        $this->discount_amount = $disc;
+        $this->amount = self::computeAmountFromPricing(
+            (float) $this->qty,
+            (float) $this->unit_price,
+            $this->vat_rate,
+            $this->wtax_rate,
+            $disc
+        );
+        $this->net_amount = $this->amount;
         $this->save();
     }
 }

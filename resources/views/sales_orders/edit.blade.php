@@ -228,6 +228,31 @@
                                     </div>
                                 </div>
 
+                                <div class="row mt-2">
+                                    <div class="col-md-4">
+                                        <div class="form-group row mb-2">
+                                            <label class="col-sm-3 col-form-label">Discount (%)</label>
+                                            <div class="col-sm-9">
+                                                <input type="number" step="0.01" min="0" max="100"
+                                                    name="discount_percentage" id="discount_percentage"
+                                                    value="{{ old('discount_percentage', $order->discount_percentage) }}"
+                                                    class="form-control form-control-sm">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="form-group row mb-2">
+                                            <label class="col-sm-3 col-form-label">Discount Amount</label>
+                                            <div class="col-sm-9">
+                                                <input type="number" step="0.01" min="0"
+                                                    name="discount_amount" id="discount_amount"
+                                                    value="{{ old('discount_amount', $order->discount_amount) }}"
+                                                    class="form-control form-control-sm text-right">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <div class="card card-info card-outline mt-3 mb-2">
                                     <div class="card-header py-2">
                                         <h3 class="card-title">
@@ -279,34 +304,47 @@
                                             <table class="table table-sm table-striped mb-0" id="lines">
                                                 <thead>
                                                     <tr>
-                                                        <th style="width: 20%">Item/Account <span
+                                                        <th style="width: 18%">Item/Account <span
                                                                 class="text-danger">*</span>
                                                         </th>
-                                                        <th style="width: 20%">Description</th>
-                                                        <th style="width: 10%">Qty <span class="text-danger">*</span></th>
-                                                        <th style="width: 12%">Unit Price <span
+                                                        <th style="width: 15%">Description</th>
+                                                        <th style="width: 8%">Qty <span class="text-danger">*</span></th>
+                                                        <th style="width: 10%">Unit Price <span
                                                                 class="text-danger">*</span>
                                                         </th>
-                                                        <th style="width: 8%">VAT</th>
-                                                        <th style="width: 8%">WTax</th>
-                                                        <th style="width: 12%">Amount</th>
+                                                        <th style="width: 6%">VAT</th>
+                                                        <th style="width: 6%">WTax</th>
+                                                        <th style="width: 8%">Disc %</th>
+                                                        <th style="width: 8%">Disc Amt</th>
+                                                        <th style="width: 11%">Amount</th>
                                                         <th style="width: 10%">Actions</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody></tbody>
                                                 <tfoot>
                                                     <tr>
-                                                        <th colspan="3" class="text-right">Original Amount:</th>
+                                                        <th colspan="3" class="text-right">Original DPP:</th>
                                                         <th class="text-right" id="original-amount">0.00</th>
                                                         <th class="text-right" id="total-vat">0.00</th>
                                                         <th class="text-right" id="total-wtax">0.00</th>
+                                                        <th colspan="2"></th>
                                                         <th class="text-right" id="total-amount">0.00</th>
                                                         <th></th>
                                                     </tr>
                                                     <tr>
-                                                        <th colspan="3" class="text-right">Amount Due:</th>
-                                                        <th colspan="4" class="text-right" id="amount-due">0.00</th>
-                                                        <th></th>
+                                                        <th colspan="3" class="text-right">Line DPP discounts:</th>
+                                                        <th colspan="5" class="text-right" id="total-line-discount">0.00</th>
+                                                        <th colspan="2"></th>
+                                                    </tr>
+                                                    <tr>
+                                                        <th colspan="3" class="text-right">Header discount:</th>
+                                                        <th colspan="5" class="text-right" id="total-header-discount">0.00</th>
+                                                        <th colspan="2"></th>
+                                                    </tr>
+                                                    <tr>
+                                                        <th colspan="3" class="text-right">Grand Total (net):</th>
+                                                        <th colspan="5" class="text-right" id="amount-due">0.00</th>
+                                                        <th colspan="2"></th>
                                                     </tr>
                                                 </tfoot>
                                             </table>
@@ -357,6 +395,8 @@
                     'unit_price' => $line->unit_price,
                     'vat_rate' => $line->vat_rate ?? 0,
                     'wtax_rate' => $line->wtax_rate ?? 0,
+                    'discount_amount' => $line->discount_amount,
+                    'discount_percentage' => $line->discount_percentage,
                     'notes' => $line->notes,
                 ];
             })->toArray()
@@ -377,6 +417,33 @@
 
             let i = 0;
             const $tb = $('#lines tbody');
+            let updatingDiscount = false;
+
+            function resolveLineDppDiscountJs(qty, price, discountPct, discountAmt) {
+                const grossDpp = Math.round(qty * price * 100) / 100;
+                const pct = parseFloat(discountPct) || 0;
+                const amt = parseFloat(discountAmt) || 0;
+                if (pct > 0) {
+                    let disc = Math.round(grossDpp * (pct / 100) * 100) / 100;
+                    if (disc > grossDpp) disc = grossDpp;
+                    const pctOut = grossDpp > 0 ? Math.round((disc / grossDpp) * 10000) / 100 : 0;
+                    return { disc, pctOut, grossDpp };
+                }
+                if (amt > 0) {
+                    const disc = Math.round(Math.min(amt, grossDpp) * 100) / 100;
+                    const pctOut = grossDpp > 0 ? Math.round((disc / grossDpp) * 10000) / 100 : 0;
+                    return { disc, pctOut, grossDpp };
+                }
+                return { disc: 0, pctOut: 0, grossDpp };
+            }
+
+            function computeLineAmountFromPricing(qty, price, vatRate, wtaxRate, dppDiscount) {
+                const grossDpp = qty * price;
+                const dppNet = Math.max(0, grossDpp - Math.max(0, dppDiscount || 0));
+                const vat = dppNet * (vatRate / 100);
+                const wtax = dppNet * (wtaxRate / 100);
+                return Math.round((dppNet + vat - wtax) * 100) / 100;
+            }
 
             // Add first line
             $('#add-line').on('click', function() {
@@ -394,6 +461,56 @@
                 updateLineAmount($(this).closest('tr'));
                 updateTotals();
             });
+
+            $(document).on('input', '.line-discount-percentage', function() {
+                const row = $(this).closest('tr');
+                const qty = parseFloat(row.find('.qty-input').val() || 0);
+                const price = parseFloat(row.find('.price-input').val() || 0);
+                const pct = parseFloat($(this).val() || 0);
+                const { disc, pctOut } = resolveLineDppDiscountJs(qty, price, pct, 0);
+                row.find('.line-discount-amount').val(disc.toFixed(2));
+                row.find('.line-discount-percentage').val(pctOut.toFixed(2));
+                updateLineAmount(row);
+                updateTotals();
+            });
+
+            $(document).on('input', '.line-discount-amount', function() {
+                const row = $(this).closest('tr');
+                const qty = parseFloat(row.find('.qty-input').val() || 0);
+                const price = parseFloat(row.find('.price-input').val() || 0);
+                const amt = parseFloat($(this).val() || 0);
+                const { disc, pctOut } = resolveLineDppDiscountJs(qty, price, 0, amt);
+                row.find('.line-discount-percentage').val(pctOut.toFixed(2));
+                row.find('.line-discount-amount').val(disc.toFixed(2));
+                updateLineAmount(row);
+                updateTotals();
+            });
+
+            $('#discount_percentage').on('input', function() {
+                if (updatingDiscount) return;
+                updatingDiscount = true;
+                const pct = parseFloat($(this).val() || 0);
+                const lineSum = parseNumericIdText($('#total-amount').text());
+                const disc = lineSum > 0 ? Math.round(lineSum * (pct / 100) * 100) / 100 : 0;
+                $('#discount_amount').val(disc.toFixed(2));
+                updateTotals();
+                updatingDiscount = false;
+            });
+
+            $('#discount_amount').on('input', function() {
+                if (updatingDiscount) return;
+                updatingDiscount = true;
+                const amt = parseFloat($(this).val() || 0);
+                const lineSum = parseNumericIdText($('#total-amount').text());
+                const pct = lineSum > 0 ? Math.round((amt / lineSum) * 10000) / 100 : 0;
+                $('#discount_percentage').val(pct.toFixed(2));
+                updateTotals();
+                updatingDiscount = false;
+            });
+
+            function parseNumericIdText(t) {
+                return parseFloat(String(t || '0').replace(/\./g, '').replace(',', '.')) || 0;
+            }
 
             // Update totals when VAT or WTax changes
             $(document).on('change', '.vat-select, .wtax-select', function() {
@@ -563,6 +680,16 @@
                             <option value="2" ${data.wtax_rate == 2 ? 'selected' : ''}>2%</option>
                         </select>
                     </td>
+                    <td>
+                        <input type="number" step="0.01" min="0" max="100" name="lines[${lineIdx}][discount_percentage]"
+                            class="form-control form-control-sm text-right line-discount-percentage"
+                            value="${data.discount_percentage != null ? data.discount_percentage : ''}" placeholder="%">
+                    </td>
+                    <td>
+                        <input type="number" step="0.01" min="0" name="lines[${lineIdx}][discount_amount]"
+                            class="form-control form-control-sm text-right line-discount-amount"
+                            value="${data.discount_amount != null ? data.discount_amount : '0'}">
+                    </td>
                     <td class="text-right">
                         <span class="line-amount">0.00</span>
                     </td>
@@ -659,11 +786,10 @@
                 const price = parseFloat($(row).find('.price-input').val() || 0);
                 const vatRate = parseFloat($(row).find('.vat-select').val() || 0);
                 const wtaxRate = parseFloat($(row).find('.wtax-select').val() || 0);
-
-                const originalAmount = qty * price;
-                const vatAmount = originalAmount * (vatRate / 100);
-                const wtaxAmount = originalAmount * (wtaxRate / 100);
-                const lineAmount = originalAmount + vatAmount - wtaxAmount;
+                const pctIn = parseFloat($(row).find('.line-discount-percentage').val() || 0);
+                const amtIn = parseFloat($(row).find('.line-discount-amount').val() || 0);
+                const { disc } = resolveLineDppDiscountJs(qty, price, pctIn, amtIn);
+                const lineAmount = computeLineAmountFromPricing(qty, price, vatRate, wtaxRate, disc);
 
                 $(row).find('.line-amount').text(lineAmount.toLocaleString('id-ID', {
                     minimumFractionDigits: 2,
@@ -676,27 +802,34 @@
                 let totalVat = 0;
                 let totalWtax = 0;
                 let totalAmount = 0;
+                let totalLineDppDiscount = 0;
 
                 $('#lines tbody tr').each(function() {
                     const qty = parseFloat($(this).find('.qty-input').val() || 0);
                     const price = parseFloat($(this).find('.price-input').val() || 0);
                     const vatRate = parseFloat($(this).find('.vat-select').val() || 0);
                     const wtaxRate = parseFloat($(this).find('.wtax-select').val() || 0);
+                    const pctIn = parseFloat($(this).find('.line-discount-percentage').val() || 0);
+                    const amtIn = parseFloat($(this).find('.line-discount-amount').val() || 0);
 
-                    const originalAmount = qty * price;
-                    const vatAmount = originalAmount * (vatRate / 100);
-                    const wtaxAmount = originalAmount * (wtaxRate / 100);
-                    const lineAmount = originalAmount + vatAmount - wtaxAmount;
+                    const { disc, grossDpp } = resolveLineDppDiscountJs(qty, price, pctIn, amtIn);
+                    totalLineDppDiscount += disc;
+                    const dppNet = Math.max(0, grossDpp - disc);
+                    const vatAmount = dppNet * (vatRate / 100);
+                    const wtaxAmount = dppNet * (wtaxRate / 100);
+                    const lineAmount = dppNet + vatAmount - wtaxAmount;
 
-                    originalTotal += originalAmount;
+                    originalTotal += grossDpp;
                     totalVat += vatAmount;
                     totalWtax += wtaxAmount;
                     totalAmount += lineAmount;
                 });
 
-                const amountDue = originalTotal + totalVat - totalWtax;
+                let headerDisc = parseFloat($('#discount_amount').val() || 0);
+                const lineSum = totalAmount;
+                if (headerDisc > lineSum) headerDisc = lineSum;
+                const grandNet = lineSum - headerDisc;
 
-                // Update display with Indonesian number formatting
                 $('#original-amount').text(originalTotal.toLocaleString('id-ID', {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2
@@ -717,7 +850,17 @@
                     maximumFractionDigits: 2
                 }));
 
-                $('#amount-due').text(amountDue.toLocaleString('id-ID', {
+                $('#total-line-discount').text(totalLineDppDiscount.toLocaleString('id-ID', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
+                }));
+
+                $('#total-header-discount').text(headerDisc.toLocaleString('id-ID', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
+                }));
+
+                $('#amount-due').text(grandNet.toLocaleString('id-ID', {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2
                 }));

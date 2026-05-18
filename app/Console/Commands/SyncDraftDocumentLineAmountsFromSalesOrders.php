@@ -134,7 +134,8 @@ class SyncDraftDocumentLineAmountsFromSalesOrders extends Command
                 (float) $sil->qty,
                 (float) $sil->unit_price,
                 $sol->vat_rate,
-                $sol->wtax_rate
+                $sol->wtax_rate,
+                (float) ($sol->discount_amount ?? 0)
             );
 
             if ($this->amountsEqual((float) $sil->amount, $newAmount)) {

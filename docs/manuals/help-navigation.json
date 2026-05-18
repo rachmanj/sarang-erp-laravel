@@ -62,8 +62,8 @@
             "title_id": "Sales Order",
             "menu_path_en": "Sidebar → Sales → Sales Orders.",
             "menu_path_id": "Menu samping → Sales → Sales Orders.",
-            "keywords_en": ["sales order", "SO", "order"],
-            "keywords_id": ["sales order", "SO", "pesanan penjualan"]
+            "keywords_en": ["sales order", "SO", "order", "line discount", "header discount"],
+            "keywords_id": ["sales order", "SO", "pesanan penjualan", "diskon baris", "diskon header"]
         },
         {
             "id": "delivery-orders",
@@ -81,8 +81,8 @@
             "title_id": "Faktur penjualan (SI)",
             "menu_path_en": "Sidebar → Sales → Sales Invoices. Create from DO after delivered/completed.",
             "menu_path_id": "Menu samping → Sales → Sales Invoices. Buat dari DO setelah delivered/completed.",
-            "keywords_en": ["sales invoice", "SINV", "invoice", "AR invoice"],
-            "keywords_id": ["faktur penjualan", "SI", "invoice", "faktur"],
+            "keywords_en": ["sales invoice", "SINV", "invoice", "AR invoice", "line discount", "header discount", "invoice discount"],
+            "keywords_id": ["faktur penjualan", "SI", "invoice", "faktur", "diskon baris", "diskon header", "diskon faktur"],
             "notes": "See sales-invoice-manual-id.md"
         },
         {

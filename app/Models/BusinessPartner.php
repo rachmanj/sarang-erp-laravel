@@ -106,7 +106,7 @@ class BusinessPartner extends Model
 
     public function goodsReceipts(): HasMany
     {
-        return $this->hasMany(GoodsReceipt::class);
+        return $this->hasMany(GoodsReceiptPO::class, 'business_partner_id');
     }
 
     public function assets(): HasMany

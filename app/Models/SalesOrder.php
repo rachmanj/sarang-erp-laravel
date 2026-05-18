@@ -3,8 +3,8 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class SalesOrder extends Model
 {
@@ -43,7 +43,7 @@ class SalesOrder extends Model
         'approved_by',
         'approved_at',
         'created_by',
-        'updated_by'
+        'updated_by',
     ];
 
     protected $casts = [
@@ -64,6 +64,7 @@ class SalesOrder extends Model
     ];
 
     protected $auditLogIgnore = ['updated_at', 'created_at'];
+
     protected $auditEntityType = 'sales_order';
 
     // Relationships
@@ -169,6 +170,35 @@ class SalesOrder extends Model
         return $query->where('status', 'closed');
     }
 
+    /**
+     * @return array{0: float, 1: float} [discountAmount, discountPercentage]
+     */
+    public static function resolveHeaderDiscountAgainstLineTotal(float $lineSumAmount, ?float $discountPercentage, ?float $discountAmount): array
+    {
+        $lineSumAmount = round(max(0.0, $lineSumAmount), 2);
+        $pct = (float) ($discountPercentage ?? 0);
+        $amt = (float) ($discountAmount ?? 0);
+
+        if ($pct > 0) {
+            $disc = round($lineSumAmount * ($pct / 100), 2);
+            if ($disc > $lineSumAmount) {
+                $disc = $lineSumAmount;
+            }
+            $pctOut = $lineSumAmount > 0 ? round(($disc / $lineSumAmount) * 100, 2) : 0.0;
+
+            return [$disc, $pctOut];
+        }
+
+        if ($amt > 0) {
+            $disc = round(min($amt, $lineSumAmount), 2);
+            $pctOut = $lineSumAmount > 0 ? round(($disc / $lineSumAmount) * 100, 2) : 0.0;
+
+            return [$disc, $pctOut];
+        }
+
+        return [0.0, 0.0];
+    }
+
     // Accessors
     public function getNetAmountAttribute()
     {
@@ -182,7 +212,7 @@ class SalesOrder extends Model
 
     public function getIsOverdueAttribute()
     {
-        if (!$this->expected_delivery_date) {
+        if (! $this->expected_delivery_date) {
             return false;
         }
 
@@ -261,7 +291,7 @@ class SalesOrder extends Model
         $creditLimitDetail = $this->businessPartner->getDetailBySection('financial', 'credit_limit');
         $creditLimit = $creditLimitDetail ? (float) $creditLimitDetail->field_value : null;
 
-        if (!$creditLimit) {
+        if (! $creditLimit) {
             return true; // No credit limit set
         }
 
@@ -284,7 +314,7 @@ class SalesOrder extends Model
         // Create a simple pricing tier object
         return (object) [
             'discount_percentage' => $discountPercentage,
-            'tier_name' => 'Default'
+            'tier_name' => 'Default',
         ];
     }
 

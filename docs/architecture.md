@@ -1,5 +1,5 @@
 Purpose: Technical reference for understanding system design and development patterns
-Last Updated: 2026-05-04 (PO create/edit Blade: header discount totals + fixing updatingHeaderDiscount init order; prior: 2026-04-22 Relationship Map expansion)
+Last Updated: 2026-05-11 (Customer Invoice API: Bearer-token read endpoints + admin API keys UI + `customer_api_keys`; prior: 2026-05-04 PO create/edit Blade)
 
 ## Architecture Documentation Guidelines
 
@@ -64,6 +64,7 @@ Sarange ERP is a comprehensive Enterprise Resource Planning system built with La
 -   ✅ **Financial Integration**: Automatic document numbering, tax calculations, journal entries
 -   ✅ **User Interface**: Professional AdminLTE integration, responsive design, form validation
 -   ✅ **Data Management**: Business partner consolidation, field mapping resolution, data persistence
+-   ✅ **Customer Invoice API**: Active customers (`BusinessPartner`, `partner_type = customer`) can list and read their **sales invoices** via **`GET /api/v1/invoices`** and **`GET /api/v1/invoices/{invoice_no}`** using Bearer tokens backed by **`customer_api_keys`** (hashed at rest). Issuance/revocation: **`/admin/customers/{businessPartner}/api-keys`** (`view-admin` + `business_partners.manage`). Maintainer reference: **`docs/customer-invoice-api-reference.md`**.
 
 ### Critical Issues Resolved
 
@@ -144,10 +145,10 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 ### 2. Accounts Receivable (AR) Module
 
 -   **Sales Dashboard**: Comprehensive sales analytics dashboard with AR aging analysis, sales KPIs (Sales MTD, Outstanding AR, Pending Approvals, Open Sales Orders), sales order statistics, sales invoice statistics, delivery order statistics, top customers by outstanding AR, and recent invoices visualization.
--   **Sales Invoices**: Customer billing with line items, tax codes, and dimensions (SINV-YYYYMM-######). Line items include Part No. column (from part_number_id or delivery_order_line_id). **Item Code Resolution**: When creating SI from DO, `resolveLineDataFromDeliveryOrder()` in SalesInvoiceController ensures item_code, item_name, inventory_item_id, part_number_id are populated from the DO line when form data is missing—either by delivery_order_line_id lookup or by index-based match when delivery_order_line_id is null. Eager load `lines.partNumber`, `lines.deliveryOrderLine.partNumber` for show/print. **List index** (`sales_invoices/index.blade.php`): server-side DataTables includes **`sum_total_amount`** for the same filters as the grid (date, search, status, **company entity** radio); footer row **Totals (filtered)** (pattern aligned with Purchase Invoice list). **Tax-inclusive amounts**: Line `amount` and header `total_amount` follow the same convention as **`SalesOrderLine::computeAmountFromPricing`** (qty×unit_price + VAT% on that base − WTax on base). **Display**: detail/print **Amount** column shows **`SalesInvoiceLine::amountFromQtyTimesUnitPrice()`** (exclusive line subtotal); table footer uses **`SalesInvoicePostingMath::invoiceFooterTotals()`** passed as **`$invoiceFooter`** — rows **Subtotal (ex. PPN)**, **PPN / VAT**, optional **WTax**, then **Total (incl. PPN)** (equals amount due / stored gross). **Posting** (`SalesInvoiceController::post`): Credit AR UnInvoice (gross), Debit Piutang Dagang (gross), Debit each line’s revenue account for extracted PPN (reclass from DO gross revenue), Credit PPN output; opening-balance path debits AR for gross, credits retained opening for gross−PPN, credits PPN. Shared math in **`App\Services\Accounting\SalesInvoicePostingMath`** (also used by **`php artisan sales-invoices:validate-posted-journals`** — registered in `App\Console\Kernel`). New SI **`store()`** resolves **`currency_id`** to IDR (or base) to satisfy FK.
+-   **Sales Invoices**: Customer billing with line items, tax codes, and dimensions (SINV-YYYYMM-######). Line items include Part No. column (from part_number_id or delivery_order_line_id). **Item Code Resolution**: When creating SI from DO, `resolveLineDataFromDeliveryOrder()` in SalesInvoiceController ensures item_code, item_name, inventory_item_id, part_number_id are populated from the DO line when form data is missing—either by delivery_order_line_id lookup or by index-based match when delivery_order_line_id is null. Eager load `lines.partNumber`, `lines.deliveryOrderLine.partNumber` for show/print. **List index** (`sales_invoices/index.blade.php`): server-side DataTables includes **`sum_total_amount`** for the same filters as the grid (date, search, status, **company entity** radio); footer row **Totals (filtered)** (pattern aligned with Purchase Invoice list). **Discounts**: **Line** `discount_amount` / `discount_percentage` reduce **DPP** before VAT/WTax (same math as **Sales Order** lines via `SalesOrderLine::computeAmountFromPricing` / `SalesInvoicePostingMath`). **Header** discount is document-level (after Σ line amounts); header **`total_amount`** is **amount due** (net of header discount) for AR, allocations, and validation commands. **Line `amount`**: tax-inclusive gross per line (net DPP + PPN − WTax). **Display** (show/print): **Amount** column shows stored line `amount`; **Discount** column shows line DPP discount when &gt; 0; footer from **`SalesInvoicePostingMath::invoiceFooterTotals()`** includes optional **Gross total** / **Header discount** rows when applicable, then **Amount due**. **Posting** (`SalesInvoiceController::post`): uses line math and **amount due** for AR / AR UnInvoice treatment per implementation; opening-balance path differs. **`php artisan sales-invoices:validate-posted-journals`** (registered in `App\Console\Kernel`): compares journals to expected amounts vs **`total_amount`**. **Multi-GRPO**: `App\Services\SalesInvoiceService` targets **`GoodsReceiptPO`**; `SalesInvoiceGrpoCombination::goodsReceipt()` → `GoodsReceiptPO`. New SI **`store()`** resolves **`currency_id`** to IDR (or base) to satisfy FK.
 -   **Sales Credit Memos**: AR credit notes tied 1:1 to a **posted** Sales Invoice (`sales_credit_memos.sales_invoice_id` unique). Routes under `/sales-credit-memos`; posting uses `PostingService` with `source_type` `sales_credit_memo`. Create blocked when a memo already exists for the SI. Permissions: `ar.credit-memos.view|create|post`. Model: `App\Models\Accounting\SalesCreditMemo`.
 -   **Sales Receipts**: Payment collection with invoice-first flow and explicit allocation (SR-YYYYMM-######). Select customer → load outstanding invoices via `getAvailableInvoices` → select invoices and allocation amounts → receipt lines auto-populated. Receipt total must match allocation total. Mirrors Purchase Payment pattern.
--   **Sales Orders**: Customer order management with entity-aware numbering (code 06)
+-   **Sales Orders**: Customer order management with entity-aware numbering (code 06). **Discounts**: Header and line (percentage or amount); line discount reduces DPP before VAT/WTax; header discount on Σ line totals; manual discounts skip **`applyCustomerPricingTier`** BP auto-discount. **`total_amount`** = Σ line amounts; **`net_amount`** = total − header discount.
 -   **AR Aging**: Customer payment tracking and aging analysis with buckets (Current, 1-30, 31-60, 61-90, 90+ days) calculated from sales invoices minus sales receipt allocations
 -   **AR Balances**: Customer account balance reporting
 
@@ -643,6 +644,12 @@ The database schema has been consolidated from 51 to 44 migration files for impr
 
 ## API Design
 
+### Customer Invoice API (machine clients)
+
+-   **Purpose**: Read-only access to **`sales_invoices`** (and lines on detail) for the linked **active customer** business partner.
+-   **Security**: Plain token shown once at creation; DB holds **`hash('sha256', token)`** only. Expiry optional (`expires_at`). Inactive/suspended partners or non-customer keys receive **401**.
+-   **Deploy**: Requires migration **`customer_api_keys`** (`php artisan migrate`).
+
 ### Route Structure
 
 -   **Web Routes**: Traditional Laravel web routes with middleware
@@ -684,10 +691,12 @@ The database schema has been consolidated from 51 to 44 migration files for impr
     -   **Balance Sheet**: Asset / liability / `net_assets` only; hierarchical rows from COA `parent_id` with parent **rollup** (child sums). JSON includes `totals.unclosed_pnl_cumulative` and `difference_vs_unclosed_pnl` (tie-out to cumulative P&amp;L in TB). UI/PDF corporate header (`entity_name` = `config('app.name')`). **Reference**: `docs/financial-statements-reports.md`.
     -   **Profit & Loss**: Period P&amp;L by COA buckets (4 revenue, 5 COGS, 6 operating, 7 other); same hierarchy/rollup pattern as BS within each section.
     -   **Cash Flow (indirect)**: Starts from net income + depreciation add-back + working capital deltas from **balance sheet display** balances by **prefix** lists in `config/cash_flow.php` (`tax_payables`, `input_vat_prepaid_assets`, `short_term_borrowings`, `equity_financing_prefixes`, etc.). Financing excludes `3.3` retained earnings by default to avoid double-counting net income. `ReportService::balanceSheetDisplayTotalForPrefixes()` supports reconciliation tests.
--   `/admin/*`: User and role management
+-   `/admin/*`: User and role management (users, roles, permissions, assistant report, approval workflows)
+-   `/admin/customers/{businessPartner}/api-keys`: Create/list/revoke **customer API keys** (customers only; **`business_partners.manage`** plus **`view-admin`**); powers external **`/api/v1/invoices`** clients — see **`docs/customer-invoice-api-reference.md`**
 
 ### API Endpoints
 
+-   **`GET /api/v1/invoices`**, **`GET /api/v1/invoices/{invoice_no}`**: Customer-facing **sales invoice** JSON API (scoped to authenticated customer). Auth: **`Authorization: Bearer {token}`**; middleware **`customer.api`** (`CustomerApiAuthentication`); tokens stored as SHA-256 in **`customer_api_keys`**. Query filters on list: `status`, `date_from`, `date_to`, `per_page`. **`invoice_no`** route pattern: `[A-Za-z0-9._\-]+`. Full contract: **`docs/customer-invoice-api-reference.md`**.
 -   `/api/menu/search`: Menu search API endpoint returning permission-filtered menu items for authenticated users with optional query parameter for server-side filtering
 -   `/admin/approval-workflows/*`: Approval workflow management with CRUD operations, workflow step configuration, and threshold management
 

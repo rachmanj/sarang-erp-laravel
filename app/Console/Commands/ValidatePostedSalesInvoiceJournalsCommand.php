@@ -91,11 +91,14 @@ class ValidatePostedSalesInvoiceJournalsCommand extends Command
         $issues = [];
 
         $lineSum = (float) $invoice->lines->sum(fn ($l) => (float) $l->amount);
+        $headerDiscount = (float) ($invoice->discount_amount ?? 0);
+        $expectedTotal = round($lineSum - $headerDiscount, 2);
         $headerTotal = (float) $invoice->total_amount;
-        if (! $this->approxEq($lineSum, $headerTotal)) {
+        if (! $this->approxEq($expectedTotal, $headerTotal)) {
             $issues[] = sprintf(
-                'Line amount sum (%.2f) ≠ invoice total_amount (%.2f)',
+                'Line amount sum (%.2f) − header discount (%.2f) ≠ invoice total_amount (%.2f)',
                 $lineSum,
+                $headerDiscount,
                 $headerTotal
             );
         }
@@ -134,20 +137,24 @@ class ValidatePostedSalesInvoiceJournalsCommand extends Command
 
         $expected = SalesInvoicePostingMath::summarizeLinesForPosting($invoice->lines);
         $gross = (float) $expected['gross_total'];
+        $arExpected = round($gross - (float) ($invoice->discount_amount ?? 0), 2);
+        if ($arExpected < 0) {
+            $arExpected = 0;
+        }
         $ppn = (float) $expected['ppn_total'];
         /** @var array<int, float> $ppnByRev */
         $ppnByRev = $expected['ppn_by_revenue_account'];
 
         if ($invoice->is_opening_balance) {
             $arDebit = $debitByAcct[$accountIds['ar']] ?? 0;
-            if (! $this->approxEq($arDebit, $gross)) {
-                $issues[] = sprintf('Opening: AR (1.1.2.01) debit %.2f, expected gross %.2f', $arDebit, $gross);
+            if (! $this->approxEq($arDebit, $arExpected)) {
+                $issues[] = sprintf('Opening: AR (1.1.2.01) debit %.2f, expected net AR %.2f', $arDebit, $arExpected);
             }
 
             $reAcct = $accountIds['retained_opening'];
             if ($reAcct > 0) {
                 $reCredit = $creditByAcct[$reAcct] ?? 0;
-                $expectedRe = round($gross - $ppn, 2);
+                $expectedRe = round($arExpected - $ppn, 2);
                 if (! $this->approxEq($reCredit, $expectedRe)) {
                     $issues[] = sprintf(
                         'Opening: Retained earnings (3.3.1) credit %.2f, expected %.2f (gross − PPN)',
@@ -167,13 +174,13 @@ class ValidatePostedSalesInvoiceJournalsCommand extends Command
             }
         } else {
             $arUnCr = $creditByAcct[$accountIds['ar_uninvoice']] ?? 0;
-            if (! $this->approxEq($arUnCr, $gross)) {
-                $issues[] = sprintf('AR UnInvoice (1.1.2.04) credit %.2f, expected gross %.2f', $arUnCr, $gross);
+            if (! $this->approxEq($arUnCr, $arExpected)) {
+                $issues[] = sprintf('AR UnInvoice (1.1.2.04) credit %.2f, expected net AR %.2f', $arUnCr, $arExpected);
             }
 
             $arDebit = $debitByAcct[$accountIds['ar']] ?? 0;
-            if (! $this->approxEq($arDebit, $gross)) {
-                $issues[] = sprintf('AR (1.1.2.01) debit %.2f, expected gross %.2f', $arDebit, $gross);
+            if (! $this->approxEq($arDebit, $arExpected)) {
+                $issues[] = sprintf('AR (1.1.2.01) debit %.2f, expected net AR %.2f', $arDebit, $arExpected);
             }
 
             if ($ppn > 0) {

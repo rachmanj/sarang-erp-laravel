@@ -74,7 +74,31 @@ Open create with **`quotation_id`** (from the quotation workflow). Header and li
 
 ## Manual creation (without a DO)
 
-**Sales** → **Sales Invoices** → **Create**. Select customer, company entity, date, and add invoice lines (revenue account, qty, price, tax codes). Save draft → **Post**.
+**Sales** → **Sales Invoices** → **Create**. Select customer, company entity, date, and add invoice lines (revenue account, qty, price, tax codes). Use **Disc %** / **Disc Amt** per line and header **Discount (%)** / **Discount Amount** when needed (see [Line and header discounts](#line-and-header-discounts)). Save draft → **Post**.
+
+---
+
+## Line and header discounts
+
+### Line discount
+
+- **What it does**: Reduces that line’s **DPP** (qty × unit price) **before** PPN and WTax are calculated—same idea as **Sales Order** and **Sales Quotation** lines.
+- **How to enter**: **Disc %** or **Disc Amt** on each line; changing one updates the other based on gross DPP for that line.
+- **From Delivery Order**: When the SI is prefilled from a DO, line discounts can be copied from the **Sales Order** (percentage kept; flat amount scaled by delivered quantity vs SO line qty when applicable).
+
+### Header discount
+
+- **What it does**: A **document-level** reduction applied **after** all line totals are summed. It is **not** stored per line.
+- **How to enter**: Header **Discount (%)** or **Discount Amount** on create/edit; changing one updates the other based on the **sum of line amounts** (incl. tax).
+
+### Totals and stored amounts
+
+- Invoice **`total_amount`** is the **amount due** after the header discount (used for print footers, allocations, and customer API **`total_amount`**).
+- **Show / print**: Footer may show **Gross total (incl. tax)** and **Header discount** before **Amount due** when a header discount exists.
+
+### Keywords (HELP)
+
+sales invoice discount, header discount, line discount, diskon faktur, DPP discount.
 
 ---
 
@@ -88,15 +112,16 @@ Open create with **`quotation_id`** (from the quotation workflow). Header and li
 
 ## Line amounts, VAT, and totals (what you see vs what is stored)
 
-- **Stored line `amount`**: Tax-inclusive (same idea as **Sales Order** line totals: base = qty × unit price, then PPN on that base and withholding tax if configured). The invoice header **`total_amount`** is the sum of line amounts (plus header-level adjustments if any).
-- **Amount column (screen and print)**: Shows **qty × unit price** (exclusive line subtotal) so it matches the unit price column without looking like VAT was applied twice.
-- **Footer**: **Subtotal (ex. PPN)** → **PPN / VAT** → **WTax** (if any) → **Total (incl. PPN)**. The last line is the amount due and matches the stored gross total—**not** “subtotal + VAT” computed again on inclusive lines.
+- **Stored line `amount`**: Tax-inclusive **line total** (net DPP after line discount, then PPN on that base, minus WTax on that base)—aligned with **`SalesOrderLine::computeAmountFromPricing`**.
+- **Discount column (show and print)**: Line **DPP** discount amount when greater than zero.
+- **Amount column (show and print)**: Stored line **`amount`** (tax-inclusive gross for the line), not raw qty × unit price.
+- **Footer**: **Subtotal (ex. PPN)** is sum of **net DPP** (after line discounts). Then **PPN / VAT**, **WTax** if any, then **Gross total** / **Header discount** when a header discount exists, then **Amount due**—which matches header **`total_amount`** and is the figure used for payment allocation.
 
 ---
 
 ## Posting and accounting
 
-**Post** locks the document and creates journals via **`PostingService`**, using **`SalesInvoicePostingMath`** to derive gross receivable and PPN from tax-inclusive lines. In the usual **from delivery order** case: **Credit AR UnInvoice** and **Debit trade receivables (AR)** for the tax-inclusive gross; **Debit revenue** (per line) for the PPN component carried in the line amount; **Credit PPN output**. **Opening balance** invoices use a different pattern (AR gross, retained opening, PPN as applicable).
+**Post** locks the document and creates journals via **`PostingService`**, using **`SalesInvoicePostingMath`** for DPP (after line discounts), PPN, WTax, and **amount due** (including header discount when present). **Opening balance** invoices use a different pattern (AR gross, retained opening, PPN as applicable).
 
 **Unpost** may be available for corrections depending on policy and permissions.
 
@@ -106,7 +131,7 @@ Administrators and support can run:
 
 `php artisan sales-invoices:validate-posted-journals`
 
-Optional filters: `--id=` (single invoice), `--limit=` (batch). The command compares posted journal lines to the expected gross and PPN split from invoice lines. Registered in **`App\Console\Kernel`**.
+Optional filters: `--id=` (single invoice), `--limit=` (batch). The command compares posted journal lines to the expected split from invoice lines and **`total_amount`** (amount due).
 
 ---
 

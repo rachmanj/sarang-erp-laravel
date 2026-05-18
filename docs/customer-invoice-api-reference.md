@@ -100,7 +100,9 @@ Fields exposed by `App\Http\Resources\Api\Customer\InvoiceResource`:
 | `due_date` | `Y-m-d` or null |
 | `terms_days` | integer or null |
 | `status` | string |
-| `total_amount` | float |
+| `total_amount` | float; **amount due** (after header discount when present). |
+| `discount_amount` | float; document-level discount in currency (`0` when none). |
+| `discount_percentage` | float; header discount % (`0` when none). |
 | `reference_no` | string or null |
 | `description` | string or null |
 | `posted_at` | ISO-8601 string or null |
@@ -118,8 +120,10 @@ Fields exposed by `App\Http\Resources\Api\Customer\InvoiceLineResource`:
 | `description` | string or null |
 | `qty` | float |
 | `unit_price` | float |
-| `discount` | float; `max(0, qty×unit_price − amount)` when subtotal exceeds stored `amount`, else `0`. |
-| `total` | Line `amount` (float). |
+| `discount_amount` | float; **DPP (tax base) discount** on the line. |
+| `discount_percentage` | float; line discount % (`0` when not used). |
+| `discount` | float; same as **`discount_amount`** when that is set; otherwise a **legacy fallback** `max(0, qty×unit_price − total)` when the stored line total is less than gross DPP (older rows without explicit line discount). Prefer **`discount_amount`** for integrations. |
+| `total` | Line gross (float): stored `amount` (net DPP + PPN − WTax for the line). |
 
 ## Admin: issuing and revoking API keys
 
@@ -172,6 +176,12 @@ php artisan migrate
 | Admin form request | `app/Http/Requests/Admin/StoreCustomerApiKeyRequest.php` |
 | Admin view | `resources/views/admin/customers/api-keys.blade.php` |
 | Feature tests | `tests/Feature/CustomerInvoiceApiTest.php`, `tests/Feature/CustomerApiKeyAdminTest.php` |
+
+## Related documentation
+
+- **`docs/architecture.md`** — system architecture, validated functionality, API endpoint summary (`customer_api_keys`, `/api/v1/invoices`, admin key routes).
+- **`docs/MODULES-AND-FEATURES.md`** — module list (Sales Invoices, Business Partners, API & Integration).
+- **`docs/manuals/README.md`** — manuals index + developer/integration references table.
 
 ## Scope note
 

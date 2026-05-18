@@ -2,33 +2,37 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\PurchaseOrder;
-use App\Models\SalesOrder;
-use App\Models\SalesOrderLine;
-use App\Models\SalesOrderApproval;
-use App\Models\InventoryItem;
 use App\Models\CustomerCreditLimit;
 use App\Models\CustomerPricingTier;
-use App\Services\SalesService;
-use App\Services\SalesInvoiceService;
-use App\Services\DocumentClosureService;
-use App\Services\DocumentNumberingService;
+use App\Models\InventoryItem;
+use App\Models\SalesOrder;
+use App\Models\SalesOrderLine;
 use App\Services\CompanyEntityService;
 use App\Services\CurrencyService;
+use App\Services\DocumentClosureService;
+use App\Services\DocumentNumberingService;
 use App\Services\ExchangeRateService;
+use App\Services\SalesInvoiceService;
+use App\Services\SalesService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\Facades\DataTables;
 
 class SalesOrderController extends Controller
 {
     protected $salesService;
+
     protected $salesInvoiceService;
+
     protected $documentClosureService;
+
     protected $currencyService;
+
     protected $exchangeRateService;
+
     protected $documentNumberingService;
+
     protected $companyEntityService;
 
     public function __construct(
@@ -54,6 +58,7 @@ class SalesOrderController extends Controller
         $customers = \App\Models\BusinessPartner::where('partner_type', 'customer')->orderBy('name')->get(['id', 'name']);
         $ptCahaya = \App\Models\CompanyEntity::where('code', '71')->first();
         $cvCahaya = \App\Models\CompanyEntity::where('code', '72')->first();
+
         return view('sales_orders.index', compact('customers', 'ptCahaya', 'cvCahaya'));
     }
 
@@ -67,7 +72,7 @@ class SalesOrderController extends Controller
                 'business_partner_id',
                 'total_amount',
                 'status',
-                'created_at'
+                'created_at',
             ]);
 
         // Apply filters
@@ -79,9 +84,9 @@ class SalesOrderController extends Controller
         }
         if ($request->filled('q')) {
             $query->where(function ($q) use ($request) {
-                $q->where('order_no', 'like', '%' . $request->q . '%')
+                $q->where('order_no', 'like', '%'.$request->q.'%')
                     ->orWhereHas('businessPartner', function ($bp) use ($request) {
-                        $bp->where('name', 'like', '%' . $request->q . '%');
+                        $bp->where('name', 'like', '%'.$request->q.'%');
                     });
             });
         }
@@ -95,11 +100,12 @@ class SalesOrderController extends Controller
             })
             ->addColumn('actions', function ($row) {
                 $actions = '<div class="btn-group">';
-                $actions .= '<a href="' . route('sales-orders.show', $row->id) . '" class="btn btn-xs btn-info">View</a>';
+                $actions .= '<a href="'.route('sales-orders.show', $row->id).'" class="btn btn-xs btn-info">View</a>';
                 if ($row->status === 'draft') {
-                    $actions .= '<a href="' . route('sales-orders.edit', $row->id) . '" class="btn btn-xs btn-warning">Edit</a>';
+                    $actions .= '<a href="'.route('sales-orders.edit', $row->id).'" class="btn btn-xs btn-warning">Edit</a>';
                 }
                 $actions .= '</div>';
+
                 return $actions;
             })
             ->rawColumns(['actions'])
@@ -140,7 +146,7 @@ class SalesOrderController extends Controller
 
         try {
             $baseCurrency = $this->currencyService->getBaseCurrency();
-            if (!$baseCurrency) {
+            if (! $baseCurrency) {
                 return response()->json(['error' => 'Base currency not found'], 400);
             }
 
@@ -150,13 +156,13 @@ class SalesOrderController extends Controller
 
             $exchangeRate = $this->exchangeRateService->getRate($currencyId, $baseCurrency->id, $date);
 
-            if (!$exchangeRate) {
+            if (! $exchangeRate) {
                 return response()->json(['error' => 'Exchange rate not found for the selected currency and date'], 400);
             }
 
             return response()->json(['rate' => $exchangeRate->rate]);
         } catch (\Exception $e) {
-            return response()->json(['error' => 'Error retrieving exchange rate: ' . $e->getMessage()], 500);
+            return response()->json(['error' => 'Error retrieving exchange rate: '.$e->getMessage()], 500);
         }
     }
 
@@ -166,7 +172,7 @@ class SalesOrderController extends Controller
         $date = $request->input('date', now()->toDateString());
 
         try {
-            if (!$entityId) {
+            if (! $entityId) {
                 return response()->json(['error' => 'Company entity is required'], 400);
             }
 
@@ -176,7 +182,7 @@ class SalesOrderController extends Controller
 
             return response()->json(['document_number' => $documentNumber]);
         } catch (\Exception $e) {
-            return response()->json(['error' => 'Error generating document number: ' . $e->getMessage()], 500);
+            return response()->json(['error' => 'Error generating document number: '.$e->getMessage()], 500);
         }
     }
 
@@ -217,6 +223,8 @@ class SalesOrderController extends Controller
             'lines.*.vat_rate' => ['required', 'numeric', 'min:0', 'max:100'],
             'lines.*.wtax_rate' => ['required', 'numeric', 'min:0', 'max:100'],
             'lines.*.notes' => ['nullable', 'string'],
+            'lines.*.discount_amount' => ['nullable', 'numeric', 'min:0'],
+            'lines.*.discount_percentage' => ['nullable', 'numeric', 'min:0', 'max:100'],
         ]);
 
         try {
@@ -226,10 +234,20 @@ class SalesOrderController extends Controller
             $exchangeRate = $data['exchange_rate'];
 
             foreach ($data['lines'] as &$line) {
-                $originalAmount = $line['qty'] * $line['unit_price'];
-                $vatAmount = $originalAmount * ($line['vat_rate'] / 100);
-                $wtaxAmount = $originalAmount * ($line['wtax_rate'] / 100);
-                $lineAmount = $originalAmount + $vatAmount - $wtaxAmount;
+                [$dppDisc] = SalesOrderLine::resolveLineDppDiscount(
+                    (float) $line['qty'],
+                    (float) $line['unit_price'],
+                    isset($line['discount_percentage']) ? (float) $line['discount_percentage'] : null,
+                    isset($line['discount_amount']) ? (float) $line['discount_amount'] : null
+                );
+
+                $lineAmount = SalesOrderLine::computeAmountFromPricing(
+                    (float) $line['qty'],
+                    (float) $line['unit_price'],
+                    $line['vat_rate'] ?? 0,
+                    $line['wtax_rate'] ?? 0,
+                    $dppDisc
+                );
                 $totalAmount += $lineAmount;
 
                 // Calculate foreign amounts
@@ -254,10 +272,11 @@ class SalesOrderController extends Controller
             }
 
             $so = $this->salesService->createSalesOrder($data);
+
             return redirect()->route('sales-orders.show', $so->id)
                 ->with('success', 'Sales Order created successfully');
         } catch (\Exception $e) {
-            return back()->withInput()->with('error', 'Error creating sales order: ' . $e->getMessage());
+            return back()->withInput()->with('error', 'Error creating sales order: '.$e->getMessage());
         }
     }
 
@@ -280,7 +299,7 @@ class SalesOrderController extends Controller
         $warehouses = DB::table('warehouses')->where('is_active', 1)->where('name', 'not like', '%Transit%')->orderBy('name')->get();
         $currencies = $this->currencyService->getActiveCurrencies();
         $entities = $this->companyEntityService->getActiveEntities();
-        $defaultEntity = $order->company_entity_id 
+        $defaultEntity = $order->company_entity_id
             ? $this->companyEntityService->getEntity($order->company_entity_id)
             : $this->companyEntityService->getDefaultEntity();
 
@@ -341,25 +360,38 @@ class SalesOrderController extends Controller
             'lines.*.vat_rate' => ['required', 'numeric', 'min:0', 'max:100'],
             'lines.*.wtax_rate' => ['required', 'numeric', 'min:0', 'max:100'],
             'lines.*.notes' => ['nullable', 'string'],
+            'lines.*.discount_amount' => ['nullable', 'numeric', 'min:0'],
+            'lines.*.discount_percentage' => ['nullable', 'numeric', 'min:0', 'max:100'],
         ]);
 
         try {
             // Calculate total amount from lines for credit limit check
             $totalAmount = 0;
             foreach ($data['lines'] as $line) {
-                $originalAmount = $line['qty'] * $line['unit_price'];
-                $vatAmount = $originalAmount * ($line['vat_rate'] / 100);
-                $wtaxAmount = $originalAmount * ($line['wtax_rate'] / 100);
-                $lineAmount = $originalAmount + $vatAmount - $wtaxAmount;
+                [$dppDisc] = SalesOrderLine::resolveLineDppDiscount(
+                    (float) $line['qty'],
+                    (float) $line['unit_price'],
+                    isset($line['discount_percentage']) ? (float) $line['discount_percentage'] : null,
+                    isset($line['discount_amount']) ? (float) $line['discount_amount'] : null
+                );
+
+                $lineAmount = SalesOrderLine::computeAmountFromPricing(
+                    (float) $line['qty'],
+                    (float) $line['unit_price'],
+                    $line['vat_rate'] ?? 0,
+                    $line['wtax_rate'] ?? 0,
+                    $dppDisc
+                );
                 $totalAmount += $lineAmount;
             }
             $data['total_amount'] = $totalAmount;
-            
+
             $this->salesService->updateSalesOrder($id, $data);
+
             return redirect()->route('sales-orders.show', $id)
                 ->with('success', 'Sales Order updated successfully');
         } catch (\Exception $e) {
-            return back()->withInput()->with('error', 'Error updating sales order: ' . $e->getMessage());
+            return back()->withInput()->with('error', 'Error updating sales order: '.$e->getMessage());
         }
     }
 
@@ -379,8 +411,9 @@ class SalesOrderController extends Controller
             'approvedBy',
             'createdBy',
             'commissions',
-            'deliveryOrders'
+            'deliveryOrders',
         ])->findOrFail($id);
+
         return view('sales_orders.show', compact('order'));
     }
 
@@ -392,9 +425,10 @@ class SalesOrderController extends Controller
 
         try {
             $this->salesService->approveSalesOrder($id, Auth::id(), $request->comments);
+
             return back()->with('success', 'Sales Order approved successfully');
         } catch (\Exception $e) {
-            return back()->with('error', 'Error approving sales order: ' . $e->getMessage());
+            return back()->with('error', 'Error approving sales order: '.$e->getMessage());
         }
     }
 
@@ -406,9 +440,10 @@ class SalesOrderController extends Controller
 
         try {
             $this->salesService->rejectSalesOrder($id, Auth::id(), $request->comments);
+
             return back()->with('success', 'Sales Order rejected');
         } catch (\Exception $e) {
-            return back()->with('error', 'Error rejecting sales order: ' . $e->getMessage());
+            return back()->with('error', 'Error rejecting sales order: '.$e->getMessage());
         }
     }
 
@@ -416,15 +451,17 @@ class SalesOrderController extends Controller
     {
         try {
             $this->salesService->confirmSalesOrder($id);
+
             return back()->with('success', 'Sales Order confirmed successfully');
         } catch (\Exception $e) {
-            return back()->with('error', 'Error confirming sales order: ' . $e->getMessage());
+            return back()->with('error', 'Error confirming sales order: '.$e->getMessage());
         }
     }
 
     public function deliver(int $id)
     {
         $order = SalesOrder::with('lines')->findOrFail($id);
+
         return view('sales_orders.deliver', compact('order'));
     }
 
@@ -439,10 +476,11 @@ class SalesOrderController extends Controller
 
         try {
             $this->salesService->deliverSalesOrder($id, $data);
+
             return redirect()->route('sales-orders.show', $id)
                 ->with('success', 'Sales Order delivered successfully');
         } catch (\Exception $e) {
-            return back()->withInput()->with('error', 'Error delivering sales order: ' . $e->getMessage());
+            return back()->withInput()->with('error', 'Error delivering sales order: '.$e->getMessage());
         }
     }
 
@@ -450,9 +488,10 @@ class SalesOrderController extends Controller
     {
         try {
             $this->salesService->closeSalesOrder($id);
+
             return back()->with('success', 'Sales Order closed successfully');
         } catch (\Exception $e) {
-            return back()->with('error', 'Error closing sales order: ' . $e->getMessage());
+            return back()->with('error', 'Error closing sales order: '.$e->getMessage());
         }
     }
 
@@ -467,21 +506,22 @@ class SalesOrderController extends Controller
         $prefill = [
             'date' => now()->toDateString(),
             'business_partner_id' => $order->business_partner_id,
-            'description' => 'From SO ' . ($order->order_no ?: ('#' . $order->id)),
+            'description' => 'From SO '.($order->order_no ?: ('#'.$order->id)),
             'reference_no' => $order->reference_no ?? null,
             'lines' => $order->lines->map(function ($l) {
                 return [
                     'item_code' => $l->item_code,
                     'item_name' => $l->item_name ?? $l->description,
-                    'account_id' => (int)$l->account_id,
+                    'account_id' => (int) $l->account_id,
                     'description' => $l->description ?? $l->item_name,
-                    'qty' => (float)$l->qty,
-                    'unit_price' => (float)$l->unit_price,
+                    'qty' => (float) $l->qty,
+                    'unit_price' => (float) $l->unit_price,
                     'tax_code_id' => $l->tax_code_id,
-                    'wtax_rate' => (float)($l->wtax_rate ?? 0),
+                    'wtax_rate' => (float) ($l->wtax_rate ?? 0),
                 ];
             })->toArray(),
         ];
+
         return view('sales_invoices.create', compact('accounts', 'customers', 'taxCodes', 'projects', 'departments') + ['prefill' => $prefill, 'sales_order_id' => $order->id]);
     }
 
@@ -494,6 +534,7 @@ class SalesOrderController extends Controller
 
         try {
             $this->salesService->checkCreditLimit($request->business_partner_id, $request->order_amount);
+
             return response()->json(['status' => 'approved', 'message' => 'Credit limit check passed']);
         } catch (\Exception $e) {
             return response()->json(['status' => 'rejected', 'message' => $e->getMessage()], 400);
@@ -539,6 +580,7 @@ class SalesOrderController extends Controller
                 $request->start_date,
                 $request->end_date
             );
+
             return response()->json($analysis);
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 400);
@@ -574,7 +616,7 @@ class SalesOrderController extends Controller
     {
         $creditLimit = CustomerCreditLimit::where('business_partner_id', $customerId)->first();
 
-        if (!$creditLimit) {
+        if (! $creditLimit) {
             return response()->json(['message' => 'No credit limit set for this customer']);
         }
 
@@ -594,7 +636,7 @@ class SalesOrderController extends Controller
     {
         $so = SalesOrder::with('lines.inventoryItem')->findOrFail($id);
 
-        if (!$this->salesService->canCopyToDeliveryNote($so)) {
+        if (! $this->salesService->canCopyToDeliveryNote($so)) {
             return back()->with('error', 'Sales Order cannot be copied to Delivery Note. Only approved Item Sales Orders are allowed.');
         }
 
@@ -605,7 +647,7 @@ class SalesOrderController extends Controller
             // For now, we'll redirect to a placeholder
             return back()->with('info', 'Delivery Note functionality will be implemented in the next phase');
         } catch (\Exception $e) {
-            return back()->with('error', 'Error creating Delivery Note: ' . $e->getMessage());
+            return back()->with('error', 'Error creating Delivery Note: '.$e->getMessage());
         }
     }
 
@@ -616,7 +658,7 @@ class SalesOrderController extends Controller
     {
         $so = SalesOrder::with('lines.inventoryItem')->findOrFail($id);
 
-        if (!$this->salesService->canCopyToSalesInvoice($so)) {
+        if (! $this->salesService->canCopyToSalesInvoice($so)) {
             return back()->with('error', 'Sales Order cannot be copied to Sales Invoice. Only approved Service Sales Orders are allowed.');
         }
 
@@ -625,7 +667,7 @@ class SalesOrderController extends Controller
             // For now, we'll redirect to a placeholder
             return back()->with('info', 'Service Sales Order to Invoice functionality will be implemented in the next phase');
         } catch (\Exception $e) {
-            return back()->with('error', 'Error creating Sales Invoice: ' . $e->getMessage());
+            return back()->with('error', 'Error creating Sales Invoice: '.$e->getMessage());
         }
     }
 
@@ -636,7 +678,7 @@ class SalesOrderController extends Controller
     {
         $so = SalesOrder::with(['lines.inventoryItem', 'customer'])->findOrFail($id);
 
-        if (!$this->salesService->canCopyToDeliveryNote($so)) {
+        if (! $this->salesService->canCopyToDeliveryNote($so)) {
             return back()->with('error', 'Sales Order cannot be copied to Delivery Note. Only approved Item Sales Orders are allowed.');
         }
 
@@ -650,7 +692,7 @@ class SalesOrderController extends Controller
     {
         $so = SalesOrder::with(['lines.inventoryItem', 'customer'])->findOrFail($id);
 
-        if (!$this->salesService->canCopyToSalesInvoice($so)) {
+        if (! $this->salesService->canCopyToSalesInvoice($so)) {
             return back()->with('error', 'Sales Order cannot be copied to Sales Invoice. Only approved Service Sales Orders are allowed.');
         }
 
@@ -679,7 +721,7 @@ class SalesOrderController extends Controller
             return redirect()->route('sales-invoices.show', $salesInvoice->id)
                 ->with('success', 'Sales Invoice created from GRPOs successfully');
         } catch (\Exception $e) {
-            return back()->withInput()->with('error', 'Error creating Sales Invoice: ' . $e->getMessage());
+            return back()->withInput()->with('error', 'Error creating Sales Invoice: '.$e->getMessage());
         }
     }
 
@@ -722,7 +764,7 @@ class SalesOrderController extends Controller
 
         $errors = $this->salesInvoiceService->validateGRPOCombination($grpoIds);
 
-        if (!empty($errors)) {
+        if (! empty($errors)) {
             return response()->json(['errors' => $errors], 400);
         }
 

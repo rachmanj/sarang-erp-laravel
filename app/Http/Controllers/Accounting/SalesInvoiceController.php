@@ -9,7 +9,9 @@ use App\Models\CompanyEntity;
 use App\Models\DeliveryOrder;
 use App\Models\DeliveryOrderLine;
 use App\Models\SalesOrder;
+use App\Models\SalesOrderLine;
 use App\Models\SalesQuotation;
+use App\Models\User;
 use App\Services\Accounting\PostingService;
 use App\Services\Accounting\SalesInvoicePostingMath;
 use App\Services\CompanyEntityService;
@@ -232,9 +234,32 @@ class SalesInvoiceController extends Controller
                 $soLine = $l->salesOrderLine;
                 $taxCodeId = $l->tax_code_id ?? ($soLine?->tax_code_id);
                 $wtaxRate = $soLine ? (float) ($soLine->wtax_rate ?? 0) : 0;
+                $dqty = (float) $l->delivered_qty;
+                $dprice = (float) $l->unit_price;
+                $linePct = $soLine ? (float) ($soLine->discount_percentage ?? 0) : 0.0;
+                $lineAmtInput = 0.0;
+                if ($soLine && $linePct <= 0.0) {
+                    $solAmt = (float) ($soLine->discount_amount ?? 0);
+                    $solQty = (float) ($soLine->qty ?: 0);
+                    $lineAmtInput = ($solQty > 0 && $solAmt > 0)
+                        ? round($solAmt * ($dqty / $solQty), 2)
+                        : $solAmt;
+                }
+                [$lineDiscAmt, $lineDiscPct] = SalesOrderLine::resolveLineDppDiscount(
+                    $dqty,
+                    $dprice,
+                    $linePct > 0 ? $linePct : null,
+                    $linePct > 0 ? 0.0 : $lineAmtInput
+                );
                 $lineTotalAmount = $soLine
-                    ? $soLine->computeAmountForQuantity((float) $l->delivered_qty)
-                    : ((float) $l->delivered_qty * (float) $l->unit_price);
+                    ? SalesOrderLine::computeAmountFromPricing(
+                        $dqty,
+                        $dprice,
+                        $soLine->vat_rate,
+                        $soLine->wtax_rate,
+                        $lineDiscAmt
+                    )
+                    : ($dqty * $dprice);
                 $lines->push([
                     'delivery_order_line_id' => $l->id,
                     'delivery_order_id' => $deliveryOrder->id,
@@ -250,10 +275,14 @@ class SalesInvoiceController extends Controller
                     'unit_price' => (float) $l->unit_price,
                     'tax_code_id' => $taxCodeId ? (int) $taxCodeId : null,
                     'wtax_rate' => $wtaxRate,
+                    'discount_amount' => $lineDiscAmt,
+                    'discount_percentage' => $lineDiscPct,
                     'total_amount' => $lineTotalAmount,
                 ]);
             }
         }
+
+        $headerSo = $firstDo->salesOrder;
 
         return [
             'date' => now()->toDateString(),
@@ -263,6 +292,8 @@ class SalesInvoiceController extends Controller
             'description' => 'From DO '.$doNumbers,
             'reference_no' => $referenceNo,
             'delivery_order_ids' => $deliveryOrders->pluck('id')->values()->all(),
+            'discount_amount' => $headerSo ? (float) ($headerSo->discount_amount ?? 0) : 0.0,
+            'discount_percentage' => $headerSo ? (float) ($headerSo->discount_percentage ?? 0) : 0.0,
             'lines' => $lines->all(),
         ];
     }
@@ -322,12 +353,20 @@ class SalesInvoiceController extends Controller
      */
     private function resolveSalesInvoiceLineAmount(array $l): float
     {
+        [$dppDisc] = SalesOrderLine::resolveLineDppDiscount(
+            (float) $l['qty'],
+            (float) $l['unit_price'],
+            isset($l['discount_percentage']) ? (float) $l['discount_percentage'] : null,
+            isset($l['discount_amount']) ? (float) $l['discount_amount'] : null
+        );
+
         $line = new SalesInvoiceLine([
             'qty' => (float) $l['qty'],
             'unit_price' => (float) $l['unit_price'],
             'delivery_order_line_id' => $l['delivery_order_line_id'] ?? null,
             'tax_code_id' => $l['tax_code_id'] ?? null,
             'wtax_rate' => $l['wtax_rate'] ?? 0,
+            'discount_amount' => $dppDisc,
         ]);
 
         return SalesInvoicePostingMath::computedGrossAmountForLine($line);
@@ -367,6 +406,8 @@ class SalesInvoiceController extends Controller
             'company_entity_id' => ['required', 'integer', 'exists:company_entities,id'],
             'description' => ['nullable', 'string', 'max:255'],
             'reference_no' => ['nullable', 'string', 'max:100'],
+            'discount_amount' => ['nullable', 'numeric', 'min:0'],
+            'discount_percentage' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'lines' => ['required', 'array', 'min:1'],
             'lines.*.account_id' => ['required', 'integer', 'exists:accounts,id'],
             'lines.*.description' => ['nullable', 'string', 'max:255'],
@@ -374,6 +415,8 @@ class SalesInvoiceController extends Controller
             'lines.*.unit_price' => ['required', 'numeric', 'min:0'],
             'lines.*.tax_code_id' => ['nullable', 'integer', 'exists:tax_codes,id'],
             'lines.*.wtax_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'lines.*.discount_amount' => ['nullable', 'numeric', 'min:0'],
+            'lines.*.discount_percentage' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'lines.*.project_id' => ['nullable', 'integer'],
             'lines.*.dept_id' => ['nullable', 'integer'],
             'lines.*.delivery_order_line_id' => ['nullable', 'integer', 'exists:delivery_order_lines,id'],
@@ -400,6 +443,12 @@ class SalesInvoiceController extends Controller
 
             $total = 0;
             foreach ($data['lines'] as $l) {
+                [$dppDisc, $lineDiscPct] = SalesOrderLine::resolveLineDppDiscount(
+                    (float) $l['qty'],
+                    (float) $l['unit_price'],
+                    isset($l['discount_percentage']) ? (float) $l['discount_percentage'] : null,
+                    isset($l['discount_amount']) ? (float) $l['discount_amount'] : null
+                );
                 $amount = $this->resolveSalesInvoiceLineAmount($l);
                 $total += $amount;
                 $resolved = $this->resolveLineDataFromDeliveryOrder($l);
@@ -415,6 +464,9 @@ class SalesInvoiceController extends Controller
                     'qty' => (float) $l['qty'],
                     'unit_price' => (float) $l['unit_price'],
                     'amount' => $amount,
+                    'discount_amount' => $dppDisc,
+                    'discount_percentage' => $lineDiscPct,
+                    'net_amount' => $amount,
                     'tax_code_id' => $l['tax_code_id'] ?? null,
                     'wtax_rate' => $l['wtax_rate'] ?? 0,
                     'project_id' => $l['project_id'] ?? null,
@@ -422,9 +474,22 @@ class SalesInvoiceController extends Controller
                 ]);
             }
 
+            [$headerDisc, $headerPct] = SalesOrder::resolveHeaderDiscountAgainstLineTotal(
+                $total,
+                isset($data['discount_percentage']) ? (float) $data['discount_percentage'] : null,
+                isset($data['discount_amount']) ? (float) $data['discount_amount'] : null
+            );
+            $netTotal = round($total - $headerDisc, 2);
+
             $termsDays = (int) ($request->input('terms_days') ?? 0);
             $dueDate = $termsDays > 0 ? date('Y-m-d', strtotime($data['date'].' +'.$termsDays.' days')) : null;
-            $invoice->update(['total_amount' => $total, 'terms_days' => $termsDays ?: null, 'due_date' => $dueDate]);
+            $invoice->update([
+                'total_amount' => $netTotal,
+                'discount_amount' => $headerDisc,
+                'discount_percentage' => $headerPct,
+                'terms_days' => $termsDays ?: null,
+                'due_date' => $dueDate,
+            ]);
 
             return redirect()->route('sales-invoices.show', $invoice->id)
                 ->with('success', 'Sales invoice updated.');
@@ -444,6 +509,8 @@ class SalesInvoiceController extends Controller
             'is_opening_balance' => ['nullable', 'boolean'],
             'description' => ['nullable', 'string', 'max:255'],
             'reference_no' => ['nullable', 'string', 'max:100'],
+            'discount_amount' => ['nullable', 'numeric', 'min:0'],
+            'discount_percentage' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'lines' => ['required', 'array', 'min:1'],
             'lines.*.account_id' => ['required', 'integer', 'exists:accounts,id'],
             'lines.*.description' => ['nullable', 'string', 'max:255'],
@@ -451,6 +518,8 @@ class SalesInvoiceController extends Controller
             'lines.*.unit_price' => ['required', 'numeric', 'min:0'],
             'lines.*.tax_code_id' => ['nullable', 'integer', 'exists:tax_codes,id'],
             'lines.*.wtax_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'lines.*.discount_amount' => ['nullable', 'numeric', 'min:0'],
+            'lines.*.discount_percentage' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'lines.*.project_id' => ['nullable', 'integer'],
             'lines.*.dept_id' => ['nullable', 'integer'],
             'lines.*.delivery_order_line_id' => ['nullable', 'integer', 'exists:delivery_order_lines,id'],
@@ -509,6 +578,8 @@ class SalesInvoiceController extends Controller
                 'reference_no' => $data['reference_no'] ?? null,
                 'status' => 'draft',
                 'total_amount' => 0,
+                'discount_amount' => 0,
+                'discount_percentage' => 0,
                 'company_entity_id' => $entity->id,
                 'currency_id' => $baseCurrencyId,
                 'exchange_rate' => 1.0,
@@ -548,6 +619,12 @@ class SalesInvoiceController extends Controller
 
             $total = 0;
             foreach ($data['lines'] as $idx => $l) {
+                [$dppDisc, $lineDiscPct] = SalesOrderLine::resolveLineDppDiscount(
+                    (float) $l['qty'],
+                    (float) $l['unit_price'],
+                    isset($l['discount_percentage']) ? (float) $l['discount_percentage'] : null,
+                    isset($l['discount_amount']) ? (float) $l['discount_amount'] : null
+                );
                 $amount = $this->resolveSalesInvoiceLineAmount($l);
                 $total += $amount;
                 $resolved = $this->resolveLineDataFromDeliveryOrder($l, $idx, $deliveryOrders);
@@ -563,6 +640,9 @@ class SalesInvoiceController extends Controller
                     'qty' => (float) $l['qty'],
                     'unit_price' => (float) $l['unit_price'],
                     'amount' => $amount,
+                    'discount_amount' => $dppDisc,
+                    'discount_percentage' => $lineDiscPct,
+                    'net_amount' => $amount,
                     'tax_code_id' => $l['tax_code_id'] ?? null,
                     'wtax_rate' => $l['wtax_rate'] ?? 0,
                     'project_id' => $l['project_id'] ?? null,
@@ -570,9 +650,22 @@ class SalesInvoiceController extends Controller
                 ]);
             }
 
+            [$headerDisc, $headerPct] = SalesOrder::resolveHeaderDiscountAgainstLineTotal(
+                $total,
+                isset($data['discount_percentage']) ? (float) $data['discount_percentage'] : null,
+                isset($data['discount_amount']) ? (float) $data['discount_amount'] : null
+            );
+            $netTotal = round($total - $headerDisc, 2);
+
             $termsDays = (int) ($request->input('terms_days') ?? 0);
             $dueDate = $termsDays > 0 ? date('Y-m-d', strtotime($data['date'].' +'.$termsDays.' days')) : null;
-            $invoice->update(['total_amount' => $total, 'terms_days' => $termsDays ?: null, 'due_date' => $dueDate]);
+            $invoice->update([
+                'total_amount' => $netTotal,
+                'discount_amount' => $headerDisc,
+                'discount_percentage' => $headerPct,
+                'terms_days' => $termsDays ?: null,
+                'due_date' => $dueDate,
+            ]);
 
             if ($salesOrder) {
                 app(SalesWorkflowAuditService::class)->logSalesInvoiceCreation($salesOrder, $invoice->id);
@@ -580,7 +673,7 @@ class SalesInvoiceController extends Controller
 
             foreach ($deliveryOrders as $do) {
                 try {
-                    $this->documentClosureService->closeDeliveryOrder($do->id, $invoice->id, auth()->id());
+                    $this->documentClosureService->closeDeliveryOrder($do->id, $invoice->id, Auth::id());
                 } catch (\Exception $closureException) {
                     Log::warning('Failed to close Delivery Order after SI creation', [
                         'do_id' => $do->id,
@@ -644,7 +737,10 @@ class SalesInvoiceController extends Controller
         ])->findOrFail($id);
 
         $hasCreditMemo = (bool) optional($invoice->creditMemo)->id;
-        $canCreateCreditMemo = Auth::user()->can('ar.credit-memos.create')
+        /** @var User|null $user */
+        $user = Auth::user();
+        $canCreateCreditMemo = $user instanceof User
+            && $user->can('ar.credit-memos.create')
             && $invoice->status === 'posted'
             && ! $invoice->is_opening_balance
             && ! DB::table('sales_receipt_allocations')->where('invoice_id', $invoice->id)->exists()
@@ -735,6 +831,11 @@ class SalesInvoiceController extends Controller
 
         $totals = SalesInvoicePostingMath::summarizeLinesForPosting($invoice->lines);
         $grossTotal = $totals['gross_total'];
+        $headerDiscount = round((float) ($invoice->discount_amount ?? 0), 2);
+        $arAmount = round($grossTotal - $headerDiscount, 2);
+        if ($arAmount < 0) {
+            $arAmount = 0;
+        }
         $ppnTotal = $totals['ppn_total'];
         $ppnByRevenueAccount = $totals['ppn_by_revenue_account'];
         $lines = [];
@@ -754,7 +855,7 @@ class SalesInvoiceController extends Controller
             // Debit AR for the full tax-inclusive receivable; split exclusive vs PPN on credits.
             $lines[] = [
                 'account_id' => $arAccountId,
-                'debit' => $grossTotal,
+                'debit' => $arAmount,
                 'credit' => 0,
                 'project_id' => null,
                 'dept_id' => null,
@@ -765,7 +866,7 @@ class SalesInvoiceController extends Controller
             $lines[] = [
                 'account_id' => $retainedEarningsAccountId,
                 'debit' => 0,
-                'credit' => round($grossTotal - $ppnTotal, 2),
+                'credit' => round($arAmount - $ppnTotal, 2),
                 'project_id' => null,
                 'dept_id' => null,
                 'memo' => 'Saldo Awal Laba Ditahan - Opening Balance',
@@ -792,7 +893,7 @@ class SalesInvoiceController extends Controller
             $lines[] = [
                 'account_id' => $arUnInvoiceAccountId,
                 'debit' => 0,
-                'credit' => $grossTotal,
+                'credit' => $arAmount,
                 'project_id' => null,
                 'dept_id' => null,
                 'memo' => 'Reduce AR UnInvoice - convert to invoiced AR',
@@ -800,7 +901,7 @@ class SalesInvoiceController extends Controller
 
             $lines[] = [
                 'account_id' => $arAccountId,
-                'debit' => $grossTotal,
+                'debit' => $arAmount,
                 'credit' => 0,
                 'project_id' => null,
                 'dept_id' => null,

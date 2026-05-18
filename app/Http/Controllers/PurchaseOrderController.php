@@ -2,39 +2,44 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\CompanyEntity;
-use App\Models\GoodsReceipt;
-use App\Models\PurchaseOrder;
-use App\Models\PurchaseOrderLine;
-use App\Models\PurchaseOrderApproval;
-use App\Models\InventoryItem;
 use App\Models\Asset;
 use App\Models\AssetCategory;
-use App\Services\PurchaseService;
+use App\Models\CompanyEntity;
+use App\Models\InventoryItem;
+use App\Models\PurchaseOrder;
+use App\Services\CompanyEntityService;
+use App\Services\CurrencyService;
+use App\Services\DocumentClosureService;
+use App\Services\DocumentNumberingService;
+use App\Services\ExchangeRateService;
 use App\Services\GRPOCopyService;
 use App\Services\PurchaseInvoiceCopyService;
-use App\Services\DocumentClosureService;
+use App\Services\PurchaseService;
 use App\Services\UnitConversionService;
-use App\Services\CurrencyService;
-use App\Services\ExchangeRateService;
-use App\Services\DocumentNumberingService;
-use App\Services\CompanyEntityService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Yajra\DataTables\Facades\DataTables;
 
 class PurchaseOrderController extends Controller
 {
     protected $purchaseService;
+
     protected $grpoCopyService;
+
     protected $purchaseInvoiceCopyService;
+
     protected $documentClosureService;
+
     protected $unitConversionService;
+
     protected $currencyService;
+
     protected $exchangeRateService;
+
     protected $documentNumberingService;
+
     protected $companyEntityService;
 
     public function __construct(
@@ -63,6 +68,7 @@ class PurchaseOrderController extends Controller
     {
         $ptCahaya = CompanyEntity::where('code', '71')->first();
         $cvCahaya = CompanyEntity::where('code', '72')->first();
+
         return view('purchase_orders.index', compact('ptCahaya', 'cvCahaya'));
     }
 
@@ -77,7 +83,7 @@ class PurchaseOrderController extends Controller
                 'total_amount',
                 'status',
                 'closure_status',
-                'created_at'
+                'created_at',
             ]);
 
         // Apply filters
@@ -89,9 +95,9 @@ class PurchaseOrderController extends Controller
         }
         if ($request->filled('q')) {
             $query->where(function ($q) use ($request) {
-                $q->where('order_no', 'like', '%' . $request->q . '%')
+                $q->where('order_no', 'like', '%'.$request->q.'%')
                     ->orWhereHas('businessPartner', function ($bp) use ($request) {
-                        $bp->where('name', 'like', '%' . $request->q . '%');
+                        $bp->where('name', 'like', '%'.$request->q.'%');
                     });
             });
         }
@@ -113,22 +119,25 @@ class PurchaseOrderController extends Controller
                 return $row->businessPartner->name ?? '';
             })
             ->addColumn('total_amount', function ($row) {
-                return 'Rp ' . number_format($row->total_amount, 0, ',', '.');
+                return 'Rp '.number_format($row->total_amount, 0, ',', '.');
             })
             ->addColumn('closure_status', function ($row) {
                 if ($row->closure_status === 'open') {
                     $days = round(\Carbon\Carbon::parse($row->created_at)->diffInDays(\Carbon\Carbon::now()));
-                    return $days . ' days';
+
+                    return $days.' days';
                 }
+
                 return ucfirst($row->closure_status);
             })
             ->addColumn('actions', function ($row) {
                 $actions = '<div class="btn-group">';
-                $actions .= '<a href="' . route('purchase-orders.show', $row->id) . '" class="btn btn-xs btn-info">View</a>';
+                $actions .= '<a href="'.route('purchase-orders.show', $row->id).'" class="btn btn-xs btn-info">View</a>';
                 if ($row->status === 'draft') {
-                    $actions .= '<a href="' . route('purchase-orders.edit', $row->id) . '" class="btn btn-xs btn-warning">Edit</a>';
+                    $actions .= '<a href="'.route('purchase-orders.edit', $row->id).'" class="btn btn-xs btn-warning">Edit</a>';
                 }
                 $actions .= '</div>';
+
                 return $actions;
             })
             ->rawColumns(['actions'])
@@ -166,7 +175,7 @@ class PurchaseOrderController extends Controller
 
         try {
             $baseCurrency = $this->currencyService->getBaseCurrency();
-            if (!$baseCurrency) {
+            if (! $baseCurrency) {
                 return response()->json(['error' => 'Base currency not found'], 400);
             }
 
@@ -176,13 +185,13 @@ class PurchaseOrderController extends Controller
 
             $exchangeRate = $this->exchangeRateService->getRate($currencyId, $baseCurrency->id, $date);
 
-            if (!$exchangeRate) {
+            if (! $exchangeRate) {
                 return response()->json(['error' => 'Exchange rate not found for the selected currency and date'], 400);
             }
 
             return response()->json(['rate' => $exchangeRate->rate]);
         } catch (\Exception $e) {
-            return response()->json(['error' => 'Error retrieving exchange rate: ' . $e->getMessage()], 500);
+            return response()->json(['error' => 'Error retrieving exchange rate: '.$e->getMessage()], 500);
         }
     }
 
@@ -192,7 +201,7 @@ class PurchaseOrderController extends Controller
         $date = $request->input('date', now()->toDateString());
 
         try {
-            if (!$entityId) {
+            if (! $entityId) {
                 return response()->json(['error' => 'Company entity is required'], 400);
             }
 
@@ -202,7 +211,7 @@ class PurchaseOrderController extends Controller
 
             return response()->json(['document_number' => $documentNumber]);
         } catch (\Exception $e) {
-            return response()->json(['error' => 'Error generating document number: ' . $e->getMessage()], 500);
+            return response()->json(['error' => 'Error generating document number: '.$e->getMessage()], 500);
         }
     }
 
@@ -213,7 +222,7 @@ class PurchaseOrderController extends Controller
         // Filter out empty lines before validation
         $lines = $request->input('lines', []);
         $filteredLines = array_filter($lines, function ($line) {
-            return !empty($line['item_id']) && $line['item_id'] !== null;
+            return ! empty($line['item_id']) && $line['item_id'] !== null;
         });
 
         // Replace the lines in the request
@@ -269,11 +278,12 @@ class PurchaseOrderController extends Controller
 
             Log::info('Calling purchaseService->createPurchaseOrder()');
             $po = $this->purchaseService->createPurchaseOrder($data);
-            Log::info('Purchase Order created successfully with ID: ' . ($po->id ?? 'null'));
+            Log::info('Purchase Order created successfully with ID: '.($po->id ?? 'null'));
+
             return redirect()->route('purchase-orders.index')
                 ->with('success', 'Purchase Order created successfully');
         } catch (\Exception $e) {
-            return back()->withInput()->with('error', 'Error creating purchase order: ' . $e->getMessage());
+            return back()->withInput()->with('error', 'Error creating purchase order: '.$e->getMessage());
         }
     }
 
@@ -331,24 +341,41 @@ class PurchaseOrderController extends Controller
         $hundreds = ['', 'seratus', 'dua ratus', 'tiga ratus', 'empat ratus', 'lima ratus', 'enam ratus', 'tujuh ratus', 'delapan ratus', 'sembilan ratus'];
 
         $toWords = function (int $n) use (&$toWords, $ones, $tens, $hundreds): string {
-            if ($n == 0) return '';
-            if ($n >= 1000000000) return trim($toWords((int) ($n / 1000000000)) . ' milyar ' . $toWords($n % 1000000000));
-            if ($n >= 1000000) return trim($toWords((int) ($n / 1000000)) . ' juta ' . $toWords($n % 1000000));
+            if ($n == 0) {
+                return '';
+            }
+            if ($n >= 1000000000) {
+                return trim($toWords((int) ($n / 1000000000)).' milyar '.$toWords($n % 1000000000));
+            }
+            if ($n >= 1000000) {
+                return trim($toWords((int) ($n / 1000000)).' juta '.$toWords($n % 1000000));
+            }
             if ($n >= 1000) {
                 $th = (int) ($n / 1000);
                 $rest = $n % 1000;
-                $thStr = $th === 1 ? 'seribu' : trim($toWords($th)) . ' ribu';
-                return trim($thStr . ' ' . $toWords($rest));
+                $thStr = $th === 1 ? 'seribu' : trim($toWords($th)).' ribu';
+
+                return trim($thStr.' '.$toWords($rest));
             }
-            if ($n >= 100) return trim($hundreds[(int) ($n / 100)] . ' ' . $toWords($n % 100));
-            if ($n >= 20) return trim($tens[(int) ($n / 10)] . ' ' . $toWords($n % 10));
-            if ($n >= 10) return $ones[$n];
+            if ($n >= 100) {
+                return trim($hundreds[(int) ($n / 100)].' '.$toWords($n % 100));
+            }
+            if ($n >= 20) {
+                return trim($tens[(int) ($n / 10)].' '.$toWords($n % 10));
+            }
+            if ($n >= 10) {
+                return $ones[$n];
+            }
+
             return $ones[$n];
         };
 
         $n = (int) round($number);
-        if ($n == 0) return 'nol rupiah';
-        return trim($toWords($n)) . ' rupiah';
+        if ($n == 0) {
+            return 'nol rupiah';
+        }
+
+        return trim($toWords($n)).' rupiah';
     }
 
     public function edit(int $id)
@@ -414,13 +441,13 @@ class PurchaseOrderController extends Controller
 
         try {
             $this->purchaseService->updatePurchaseOrder($id, $data);
+
             return redirect()->route('purchase-orders.show', $id)
                 ->with('success', 'Purchase Order updated successfully');
         } catch (\Exception $e) {
-            return back()->withInput()->with('error', 'Error updating purchase order: ' . $e->getMessage());
+            return back()->withInput()->with('error', 'Error updating purchase order: '.$e->getMessage());
         }
     }
-
 
     public function createInvoice(int $id)
     {
@@ -431,17 +458,18 @@ class PurchaseOrderController extends Controller
         $prefill = [
             'date' => now()->toDateString(),
             'business_partner_id' => $order->business_partner_id,
-            'description' => 'From PO ' . ($order->order_no ?: ('#' . $order->id)),
+            'description' => 'From PO '.($order->order_no ?: ('#'.$order->id)),
             'lines' => $order->lines->map(function ($l) {
                 return [
-                    'account_id' => (int)$l->account_id,
+                    'account_id' => (int) $l->account_id,
                     'description' => $l->description,
-                    'qty' => (float)$l->qty,
-                    'unit_price' => (float)$l->unit_price,
+                    'qty' => (float) $l->qty,
+                    'unit_price' => (float) $l->unit_price,
                     'tax_code_id' => $l->tax_code_id,
                 ];
             })->toArray(),
         ];
+
         return view('purchase_invoices.create', compact('accounts', 'vendors', 'taxCodes') + ['prefill' => $prefill, 'purchase_order_id' => $order->id]);
     }
 
@@ -458,6 +486,7 @@ class PurchaseOrderController extends Controller
         // Filter lines that could be assets (typically inventory or equipment accounts)
         $assetLines = $order->lines->filter(function ($line) {
             $accountCode = $line->account->code ?? '';
+
             // Check if account code suggests it's an asset (typically starts with 1.1.x for fixed assets)
             return str_starts_with($accountCode, '1.1.') ||
                 str_contains(strtolower($line->description ?? ''), 'equipment') ||
@@ -505,7 +534,7 @@ class PurchaseOrderController extends Controller
 
             foreach ($request->get('assets') as $assetData) {
                 $line = $order->lines->find($assetData['line_id']);
-                if (!$line) {
+                if (! $line) {
                     continue;
                 }
 
@@ -558,9 +587,10 @@ class PurchaseOrderController extends Controller
 
         try {
             $this->purchaseService->approvePurchaseOrder($id, Auth::id(), $request->comments);
+
             return back()->with('success', 'Purchase Order approved successfully');
         } catch (\Exception $e) {
-            return back()->with('error', 'Error approving purchase order: ' . $e->getMessage());
+            return back()->with('error', 'Error approving purchase order: '.$e->getMessage());
         }
     }
 
@@ -572,15 +602,17 @@ class PurchaseOrderController extends Controller
 
         try {
             $this->purchaseService->rejectPurchaseOrder($id, Auth::id(), $request->comments);
+
             return back()->with('success', 'Purchase Order rejected');
         } catch (\Exception $e) {
-            return back()->with('error', 'Error rejecting purchase order: ' . $e->getMessage());
+            return back()->with('error', 'Error rejecting purchase order: '.$e->getMessage());
         }
     }
 
     public function receive(int $id)
     {
         $order = PurchaseOrder::with('lines')->findOrFail($id);
+
         return view('purchase_orders.receive', compact('order'));
     }
 
@@ -595,10 +627,11 @@ class PurchaseOrderController extends Controller
 
         try {
             $this->purchaseService->receivePurchaseOrder($id, $data);
+
             return redirect()->route('purchase-orders.show', $id)
                 ->with('success', 'Purchase Order received successfully');
         } catch (\Exception $e) {
-            return back()->withInput()->with('error', 'Error receiving purchase order: ' . $e->getMessage());
+            return back()->withInput()->with('error', 'Error receiving purchase order: '.$e->getMessage());
         }
     }
 
@@ -606,9 +639,10 @@ class PurchaseOrderController extends Controller
     {
         try {
             $this->purchaseService->closePurchaseOrder($id);
+
             return back()->with('success', 'Purchase Order closed successfully');
         } catch (\Exception $e) {
-            return back()->with('error', 'Error closing purchase order: ' . $e->getMessage());
+            return back()->with('error', 'Error closing purchase order: '.$e->getMessage());
         }
     }
 
@@ -638,10 +672,10 @@ class PurchaseOrderController extends Controller
             DB::transaction(function () use ($order) {
                 // Delete approval records
                 $order->approvals()->delete();
-                
+
                 // Delete lines
                 $order->lines()->delete();
-                
+
                 // Delete the purchase order
                 $order->delete();
             });
@@ -649,7 +683,7 @@ class PurchaseOrderController extends Controller
             return redirect()->route('purchase-orders.index')
                 ->with('success', 'Purchase Order deleted successfully');
         } catch (\Exception $e) {
-            return back()->with('error', 'Error deleting purchase order: ' . $e->getMessage());
+            return back()->with('error', 'Error deleting purchase order: '.$e->getMessage());
         }
     }
 
@@ -662,6 +696,7 @@ class PurchaseOrderController extends Controller
 
         try {
             $suppliers = $this->purchaseService->compareSuppliers($request->item_id, $request->quantity);
+
             return response()->json($suppliers);
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 400);
@@ -701,7 +736,7 @@ class PurchaseOrderController extends Controller
     {
         $po = PurchaseOrder::with('lines.inventoryItem')->findOrFail($id);
 
-        if (!$this->grpoCopyService->canCopyToGRPO($po)) {
+        if (! $this->grpoCopyService->canCopyToGRPO($po)) {
             return back()->with('error', 'Purchase Order cannot be copied to GRPO. Only approved Item Purchase Orders are allowed.');
         }
 
@@ -718,14 +753,14 @@ class PurchaseOrderController extends Controller
                 Log::warning('Failed to close Purchase Order after GRPO creation', [
                     'po_id' => $po->id,
                     'grpo_id' => $grpo->id,
-                    'error' => $closureException->getMessage()
+                    'error' => $closureException->getMessage(),
                 ]);
             }
 
             return redirect()->route('goods-receipts.show', $grpo->id)
                 ->with('success', 'GRPO created from Purchase Order successfully');
         } catch (\Exception $e) {
-            return back()->with('error', 'Error creating GRPO: ' . $e->getMessage());
+            return back()->with('error', 'Error creating GRPO: '.$e->getMessage());
         }
     }
 
@@ -736,7 +771,7 @@ class PurchaseOrderController extends Controller
     {
         $po = PurchaseOrder::with('lines.inventoryItem')->findOrFail($id);
 
-        if (!$this->purchaseInvoiceCopyService->canCopyToPurchaseInvoice($po)) {
+        if (! $this->purchaseInvoiceCopyService->canCopyToPurchaseInvoice($po)) {
             return back()->with('error', 'Purchase Order cannot be copied to Purchase Invoice. Only approved Service Purchase Orders are allowed.');
         }
 
@@ -751,14 +786,14 @@ class PurchaseOrderController extends Controller
                 Log::warning('Failed to close Purchase Order after PI creation', [
                     'po_id' => $po->id,
                     'pi_id' => $invoice->id,
-                    'error' => $closureException->getMessage()
+                    'error' => $closureException->getMessage(),
                 ]);
             }
 
             return redirect()->route('purchase-invoices.show', $invoice->id)
                 ->with('success', 'Purchase Invoice created from Service Purchase Order successfully');
         } catch (\Exception $e) {
-            return back()->with('error', 'Error creating Purchase Invoice: ' . $e->getMessage());
+            return back()->with('error', 'Error creating Purchase Invoice: '.$e->getMessage());
         }
     }
 
@@ -769,7 +804,7 @@ class PurchaseOrderController extends Controller
     {
         $po = PurchaseOrder::with(['lines.inventoryItem', 'businessPartner'])->findOrFail($id);
 
-        if (!$this->grpoCopyService->canCopyToGRPO($po)) {
+        if (! $this->grpoCopyService->canCopyToGRPO($po)) {
             return back()->with('error', 'Purchase Order cannot be copied to GRPO. Only approved Item Purchase Orders are allowed.');
         }
 
@@ -785,7 +820,7 @@ class PurchaseOrderController extends Controller
     {
         $po = PurchaseOrder::with(['lines.inventoryItem', 'businessPartner'])->findOrFail($id);
 
-        if (!$this->purchaseInvoiceCopyService->canCopyToPurchaseInvoice($po)) {
+        if (! $this->purchaseInvoiceCopyService->canCopyToPurchaseInvoice($po)) {
             return back()->with('error', 'Purchase Order cannot be copied to Purchase Invoice. Only approved Service Purchase Orders are allowed.');
         }
 
@@ -801,7 +836,7 @@ class PurchaseOrderController extends Controller
     {
         $po = PurchaseOrder::findOrFail($id);
 
-        if (!$this->grpoCopyService->canCopyToGRPO($po)) {
+        if (! $this->grpoCopyService->canCopyToGRPO($po)) {
             return response()->json(['error' => 'Purchase Order cannot be copied to GRPO'], 400);
         }
 
@@ -829,8 +864,7 @@ class PurchaseOrderController extends Controller
 
         return response()->json([
             'preview' => $preview,
-            'valid' => $preview !== null
+            'valid' => $preview !== null,
         ]);
     }
-
 }

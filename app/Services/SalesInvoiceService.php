@@ -4,7 +4,7 @@ namespace App\Services;
 
 use App\Models\Accounting\SalesInvoice;
 use App\Models\Accounting\SalesInvoiceLine;
-use App\Models\GoodsReceipt;
+use App\Models\GoodsReceiptPO;
 use App\Models\SalesInvoiceGrpoCombination;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -21,7 +21,7 @@ class SalesInvoiceService
     public function createFromGoodsReceipts(array $grpoIds, array $data): SalesInvoice
     {
         // Validate all GRPOs are from same PO
-        $grpos = GoodsReceipt::whereIn('id', $grpoIds)->get();
+        $grpos = GoodsReceiptPO::whereIn('id', $grpoIds)->get();
 
         if ($grpos->isEmpty()) {
             throw new \Exception('No valid GRPOs found');
@@ -38,7 +38,7 @@ class SalesInvoiceService
         }
 
         // Validate all GRPOs are from same vendor
-        $vendorIds = $grpos->pluck('vendor_id')->unique();
+        $vendorIds = $grpos->pluck('business_partner_id')->unique();
         if ($vendorIds->count() > 1) {
             throw new \Exception('All GRPOs must be from the same vendor');
         }
@@ -46,7 +46,7 @@ class SalesInvoiceService
         // Validate all GRPOs have item-type inventory items
         foreach ($grpos as $grpo) {
             foreach ($grpo->lines as $line) {
-                if ($line->inventoryItem && $line->inventoryItem->item_type !== 'item') {
+                if ($line->item && $line->item->item_type !== 'item') {
                     throw new \Exception('Only item-type inventory items can be included in Sales Invoice from GRPO');
                 }
             }
@@ -84,6 +84,9 @@ class SalesInvoiceService
                         'qty' => $line->qty,
                         'unit_price' => $line->unit_price,
                         'amount' => $lineAmount,
+                        'discount_amount' => 0,
+                        'discount_percentage' => 0,
+                        'net_amount' => $lineAmount,
                         'tax_code_id' => $line->tax_code_id,
                         'project_id' => $data['project_id'] ?? null,
                         'fund_id' => $data['fund_id'] ?? null,
@@ -110,14 +113,14 @@ class SalesInvoiceService
      */
     public function getAvailableGRPOs(array $filters = []): array
     {
-        $query = GoodsReceipt::with(['vendor', 'lines.inventoryItem'])
+        $query = GoodsReceiptPO::with(['businessPartner', 'lines.item'])
             ->where('source_type', 'copy')
             ->where('status', 'received')
             ->whereNotNull('source_po_id');
 
         // Filter by vendor if specified
         if (isset($filters['vendor_id'])) {
-            $query->where('vendor_id', $filters['vendor_id']);
+            $query->where('business_partner_id', $filters['vendor_id']);
         }
 
         // Filter by date range if specified
@@ -139,8 +142,8 @@ class SalesInvoiceService
                     'id' => $grpo->id,
                     'grn_no' => $grpo->grn_no,
                     'date' => $grpo->date,
-                    'vendor_id' => $grpo->vendor_id,
-                    'vendor_name' => $grpo->vendor->name ?? '',
+                    'vendor_id' => $grpo->business_partner_id,
+                    'vendor_name' => $grpo->businessPartner->name ?? '',
                     'source_po_id' => $grpo->source_po_id,
                     'total_amount' => $grpo->total_amount,
                     'lines_count' => $grpo->lines->count(),
@@ -179,12 +182,12 @@ class SalesInvoiceService
     /**
      * Validate if GRPO can be combined with others
      */
-    public function canCombineGRPO(GoodsReceipt $grpo): bool
+    public function canCombineGRPO(GoodsReceiptPO $grpo): bool
     {
         return $grpo->source_type === 'copy' &&
             $grpo->status === 'received' &&
             $grpo->source_po_id !== null &&
-            $grpo->lines()->whereHas('inventoryItem', function ($query) {
+            $grpo->lines()->whereHas('item', function ($query) {
                 $query->where('item_type', 'item');
             })->exists();
     }
@@ -196,7 +199,7 @@ class SalesInvoiceService
     {
         $salesInvoice = SalesInvoice::with(['lines', 'customer'])->findOrFail($salesInvoiceId);
 
-        $grpoCombinations = SalesInvoiceGrpoCombination::with(['goodsReceipt.vendor'])
+        $grpoCombinations = SalesInvoiceGrpoCombination::with(['goodsReceipt.businessPartner'])
             ->where('sales_invoice_id', $salesInvoiceId)
             ->get();
 
@@ -204,7 +207,7 @@ class SalesInvoiceService
             'sales_invoice' => $salesInvoice,
             'grpo_combinations' => $grpoCombinations,
             'source_pos' => $grpoCombinations->pluck('goodsReceipt.source_po_id')->unique(),
-            'vendors' => $grpoCombinations->pluck('goodsReceipt.vendor.name')->unique(),
+            'vendors' => $grpoCombinations->pluck('goodsReceipt.businessPartner.name')->unique(),
         ];
     }
 
@@ -213,7 +216,7 @@ class SalesInvoiceService
      */
     public function validateGRPOCombination(array $grpoIds): array
     {
-        $grpos = GoodsReceipt::whereIn('id', $grpoIds)->get();
+        $grpos = GoodsReceiptPO::whereIn('id', $grpoIds)->get();
 
         $errors = [];
 
@@ -230,7 +233,7 @@ class SalesInvoiceService
         }
 
         // Check if all GRPOs are from same vendor
-        $vendorIds = $grpos->pluck('vendor_id')->unique();
+        $vendorIds = $grpos->pluck('business_partner_id')->unique();
         if ($vendorIds->count() > 1) {
             $errors[] = 'All GRPOs must be from the same vendor';
         }
@@ -238,7 +241,7 @@ class SalesInvoiceService
         // Check if all GRPOs have item-type inventory items
         foreach ($grpos as $grpo) {
             foreach ($grpo->lines as $line) {
-                if ($line->inventoryItem && $line->inventoryItem->item_type !== 'item') {
+                if ($line->item && $line->item->item_type !== 'item') {
                     $errors[] = "GRPO {$grpo->grn_no} contains non-item type inventory items";
                     break;
                 }

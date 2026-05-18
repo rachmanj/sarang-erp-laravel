@@ -19,6 +19,6 @@ class SalesInvoiceGrpoCombination extends Model
 
     public function goodsReceipt(): BelongsTo
     {
-        return $this->belongsTo(GoodsReceipt::class, 'goods_receipt_id');
+        return $this->belongsTo(GoodsReceiptPO::class, 'goods_receipt_id');
     }
 }

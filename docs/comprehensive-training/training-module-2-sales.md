@@ -96,6 +96,17 @@ Create 3 more customers with different credit limits, pricing tiers, and risk ca
 
 ---
 
+## Reference: Line and header discounts (Sales Order & Sales Invoice)
+
+For hands-on practice, the live forms mirror **Sales Quotation** behaviour:
+
+- **Line**: Enter **Disc %** or **Disc Amt**; VAT and WTax apply to **net DPP** (after the line discount).
+- **Header**: Document-level discount on the **sum of line totals**; on **Sales Invoice**, the stored **`total_amount`** is the **amount due** after this discount (customer portal API uses the same field).
+- Creating a **Sales Invoice from Delivery Order** can prefill discounts from the linked **Sales Order** (line flat discounts scale with delivered quantity when relevant).
+- After documentation or HELP manual updates, run **`php artisan help:reindex`** in each environment.
+
+---
+
 ### Scenario 2: Sales Order Creation and Processing
 
 **Business Context**: PT Maju Jaya has placed their first order for office furniture. You need to create a sales order and process it through the approval workflow.

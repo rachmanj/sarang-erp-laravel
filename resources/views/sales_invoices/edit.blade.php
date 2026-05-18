@@ -146,6 +146,31 @@
                                         </div>
                                     </div>
                                 </div>
+
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <div class="form-group row mb-2">
+                                            <label class="col-sm-4 col-form-label">Discount (%)</label>
+                                            <div class="col-sm-8">
+                                                <input type="number" step="0.01" min="0" max="100" name="discount_percentage"
+                                                    id="discount_percentage"
+                                                    value="{{ old('discount_percentage', $invoice->discount_percentage ?? 0) }}"
+                                                    class="form-control form-control-sm">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="form-group row mb-2">
+                                            <label class="col-sm-4 col-form-label">Discount Amount</label>
+                                            <div class="col-sm-8">
+                                                <input type="number" step="0.01" min="0" name="discount_amount"
+                                                    id="discount_amount"
+                                                    value="{{ old('discount_amount', $invoice->discount_amount ?? 0) }}"
+                                                    class="form-control form-control-sm text-right">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                                 <div class="row">
                                     <div class="col-md-6">
                                         <div class="form-group row mb-2">
@@ -214,6 +239,8 @@
                                                         </th>
                                                         <th style="width: 10%">VAT</th>
                                                         <th style="width: 10%">WTax</th>
+                                                        <th style="width: 7%">Disc %</th>
+                                                        <th style="width: 7%">Disc Amt</th>
                                                         <th style="width: 6%">Actions</th>
                                                     </tr>
                                                 </thead>
@@ -287,6 +314,19 @@
                                                                     <option value="2" {{ (float) old('lines.'.$index.'.wtax_rate', $line->wtax_rate ?? 0) == 2 ? 'selected' : '' }}>2%</option>
                                                                 </select>
                                                             </td>
+                                                            <td>
+                                                                <input type="number" step="0.01" min="0" max="100"
+                                                                    name="lines[{{ $index }}][discount_percentage]"
+                                                                    class="form-control form-control-sm text-right line-discount-percentage"
+                                                                    value="{{ old('lines.'.$index.'.discount_percentage', $line->discount_percentage) }}"
+                                                                    placeholder="%">
+                                                            </td>
+                                                            <td>
+                                                                <input type="number" step="0.01" min="0"
+                                                                    name="lines[{{ $index }}][discount_amount]"
+                                                                    class="form-control form-control-sm text-right line-discount-amount"
+                                                                    value="{{ old('lines.'.$index.'.discount_amount', $line->discount_amount ?? 0) }}">
+                                                            </td>
                                                             <td class="text-center">
                                                                 <button type="button"
                                                                     class="btn btn-xs btn-danger rm">
@@ -332,6 +372,18 @@
                                                                     <option value="2">2%</option>
                                                                 </select>
                                                             </td>
+                                                            <td>
+                                                                <input type="number" step="0.01" min="0" max="100"
+                                                                    name="lines[0][discount_percentage]"
+                                                                    class="form-control form-control-sm text-right line-discount-percentage"
+                                                                    value="{{ old('lines.0.discount_percentage') }}" placeholder="%">
+                                                            </td>
+                                                            <td>
+                                                                <input type="number" step="0.01" min="0"
+                                                                    name="lines[0][discount_amount]"
+                                                                    class="form-control form-control-sm text-right line-discount-amount"
+                                                                    value="{{ old('lines.0.discount_amount', 0) }}">
+                                                            </td>
                                                             <td class="text-center">
                                                                 <button type="button" class="btn btn-xs btn-danger rm">
                                                                     <i class="fas fa-trash-alt"></i>
@@ -342,24 +394,27 @@
                                                 </tbody>
                                                 <tfoot>
                                                     <tr>
-                                                        <th colspan="4" class="text-right">Original Amount:</th>
-                                                        <th class="text-right" id="total-amount">0.00</th>
-                                                        <th colspan="3"></th>
-                                                    </tr>
-                                                    <tr>
-                                                        <th colspan="4" class="text-right">Total VAT:</th>
+                                                        <th colspan="4" class="text-right">Original DPP:</th>
+                                                        <th class="text-right" id="original-dpp">0.00</th>
                                                         <th class="text-right" id="total-vat">0.00</th>
-                                                        <th colspan="3"></th>
-                                                    </tr>
-                                                    <tr>
-                                                        <th colspan="4" class="text-right">Total WTax:</th>
                                                         <th class="text-right" id="total-wtax">0.00</th>
-                                                        <th colspan="3"></th>
+                                                        <th class="text-right" id="total-line-discount">0.00</th>
+                                                        <th colspan="2"></th>
                                                     </tr>
                                                     <tr>
-                                                        <th colspan="4" class="text-right">Amount Due:</th>
-                                                        <th class="text-right" id="amount-due">0.00</th>
-                                                        <th colspan="3"></th>
+                                                        <th colspan="4" class="text-right">Line amounts (incl. tax):</th>
+                                                        <th class="text-right" id="total-amount">0.00</th>
+                                                        <th colspan="5"></th>
+                                                    </tr>
+                                                    <tr>
+                                                        <th colspan="7" class="text-right">Header discount:</th>
+                                                        <th class="text-right" id="total-header-discount" colspan="2">0.00</th>
+                                                        <th></th>
+                                                    </tr>
+                                                    <tr>
+                                                        <th colspan="7" class="text-right">Amount due:</th>
+                                                        <th class="text-right" id="amount-due" colspan="2">0.00</th>
+                                                        <th></th>
                                                     </tr>
                                                 </tfoot>
                                             </table>
@@ -395,6 +450,29 @@
 @push('scripts')
     <script>
         let idx = {{ max(1, $invoice->lines->count()) }};
+        let siUpdatingDiscount = false;
+
+        function resolveLineDppDiscountJs(qty, price, discountPct, discountAmt) {
+            const grossDpp = Math.round(qty * price * 100) / 100;
+            const pct = parseFloat(discountPct) || 0;
+            const amt = parseFloat(discountAmt) || 0;
+            if (pct > 0) {
+                let disc = Math.round(grossDpp * (pct / 100) * 100) / 100;
+                if (disc > grossDpp) disc = grossDpp;
+                const pctOut = grossDpp > 0 ? Math.round((disc / grossDpp) * 10000) / 100 : 0;
+                return { disc, pctOut, grossDpp };
+            }
+            if (amt > 0) {
+                const disc = Math.round(Math.min(amt, grossDpp) * 100) / 100;
+                const pctOut = grossDpp > 0 ? Math.round((disc / grossDpp) * 10000) / 100 : 0;
+                return { disc, pctOut, grossDpp };
+            }
+            return { disc: 0, pctOut: 0, grossDpp };
+        }
+
+        function parseNumericIdText(t) {
+            return parseFloat(String(t || '0').replace(/\./g, '').replace(',', '.')) || 0;
+        }
 
         $(document).ready(function() {
             $('.select2bs4').select2({
@@ -472,8 +550,50 @@
             $(document).on('input', '.qty-input, .price-input', function() {
                 updateTotalAmount();
             });
+            $(document).on('input', '.line-discount-percentage', function() {
+                const row = $(this).closest('tr');
+                const qty = parseFloat(row.find('.qty-input').val() || 0);
+                const price = parseFloat(row.find('.price-input').val() || 0);
+                const pct = parseFloat($(this).val() || 0);
+                const { disc, pctOut } = resolveLineDppDiscountJs(qty, price, pct, 0);
+                row.find('.line-discount-amount').val(disc.toFixed(2));
+                row.find('.line-discount-percentage').val(pctOut.toFixed(2));
+                updateTotalAmount();
+            });
+            $(document).on('input', '.line-discount-amount', function() {
+                const row = $(this).closest('tr');
+                const qty = parseFloat(row.find('.qty-input').val() || 0);
+                const price = parseFloat(row.find('.price-input').val() || 0);
+                const amt = parseFloat($(this).val() || 0);
+                const { disc, pctOut } = resolveLineDppDiscountJs(qty, price, 0, amt);
+                row.find('.line-discount-percentage').val(pctOut.toFixed(2));
+                row.find('.line-discount-amount').val(disc.toFixed(2));
+                updateTotalAmount();
+            });
             $(document).on('change', '.vat-select, .wtax-select', function() {
                 updateTotalAmount();
+            });
+
+            $('#discount_percentage').on('input', function() {
+                if (siUpdatingDiscount) return;
+                siUpdatingDiscount = true;
+                const pct = parseFloat($(this).val() || 0);
+                const lineSum = parseNumericIdText($('#total-amount').text());
+                const disc = lineSum > 0 ? Math.round(lineSum * (pct / 100) * 100) / 100 : 0;
+                $('#discount_amount').val(disc.toFixed(2));
+                updateTotalAmount();
+                siUpdatingDiscount = false;
+            });
+
+            $('#discount_amount').on('input', function() {
+                if (siUpdatingDiscount) return;
+                siUpdatingDiscount = true;
+                const amt = parseFloat($(this).val() || 0);
+                const lineSum = parseNumericIdText($('#total-amount').text());
+                const pct = lineSum > 0 ? Math.round((amt / lineSum) * 10000) / 100 : 0;
+                $('#discount_percentage').val(pct.toFixed(2));
+                updateTotalAmount();
+                siUpdatingDiscount = false;
             });
 
             updateTotalAmount();
@@ -520,6 +640,14 @@
                         <option value="2">2%</option>
                     </select>
                 </td>
+                <td>
+                    <input type="number" step="0.01" min="0" max="100" name="lines[${idx}][discount_percentage]"
+                        class="form-control form-control-sm text-right line-discount-percentage" value="" placeholder="%">
+                </td>
+                <td>
+                    <input type="number" step="0.01" min="0" name="lines[${idx}][discount_amount]"
+                        class="form-control form-control-sm text-right line-discount-amount" value="0">
+                </td>
                 <td class="text-center">
                     <button type="button" class="btn btn-xs btn-danger rm">
                         <i class="fas fa-trash-alt"></i>
@@ -542,28 +670,41 @@
             let originalTotal = 0;
             let totalVat = 0;
             let totalWtax = 0;
+            let totalLineDppDiscount = 0;
+            let lineAmountSum = 0;
 
             $('#lines tr').each(function() {
                 const qty = parseFloat($(this).find('.qty-input').val() || 0);
                 const price = parseFloat($(this).find('.price-input').val() || 0);
                 const vatRate = parseFloat($(this).find('.vat-select option:selected').data('rate') || 0);
                 const wtaxRate = parseFloat($(this).find('.wtax-select').val() || 0);
+                const pctIn = parseFloat($(this).find('.line-discount-percentage').val() || 0);
+                const amtIn = parseFloat($(this).find('.line-discount-amount').val() || 0);
 
-                const lineAmount = qty * price;
-                const vatAmount = lineAmount * (vatRate / 100);
-                const wtaxAmount = lineAmount * (wtaxRate / 100);
+                const { disc, grossDpp } = resolveLineDppDiscountJs(qty, price, pctIn, amtIn);
+                totalLineDppDiscount += disc;
+                const dppNet = Math.max(0, grossDpp - disc);
+                const vatAmount = dppNet * (vatRate / 100);
+                const wtaxAmount = dppNet * (wtaxRate / 100);
+                const lineAmount = dppNet + vatAmount - wtaxAmount;
 
-                originalTotal += lineAmount;
+                originalTotal += grossDpp;
                 totalVat += vatAmount;
                 totalWtax += wtaxAmount;
+                lineAmountSum += lineAmount;
             });
 
-            const amountDue = originalTotal + totalVat - totalWtax;
+            let headerDisc = parseFloat($('#discount_amount').val() || 0);
+            if (headerDisc > lineAmountSum) headerDisc = lineAmountSum;
+            const amountDue = lineAmountSum - headerDisc;
 
             const fmt = (n) => n.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-            $('#total-amount').text(fmt(originalTotal));
+            $('#original-dpp').text(fmt(originalTotal));
             $('#total-vat').text(fmt(totalVat));
             $('#total-wtax').text(fmt(totalWtax));
+            $('#total-line-discount').text(fmt(totalLineDppDiscount));
+            $('#total-amount').text(fmt(lineAmountSum));
+            $('#total-header-discount').text(fmt(headerDisc));
             $('#amount-due').text(fmt(amountDue));
         }
     </script>

@@ -8,6 +8,7 @@
 - [Membuat Sales Invoice dari Delivery Order](#membuat-sales-invoice-dari-delivery-order)
 - [Membuat Sales Invoice dari Sales Quotation](#membuat-sales-invoice-dari-sales-quotation)
 - [Membuat Sales Invoice manual (tanpa DO)](#membuat-sales-invoice-manual-tanpa-do)
+- [Diskon baris dan header](#diskon-baris-dan-header)
 - [Daftar dan filter Sales Invoice](#daftar-dan-filter-sales-invoice)
 - [Detail, edit, hapus (draft)](#detail-edit-hapus-draft)
 - [Jumlah baris, PPN, dan total tampilan](#jumlah-baris-ppn-dan-total-tampilan)
@@ -117,10 +118,34 @@ Jika tombol tidak muncul, lihat juga manual Delivery Order — bagian membuat fa
 
 1. **Sales** → **Sales Invoices** → **Create** (atau `/sales-invoices/create` tanpa parameter DO).
 2. Pilih **Customer** (business partner tipe customer), **Company entity**, **tanggal**.
-3. Tambah **baris faktur**: akun pendapatan, qty, harga, kode pajak jika ada.
+3. Tambah **baris faktur**: akun pendapatan, qty, harga, kode pajak, serta kolom **Disc %** / **Disc Amt** bila ada diskon per baris; isi **Diskon (%)** / **Diskon nominal** di header untuk diskon dokumen (lihat [Diskon baris dan header](#diskon-baris-dan-header)).
 4. Simpan draft → review → **Post**.
 
 Gunakan untuk jasa, penagihan tidak melalui DO, atau skenario khusus sesuai kebijakan perusahaan.
+
+---
+
+## Diskon baris dan header
+
+### Diskon per baris
+
+- **Fungsi**: Mengurangi **DPP** (qty × harga satuan) **sebelum** PPN dan WTax dihitung—sama dengan logika **Sales Order** dan **Sales Quotation**.
+- **Input**: **Disc %** atau **Disc Amt** per baris; mengubah salah satu akan menyesuaikan yang lain berdasarkan DPP kotor baris tersebut.
+- **Dari DO**: Saat SI diisi otomatis dari DO, diskon baris dapat disalin dari **Sales Order** (persentase tetap; nominal diskon flat diskalakan dengan qty yang dikirim vs qty SO bila relevan).
+
+### Diskon header (dokumen)
+
+- **Fungsi**: Potongan tingkat **dokumen** setelah semua total baris dijumlahkan; **tidak** dialokasikan ke baris di basis data.
+- **Input**: **Diskon (%)** atau **nominal diskon** di header create/edit; saling mengisi berdasarkan **jumlah total baris** (sudah termasuk pajak baris).
+
+### Total dan penyimpanan
+
+- **`total_amount`** pada faktur adalah **nilai tagihan (amount due)** setelah diskon header (dipakai cetak, alokasi pembayaran, API pelanggan).
+- **Tampilan / cetak**: Footer dapat menampilkan **Gross total** dan **Header discount** sebelum **Amount due** jika ada diskon header.
+
+### Kata kunci (HELP)
+
+diskon faktur, diskon baris, diskon header, sales invoice discount, DPP diskon.
 
 ---
 
@@ -143,22 +168,23 @@ Gunakan untuk jasa, penagihan tidak melalui DO, atau skenario khusus sesuai kebi
 
 ## Jumlah baris, PPN, dan total tampilan
 
-- **Nilai tersimpan per baris (`amount`)**: **Termasuk PPN** (konsisten dengan logika total baris **Sales Order**: dasar = qty × harga satuan, lalu PPN atas dasar tersebut, serta pemotongan WTax jika ada).
-- **Kolom Jumlah / Amount di layar & cetak**: Menampilkan **qty × harga satuan** (DPP per baris tanpa PPN di kolom tersebut) agar tidak terlihat seperti PPN dihitung dua kali terhadap angka yang sudah termasuk pajak.
-- **Ringkasan bawah faktur**: **Subtotal (ex. PPN)** → **PPN** → **WTax** (jika ada) → **Total (incl. PPN)**. Baris terakhir adalah nilai tagihan bruto dan sejalan dengan **`total_amount`** dokumen—bukan penjumlahan “subtotal + PPN” yang mengulang pajak atas baris yang sudah inclusive.
+- **Nilai tersimpan per baris (`amount`)**: Total **bruto per baris termasuk pajak** setelah DPP net (setelah diskon baris): PPN atas DPP net dan pemotongan WTax jika ada—selaras dengan **`SalesOrderLine::computeAmountFromPricing`**.
+- **Kolom Diskon**: Menampilkan nominal diskon **DPP** per baris jika &gt; 0.
+- **Kolom Jumlah / Amount di layar & cetak**: Menampilkan nilai **`amount`** yang tersimpan (bruto baris termasuk pajak), bukan sekadar qty × harga.
+- **Ringkasan bawah faktur**: **Subtotal (ex. PPN)** (jumlah DPP net setelah diskon baris) → **PPN** → **WTax** (jika ada) → bila ada diskon header: **Gross total** / **Header discount** → **Amount due**. **`total_amount`** dokumen sama dengan **Amount due** dan dipakai untuk alokasi pembayaran.
 
 ---
 
 ## Posting, unpost, dan akuntansi
 
-- **Post** — mengunci dokumen dan membuat jurnal melalui **`PostingService`**, dengan perhitungan PPN/AR dari baris inclusive lewat **`SalesInvoicePostingMath`**. Alur dari DO: **Kredit AR UnInvoice** dan **Debit Piutang Dagang** sebesar bruto termasuk PPN; **Debit pendapatan** (per baris) untuk komponen PPN yang “dibawa” di nilai baris; **Kredit PPN keluaran**. SI **opening balance** memakai pola berbeda (AR bruto, saldo awal laba ditahan, PPN sesuai kasus).
+- **Post** — mengunci dokumen dan membuat jurnal melalui **`PostingService`**, dengan **`SalesInvoicePostingMath`** untuk DPP (setelah diskon baris), PPN, WTax, dan **nilai tagihan setelah diskon header** bila ada. SI **opening balance** memakai pola berbeda.
 - **Unpost** — membuka kembali untuk koreksi (jika fitur dan izin tersedia).
 
 ### Pemeriksaan jurnal (CLI)
 
 `php artisan sales-invoices:validate-posted-journals`
 
-Opsi: `--id=` (satu SI), `--limit=` (batch). Membandingkan jurnal yang sudah posting dengan bruto/PPN yang diharapkan dari baris faktur. Perintah terdaftar di **`App\Console\Kernel`**.
+Opsi: `--id=` (satu SI), `--limit=` (batch). Membandingkan jurnal yang sudah posting dengan perhitungan yang diharapkan dari baris dan **`total_amount`** (amount due). Perintah terdaftar di **`App\Console\Kernel`**.
 
 Untuk detail COA spesifik, koordinasikan dengan tim akuntansi atau lihat **`docs/architecture.md`** (bagian Sales Invoice accounting).
 
