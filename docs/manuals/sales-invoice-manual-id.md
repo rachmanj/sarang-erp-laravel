@@ -153,8 +153,12 @@ diskon faktur, diskon baris, diskon header, sales invoice discount, DPP diskon.
 
 **Lokasi**: **Sales** → **Sales Invoices**.
 
-- Gunakan filter tanggal, pelanggan, entitas, status (draft/posted), dan pencarian nomor faktur bila tersedia.
-- Kolom umum: nomor invoice, tanggal, customer, total, status.
+- Filter: **tanggal** (dari/sampai), **pencarian** (nomor faktur, customer, reference no), **status** (draft/posted), **company entity** (radio PT/CV).
+- Footer daftar menampilkan **Totals (filtered)** sesuai filter yang sama dengan grid.
+- **Export Excel**: tombol **Export Excel** di header; file memakai **filter yang sama** dengan tabel (bukan hanya halaman aktif). Kolom: tanggal, nomor SI, customer, customer ref no, total, status, plus baris total.
+- Kolom umum di grid: tanggal, nomor invoice, customer, total, status.
+
+**Kata kunci HELP:** export excel faktur penjualan, filter daftar SI, unduh daftar sales invoice.
 
 ---
 

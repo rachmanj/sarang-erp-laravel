@@ -27,8 +27,8 @@ A **Sales Receipt** records money received from a **customer** and allocates it 
 You need permission **`ar.receipts.create`**.
 
 1. **Sales Receipts** — **Create / new**.
-2. Set **date**, **company entity**, **customer**, and optional **description**.
-3. Select **posted** invoices for that customer; enter **allocation** amounts (how much of this receipt pays each invoice).
+2. Set **date**, **company entity** (PT/CV), **customer**, and optional **description**.
+3. Select **posted** invoices for that customer **for the same company entity** as the header; enter **allocation** amounts (how much of this receipt pays each invoice). Changing **Company** reloads the invoice list so CV invoices do not appear when PT is selected (and vice versa).
 4. Add **receipt lines**: bank/cash accounts and amounts. The **total of receipt lines** must equal the **total allocations**.
 5. Save. The receipt is stored as **draft**; a **receipt number** is assigned and does not need to be typed manually.
 
@@ -80,6 +80,7 @@ Posting turns the draft into accounting entries. You need permission **`ar.recei
 ## Related documents and invoices
 
 - **Sales Invoice** must be **posted** before it can appear for allocation.
+- Only invoices with the **same `company_entity_id`** as the receipt **Company** field are offered (`getAvailableInvoices` requires `company_entity_id`). Saving rejects allocations to invoices from another entity.
 - Changing drafts may update which invoices are treated as **fully paid** and document **closure** links; posting still follows the same rules as before.
 
-**Keywords:** invoice must be posted, allocation remaining balance.
+**Keywords:** invoice must be posted, allocation remaining balance, company entity filter sales receipt, PT CV receipt wrong invoices, filter invoice by entity.

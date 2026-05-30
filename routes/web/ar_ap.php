@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('sales-invoices')->group(function () {
     Route::get('/', [SalesInvoiceController::class, 'index'])->middleware('permission:ar.invoices.view')->name('sales-invoices.index');
     Route::get('/data', [SalesInvoiceController::class, 'data'])->middleware('permission:ar.invoices.view')->name('sales-invoices.data');
+    Route::get('/export', [SalesInvoiceController::class, 'export'])->middleware('permission:ar.invoices.view')->name('sales-invoices.export');
     Route::get('/create', [SalesInvoiceController::class, 'create'])->middleware('permission:ar.invoices.create')->name('sales-invoices.create');
     Route::get('/api/document-number', [SalesInvoiceController::class, 'getDocumentNumber'])->middleware('permission:ar.invoices.create')->name('sales-invoices.api.document-number');
     Route::post('/', [SalesInvoiceController::class, 'store'])->middleware('permission:ar.invoices.create')->name('sales-invoices.store');

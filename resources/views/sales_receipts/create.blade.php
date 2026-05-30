@@ -276,7 +276,15 @@
                 });
             }
 
-            $('#company_entity_id').on('change', updateDocumentNumber);
+            $('#company_entity_id').on('change', function() {
+                updateDocumentNumber();
+                const customerId = $('#business_partner_id').val();
+                if (customerId) {
+                    loadAvailableInvoices(customerId);
+                } else {
+                    hideInvoiceSelection();
+                }
+            });
             $('#receipt_date').on('change', updateDocumentNumber);
             $('#preview-receipt-number').on('click', updateDocumentNumber);
             updateDocumentNumber();
@@ -309,9 +317,18 @@
         });
 
         async function loadAvailableInvoices(customerId) {
+            const entityId = $('#company_entity_id').val();
+            if (!entityId) {
+                hideInvoiceSelection();
+                return;
+            }
             try {
+                const params = new URLSearchParams({
+                    business_partner_id: customerId,
+                    company_entity_id: entityId,
+                });
                 const response = await fetch(
-                    `{{ route('sales-receipts.availableInvoices') }}?business_partner_id=${customerId}`
+                    `{{ route('sales-receipts.availableInvoices') }}?${params.toString()}`
                 );
                 const data = await response.json();
                 availableInvoices = data.invoices || [];

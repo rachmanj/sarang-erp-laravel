@@ -81,9 +81,10 @@
 
 ### 7. Cash Expense Management
 - Cash expense tracking with entity-aware numbering (code 11)
-- Expense categorization
-- Approval workflow
-- Print functionality
+- Expense categorization (expense account + cash/bank account on create)
+- Immediate GL posting on save (debit expense, credit cash)
+- **List** (`/cash-expenses`): server-side DataTables with **date range picker** filter (presets: today, last 7/30 days, this/last month; clear = all dates)
+- Print functionality per row
 
 ---
 
@@ -103,7 +104,7 @@
 - Stock level monitoring
 - Low stock alerts
 - Valuation reports
-- Export capabilities (Excel, PDF, CSV)
+- Export capabilities (Excel, PDF, CSV) — **Sales Invoice list** includes **Export Excel** with active list filters
 - Item search and filtering
 
 ### 9. Product Categories

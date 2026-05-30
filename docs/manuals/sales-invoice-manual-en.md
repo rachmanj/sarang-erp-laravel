@@ -104,9 +104,13 @@ sales invoice discount, header discount, line discount, diskon faktur, DPP disco
 
 ## List, detail, print, import
 
-- Use the **Sales Invoices** index to filter by date, customer, entity, status.
+- Use the **Sales Invoices** index to filter by **date range** (from/to), **search** (invoice no, customer, reference), **status** (draft/posted), and **company entity** (PT/CV radio).
+- The list footer shows **Totals (filtered)** for the same filters as the grid.
+- **Export Excel**: click **Export Excel** in the header; the file uses the **same filters** as the table (not only the current page). Columns: Date, SI No, Customer, Customer Ref No, Total, Status, plus a totals row.
 - **Print / PDF**: from the SI detail page — **Standard** vs **Dot matrix** layouts may be available (`?layout=dotmatrix` where supported).
 - **Import**: if enabled, use the import wizard and template under the SI import routes.
+
+**Keywords (HELP):** export sales invoice excel, filter sales invoice list, SI export, download invoice list.
 
 ---
 

@@ -27,8 +27,8 @@ Dokumen ini dipakai **bantuan dalam aplikasi** (ikon **?** di navbar) untuk topi
 Perlu izin **`ar.receipts.create`**.
 
 1. **Sales Receipts** — buat baru (**Create**).
-2. Isi **tanggal**, **company entity**, **customer**, opsional **description**.
-3. Pilih **invoice** yang sudah **posted** untuk customer tersebut; isi **alokasi** (berapa dari penerimaan ini untuk tiap invoice).
+2. Isi **tanggal**, **company entity** (PT/CV), **customer**, opsional **description**.
+3. Pilih **invoice** yang sudah **posted** untuk customer tersebut **dan entitas company yang sama** dengan field Company; isi **alokasi**. Mengubah **Company** me-reload daftar invoice agar faktur entitas lain tidak ikut tampil.
 4. Isi **baris penerimaan** (akun kas/bank dan nominal). **Jumlah total baris** harus sama dengan **total alokasi**.
 5. Simpan. Dokumen tersimpan sebagai **draft**; **nomor kwitansi/receipt** dihasilkan sistem (tidak perlu diisi manual).
 
@@ -80,6 +80,7 @@ Posting mencatat ke akuntansi. Perlu izin **`ar.receipts.post`**.
 ## Dokumen terkait
 
 - **Sales Invoice** harus sudah **posted** agar bisa dipilih untuk alokasi.
+- Hanya invoice dengan **`company_entity_id`** sama dengan field **Company** pada receipt yang ditawarkan (`getAvailableInvoices` wajib kirim `company_entity_id`). Simpan menolak alokasi ke invoice entitas lain.
 - Mengubah draft dapat mempengaruhi status pelunasan invoice dan penutupan dokumen; aturan posting tetap sama.
 
-**Kata kunci:** invoice harus posted, sisa alokasi.
+**Kata kunci:** invoice harus posted, sisa alokasi, filter entitas sales receipt, PT CV salah invoice, company entity penerimaan.

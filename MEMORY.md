@@ -1,5 +1,5 @@
 **Purpose**: AI's persistent knowledge base for project context and learnings
-**Last Updated**: 2026-05-04 (PO create/edit Blade totals + item search JS fix)
+**Last Updated**: 2026-05-30 (SI export, SR entity filter, cash expense date range + HELP)
 
 ## Memory Maintenance Guidelines
 
@@ -26,6 +26,14 @@
 ---
 
 ## Project Memory Entries
+
+### [110] SI list export, SR company-entity invoice filter, cash expense date range (2026-05-30) ✅ COMPLETE
+
+**Challenge**: Sales Invoice list lacked **Export Excel** (PI already had it). Sales Receipt **Company** field did not filter open invoices—PT/CV invoices mixed on create. Cash Expenses list had no date filter; two native date inputs were replaced with a **daterangepicker** UX.
+
+**Solution**: `SalesInvoiceController::export` + `SalesInvoiceListExport` + route `sales-invoices.export`; `getAvailableInvoices` requires `company_entity_id` with store/update validation; cash expenses `from`/`to` on `data()` + daterangepicker on index. HELP: `cash-expense-manual-{en,id}.md`, updated SI/SR manuals and `help-navigation.json`.
+
+**Learning**: List export and allocation APIs must share the **same filter builder** as DataTables. Multi-entity AR receipts must scope invoices by **`company_entity_id`**, not customer alone.
 
 ### [109] PO form Blade — `updatingHeaderDiscount` TDZ + header discount / line amounts (2026-05-04) ✅ COMPLETE
 

@@ -57,6 +57,9 @@
                                     <option value="posted">Posted</option>
                                 </select>
                                 <button id="apply_filters" class="btn btn-sm btn-info">Apply</button>
+                                <a id="export_excel" href="#" class="btn btn-sm btn-success">
+                                    <i class="fas fa-file-excel mr-1"></i>Export Excel
+                                </a>
                                 @can('ar.invoices.create')
                                     <a href="{{ route('sales-invoices.create') }}" class="btn btn-sm btn-primary">Create</a>
                                     <a href="{{ route('sales-invoices.create', ['from_do' => 1]) }}" class="btn btn-sm btn-info">
@@ -107,6 +110,26 @@
                         maximumFractionDigits: 2
                     }).format(Number(n) || 0);
                 }
+
+                function siExportUrl() {
+                    var p = new URLSearchParams();
+                    var from = $('#filter_from').val();
+                    var to = $('#filter_to').val();
+                    var q = $('#filter_q').val();
+                    var status = $('#filter_status').val();
+                    var entity = $('input[name="entity_filter"]:checked').val();
+                    if (from) p.set('from', from);
+                    if (to) p.set('to', to);
+                    if (q) p.set('q', q);
+                    if (status) p.set('status', status);
+                    if (entity) p.set('company_entity_id', entity);
+                    return '{{ route('sales-invoices.export') }}' + (p.toString() ? '?' + p.toString() : '');
+                }
+
+                $('#export_excel').on('click', function(e) {
+                    e.preventDefault();
+                    window.location.href = siExportUrl();
+                });
 
                 function formatSiDate(iso) {
                     if (!iso) {

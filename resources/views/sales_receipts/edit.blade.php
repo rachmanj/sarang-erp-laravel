@@ -262,6 +262,15 @@
                 allowClear: true
             });
 
+            $('#company_entity_id').on('change', function() {
+                const customerId = $('#business_partner_id').val();
+                if (customerId) {
+                    loadAvailableInvoices(customerId);
+                } else {
+                    hideInvoiceSelection();
+                }
+            });
+
             $('#business_partner_id').on('change', function() {
                 const customerId = $(this).val();
                 if (customerId) {
@@ -355,10 +364,20 @@
         }
 
         async function loadAvailableInvoices(customerId) {
+            const entityId = $('#company_entity_id').val();
+            if (!entityId) {
+                hideInvoiceSelection();
+                return;
+            }
             try {
-                let url =
-                    `{{ route('sales-receipts.availableInvoices') }}?business_partner_id=${customerId}&receipt_id=${EDIT_RECEIPT_ID}`;
-                const response = await fetch(url);
+                const params = new URLSearchParams({
+                    business_partner_id: customerId,
+                    company_entity_id: entityId,
+                    receipt_id: String(EDIT_RECEIPT_ID),
+                });
+                const response = await fetch(
+                    `{{ route('sales-receipts.availableInvoices') }}?${params.toString()}`
+                );
                 const data = await response.json();
                 availableInvoices = data.invoices || [];
                 renderInvoiceTable();

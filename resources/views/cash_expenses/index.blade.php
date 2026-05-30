@@ -9,13 +9,29 @@
     <li class="breadcrumb-item active">Cash Expenses</li>
 @endsection
 
+@push('styles')
+    <link rel="stylesheet" href="{{ asset('adminlte/plugins/daterangepicker/daterangepicker.css') }}">
+@endpush
+
 @section('content')
     <div class="row">
         <div class="col-12">
             <div class="card">
-                <div class="card-header">
-                    <h4 class="card-title">List</h4>
-                    <a href="{{ route('cash-expenses.create') }}" class="btn btn-sm btn-primary float-right">New Expense</a>
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4 class="card-title mb-0">List</h4>
+                    <div class="d-flex align-items-center flex-wrap" style="gap: 0.35rem;">
+                        <div class="input-group input-group-sm" style="width: 240px;">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text"><i class="far fa-calendar-alt"></i></span>
+                            </div>
+                            <input type="text" id="filter_date_range" class="form-control" placeholder="Date range"
+                                autocomplete="off" readonly>
+                        </div>
+                        <input type="hidden" id="filter_from">
+                        <input type="hidden" id="filter_to">
+                        <button type="button" id="apply_filters" class="btn btn-sm btn-info">Apply</button>
+                        <a href="{{ route('cash-expenses.create') }}" class="btn btn-sm btn-primary">New Expense</a>
+                    </div>
                 </div>
 
                 @if (session('success'))
@@ -48,12 +64,56 @@
 @endsection
 
 @push('scripts')
+    <script src="{{ asset('adminlte/plugins/moment/moment.min.js') }}"></script>
+    <script src="{{ asset('adminlte/plugins/daterangepicker/daterangepicker.js') }}"></script>
     <script>
         $(function() {
-            $('#ce-table').DataTable({
+            function syncDateRangeInputs(start, end) {
+                $('#filter_from').val(start.format('YYYY-MM-DD'));
+                $('#filter_to').val(end.format('YYYY-MM-DD'));
+                $('#filter_date_range').val(
+                    start.format('DD/MM/YYYY') + ' - ' + end.format('DD/MM/YYYY')
+                );
+            }
+
+            function clearDateRangeInputs() {
+                $('#filter_from').val('');
+                $('#filter_to').val('');
+                $('#filter_date_range').val('');
+            }
+
+            $('#filter_date_range').daterangepicker({
+                autoUpdateInput: false,
+                opens: 'left',
+                locale: {
+                    format: 'DD/MM/YYYY',
+                    separator: ' - ',
+                    applyLabel: 'Apply',
+                    cancelLabel: 'Clear',
+                },
+                ranges: {
+                    'Today': [moment(), moment()],
+                    'Yesterday': [moment().subtract(1, 'days'), moment().subtract(1, 'days')],
+                    'Last 7 Days': [moment().subtract(6, 'days'), moment()],
+                    'Last 30 Days': [moment().subtract(29, 'days'), moment()],
+                    'This Month': [moment().startOf('month'), moment().endOf('month')],
+                    'Last Month': [
+                        moment().subtract(1, 'month').startOf('month'),
+                        moment().subtract(1, 'month').endOf('month'),
+                    ],
+                },
+            });
+
+            const table = $('#ce-table').DataTable({
                 processing: true,
                 serverSide: true,
-                ajax: '{{ route('cash-expenses.data') }}',
+                ajax: {
+                    url: '{{ route('cash-expenses.data') }}',
+                    data: function(d) {
+                        d.from = $('#filter_from').val();
+                        d.to = $('#filter_to').val();
+                    },
+                },
                 columns: [{
                         data: 'DT_RowIndex',
                         name: 'DT_RowIndex',
@@ -131,6 +191,20 @@
                 order: [
                     [1, 'desc']
                 ]
+            });
+
+            $('#apply_filters').on('click', function() {
+                table.ajax.reload();
+            });
+
+            $('#filter_date_range').on('apply.daterangepicker', function(ev, picker) {
+                syncDateRangeInputs(picker.startDate, picker.endDate);
+                table.ajax.reload();
+            });
+
+            $('#filter_date_range').on('cancel.daterangepicker', function() {
+                clearDateRangeInputs();
+                table.ajax.reload();
             });
         });
     </script>

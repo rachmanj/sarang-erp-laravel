@@ -112,6 +112,10 @@ class SalesReceiptController extends Controller
                     return back()->withErrors(['allocations' => 'Selected invoice does not belong to selected customer.'])->withInput();
                 }
 
+                if ((int) $invoice->company_entity_id !== (int) $entity->id) {
+                    return back()->withErrors(['allocations' => 'Selected invoice does not belong to selected company.'])->withInput();
+                }
+
                 if ($invoice->status !== 'posted') {
                     return back()->withErrors(['allocations' => 'Invoice must be posted before receipt allocation.'])->withInput();
                 }
@@ -278,6 +282,10 @@ class SalesReceiptController extends Controller
 
                 if ($invoice->business_partner_id != $data['business_partner_id']) {
                     return back()->withErrors(['allocations' => 'Selected invoice does not belong to selected customer.'])->withInput();
+                }
+
+                if ((int) $invoice->company_entity_id !== (int) $entity->id) {
+                    return back()->withErrors(['allocations' => 'Selected invoice does not belong to selected company.'])->withInput();
                 }
 
                 if ($invoice->status !== 'posted') {
@@ -514,6 +522,7 @@ class SalesReceiptController extends Controller
     {
         $request->validate([
             'business_partner_id' => ['required', 'integer'],
+            'company_entity_id' => ['required', 'integer', 'exists:company_entities,id'],
             'amount' => ['nullable', 'numeric', 'min:0'],
         ]);
         $pool = (float) ($request->input('amount') ?? 0);
@@ -522,6 +531,7 @@ class SalesReceiptController extends Controller
             ->leftJoin('sales_receipt_allocations as sra', 'sra.invoice_id', '=', 'si.id')
             ->select('si.id', 'si.invoice_no', 'si.total_amount', DB::raw('COALESCE(SUM(sra.amount),0) as allocated'), DB::raw('COALESCE(si.due_date, si.date) as eff_date'))
             ->where('si.business_partner_id', (int) $request->input('business_partner_id'))
+            ->where('si.company_entity_id', (int) $request->input('company_entity_id'))
             ->where('si.status', 'posted')
             ->groupBy('si.id', 'si.invoice_no', 'si.total_amount', 'eff_date')
             ->orderBy('eff_date')
@@ -549,10 +559,12 @@ class SalesReceiptController extends Controller
     {
         $request->validate([
             'business_partner_id' => ['required', 'integer', 'exists:business_partners,id'],
+            'company_entity_id' => ['required', 'integer', 'exists:company_entities,id'],
             'receipt_id' => ['nullable', 'integer', 'exists:sales_receipts,id'],
         ]);
 
         $partnerId = (int) $request->input('business_partner_id');
+        $companyEntityId = (int) $request->input('company_entity_id');
         $editingReceiptId = null;
         if ($request->filled('receipt_id')) {
             $editingReceipt = SalesReceipt::query()->find((int) $request->input('receipt_id'));
@@ -584,6 +596,7 @@ class SalesReceiptController extends Controller
                 DB::raw('DATEDIFF(CURDATE(), COALESCE(si.due_date, si.date)) as days_overdue')
             )
             ->where('si.business_partner_id', $partnerId)
+            ->where('si.company_entity_id', $companyEntityId)
             ->where('si.status', 'posted')
             ->groupBy('si.id', 'si.invoice_no', 'si.reference_no', 'si.date', 'si.due_date', 'si.total_amount')
             ->havingRaw('remaining_balance > 0')

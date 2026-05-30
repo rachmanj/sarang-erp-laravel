@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Accounting;
 
+use App\Exports\SalesInvoiceListExport;
 use App\Http\Controllers\Controller;
 use App\Models\Accounting\SalesInvoice;
 use App\Models\Accounting\SalesInvoiceLine;
@@ -19,10 +20,13 @@ use App\Services\DocumentClosureService;
 use App\Services\DocumentNumberingService;
 use App\Services\DocumentRelationshipService;
 use App\Services\SalesWorkflowAuditService;
+use Carbon\Carbon;
+use Illuminate\Database\Query\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Maatwebsite\Excel\Facades\Excel;
 use Yajra\DataTables\Facades\DataTables;
 
 class SalesInvoiceController extends Controller
@@ -953,31 +957,8 @@ class SalesInvoiceController extends Controller
 
     public function data(Request $request)
     {
-        $q = DB::table('sales_invoices as si')
-            ->leftJoin('business_partners as c', 'c.id', '=', 'si.business_partner_id')
-            ->select('si.id', 'si.date', 'si.invoice_no', 'si.reference_no', 'si.business_partner_id', 'c.name as customer_name', 'si.total_amount', 'si.status');
-
-        if ($request->filled('status')) {
-            $q->where('si.status', $request->input('status'));
-        }
-        if ($request->filled('from')) {
-            $q->whereDate('si.date', '>=', $request->input('from'));
-        }
-        if ($request->filled('to')) {
-            $q->whereDate('si.date', '<=', $request->input('to'));
-        }
-        if ($request->filled('q')) {
-            $kw = $request->input('q');
-            $q->where(function ($w) use ($kw) {
-                $w->where('si.invoice_no', 'like', '%'.$kw.'%')
-                    ->orWhere('si.reference_no', 'like', '%'.$kw.'%')
-                    ->orWhere('si.description', 'like', '%'.$kw.'%')
-                    ->orWhere('c.name', 'like', '%'.$kw.'%');
-            });
-        }
-        if ($request->filled('company_entity_id')) {
-            $q->where('si.company_entity_id', (int) $request->company_entity_id);
-        }
+        $q = $this->buildSalesInvoiceListQuery();
+        $this->applySalesInvoiceListFilters($q, $request);
 
         $totalsRow = DB::query()->fromSub($q->clone(), 'inv')
             ->selectRaw('COALESCE(SUM(inv.total_amount), 0) as sum_total_amount')
@@ -1004,5 +985,96 @@ class SalesInvoiceController extends Controller
             })
             ->rawColumns(['actions'])
             ->toJson();
+    }
+
+    public function export(Request $request)
+    {
+        $q = $this->buildSalesInvoiceListQuery();
+        $this->applySalesInvoiceListFilters($q, $request);
+
+        $totalsRow = DB::query()->fromSub($q->clone(), 'inv')
+            ->selectRaw('COALESCE(SUM(inv.total_amount), 0) as sum_total_amount')
+            ->first();
+
+        $rows = $q->clone()->orderByDesc('si.date')->orderByDesc('si.id')->get();
+
+        $sheet = [
+            ['Date', 'SI No', 'Customer', 'Customer Ref No', 'Total', 'Status'],
+        ];
+
+        foreach ($rows as $row) {
+            $sheet[] = [
+                $this->formatSalesInvoiceListDate($row->date),
+                $row->invoice_no,
+                $row->customer_name ?: ('#'.$row->business_partner_id),
+                $row->reference_no ?? '',
+                round((float) $row->total_amount, 2),
+                strtoupper((string) $row->status),
+            ];
+        }
+
+        $sheet[] = [];
+        $sheet[] = [
+            '',
+            '',
+            '',
+            'Totals (filtered)',
+            round((float) $totalsRow->sum_total_amount, 2),
+            '',
+        ];
+
+        $filename = 'sales-invoices-'.now()->format('Y-m-d_His').'.xlsx';
+
+        return Excel::download(new SalesInvoiceListExport($sheet), $filename);
+    }
+
+    private function buildSalesInvoiceListQuery(): Builder
+    {
+        return DB::table('sales_invoices as si')
+            ->leftJoin('business_partners as c', 'c.id', '=', 'si.business_partner_id')
+            ->select(
+                'si.id',
+                'si.date',
+                'si.invoice_no',
+                'si.reference_no',
+                'si.business_partner_id',
+                'c.name as customer_name',
+                'si.total_amount',
+                'si.status'
+            );
+    }
+
+    private function formatSalesInvoiceListDate(mixed $date): string
+    {
+        if ($date === null || $date === '') {
+            return '';
+        }
+
+        return Carbon::parse($date)->format('d-M-Y');
+    }
+
+    private function applySalesInvoiceListFilters(Builder $query, Request $request): void
+    {
+        if ($request->filled('status')) {
+            $query->where('si.status', $request->input('status'));
+        }
+        if ($request->filled('from')) {
+            $query->whereDate('si.date', '>=', $request->input('from'));
+        }
+        if ($request->filled('to')) {
+            $query->whereDate('si.date', '<=', $request->input('to'));
+        }
+        if ($request->filled('q')) {
+            $kw = $request->input('q');
+            $query->where(function ($w) use ($kw) {
+                $w->where('si.invoice_no', 'like', '%'.$kw.'%')
+                    ->orWhere('si.reference_no', 'like', '%'.$kw.'%')
+                    ->orWhere('si.description', 'like', '%'.$kw.'%')
+                    ->orWhere('c.name', 'like', '%'.$kw.'%');
+            });
+        }
+        if ($request->filled('company_entity_id')) {
+            $query->where('si.company_entity_id', (int) $request->company_entity_id);
+        }
     }
 }

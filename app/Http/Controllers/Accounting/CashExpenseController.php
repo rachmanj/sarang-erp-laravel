@@ -5,8 +5,8 @@ namespace App\Http\Controllers\Accounting;
 use App\Http\Controllers\Controller;
 use App\Models\Accounting\CashExpense;
 use App\Services\Accounting\PostingService;
-use App\Services\DocumentNumberingService;
 use App\Services\CompanyEntityService;
+use App\Services\DocumentNumberingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -33,6 +33,7 @@ class CashExpenseController extends Controller
         $cashAccounts = DB::table('accounts')->where('code', 'like', '1.1.1%')->where('is_postable', 1)->orderBy('code')->get();
         $projects = DB::table('projects')->orderBy('code')->get(['id', 'code', 'name']);
         $departments = DB::table('departments')->orderBy('code')->get(['id', 'code', 'name']);
+
         return view('cash_expenses.create', compact('expenseAccounts', 'cashAccounts', 'projects', 'departments'));
     }
 
@@ -76,12 +77,12 @@ class CashExpenseController extends Controller
             // Post journal: Debit Expense, Credit Cash
             $this->posting->postJournal([
                 'date' => $exp->date,
-                'description' => 'Cash Expense ' . $expenseNo,
+                'description' => 'Cash Expense '.$expenseNo,
                 'source_type' => 'cash_expense',
                 'source_id' => $exp->id,
                 'lines' => [
-                    ['account_id' => (int)$data['expense_account_id'], 'debit' => (float)$amount, 'credit' => 0, 'project_id' => $data['project_id'] ?? null, 'fund_id' => $data['fund_id'] ?? null, 'dept_id' => $data['dept_id'] ?? null, 'memo' => $data['description'] ?? null],
-                    ['account_id' => (int)$data['cash_account_id'], 'debit' => 0, 'credit' => (float)$amount, 'project_id' => $data['project_id'] ?? null, 'fund_id' => $data['fund_id'] ?? null, 'dept_id' => $data['dept_id'] ?? null, 'memo' => $data['description'] ?? null],
+                    ['account_id' => (int) $data['expense_account_id'], 'debit' => (float) $amount, 'credit' => 0, 'project_id' => $data['project_id'] ?? null, 'fund_id' => $data['fund_id'] ?? null, 'dept_id' => $data['dept_id'] ?? null, 'memo' => $data['description'] ?? null],
+                    ['account_id' => (int) $data['cash_account_id'], 'debit' => 0, 'credit' => (float) $amount, 'project_id' => $data['project_id'] ?? null, 'fund_id' => $data['fund_id'] ?? null, 'dept_id' => $data['dept_id'] ?? null, 'memo' => $data['description'] ?? null],
                 ],
             ]);
 
@@ -105,19 +106,26 @@ class CashExpenseController extends Controller
             ->leftJoin('accounts as ca', 'ca.id', '=', 'jl.account_id')
             ->select('ce.id', 'ce.date', 'ce.description', 'a.code as expense_code', 'a.name as expense_name', 'ce.amount', 'u.name as creator_name', 'ca.code as cash_code', 'ca.name as cash_name');
 
+        if ($request->filled('from')) {
+            $q->whereDate('ce.date', '>=', $request->input('from'));
+        }
+        if ($request->filled('to')) {
+            $q->whereDate('ce.date', '<=', $request->input('to'));
+        }
+
         return DataTables::of($q)
             ->addIndexColumn()
             ->editColumn('date', function ($row) {
-                return (string)$row->date;
+                return (string) $row->date;
             })
             ->editColumn('amount', function ($row) {
-                return (float)$row->amount;
+                return (float) $row->amount;
             })
             ->addColumn('cash_account', function ($row) {
-                return $row->cash_code ? $row->cash_code . ' - ' . $row->cash_name : 'N/A';
+                return $row->cash_code ? $row->cash_code.' - '.$row->cash_name : 'N/A';
             })
             ->addColumn('actions', function ($row) {
-                return '<a href="/cash-expenses/' . $row->id . '/print" target="_blank" class="btn btn-sm btn-info" title="Print"><i class="fas fa-print"></i></a>';
+                return '<a href="/cash-expenses/'.$row->id.'/print" target="_blank" class="btn btn-sm btn-info" title="Print"><i class="fas fa-print"></i></a>';
             })
             ->rawColumns(['actions'])
             ->toJson();
@@ -131,7 +139,7 @@ class CashExpenseController extends Controller
             'creator',
             'project',
             'fund',
-            'department'
+            'department',
         ]);
 
         // Get cash account from journal lines
@@ -172,7 +180,7 @@ class CashExpenseController extends Controller
             'enam belas',
             'tujuh belas',
             'delapan belas',
-            'sembilan belas'
+            'sembilan belas',
         ];
 
         $tens = [
@@ -185,7 +193,7 @@ class CashExpenseController extends Controller
             'enam puluh',
             'tujuh puluh',
             'delapan puluh',
-            'sembilan puluh'
+            'sembilan puluh',
         ];
 
         $hundreds = [
@@ -198,7 +206,7 @@ class CashExpenseController extends Controller
             'enam ratus',
             'tujuh ratus',
             'delapan ratus',
-            'sembilan ratus'
+            'sembilan ratus',
         ];
 
         $thousands = [
@@ -211,7 +219,7 @@ class CashExpenseController extends Controller
             'enam ribu',
             'tujuh ribu',
             'delapan ribu',
-            'sembilan ribu'
+            'sembilan ribu',
         ];
 
         if ($number == 0) {
@@ -219,7 +227,7 @@ class CashExpenseController extends Controller
         }
 
         $result = '';
-        $number = (int)$number;
+        $number = (int) $number;
 
         // Handle millions
         if ($number >= 1000000) {
@@ -227,7 +235,7 @@ class CashExpenseController extends Controller
             if ($millions == 1) {
                 $result .= 'satu juta ';
             } else {
-                $result .= $this->convertToWords($millions) . ' juta ';
+                $result .= $this->convertToWords($millions).' juta ';
             }
             $number %= 1000000;
         }
@@ -238,7 +246,7 @@ class CashExpenseController extends Controller
             if ($thousand == 1) {
                 $result .= 'seribu ';
             } else {
-                $result .= $this->convertToWords($thousand) . ' ribu ';
+                $result .= $this->convertToWords($thousand).' ribu ';
             }
             $number %= 1000;
         }
@@ -249,7 +257,7 @@ class CashExpenseController extends Controller
             if ($hundred == 1) {
                 $result .= 'seratus ';
             } else {
-                $result .= $hundreds[$hundred] . ' ';
+                $result .= $hundreds[$hundred].' ';
             }
             $number %= 100;
         }
@@ -257,17 +265,17 @@ class CashExpenseController extends Controller
         // Handle tens and ones
         if ($number >= 20) {
             $ten = intval($number / 10);
-            $result .= $tens[$ten] . ' ';
+            $result .= $tens[$ten].' ';
             $number %= 10;
         } elseif ($number >= 10) {
-            $result .= $ones[$number] . ' ';
+            $result .= $ones[$number].' ';
             $number = 0;
         }
 
         if ($number > 0) {
-            $result .= $ones[$number] . ' ';
+            $result .= $ones[$number].' ';
         }
 
-        return trim($result) . ' rupiah';
+        return trim($result).' rupiah';
     }
 }

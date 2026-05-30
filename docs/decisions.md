@@ -1,5 +1,5 @@
 **Purpose**: Record technical decisions and rationale for future reference
-**Last Updated**: 2026-04-21 (Relationship Map extended scope documented — full sales chain, SQ, trading)
+**Last Updated**: 2026-05-30 (SI export, SR entity filter, cash expense date range)
 
 # Technical Decision Records
 
@@ -374,6 +374,38 @@ Decision: [Title] - [YYYY-MM-DD]
 - **Show pages**: Print button → dropdown with Standard and Dot Matrix options
 
 **Review Date**: 2027-02-19.
+
+---
+
+### Decision: Sales Receipt open invoices scoped by company entity - 2026-05-30
+
+**Context**: On create/edit Sales Receipt, the **Company** (PT/CV) field only affected document numbering. `getAvailableInvoices` filtered by customer and posted status only, so users could allocate invoices from the wrong entity.
+
+**Decision**: Require `company_entity_id` on `getAvailableInvoices` and `previewAllocation`; filter `sales_invoices.company_entity_id`; validate allocations on store/update; reload invoice table in UI when Company changes.
+
+**Rationale**: Receipts are entity-specific for numbering and reporting; AR open-item selection must match the receipt header entity (symmetric with multi-entity SI/DO rules).
+
+**Implementation**: `SalesReceiptController`, `sales_receipts/create.blade.php`, `edit.blade.php`, `SalesReceiptAvailableInvoicesTest`.
+
+---
+
+### Decision: Sales Invoice list Excel export mirrors Purchase Invoice - 2026-05-30
+
+**Context**: Purchase Invoices index already exported filtered rows to Excel; Sales Invoices index did not.
+
+**Decision**: Add `GET /sales-invoices/export` using shared list query helpers and `SalesInvoiceListExport` (Maatwebsite), with UI button passing the same query params as DataTables (`from`, `to`, `q`, `status`, `company_entity_id`).
+
+**Rationale**: Consistent AR/AP list tooling; export reflects user filters and footer totals row.
+
+---
+
+### Decision: Cash Expenses list uses daterangepicker for range filter - 2026-05-30
+
+**Context**: Cash Expenses index initially had two separate `<input type="date">` fields; users requested a single **date range** control.
+
+**Decision**: One readonly text input with AdminLTE **daterangepicker** (presets + clear); hidden `from`/`to` as `YYYY-MM-DD` for `CashExpenseController::data`.
+
+**Rationale**: Matches enterprise list UX elsewhere in AdminLTE stack; presets speed month-to-date review of petty-cash activity.
 
 ---
 

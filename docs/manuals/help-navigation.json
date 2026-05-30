@@ -81,9 +81,9 @@
             "title_id": "Faktur penjualan (SI)",
             "menu_path_en": "Sidebar → Sales → Sales Invoices. Create from DO after delivered/completed.",
             "menu_path_id": "Menu samping → Sales → Sales Invoices. Buat dari DO setelah delivered/completed.",
-            "keywords_en": ["sales invoice", "SINV", "invoice", "AR invoice", "line discount", "header discount", "invoice discount"],
-            "keywords_id": ["faktur penjualan", "SI", "invoice", "faktur", "diskon baris", "diskon header", "diskon faktur"],
-            "notes": "See sales-invoice-manual-id.md"
+            "keywords_en": ["sales invoice", "SINV", "invoice", "AR invoice", "line discount", "header discount", "invoice discount", "export excel", "export sales invoice", "filter sales invoice list"],
+            "keywords_id": ["faktur penjualan", "SI", "invoice", "faktur", "diskon baris", "diskon header", "diskon faktur", "export excel", "unduh daftar faktur"],
+            "notes": "Manuals: sales-invoice-manual-en.md, sales-invoice-manual-id.md. Reindex: php artisan help:reindex"
         },
         {
             "id": "sales-receipts",
@@ -91,8 +91,8 @@
             "title_id": "Penerimaan penjualan",
             "menu_path_en": "Sidebar → Sales → Sales Receipts (customer payments against invoices). Draft receipts: View → Edit; posted receipts cannot be edited.",
             "menu_path_id": "Menu samping → Sales → Sales Receipts (pelunasan faktur). Draft: buka detail → Edit; yang sudah posted tidak bisa diedit.",
-            "keywords_en": ["sales receipt", "SR", "payment", "collection", "edit draft receipt", "change sales receipt", "update allocation", "draft receipt", "ar.receipts.create", "ar.receipts.post", "ar.receipts.view", "correct SR before post"],
-            "keywords_id": ["sales receipt", "penerimaan", "pelunasan", "kas masuk", "edit sales receipt", "ubah draft", "koreksi alokasi", "penerimaan penjualan", "ar.receipts.create", "ar.receipts.post", "perbaiki SR"],
+            "keywords_en": ["sales receipt", "SR", "payment", "collection", "edit draft receipt", "change sales receipt", "update allocation", "draft receipt", "ar.receipts.create", "ar.receipts.post", "ar.receipts.view", "correct SR before post", "company entity", "PT CV filter", "wrong invoice on receipt"],
+            "keywords_id": ["sales receipt", "penerimaan", "pelunasan", "kas masuk", "edit sales receipt", "ubah draft", "koreksi alokasi", "penerimaan penjualan", "ar.receipts.create", "ar.receipts.post", "perbaiki SR", "filter entitas", "PT CV", "salah entitas receipt"],
             "notes": "Manuals: sales-receipt-manual-en.md, sales-receipt-manual-id.md. Reindex: php artisan help:reindex"
         },
         {
@@ -197,6 +197,16 @@
             "menu_path_id": "Menu samping → Accounting (COA, Jurnal, Periode, Account Statement, Kas/Bank, Mata Uang, dll.).",
             "keywords_en": ["journal", "GL", "account", "period", "statement"],
             "keywords_id": ["jurnal", "buku besar", "akun", "periode", "laporan"]
+        },
+        {
+            "id": "cash-expenses",
+            "title_en": "Cash Expenses",
+            "title_id": "Pengeluaran kas (Cash Expenses)",
+            "menu_path_en": "Sidebar → Accounting → Cash Expenses (`/cash-expenses`). List uses a date range picker; New Expense posts immediately.",
+            "menu_path_id": "Menu samping → Accounting → Cash Expenses (`/cash-expenses`). Daftar pakai filter rentang tanggal; New Expense langsung posting.",
+            "keywords_en": ["cash expense", "petty cash", "cash expenses", "filter date range", "pengeluaran kas", "kas keluar", "export", "print cash expense"],
+            "keywords_id": ["cash expense", "pengeluaran kas", "kas keluar", "filter tanggal", "rentang tanggal", "daftar pengeluaran", "beban tunai"],
+            "notes": "Manuals: cash-expense-manual-en.md, cash-expense-manual-id.md. Reindex: php artisan help:reindex"
         },
         {
             "id": "account-statements-formal",
