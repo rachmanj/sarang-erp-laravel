@@ -266,7 +266,7 @@
                                                 <span class="text-muted">—</span>
                                             @endif
                                         </td>
-                                        <td class="text-right">{{ number_format((float) $line->amount, 2) }}</td>
+                                        <td class="text-right">{{ number_format($line->exclusiveAmountAfterDiscount(), 2) }}</td>
                                     </tr>
                                 @endforeach
                             </tbody>

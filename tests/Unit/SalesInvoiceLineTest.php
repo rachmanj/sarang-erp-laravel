@@ -17,4 +17,16 @@ class SalesInvoiceLineTest extends TestCase
 
         $this->assertSame(60000.0, $line->amountFromQtyTimesUnitPrice());
     }
+
+    public function test_exclusive_amount_after_discount_subtracts_line_discount(): void
+    {
+        $line = new SalesInvoiceLine([
+            'qty' => 10,
+            'unit_price' => 96000,
+            'amount' => 1065600,
+            'discount_amount' => 60000,
+        ]);
+
+        $this->assertSame(900000.0, $line->exclusiveAmountAfterDiscount());
+    }
 }

@@ -78,4 +78,12 @@ class SalesInvoiceLine extends Model
     {
         return round((float) $this->qty * (float) $this->unit_price, 2);
     }
+
+    public function exclusiveAmountAfterDiscount(): float
+    {
+        $grossDpp = $this->amountFromQtyTimesUnitPrice();
+        $lineDisc = round(min((float) ($this->discount_amount ?? 0), $grossDpp), 2);
+
+        return round(max(0.0, $grossDpp - $lineDisc), 2);
+    }
 }
