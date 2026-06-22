@@ -335,11 +335,15 @@ class SalesOrder extends Model
 
     public function canCopyToDeliveryNote()
     {
-        return $this->order_type === 'item' && $this->status === 'approved';
+        return $this->order_type === 'item'
+            && $this->approval_status === 'approved'
+            && $this->status === 'ordered';
     }
 
     public function canCopyToSalesInvoice()
     {
-        return $this->order_type === 'service' && $this->status === 'approved';
+        return $this->order_type === 'service'
+            && $this->approval_status === 'approved'
+            && $this->status === 'ordered';
     }
 }

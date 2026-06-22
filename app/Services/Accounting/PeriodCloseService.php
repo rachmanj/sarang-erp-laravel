@@ -2,8 +2,8 @@
 
 namespace App\Services\Accounting;
 
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class PeriodCloseService
 {
@@ -42,6 +42,38 @@ class PeriodCloseService
         }
     }
 
+    public function closeFiscalYear(int $year, ?int $postedBy = null): array
+    {
+        return DB::transaction(function () use ($year, $postedBy) {
+            $closingJournalId = app(YearEndClosingService::class)->closeFiscalYear($year, $postedBy);
+
+            for ($month = 1; $month <= 12; $month++) {
+                $this->close($year, $month);
+            }
+
+            return [
+                'closing_journal_id' => $closingJournalId,
+                'year' => $year,
+            ];
+        });
+    }
+
+    public function openNewFiscalYear(int $year, ?int $postedBy = null): array
+    {
+        return DB::transaction(function () use ($year, $postedBy) {
+            $rollJournalId = app(YearEndClosingService::class)->rollRetainedEarnings($year, $postedBy);
+
+            for ($month = 1; $month <= 12; $month++) {
+                $this->open($year, $month);
+            }
+
+            return [
+                'roll_journal_id' => $rollJournalId,
+                'year' => $year,
+            ];
+        });
+    }
+
     public function open(int $year, int $month): void
     {
         DB::table('periods')->updateOrInsert(
@@ -63,6 +95,7 @@ class PeriodCloseService
                 'closed_at' => $row ? $row->closed_at : null,
             ];
         }
+
         return $result;
     }
 }

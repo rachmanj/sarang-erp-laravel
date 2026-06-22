@@ -98,7 +98,7 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
     - **Sales** - Dashboard, sales orders, delivery orders, sales invoices, sales receipts
     - **Fixed Assets** - Asset categories, assets, depreciation, disposals, movements, import, data quality, bulk operations
     - **Business Partner** - Unified customer and supplier management with tabbed interface
-    - **Accounting** - Journals, cash expenses, accounts, periods
+    - **Accounting** - Journals, cash expenses, accounts, periods, **bank accounts**, **bank reconciliation (AI-assisted)**
     - **Master Data** - Projects, departments
 3. **REPORTS** - Comprehensive reporting modules
 4. **ADMIN** - User management, roles and permissions
@@ -145,8 +145,8 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 ### 2. Accounts Receivable (AR) Module
 
 -   **Sales Dashboard**: Comprehensive sales analytics dashboard with AR aging analysis, sales KPIs (Sales MTD, Outstanding AR, Pending Approvals, Open Sales Orders), sales order statistics, sales invoice statistics, delivery order statistics, top customers by outstanding AR, and recent invoices visualization.
--   **Sales Invoices**: Customer billing with line items, tax codes, and dimensions (SINV-YYYYMM-######). Line items include Part No. column (from part_number_id or delivery_order_line_id). **Item Code Resolution**: When creating SI from DO, `resolveLineDataFromDeliveryOrder()` in SalesInvoiceController ensures item_code, item_name, inventory_item_id, part_number_id are populated from the DO line when form data is missing—either by delivery_order_line_id lookup or by index-based match when delivery_order_line_id is null. Eager load `lines.partNumber`, `lines.deliveryOrderLine.partNumber` for show/print. **List index** (`sales_invoices/index.blade.php`): server-side DataTables includes **`sum_total_amount`** for the same filters as the grid (date, search, status, **company entity** radio); footer row **Totals (filtered)** (pattern aligned with Purchase Invoice list). **Export Excel**: `GET /sales-invoices/export` (`sales-invoices.export`, `ar.invoices.view`) uses the same filter query as the list (`buildSalesInvoiceListQuery` / `applySalesInvoiceListFilters`) via Maatwebsite Excel (`SalesInvoiceListExport`). **Discounts**: **Line** `discount_amount` / `discount_percentage` reduce **DPP** before VAT/WTax (same math as **Sales Order** lines via `SalesOrderLine::computeAmountFromPricing` / `SalesInvoicePostingMath`). **Header** discount is document-level (after Σ line amounts); header **`total_amount`** is **amount due** (net of header discount) for AR, allocations, and validation commands. **Line `amount`**: tax-inclusive gross per line (net DPP + PPN − WTax). **Display** (show/print): **Amount** column shows stored line `amount`; **Discount** column shows line DPP discount when &gt; 0; footer from **`SalesInvoicePostingMath::invoiceFooterTotals()`** includes optional **Gross total** / **Header discount** rows when applicable, then **Amount due**. **Posting** (`SalesInvoiceController::post`): uses line math and **amount due** for AR / AR UnInvoice treatment per implementation; opening-balance path differs. **`php artisan sales-invoices:validate-posted-journals`** (registered in `App\Console\Kernel`): compares journals to expected amounts vs **`total_amount`**. **Multi-GRPO**: `App\Services\SalesInvoiceService` targets **`GoodsReceiptPO`**; `SalesInvoiceGrpoCombination::goodsReceipt()` → `GoodsReceiptPO`. New SI **`store()`** resolves **`currency_id`** to IDR (or base) to satisfy FK.
--   **Sales Credit Memos**: AR credit notes tied 1:1 to a **posted** Sales Invoice (`sales_credit_memos.sales_invoice_id` unique). Routes under `/sales-credit-memos`; posting uses `PostingService` with `source_type` `sales_credit_memo`. Create blocked when a memo already exists for the SI. Permissions: `ar.credit-memos.view|create|post`. Model: `App\Models\Accounting\SalesCreditMemo`.
+-   **Sales Invoices**: Customer billing with line items, tax codes, and dimensions (SINV-YYYYMM-######). Line items include Part No. column (from part_number_id or delivery_order_line_id). **Item Code Resolution**: When creating SI from DO, `resolveLineDataFromDeliveryOrder()` in SalesInvoiceController ensures item_code, item_name, inventory_item_id, part_number_id are populated from the DO line when form data is missing—either by delivery_order_line_id lookup or by index-based match when delivery_order_line_id is null. Eager load `lines.partNumber`, `lines.deliveryOrderLine.partNumber` for show/print. **List index** (`sales_invoices/index.blade.php`): server-side DataTables includes **`sum_total_amount`** for the same filters as the grid (date, search, status, **company entity** radio); footer row **Totals (filtered)** (pattern aligned with Purchase Invoice list). **Export Excel**: `GET /sales-invoices/export` (`sales-invoices.export`, `ar.invoices.view`) uses the same filter query as the list (`buildSalesInvoiceListQuery` / `applySalesInvoiceListFilters`) via Maatwebsite Excel (`SalesInvoiceListExport`). **Discounts**: **Line** `discount_amount` / `discount_percentage` reduce **DPP** before VAT/WTax (same math as **Sales Order** lines via `SalesOrderLine::computeAmountFromPricing` / `SalesInvoicePostingMath`). **Header** discount is document-level (after Σ line amounts); header **`total_amount`** is **amount due** (net of header discount) for AR, allocations, and validation commands. **Line `amount`**: tax-inclusive gross per line (net DPP + PPN − WTax). **Display** (show/print): **Amount** column shows stored line `amount`; **Discount** column shows line DPP discount when &gt; 0; footer from **`SalesInvoicePostingMath::invoiceFooterTotals()`** includes optional **Gross total** / **Header discount** rows when applicable, then **Amount due**. **Posting** (`SalesInvoiceController::post`): `SalesInvoicePostingMath::summarizeLinesForPosting`; regular path credits AR UnInvoice at **gross before WTax** (net + wtax), debits AR at net, debits PPh 23 prepaid when WTax &gt; 0; `TaxService::syncPostedSalesInvoice` runs inside the posting DB transaction. Opening-balance path differs. **`php artisan sales-invoices:validate-posted-journals`** (registered in `App\Console\Kernel`): compares journals to expected amounts vs **`total_amount`**. **Multi-GRPO**: `App\Services\SalesInvoiceService` targets **`GoodsReceiptPO`**; `SalesInvoiceGrpoCombination::goodsReceipt()` → `GoodsReceiptPO`. New SI **`store()`** resolves **`currency_id`** to IDR (or base) to satisfy FK.
+-   **Sales Credit Memos**: AR credit notes tied 1:1 to a **posted** Sales Invoice (`sales_credit_memos.sales_invoice_id` unique). Posting reverses SI amounts via **`SalesInvoicePostingMath`** on the source invoice lines (PPN at rate/100, WTax prepaid credit when applicable). Routes under `/sales-credit-memos`; `PostingService` `source_type` `sales_credit_memo`. Permissions: `ar.credit-memos.view|create|post`.
 -   **Sales Receipts**: Payment collection with invoice-first flow and explicit allocation (SR-YYYYMM-######). Select customer → load outstanding invoices via `getAvailableInvoices` (requires **`company_entity_id`**; filters `sales_invoices.company_entity_id`) → select invoices and allocation amounts → receipt lines auto-populated. Receipt total must match allocation total. **Store/update** reject allocations when invoice entity ≠ receipt company. Create/edit UI reloads invoices when **Company** changes. Mirrors Purchase Payment pattern.
 -   **Sales Orders**: Customer order management with entity-aware numbering (code 06). **Discounts**: Header and line (percentage or amount); line discount reduces DPP before VAT/WTax; header discount on Σ line totals; manual discounts skip **`applyCustomerPricingTier`** BP auto-discount. **`total_amount`** = Σ line amounts; **`net_amount`** = total − header discount.
 -   **AR Aging**: Customer payment tracking and aging analysis with buckets (Current, 1-30, 31-60, 61-90, 90+ days) calculated from sales invoices minus sales receipt allocations
@@ -158,7 +158,7 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 -   **Purchase Invoices**: Vendor billing with line items, tax handling (PINV-YYYYMM-######), VAT and Amount After VAT columns in list/detail, header and line discounts (percentage or amount), VAT calculated on net amount after line discount, detail page with vendor info/financial summary/related documents, Select Item modal with accurate Available Qty from `inventory_warehouse_stock` (warehouse-specific or total), print view uses `businessPartner` relation (not vendors table). **Invoice date** on create/draft update is validated **`before_or_equal:today`** (app timezone) unless **Opening Balance Invoice** or permission **`ap.invoices.future_date`**. See `docs/manuals/purchase-invoice-manual-id.md` and `docs/manuals/purchase-invoice-manual-en.md`.
 -   **Purchase Payments**: Vendor payment processing with allocation (PP-YYYYMM-######)
 -   **Purchase Orders**: Vendor order management with automatic numbering (PO-YYYYMM-######). **Create/Edit forms** (`resources/views/purchase_orders/create.blade.php`, `edit.blade.php`): line and footer totals use a shared JS engine; **header discount** scales each line’s payable (net + VAT − WTax) consistently when header % or amount applies. **`updatingHeaderDiscount`** must be initialized at the **start** of `$(document).ready` before any call to `updateTotals()` (including `initializeExistingLines()` on edit and the initial Add Line trigger on create) so the callback does not throw a temporal dead zone **ReferenceError**—otherwise delegated handlers (e.g. **item search** → `#itemSelectionModal`) never register. Header **0%** clears a stale **Discount Amount** field on recalc; VAT/WTax reads tolerate empty Select2 values; session toasts use **`@json`** for safe JS strings.
--   **Goods Receipt PO**: Purchase Order-based inventory receipt processing with automatic numbering (GR-YYYYMM-######)
+-   **Goods Receipt PO**: Purchase Order-based inventory receipt processing with automatic numbering (GR-YYYYMM-######). **Journal**: `GRPOJournalService::createJournalEntries()` posts once (Dr Inventory per product-category account / Cr AP UnInvoice `2.1.1.03`); manual GRPO store must not call `PostingService` again. **Copy guard**: PO must have `approval_status=approved` and `status=ordered` (same as `canBeReceived()`).
 -   **AP Aging**: Vendor payment tracking and aging analysis with buckets (Current, 1-30, 31-60, 61-90, 90+ days) calculated from purchase invoices minus purchase payment allocations
 -   **AP Balances**: Vendor account balance reporting
 
@@ -371,10 +371,10 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 -   **GRPO Accounting**: Debit Inventory Account, Credit AP UnInvoice (goods received but not yet invoiced)
 -   **Purchase Invoice Accounting (Credit)**: Debit AP UnInvoice, Credit Utang Dagang (liability transfer from intermediate to final)
 -   **Purchase Invoice Accounting (Direct Cash)**: Debit Inventory Account, Credit Cash Account (immediate cash payment, no Purchase Payment needed)
--   **Purchase Payment Accounting**: Debit Utang Dagang, Credit Cash (liability settlement for credit purchases)
+-   **Purchase Payment Accounting**: Debit Utang Dagang, Credit Cash/Bank (from payment line `account_id`, grouped by COA account)
 -   **Delivery Order Accounting**: Debit AR UnInvoice, Credit Revenue (goods delivered but not yet invoiced)
 -   **Sales Invoice Accounting (posted, from DO)**: Credit **AR UnInvoice** (1.1.2.04) for tax-inclusive gross (clears uninvoiced AR); Debit **Piutang Dagang** (1.1.2.01) for the same gross; Debit **revenue** (each line’s account) for **PPN component** reclassified from DO-time gross revenue; Credit **PPN Keluaran** (2.1.2) for output VAT. **Opening balance SI**: Debit AR (gross); Credit Saldo Awal Laba Ditahan (3.3.1) for gross−PPN; Credit PPN when applicable.
--   **Sales Receipt Accounting**: Debit Cash, Credit Piutang Dagang (receivable settlement)
+-   **Sales Receipt Accounting**: Debit Cash/Bank (from receipt line `account_id`, grouped by COA account), Credit Piutang Dagang (receivable settlement)
 -   **Automatic Journal Generation**: All transactions automatically create balanced journal entries
 -   **Account Mapping Logic**: Inventory accounts mapped by item categories, liability/receivable accounts by business partner type
 -   **Direct Cash Purchase Flow**: Simplified workflow (PI → Post) for immediate cash purchases with automatic inventory transaction creation and cash account selection support
@@ -553,7 +553,11 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 -   `business_partner_addresses`: Multiple addresses per partner with address types
 -   `business_partner_details`: Flexible custom field storage for partner-specific data
 -   `tax_codes`: Tax configuration
--   `bank_accounts` / `bank_transactions`: Banking integration
+-   `bank_accounts`: Operational bank master linked to COA via `account_id` (account number used for PDF auto-detect). Routes: `/bank-accounts`.
+-   `bank_statements` / `bank_statement_lines`: Imported statement headers + normalized lines (`direction` debit|credit, `line_hash` dedupe, `match_status`).
+-   `bank_reconciliations` / `bank_reconciliation_matches`: Reconciliation sessions and matches to `journal_lines` (or adjustment journals via `PostingService`, `source_type` `bank_reconciliation`).
+-   `bank_transactions`: Legacy stub (unused by reconciliation module).
+-   **Bank Reconciliation flow**: Upload PDF → `smalot/pdfparser` text extract → OpenRouter LLM JSON normalize → deterministic + AI matching → optional adjustment journals → finalize when statement closing equals reconciled book balance. UI: `/bank-reconciliation` workbench. Permissions: `bank_accounts.*`, `bank_reconciliation.*`.
 
 #### Company Entity Tables
 
@@ -687,8 +691,10 @@ The database schema has been consolidated from 51 to 44 migration files for impr
 -   `/reports/open-items/*`: Open Items reporting with comprehensive document status monitoring, aging analysis, and Excel export
 -   `/reports/document-creation-logs`: Document Creation Logs — merged list of PO, GRPO, PI, PP, SO, DO, SI, SR by `created_at` (permission `reports.open-items`)
 -   `/reports/*`: Comprehensive reporting suite (permission `reports.view` unless noted). **Core financial statements** (see `App\Services\Reports\ReportService`, `App\Http\Controllers\Reports\ReportsController`, `routes/web/reports.php`):
-    -   **Trial Balance** & **GL Detail**: Posted journals by default; `include_unposted=1` includes drafts. Exports: `export=csv`, `export=pdf` (Dompdf views under `resources/views/reports/pdf/`).
-    -   **Balance Sheet**: Asset / liability / `net_assets` only; hierarchical rows from COA `parent_id` with parent **rollup** (child sums). JSON includes `totals.unclosed_pnl_cumulative` and `difference_vs_unclosed_pnl` (tie-out to cumulative P&amp;L in TB). UI/PDF corporate header (`entity_name` = `config('app.name')`). **Reference**: `docs/financial-statements-reports.md`.
+    -   **Trial Balance** & **GL Detail**: Posted journals by default; `include_unposted=1` includes drafts. GL Detail includes **running balance** and account picker. Shared filters via `JournalReportQueryBuilder` (`period_year`/`period_month`, optional `company_entity_id`). Exports: `export=csv`, `export=pdf` (Dompdf views under `resources/views/reports/pdf/`).
+    -   **Balance Sheet**: Asset / liability / `net_assets` only; hierarchical rows from COA `parent_id` with parent **rollup** (child sums). Uses `accounts.report_group` / `normal_balance` where set. JSON includes `totals.unclosed_pnl_cumulative` and `difference_vs_unclosed_pnl` (tie-out to cumulative P&amp;L in TB). UI/PDF corporate header (`entity_name` = `config('app.name')`). **Reference**: `docs/financial-statements-reports.md`.
+    -   **AR/AP**: Aging and party balances share allocation-netted as-of logic; **Subledger Reconciliation** (`reports.subledger-reconciliation`) compares aging totals to GL control accounts (`control_type` `ar`/`ap`).
+    -   **Cash Ledger**: Defaults to first postable account under `config('cash_flow.account_prefixes.cash_and_bank')` (typically `1.1.1.x`).
     -   **Profit & Loss**: Period P&amp;L by COA buckets (4 revenue, 5 COGS, 6 operating, 7 other); same hierarchy/rollup pattern as BS within each section.
     -   **Cash Flow (indirect)**: Starts from net income + depreciation add-back + working capital deltas from **balance sheet display** balances by **prefix** lists in `config/cash_flow.php` (`tax_payables`, `input_vat_prepaid_assets`, `short_term_borrowings`, `equity_financing_prefixes`, etc.). Financing excludes `3.3` retained earnings by default to avoid double-counting net income. `ReportService::balanceSheetDisplayTotalForPrefixes()` supports reconciliation tests.
 -   `/admin/*`: User and role management (users, roles, permissions, assistant report, approval workflows)
@@ -1085,6 +1091,89 @@ The Document Navigation & Journal Preview system provides comprehensive workflow
     -   `syncPurchasePaymentRelationships()` — after PP store (`PurchasePaymentController@store`).
     -   `initializeExistingRelationships()` / `DocumentRelationshipSeeder`: correct morph classes `App\Models\Accounting\PurchaseInvoice` and `App\Models\Accounting\PurchasePayment`; removes legacy rows using `App\Models\PurchaseInvoice` / `App\Models\PurchasePayment`; adds **PI → PO (no GRPO)** backfill via `initializePIPurchaseOrderRelationships()`.
 -   **API slug note**: `DocumentNavigationController` uses **singular** route keys (e.g. `purchase-invoice`, `goods-receipt-po`). `DocumentRelationshipController` (Relationship Map modal) uses **plural** keys (e.g. `purchase-invoices`, `goods-receipt-pos`). Blade show pages pass the slug expected by each endpoint.
+-   **Purchase Order navigation card (2026-06-20)**: The `purchase_orders/show` page now embeds the shared `components.document-navigation` Base/Target navigation card (`documentType => 'purchase-order'`), completing Base/Target coverage across the full Purchase chain (PO → GRPO → PI → PP). Because a Purchase Order has no GL posting, the component is rendered with `showPreviewJournal => false`; this new optional flag (defaults `true`) suppresses the `PreviewJournalButton` for document types that `JournalPreviewController` does not support.
+
+#### Create Target Document buttons (2026-06-20)
+
+Show-page header toolbars expose **Create Target Document** actions for the next step in each chain. These are distinct from the Base/Target navigation card (which jumps to **already-created** linked documents).
+
+| Source show page | Target | Route / pattern | Prefill |
+|---|---|---|---|
+| Sales Quotation | Sales Order | `sales-quotations.convert` → POST `convert-to-sales-order` | Service copies quotation → SO |
+| Sales Quotation | Sales Invoice (skip chain) | `sales-invoices.create?quotation_id=` | `$prefill` in SI create |
+| Sales Order | Delivery Order | `delivery-orders.create?sales_order_id=` | Form pre-select |
+| Sales Order | Sales Invoice | `sales-orders.create-invoice` | `$prefill` + `$sales_order_id` |
+| Delivery Order | Sales Invoice | `delivery-orders.create-invoice` → redirect `?delivery_order_id=` | `$prefill` in SI create |
+| Sales Invoice | Sales Receipt | `sales-receipts.create?sales_invoice_id=` | `$prefill` allocations + JS auto-select |
+| Sales Invoice | Credit Memo | `sales-credit-memos.create?sales_invoice_id=` | `$invoice` in create view |
+| Purchase Order (item) | GRPO | `purchase-orders.show-copy-to-grpo` → POST copy | Copy service → draft GRPO |
+| Purchase Order (service) | Purchase Invoice | `purchase-orders.show-copy-to-purchase-invoice` → GET execute | Copy service → draft PI |
+| GRPO | Purchase Invoice | `goods-receipt-pos.create-invoice` | `$prefill` in PI create |
+| Purchase Invoice | Purchase Payment | `purchase-payments.create?purchase_invoice_id=` | `$prefill` allocations + JS auto-select |
+
+**Visibility guards (examples):** PI → PP requires posted, remaining balance, not cash/direct purchase (`$canCreatePayment`); SI → SR requires posted, remaining balance, not opening balance (`$canCreateReceipt`); SO → SI requires approved + ordered/confirmed/processing/delivered; GRPO → PI requires `status === 'received'`.
+
+**Copy-service status fix:** `GRPOCopyService` and `PurchaseInvoiceCopyService` validate `status === 'ordered'` (not `approved`) to match PO approval workflow.
+
+**Files:** `PurchaseInvoiceController@show`, `PurchasePaymentController@create`, `SalesInvoiceController@show`, `SalesReceiptController@create`, `purchase_invoices/show`, `sales_invoices/show`, `purchase_payments/create`, `sales_receipts/create`, `purchase_orders/copy_to_grpo`, `purchase_orders/copy_to_purchase_invoice`, `sales_quotations/convert`.
+
+#### Open / Closed index filter (2026-06-20)
+
+All eight workflow document index pages include a shared **All / Open / Closed** switch (`components.open-closed-filter`), defaulting to **Open**. Filtering uses live-computed completion via `App\Support\DocumentOpenState` (not stored `closure_status`):
+
+| Document | Open = | Closed = |
+|---|---|---|
+| Sales Invoice | draft or posted with receipt balance > 0.01 | posted and fully receipted |
+| Purchase Invoice | draft or posted with payment balance > 0.01 | posted and fully paid |
+| Sales Order | lines with `delivered_qty < qty` (or no lines) | all lines fully delivered |
+| Purchase Order | lines with `received_qty < qty` (or no lines) | all lines fully received |
+| Delivery Order | undelivered/uninvoiced qty; excludes cancelled/reversed from open | cancelled/reversed or all delivered qty invoiced |
+| GRPO | not linked to any Purchase Invoice | invoiced (pivot or legacy `goods_receipt_id`) |
+| Sales Receipt / Purchase Payment | `status = draft` | `status = posted` |
+
+AJAX param: `open_state` (`all|open|closed`). Wired in controller `data()` methods (SI, PI, SR, PP) and inline route closures in `routes/web/orders.php` (SO, PO, DO, GRPO). PO index replaced the old `closure_status` dropdown with this switch.
+
+#### Cascade document deletion (2026-06-20)
+
+Accounting-safe delete for all ten workflow document types. Two modes via split-button dropdown on each show page:
+
+| Mode | Behavior |
+|------|----------|
+| **Delete this document only** (`mode=single`) | Deletes only the selected document after reversing its own journals/tax/inventory/allocations and reopening its base closure. **Blocked** when downstream (target) documents still exist. |
+| **Delete with related documents** (`mode=cascade`, default) | Leaf-first cascade delete of the selected document and all targets in one transaction. |
+
+```mermaid
+flowchart TB
+  subgraph engine [DocumentDeletionService]
+    previewCascade[previewCascade]
+    previewSingle[previewSingle]
+    deleteSingle[deleteSingle]
+    assert[assertDeletable]
+    deleteCascade[delete cascade leaf-first]
+  end
+  graph[DocumentDeletionGraph]
+  handlers[Per-type Handlers]
+  support[DocumentDeletionSupport]
+  previewCascade --> graph
+  previewSingle --> graph
+  deleteSingle --> assert
+  deleteSingle --> handlers
+  deleteCascade --> assert
+  deleteCascade --> handlers
+  handlers --> support
+```
+
+**Core files:** `app/Services/Documents/DocumentDeletionService.php`, `DocumentDeletionGraph.php`, `DocumentDescriptor.php`, `Support/DocumentDeletionSupport.php`, `Handlers/*DeletionHandler.php`, `app/Http/Controllers/Concerns/HandlesDocumentDeletion.php`, `resources/views/components/document-delete-button.blade.php`.
+
+**Discovery:** `DocumentDeletionGraph` unions FKs, pivots, and allocation tables (not only `document_relationships`): SQ→SO (`converted_to_sales_order_id`), SO→DO, DO→SI (`delivery_order_sales_invoice`), SI→SCM/SR, PO→GRPO, GRPO→PI, PI→PP. `descendants()` returns target chain only (used to block single delete). Shared receipts/payments that allocate to invoices outside the delete set are blocked.
+
+**Reversal policy:** Posted documents call `PostingService::reverseJournal()` (offsetting entries; `skip_postable_validation` on reversals for legacy non-postable header accounts). Tax rows deleted by `reference_type`. Inventory reversed via compensating `adjustment` transactions + `updateItemValuation()`. GRPO uses `GRPOJournalService::reverseJournalEntries()` plus inventory reversal. PI unpost logic extracted to `PurchaseInvoiceUnpostService` (also used by delete + existing unpost route). DO delete uses `DeliveryService::reverseDeliveryOrder()` or `cancelDeliveryOrder()` then hard-deletes the row.
+
+**Closed period guard:** Delete blocked when the current period is closed (reversals post today) or when any document/journal date in the cascade falls in a closed period.
+
+**Permissions:** `ar.invoices.delete`, `ar.receipts.delete`, `ar.credit-memos.delete`, `ap.invoices.delete`, `ap.payments.delete`, `goods-receipt-pos.delete`, `delivery-orders.delete` (+ existing `sales-orders.delete`, `purchase-orders.delete`, `ar.quotations.delete`). Migration `2026_06_20_192548_add_document_delete_permissions.php`.
+
+**Routes:** `{resource}.delete-preview?mode=single|cascade` (GET JSON) + `{resource}.destroy` with `mode` body param (DELETE) on all ten controllers. Tests: `tests/Feature/DocumentDeletionTest.php`.
 
 **DocumentRelationshipCacheService**
 
@@ -1131,6 +1220,8 @@ The Document Navigation & Journal Preview system provides comprehensive workflow
 -   Journal entry preview functionality
 -   Action simulation without persistence
 -   Comprehensive error handling
+-   **Single source of truth (2026-06-20)**: `getJournalPreview()` dispatches to document-specific builders under `app/Services/Accounting/JournalBuilders/` and formats output via `JournalPreviewPresenter` (account code/name enrichment, totals, balance check). Posting controllers/services call the **same builders** before `PostingService::postJournal()` — preview and posted `journal_lines` stay aligned.
+-   **Supported preview types**: `goods-receipt-po` (`GrpoJournalBuilder`), `purchase-invoice` (`PurchaseInvoiceJournalBuilder` — credit/direct-cash/opening-balance/PPN/withholding), `purchase-payment` (`PurchasePaymentJournalBuilder` + `CashJournalLineBuilder`), `delivery-order` (`DeliveryOrderJournalBuilder::buildRevenueRecognition` only; reservation journal at DO approval is out of scope), `sales-invoice` (`SalesInvoiceJournalBuilder`), `sales-receipt` (`SalesReceiptJournalBuilder`). Unsaved GRPO create form still uses `grpoPreview()` (form-data estimate).
 
 **DocumentAnalyticsController**
 
@@ -1249,10 +1340,20 @@ The Menu Search System provides global search functionality for navigating menu 
 
 #### Journal Preview Flow
 
-1. **Action Simulation**: Non-persistent journal entry generation
-2. **Account Mapping**: Automatic account selection based on document type
-3. **Validation**: Balance checking and error detection
-4. **Preview Display**: Professional modal presentation
+1. **Builder dispatch**: `JournalPreviewController` loads the document and calls the matching `JournalBuilders\*` class (same class the post action uses).
+2. **JournalDraft DTO**: Builder returns `description`, normalized `lines` (`account_id`, `debit`, `credit`, `memo`, dimensions) — **no** journal insert, status change, or tax sync.
+3. **Presentation**: `JournalPreviewPresenter` enriches lines with `account_code` / `account_name`, computes `total_debit`, `total_credit`, `is_balanced`.
+4. **Preview Display**: Professional modal presentation via `PreviewJournalButton.js`.
+5. **Posting path**: Controller/service calls the same builder, then `PostingService::postJournal()` plus document status/tax side effects.
+
+```mermaid
+flowchart LR
+  builder[JournalBuilder build -> JournalDraft]
+  post[Controller/Service post] --> builder
+  prev[JournalPreviewController] --> builder
+  builder --> postJournal[PostingService::postJournal]
+  builder --> present[JournalPreviewPresenter -> modal]
+```
 
 #### Analytics Flow
 

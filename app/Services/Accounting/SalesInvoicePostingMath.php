@@ -83,10 +83,12 @@ final class SalesInvoicePostingMath
         $grossTotal = 0.0;
         /** @var array<int, float> */
         $ppnByRevenueAccount = [];
+        $wtaxTotal = 0.0;
 
         foreach ($lines as $l) {
             $parts = self::splitLineFromTaxExclusivePricing($l);
             $grossTotal += $parts['gross'];
+            $wtaxTotal += $parts['wtax'];
             if ($parts['output_vat'] > 0.0) {
                 $revenueAccountId = (int) $l->account_id;
                 $ppnByRevenueAccount[$revenueAccountId] = round(($ppnByRevenueAccount[$revenueAccountId] ?? 0) + $parts['output_vat'], 2);
@@ -98,6 +100,7 @@ final class SalesInvoicePostingMath
         return [
             'gross_total' => round($grossTotal, 2),
             'ppn_total' => $ppnTotalRounded,
+            'wtax_total' => round($wtaxTotal, 2),
             'ppn_by_revenue_account' => $ppnByRevenueAccount,
         ];
     }

@@ -1,10 +1,13 @@
 {{-- Document Navigation Component --}}
+@php($showPreviewJournal = $showPreviewJournal ?? true)
 <div class="document-navigation-container">
     {{-- Document Navigation Buttons --}}
     <div id="documentNavigationButtons"></div>
-    
+
     {{-- Preview Journal Button --}}
-    <div id="previewJournalButton" class="mt-2"></div>
+    @if ($showPreviewJournal)
+        <div id="previewJournalButton" class="mt-2"></div>
+    @endif
 </div>
 
 {{-- Include CSS --}}
@@ -26,19 +29,24 @@ document.addEventListener('DOMContentLoaded', function() {
         documentType,
         documentId
     );
-    
-    // Initialize preview journal button
-    const previewJournalButton = new PreviewJournalButton(
-        'previewJournalButton',
-        documentType,
-        documentId,
-        'post' // Action type: post, approve, etc.
-    );
-    
+
+    const showPreviewJournal = @json($showPreviewJournal);
+    let previewJournalButton = null;
+    if (showPreviewJournal) {
+        previewJournalButton = new PreviewJournalButton(
+            'previewJournalButton',
+            documentType,
+            documentId,
+            'post' // Action type: post, approve, etc.
+        );
+    }
+
     // Optional: Refresh navigation data when document status changes
     window.refreshDocumentNavigation = function() {
         navigationButtons.refresh();
-        previewJournalButton.refresh();
+        if (previewJournalButton) {
+            previewJournalButton.refresh();
+        }
     };
 });
 </script>

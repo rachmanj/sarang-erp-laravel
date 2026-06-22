@@ -18,11 +18,35 @@
                         <h3 class="card-title">GL Detail Report</h3>
                     </div>
                     <form class="form-inline align-items-end" id="form">
+                        <label class="mr-2 mb-0">Account
+                            <select name="account_id" class="form-control form-control-sm ml-1">
+                                <option value="">All accounts</option>
+                                @foreach ($accounts as $account)
+                                    <option value="{{ $account->id }}">{{ $account->code }} - {{ $account->name }}</option>
+                                @endforeach
+                            </select>
+                        </label>
                         <label class="mr-2 mb-0">From <input type="date" name="from"
                                 class="form-control form-control-sm ml-1"
                                 value="{{ now()->startOfMonth()->toDateString() }}" /></label>
                         <label class="mr-2 mb-0">To <input type="date" name="to"
                                 class="form-control form-control-sm ml-1" value="{{ now()->toDateString() }}" /></label>
+                        <label class="mr-2 mb-0">Period
+                            <input type="number" name="period_year" class="form-control form-control-sm ml-1" style="width:5rem"
+                                placeholder="Year" min="2000" max="2100" />
+                            <input type="number" name="period_month" class="form-control form-control-sm ml-1" style="width:4rem"
+                                placeholder="Mo" min="1" max="12" />
+                        </label>
+                        @if (($companyEntities ?? collect())->isNotEmpty())
+                            <label class="mr-2 mb-0">Entity
+                                <select name="company_entity_id" class="form-control form-control-sm ml-1">
+                                    <option value="">All</option>
+                                    @foreach ($companyEntities as $entity)
+                                        <option value="{{ $entity->id }}">{{ $entity->name }}</option>
+                                    @endforeach
+                                </select>
+                            </label>
+                        @endif
                         <label class="mr-2 mb-0 small">
                             <input type="checkbox" name="include_unposted" id="gl_include_unposted" value="1">
                             Include unposted journals
@@ -42,6 +66,7 @@
                                 <th>Currency</th>
                                 <th>Debit (IDR)</th>
                                 <th>Credit (IDR)</th>
+                                <th>Balance</th>
                                 <th>Debit (FC)</th>
                                 <th>Credit (FC)</th>
                                 <th>Rate</th>
@@ -59,9 +84,11 @@
         const tbody = document.querySelector('#tb tbody');
 
         function glQuery() {
-            const p = new URLSearchParams({
-                from: form.from.value,
-                to: form.to.value
+            const p = new URLSearchParams();
+            ['from', 'to', 'account_id', 'period_year', 'period_month', 'company_entity_id'].forEach(name => {
+                if (form[name].value) {
+                    p.set(name, form[name].value);
+                }
             });
             if (document.getElementById('gl_include_unposted').checked) p.set('include_unposted', '1');
             return p.toString();
@@ -85,7 +112,7 @@
             data.rows.forEach(r => {
                 const tr = document.createElement('tr');
                 tr.innerHTML =
-                    `<td>${r.date}</td><td>${r.journal_desc ?? ''}</td><td>${r.account_code} - ${r.account_name}</td><td>${r.currency_code || 'IDR'}</td><td>${r.debit.toFixed(2)}</td><td>${r.credit.toFixed(2)}</td><td>${r.debit_foreign.toFixed(2)}</td><td>${r.credit_foreign.toFixed(2)}</td><td>${r.exchange_rate.toFixed(6)}</td><td>${r.memo ?? ''}</td>`;
+                    `<td>${r.date}</td><td>${r.journal_desc ?? ''}</td><td>${r.account_code} - ${r.account_name}</td><td>${r.currency_code || 'IDR'}</td><td>${r.debit.toFixed(2)}</td><td>${r.credit.toFixed(2)}</td><td>${r.balance.toFixed(2)}</td><td>${r.debit_foreign.toFixed(2)}</td><td>${r.credit_foreign.toFixed(2)}</td><td>${r.exchange_rate.toFixed(6)}</td><td>${r.memo ?? ''}</td>`;
                 tbody.appendChild(tr);
             });
         }
@@ -94,8 +121,9 @@
             load();
         });
         document.getElementById('gl_include_unposted').addEventListener('change', glUpdateExports);
-        form.from.addEventListener('change', glUpdateExports);
-        form.to.addEventListener('change', glUpdateExports);
+        ['from', 'to', 'account_id', 'period_year', 'period_month', 'company_entity_id'].forEach(name => {
+            form[name].addEventListener('change', glUpdateExports);
+        });
         load();
     </script>
 @endsection

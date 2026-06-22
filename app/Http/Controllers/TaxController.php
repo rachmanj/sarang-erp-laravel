@@ -2,14 +2,13 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\TaxTransaction;
+use App\Models\TaxComplianceLog;
 use App\Models\TaxPeriod;
 use App\Models\TaxReport;
 use App\Models\TaxSetting;
-use App\Models\TaxComplianceLog;
+use App\Models\TaxTransaction;
 use App\Services\TaxService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 
 class TaxController extends Controller
 {
@@ -112,10 +111,11 @@ class TaxController extends Controller
 
         try {
             $transaction = $this->taxService->createTaxTransaction($data);
+
             return redirect()->route('tax.transactions')
                 ->with('success', 'Tax transaction created successfully');
         } catch (\Exception $e) {
-            return back()->withInput()->with('error', 'Error creating tax transaction: ' . $e->getMessage());
+            return back()->withInput()->with('error', 'Error creating tax transaction: '.$e->getMessage());
         }
     }
 
@@ -149,7 +149,7 @@ class TaxController extends Controller
 
             return back()->with('success', 'Transaction marked as paid successfully');
         } catch (\Exception $e) {
-            return back()->with('error', 'Error updating transaction: ' . $e->getMessage());
+            return back()->with('error', 'Error updating transaction: '.$e->getMessage());
         }
     }
 
@@ -200,7 +200,211 @@ class TaxController extends Controller
 
             return back()->with('success', 'Tax settings updated successfully');
         } catch (\Exception $e) {
-            return back()->with('error', 'Error updating settings: ' . $e->getMessage());
+            return back()->with('error', 'Error updating settings: '.$e->getMessage());
         }
+    }
+
+    public function periods()
+    {
+        $periods = TaxPeriod::orderByDesc('year')->orderByDesc('month')->paginate(20);
+
+        return view('tax.periods', compact('periods'));
+    }
+
+    public function createPeriod()
+    {
+        return view('tax.create-period');
+    }
+
+    public function storePeriod(Request $request)
+    {
+        $data = $request->validate([
+            'year' => ['required', 'integer', 'min:2000', 'max:2100'],
+            'month' => ['required', 'integer', 'min:1', 'max:12'],
+            'period_type' => ['nullable', 'string', 'in:monthly,quarterly,annual'],
+        ]);
+
+        try {
+            $this->taxService->createTaxPeriod($data['year'], $data['month'], $data['period_type'] ?? 'monthly');
+
+            return redirect()->route('tax.periods')->with('success', 'Tax period created');
+        } catch (\Exception $e) {
+            return back()->withInput()->with('error', $e->getMessage());
+        }
+    }
+
+    public function closePeriod(TaxPeriod $period)
+    {
+        try {
+            $this->taxService->closeTaxPeriod($period->id);
+
+            return back()->with('success', 'Tax period closed');
+        } catch (\Exception $e) {
+            return back()->with('error', $e->getMessage());
+        }
+    }
+
+    public function reports()
+    {
+        $reports = TaxReport::with('taxPeriod')->orderByDesc('created_at')->paginate(20);
+
+        return view('tax.reports', compact('reports'));
+    }
+
+    public function createReport()
+    {
+        $periods = TaxPeriod::orderByDesc('year')->orderByDesc('month')->get();
+
+        return view('tax.create-report', compact('periods'));
+    }
+
+    public function storeReport(Request $request)
+    {
+        $data = $request->validate([
+            'tax_period_id' => ['required', 'integer', 'exists:tax_periods,id'],
+            'report_type' => ['required', 'string'],
+        ]);
+
+        try {
+            $this->taxService->generateTaxReport($data['tax_period_id'], $data['report_type']);
+
+            return redirect()->route('tax.reports')->with('success', 'Tax report generated');
+        } catch (\Exception $e) {
+            return back()->withInput()->with('error', $e->getMessage());
+        }
+    }
+
+    public function showReport(TaxReport $report)
+    {
+        $report->load('taxPeriod');
+
+        return view('tax.show-report', ['report' => $report]);
+    }
+
+    public function submitReport(TaxReport $report)
+    {
+        try {
+            $this->taxService->submitTaxReport($report->id);
+
+            return back()->with('success', 'Tax report submitted');
+        } catch (\Exception $e) {
+            return back()->with('error', $e->getMessage());
+        }
+    }
+
+    public function approveReport(TaxReport $report)
+    {
+        try {
+            $this->taxService->approveTaxReport($report->id);
+
+            return back()->with('success', 'Tax report approved');
+        } catch (\Exception $e) {
+            return back()->with('error', $e->getMessage());
+        }
+    }
+
+    public function calendar()
+    {
+        $events = $this->taxService->getTaxCalendar();
+
+        return view('tax.calendar', compact('events'));
+    }
+
+    public function complianceLogs()
+    {
+        $logs = TaxComplianceLog::orderByDesc('created_at')->paginate(50);
+
+        return view('tax.compliance-logs', compact('logs'));
+    }
+
+    public function exportTransactions(Request $request)
+    {
+        $filters = $request->only(['start_date', 'end_date', 'tax_type', 'tax_category', 'status']);
+        $query = TaxTransaction::query()->orderBy('transaction_date');
+
+        foreach (['start_date', 'end_date', 'tax_type', 'tax_category', 'status'] as $key) {
+            if (! empty($filters[$key])) {
+                $column = $key === 'start_date' ? '>=' : ($key === 'end_date' ? '<=' : '=');
+                if ($key === 'start_date' || $key === 'end_date') {
+                    $query->whereDate('transaction_date', $column, $filters[$key]);
+                } else {
+                    $query->where($key, $filters[$key]);
+                }
+            }
+        }
+
+        $rows = $query->get();
+        $csv = "transaction_no,date,type,category,tax_type,taxable_amount,tax_rate,tax_amount,status\n";
+        foreach ($rows as $row) {
+            $csv .= sprintf(
+                "%s,%s,%s,%s,%s,%.2f,%.2f,%.2f,%s\n",
+                $row->transaction_no,
+                $row->transaction_date?->toDateString(),
+                $row->transaction_type,
+                $row->tax_category,
+                $row->tax_type,
+                $row->taxable_amount,
+                $row->tax_rate,
+                $row->tax_amount,
+                $row->status
+            );
+        }
+
+        return response($csv, 200, [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="tax-transactions.csv"',
+        ]);
+    }
+
+    public function exportCoretax(Request $request)
+    {
+        $data = $this->taxService->exportCoretaxSalesInvoices($request->only(['from', 'to']));
+        $csv = "invoice_no,faktur_pajak_no,transaction_code,invoice_date,customer_npwp,customer_name,dpp_nilai_lain,ppnbm,total_amount,is_pkp\n";
+        foreach ($data['rows'] as $row) {
+            $csv .= sprintf(
+                "%s,%s,%s,%s,%s,%s,%s,%s,%.2f,%s\n",
+                $row['invoice_no'],
+                $row['faktur_pajak_no'] ?? '',
+                $row['transaction_code'],
+                $row['invoice_date'],
+                $row['customer_npwp'] ?? '',
+                str_replace(',', ' ', (string) $row['customer_name']),
+                $row['dpp_nilai_lain'] ?? '',
+                $row['ppnbm'] ?? '',
+                $row['total_amount'],
+                $row['is_pkp'] ? '1' : '0'
+            );
+        }
+
+        return response($csv, 200, [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="coretax-efaktur.csv"',
+        ]);
+    }
+
+    public function exportEbupot(Request $request)
+    {
+        $data = $this->taxService->exportEbupotWithholding($request->only(['from', 'to']));
+        $csv = "transaction_no,date,tax_type,npwp,name,taxable_amount,tax_rate,tax_amount,reference_type,reference_id\n";
+        foreach ($data['rows'] as $row) {
+            $csv .= sprintf(
+                "%s,%s,%s,%s,%s,%.2f,%.2f,%.2f,%s,%s\n",
+                $row['transaction_no'],
+                $row['transaction_date'],
+                $row['tax_type'],
+                $row['tax_number'] ?? '',
+                str_replace(',', ' ', (string) ($row['tax_name'] ?? '')),
+                $row['taxable_amount'],
+                $row['tax_rate'],
+                $row['tax_amount'],
+                $row['reference_type'] ?? '',
+                $row['reference_id'] ?? ''
+            );
+        }
+
+        return response($csv, 200, [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="ebupot-withholding.csv"',
+        ]);
     }
 }

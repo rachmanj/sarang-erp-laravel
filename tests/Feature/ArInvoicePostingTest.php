@@ -24,7 +24,7 @@ class ArInvoicePostingTest extends TestCase
 
     public function test_posting_invoice_creates_balanced_journal(): void
     {
-        $revenueId = (int) DB::table('accounts')->where('code', '4.1.1')->value('id');
+        $revenueId = (int) DB::table('accounts')->where('code', '4.1.1.01')->value('id');
         $customerId = (int) DB::table('business_partners')->where('partner_type', 'customer')->value('id');
 
         $entityId = (int) DB::table('company_entities')->where('code', '71')->value('id');
@@ -54,7 +54,7 @@ class ArInvoicePostingTest extends TestCase
 
     public function test_posting_tax_inclusive_line_with_eleven_percent_vat_splits_ar_and_ppn(): void
     {
-        $revenueId = (int) DB::table('accounts')->where('code', '4.1.1')->value('id');
+        $revenueId = (int) DB::table('accounts')->where('code', '4.1.1.01')->value('id');
         $customerId = (int) DB::table('business_partners')->where('partner_type', 'customer')->value('id');
         $entityId = (int) DB::table('company_entities')->where('code', '71')->value('id');
         $taxCodeId = (int) DB::table('tax_codes')->where('code', 'PPN11_OUT')->value('id');
@@ -99,7 +99,7 @@ class ArInvoicePostingTest extends TestCase
         $ppnCredit = (float) DB::table('journal_lines as jl')
             ->join('accounts as a', 'a.id', '=', 'jl.account_id')
             ->where('jl.journal_id', $jid)
-            ->where('a.code', '2.1.2')
+            ->where('a.code', '2.1.2.01')
             ->value('jl.credit');
         $arUnInvoiceCredit = (float) DB::table('journal_lines as jl')
             ->join('accounts as a', 'a.id', '=', 'jl.account_id')
@@ -109,7 +109,7 @@ class ArInvoicePostingTest extends TestCase
         $revenueDebit = (float) DB::table('journal_lines as jl')
             ->join('accounts as a', 'a.id', '=', 'jl.account_id')
             ->where('jl.journal_id', $jid)
-            ->where('a.code', '4.1.1')
+            ->where('a.code', '4.1.1.01')
             ->value('jl.debit');
 
         $this->assertEqualsWithDelta(66600.0, $arDebit, 0.01);
@@ -123,7 +123,7 @@ class ArInvoicePostingTest extends TestCase
 
     public function test_validate_posted_journals_command_exits_zero(): void
     {
-        $revenueId = (int) DB::table('accounts')->where('code', '4.1.1')->value('id');
+        $revenueId = (int) DB::table('accounts')->where('code', '4.1.1.01')->value('id');
         $customerId = (int) DB::table('business_partners')->where('partner_type', 'customer')->value('id');
         $entityId = (int) DB::table('company_entities')->where('code', '71')->value('id');
 

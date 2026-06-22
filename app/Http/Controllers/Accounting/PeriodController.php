@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Accounting;
 use App\Http\Controllers\Controller;
 use App\Services\Accounting\PeriodCloseService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
 
 class PeriodController extends Controller
 {
@@ -18,6 +17,7 @@ class PeriodController extends Controller
     {
         $year = (int) ($request->query('year') ?: now()->year);
         $periods = $this->service->listPeriods($year);
+
         return view('periods.index', compact('year', 'periods'));
     }
 
@@ -29,6 +29,7 @@ class PeriodController extends Controller
             'month' => ['required', 'integer', 'min:1', 'max:12'],
         ]);
         $this->service->close($data['year'], $data['month']);
+
         return back()->with('success', 'Period closed');
     }
 
@@ -40,6 +41,29 @@ class PeriodController extends Controller
             'month' => ['required', 'integer', 'min:1', 'max:12'],
         ]);
         $this->service->open($data['year'], $data['month']);
+
         return back()->with('success', 'Period opened');
+    }
+
+    public function closeFiscalYear(Request $request)
+    {
+        $this->authorize('periods.close');
+        $data = $request->validate([
+            'year' => ['required', 'integer', 'min:2000', 'max:2100'],
+        ]);
+        $result = $this->service->closeFiscalYear($data['year'], $request->user()?->id);
+
+        return back()->with('success', 'Fiscal year '.$data['year'].' closed. Closing journal #'.$result['closing_journal_id']);
+    }
+
+    public function openFiscalYear(Request $request)
+    {
+        $this->authorize('periods.close');
+        $data = $request->validate([
+            'year' => ['required', 'integer', 'min:2000', 'max:2100'],
+        ]);
+        $result = $this->service->openNewFiscalYear($data['year'], $request->user()?->id);
+
+        return back()->with('success', 'Fiscal year '.$data['year'].' opened. Roll-forward journal #'.$result['roll_journal_id']);
     }
 }

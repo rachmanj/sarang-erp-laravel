@@ -10,6 +10,8 @@ Route::prefix('reports')->group(function () {
     Route::get('/trial-balance', [ReportsController::class, 'trialBalance'])->name('reports.trial-balance');
     Route::get('/balance-sheet', [ReportsController::class, 'balanceSheet'])->name('reports.balance-sheet');
     Route::get('/profit-loss', [ReportsController::class, 'profitLoss'])->name('reports.profit-loss');
+    Route::get('/statement-of-changes-in-equity', [ReportsController::class, 'statementOfChangesInEquity'])->name('reports.statement-of-changes-in-equity');
+    Route::get('/ppn-reconciliation', [ReportsController::class, 'ppnReconciliation'])->name('reports.ppn-reconciliation');
     Route::get('/cash-flow-statement', [ReportsController::class, 'cashFlowStatement'])->name('reports.cash-flow-statement');
     Route::get('/gl-detail', [ReportsController::class, 'glDetail'])->name('reports.gl-detail');
     Route::get('/ar-aging', [ReportsController::class, 'arAging'])->name('reports.ar-aging');
@@ -18,6 +20,7 @@ Route::prefix('reports')->group(function () {
     Route::get('/withholding-recap', [ReportsController::class, 'withholdingRecap'])->name('reports.withholding-recap');
     Route::get('/ar-balances', [ReportsController::class, 'arBalances'])->name('reports.ar-balances');
     Route::get('/ap-balances', [ReportsController::class, 'apBalances'])->name('reports.ap-balances');
+    Route::get('/subledger-reconciliation', [ReportsController::class, 'subledgerReconciliation'])->name('reports.subledger-reconciliation');
 
     Route::get('/document-creation-logs', [DocumentCreationLogsController::class, 'index'])
         ->name('reports.document-creation-logs.index');

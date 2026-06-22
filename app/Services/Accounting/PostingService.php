@@ -24,7 +24,10 @@ class PostingService
         // Expected $payload keys: date, description, period_id|null, source_type, source_id, posted_by|null, lines[]
         // Each line: account_id, debit, credit, project_id|null, dept_id|null, memo|null
         // Multi-currency support: currency_id, exchange_rate, debit_foreign, credit_foreign
-        $this->validatePayload($payload);
+        $skipPostableValidation = (bool) ($payload['skip_postable_validation'] ?? false);
+        unset($payload['skip_postable_validation']);
+
+        $this->validatePayload($payload, $skipPostableValidation);
         $this->assertBalanced($payload['lines']);
         $this->validateMultiCurrency($payload['lines']);
 
@@ -132,10 +135,12 @@ class PostingService
             ];
         }
 
+        $payload['skip_postable_validation'] = true;
+
         return $this->postJournal($payload);
     }
 
-    private function validatePayload(array $payload): void
+    private function validatePayload(array $payload, bool $skipPostableValidation = false): void
     {
         foreach (['date', 'source_type', 'source_id', 'lines'] as $key) {
             if (! array_key_exists($key, $payload)) {
@@ -145,6 +150,12 @@ class PostingService
         if (! is_array($payload['lines']) || count($payload['lines']) === 0) {
             throw new \InvalidArgumentException('Journal must contain at least one line');
         }
+        $accountIds = collect($payload['lines'])->pluck('account_id')->filter()->unique()->values()->all();
+        $nonPostableAccounts = DB::table('accounts')
+            ->whereIn('id', $accountIds)
+            ->where('is_postable', false)
+            ->get(['id', 'code', 'name']);
+
         foreach ($payload['lines'] as $idx => $l) {
             if (empty($l['account_id'])) {
                 throw new \InvalidArgumentException("Line {$idx} missing account_id");
@@ -157,6 +168,13 @@ class PostingService
             if ($debit === 0.0 && $credit === 0.0) {
                 throw new \InvalidArgumentException("Line {$idx} must have debit or credit");
             }
+        }
+
+        if (! $skipPostableValidation && $nonPostableAccounts->isNotEmpty()) {
+            $account = $nonPostableAccounts->first();
+            throw new \InvalidArgumentException(
+                "Account {$account->code} ({$account->name}) is not postable"
+            );
         }
     }
 
@@ -329,6 +347,8 @@ class PostingService
             return $this->companyEntityService->getDefaultEntity()->id;
         }
 
+        $sourceType = $this->normalizeSourceType($sourceType);
+
         // Try to resolve entity from source document
         $sourceModel = null;
         try {
@@ -342,11 +362,17 @@ class PostingService
                 case 'sales_credit_memo':
                     $sourceModel = \App\Models\Accounting\SalesCreditMemo::find($sourceId);
                     break;
+                case 'App\Models\GoodsReceiptPO':
+                    $sourceModel = \App\Models\GoodsReceiptPO::find($sourceId);
+                    break;
                 case 'App\Models\AssetDisposal':
                     $sourceModel = \App\Models\AssetDisposal::find($sourceId);
                     break;
                 case 'cash_expense':
                     $sourceModel = \App\Models\Accounting\CashExpense::find($sourceId);
+                    break;
+                case 'bank_reconciliation':
+                    $sourceModel = \App\Models\Bank\BankReconciliation::find($sourceId);
                     break;
             }
 
@@ -359,5 +385,17 @@ class PostingService
 
         // Default fallback
         return $this->companyEntityService->getDefaultEntity()->id;
+    }
+
+    private function normalizeSourceType(string $sourceType): string
+    {
+        return match ($sourceType) {
+            'sales_invoice' => \App\Models\Accounting\SalesInvoice::class,
+            'sales_receipt' => \App\Models\Accounting\SalesReceipt::class,
+            'purchase_invoice' => \App\Models\Accounting\PurchaseInvoice::class,
+            'purchase_payment' => \App\Models\Accounting\PurchasePayment::class,
+            'goods_receipt_po' => \App\Models\GoodsReceiptPO::class,
+            default => $sourceType,
+        };
     }
 }

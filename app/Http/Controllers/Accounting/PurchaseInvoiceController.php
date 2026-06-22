@@ -3,25 +3,31 @@
 namespace App\Http\Controllers\Accounting;
 
 use App\Exports\PurchaseInvoiceListExport;
+use App\Http\Controllers\Concerns\HandlesDocumentDeletion;
 use App\Http\Controllers\Controller;
 use App\Models\Accounting\PurchaseInvoice;
 use App\Models\Accounting\PurchaseInvoiceLine;
 use App\Models\GoodsReceiptPO;
 use App\Models\InventoryItem;
 use App\Models\PurchaseOrder;
+use App\Models\User;
 use App\Models\Warehouse;
-use App\Services\Accounting\HeaderDiscountAllocation;
+use App\Services\Accounting\JournalBuilders\PurchaseInvoiceJournalBuilder;
 use App\Services\Accounting\PostingService;
 use App\Services\Accounting\PurchaseDocumentHeaderDiscountApplier;
 use App\Services\Accounting\PurchaseInvoiceFooterMath;
+use App\Services\Accounting\PurchaseInvoiceUnpostService;
 use App\Services\CompanyEntityService;
 use App\Services\DocumentClosureService;
 use App\Services\DocumentNumberingService;
 use App\Services\DocumentRelationshipService;
+use App\Services\Documents\DocumentType;
 use App\Services\PurchaseInvoiceGrpoAggregationService;
 use App\Services\PurchaseInvoiceService;
 use App\Services\PurchaseWorkflowAuditService;
+use App\Services\TaxService;
 use App\Services\UnitConversionService;
+use App\Support\DocumentOpenState;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -32,6 +38,8 @@ use Yajra\DataTables\Facades\DataTables;
 
 class PurchaseInvoiceController extends Controller
 {
+    use HandlesDocumentDeletion;
+
     public function __construct(
         private PostingService $posting,
         private DocumentNumberingService $documentNumberingService,
@@ -42,11 +50,14 @@ class PurchaseInvoiceController extends Controller
         private DocumentRelationshipService $documentRelationshipService,
         private PurchaseInvoiceGrpoAggregationService $purchaseInvoiceGrpoAggregationService,
         private PurchaseDocumentHeaderDiscountApplier $purchaseDocumentHeaderDiscountApplier,
+        private PurchaseInvoiceJournalBuilder $purchaseInvoiceJournalBuilder,
+        private PurchaseInvoiceUnpostService $purchaseInvoiceUnpostService,
     ) {
         $this->middleware(['auth']);
         $this->middleware('permission:ap.invoices.view')->only(['index', 'show']);
         $this->middleware('permission:ap.invoices.create')->only(['create', 'store', 'availableGrposForSupplier', 'prefillFromGrpos']);
-        $this->middleware('permission:ap.invoices.post')->only(['post']);
+        $this->middleware('permission:ap.invoices.post')->only(['post', 'unpost']);
+        $this->middleware('permission:ap.invoices.delete')->only(['destroy', 'deletePreview']);
     }
 
     public function index()
@@ -187,6 +198,7 @@ class PurchaseInvoiceController extends Controller
             'lines.*.warehouse_id' => ['nullable', 'integer', 'exists:warehouses,id'],
             'lines.*.order_unit_id' => ['nullable', 'integer', 'exists:units_of_measure,id'],
             'lines.*.tax_code_id' => ['nullable', 'integer', 'exists:tax_codes,id'],
+            'lines.*.wtax_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'lines.*.project_id' => ['nullable', 'integer'],
             'lines.*.dept_id' => ['nullable', 'integer'],
             'lines.*.discount_amount' => ['nullable', 'numeric', 'min:0'],
@@ -399,6 +411,7 @@ class PurchaseInvoiceController extends Controller
                     'vat_amount' => $vatAmount,
                     'amount_after_vat' => $amountAfterVat,
                     'tax_code_id' => $l['tax_code_id'] ?? null,
+                    'wtax_rate' => (float) ($l['wtax_rate'] ?? 0),
                     'project_id' => $l['project_id'] ?? null,
                     'dept_id' => $l['dept_id'] ?? null,
                 ]);
@@ -475,6 +488,15 @@ class PurchaseInvoiceController extends Controller
         $totalAllocated = $invoice->paymentAllocations->sum('amount');
         $remainingBalance = $invoiceFooter['amount_due'] - $totalAllocated;
 
+        /** @var User|null $user */
+        $user = Auth::user();
+        $canCreatePayment = $user instanceof User
+            && $user->can('ap.payments.create')
+            && $invoice->status === 'posted'
+            && $remainingBalance > 0.01
+            && $invoice->payment_method !== 'cash'
+            && ! $invoice->is_direct_purchase;
+
         // Get related documents
         $purchaseOrder = null;
         if ($invoice->purchase_order_id) {
@@ -500,6 +522,7 @@ class PurchaseInvoiceController extends Controller
             'invoiceFooter',
             'totalAllocated',
             'remainingBalance',
+            'canCreatePayment',
             'purchaseOrder',
             'linkedGoodsReceiptPos',
             'cashAccount'
@@ -583,6 +606,7 @@ class PurchaseInvoiceController extends Controller
             'lines.*.warehouse_id' => ['nullable', 'integer', 'exists:warehouses,id'],
             'lines.*.order_unit_id' => ['nullable', 'integer', 'exists:units_of_measure,id'],
             'lines.*.tax_code_id' => ['nullable', 'integer', 'exists:tax_codes,id'],
+            'lines.*.wtax_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'lines.*.project_id' => ['nullable', 'integer'],
             'lines.*.dept_id' => ['nullable', 'integer'],
             'lines.*.discount_amount' => ['nullable', 'numeric', 'min:0'],
@@ -717,6 +741,7 @@ class PurchaseInvoiceController extends Controller
                     'vat_amount' => $vatAmount,
                     'amount_after_vat' => $amountAfterVat,
                     'tax_code_id' => $l['tax_code_id'] ?? null,
+                    'wtax_rate' => (float) ($l['wtax_rate'] ?? 0),
                     'project_id' => $l['project_id'] ?? null,
                     'dept_id' => $l['dept_id'] ?? null,
                 ]);
@@ -792,6 +817,8 @@ class PurchaseInvoiceController extends Controller
 
                 $invoice->update(['status' => 'posted', 'posted_at' => now()]);
 
+                app(TaxService::class)->syncPostedPurchaseInvoice($invoice->fresh(['lines', 'businessPartner']));
+
                 return 'posted';
             });
 
@@ -835,110 +862,20 @@ class PurchaseInvoiceController extends Controller
         }
 
         return DB::transaction(function () use ($invoice) {
-            // Find and reverse journal entries
-            $journals = DB::table('journals')
-                ->where('source_type', 'purchase_invoice')
-                ->where('source_id', $invoice->id)
-                ->get();
-
-            foreach ($journals as $journal) {
-                try {
-                    $this->posting->reverseJournal(
-                        $journal->id,
-                        now()->toDateString(),
-                        auth()->id()
-                    );
-                } catch (\Exception $e) {
-                    \Log::error('Failed to reverse journal for Purchase Invoice', [
-                        'invoice_id' => $invoice->id,
-                        'journal_id' => $journal->id,
-                        'error' => $e->getMessage(),
-                    ]);
-                    throw new \Exception('Failed to reverse journal entries: '.$e->getMessage());
-                }
-            }
-
-            // Delete inventory transactions if any (for direct purchases, but not opening balance)
-            if ($invoice->is_direct_purchase && ! $invoice->is_opening_balance) {
-                $inventoryTransactions = $invoice->inventoryTransactions;
-                $itemsToUpdate = [];
-
-                foreach ($inventoryTransactions as $transaction) {
-                    try {
-                        // Track items that need valuation updates
-                        if (! in_array($transaction->item_id, $itemsToUpdate)) {
-                            $itemsToUpdate[] = $transaction->item_id;
-                        }
-
-                        // Reverse inventory transaction by creating opposite transaction
-                        \App\Models\InventoryTransaction::create([
-                            'item_id' => $transaction->item_id,
-                            'transaction_type' => 'adjustment',
-                            'quantity' => -$transaction->quantity, // Negative to reverse
-                            'unit_cost' => $transaction->unit_cost,
-                            'total_cost' => -$transaction->total_cost,
-                            'reference_type' => 'purchase_invoice',
-                            'reference_id' => $invoice->id,
-                            'transaction_date' => now()->toDateString(),
-                            'notes' => 'Reversal of purchase invoice #'.$invoice->invoice_no,
-                            'warehouse_id' => $transaction->warehouse_id,
-                            'created_by' => auth()->id(),
-                        ]);
-
-                        // Delete original transaction
-                        $transaction->delete();
-                    } catch (\Exception $e) {
-                        \Log::error('Failed to reverse inventory transaction for Purchase Invoice', [
-                            'invoice_id' => $invoice->id,
-                            'transaction_id' => $transaction->id,
-                            'error' => $e->getMessage(),
-                        ]);
-                        // Continue even if inventory reversal fails
-                    }
-                }
-
-                // Update valuations for affected items after reversing transactions
-                foreach ($itemsToUpdate as $itemId) {
-                    try {
-                        $item = \App\Models\InventoryItem::find($itemId);
-                        if ($item) {
-                            app(\App\Services\InventoryService::class)->updateItemValuation($item);
-                        }
-                    } catch (\Exception $e) {
-                        \Log::warning('Failed to update valuation after unposting Purchase Invoice', [
-                            'invoice_id' => $invoice->id,
-                            'item_id' => $itemId,
-                            'error' => $e->getMessage(),
-                        ]);
-                        // Continue even if valuation update fails
-                    }
-                }
-            }
-
-            // Update invoice status back to draft
-            $invoice->update([
-                'status' => 'draft',
-                'posted_at' => null,
-            ]);
+            $this->purchaseInvoiceUnpostService->unpost($invoice);
 
             return back()->with('success', 'Purchase invoice unposted successfully. Journal entries have been reversed.');
         });
     }
 
-    /**
-     * DPP per line after header discount scaling (aligned with {@see PurchaseInvoiceFooterMath} and line storage).
-     *
-     * @return array<int, float>
-     */
-    private function scaledDppByPurchaseInvoiceLineId(PurchaseInvoice $invoice): array
+    protected function documentDeletionType(): string
     {
-        $invoice->load(['lines' => fn ($q) => $q->orderBy('id')]);
-        $map = [];
-        foreach (HeaderDiscountAllocation::purchaseInvoiceLineScaled($invoice) as $row) {
-            $map[$row['line_id']] = (float) $row['dpp'];
-        }
+        return DocumentType::PURCHASE_INVOICE;
+    }
 
-        return $map;
+    public function destroy(int $id)
+    {
+        return $this->destroyDocument($id);
     }
 
     /**
@@ -971,141 +908,14 @@ class PurchaseInvoiceController extends Controller
      */
     private function postDirectCashPurchase(PurchaseInvoice $invoice): void
     {
-        // Use selected cash account, or fallback to default (Kas di Tangan)
-        $cashAccountId = $invoice->cash_account_id;
-        if (! $cashAccountId) {
-            $cashAccountId = (int) DB::table('accounts')->where('code', '1.1.1.01')->value('id'); // Default: Kas di Tangan
-        }
-        $ppnInputId = (int) (DB::table('accounts')->where('code', '1.1.4.01')->value('id') ?? DB::table('accounts')->where('code', '1.1.6')->value('id') ?? 0);
-
-        $totalAmount = 0.0;
-        $ppnTotal = 0.0;
-        $withholdingTotal = 0.0;
-        $journalLines = [];
-
-        // Group by account for opening balance invoices
-        $expenseByAccount = [];
-
-        $dppByLineId = $this->scaledDppByPurchaseInvoiceLineId($invoice);
-
-        foreach ($invoice->lines as $line) {
-            $lineAmount = $dppByLineId[$line->id]
-                ?? (($line->net_amount > 0) ? (float) $line->net_amount : (float) $line->amount);
-            $totalAmount += $lineAmount;
-
-            // Group by account for opening balance invoices
-            if ($invoice->is_opening_balance) {
-                $accountId = (int) $line->account_id;
-                if (! isset($expenseByAccount[$accountId])) {
-                    $expenseByAccount[$accountId] = [
-                        'amount' => 0,
-                        'project_id' => $line->project_id,
-                        'dept_id' => $line->dept_id,
-                    ];
-                }
-                $expenseByAccount[$accountId]['amount'] += $lineAmount;
-            }
-
-            // Calculate taxes (VAT on net amount - use stored vat_amount from line)
-            if (! empty($line->tax_code_id)) {
-                $tax = DB::table('tax_codes')->where('id', $line->tax_code_id)->first();
-                if ($tax) {
-                    $rate = (float) $tax->rate;
-                    if (str_contains(strtolower((string) $tax->name), 'ppn') || strtolower((string) $tax->type) === 'ppn_input') {
-                        $ppnTotal += round($lineAmount * ($rate / 100), 2);
-                    }
-                    if (strtolower((string) $tax->type) === 'withholding') {
-                        $withholdingTotal += round($lineAmount * ($rate / 100), 2);
-                    }
-                }
-            }
-
-            // For normal invoices: Debit Inventory Account (from line's account_id or resolve from inventory item)
-            // For opening balance: Will be handled separately below
-            if (! $invoice->is_opening_balance) {
-                $accountId = $line->account_id;
-                if (empty($accountId) && $line->inventory_item_id && $line->inventoryItem) {
-                    $accountId = $this->purchaseInvoiceService->getAccountIdForItem($line->inventoryItem);
-                }
-                if (empty($accountId)) {
-                    throw new \Exception("Line {$line->id} missing account_id. Please set account or ensure inventory item has a product category with inventory account.");
-                }
-                $journalLines[] = [
-                    'account_id' => $accountId,
-                    'debit' => $lineAmount,
-                    'credit' => 0,
-                    'project_id' => $line->project_id,
-                    'dept_id' => $line->dept_id,
-                    'memo' => $line->description ?? 'Direct cash purchase',
-                ];
-            }
-        }
-
-        // For opening balance invoices: Debit accounts from lines
-        if ($invoice->is_opening_balance) {
-            foreach ($expenseByAccount as $accountId => $data) {
-                $journalLines[] = [
-                    'account_id' => $accountId,
-                    'debit' => $data['amount'],
-                    'credit' => 0,
-                    'project_id' => $data['project_id'],
-                    'dept_id' => $data['dept_id'],
-                    'memo' => 'Opening Balance - Direct Cash Purchase',
-                ];
-            }
-        }
-
-        // PPN Input (if any)
-        if ($ppnTotal > 0) {
-            if (! $ppnInputId) {
-                throw new \Exception('PPN Input account (1.1.4.01 or 1.1.6) not found. Please create the account in Chart of Accounts.');
-            }
-            $journalLines[] = [
-                'account_id' => $ppnInputId,
-                'debit' => $ppnTotal,
-                'credit' => 0,
-                'project_id' => null,
-                'dept_id' => null,
-                'memo' => 'PPN Masukan',
-            ];
-        }
-
-        // Withholding Tax Payable (if any)
-        if ($withholdingTotal > 0) {
-            $withholdingPayableId = (int) DB::table('accounts')->where('code', '2.1.3')->value('id');
-            if ($withholdingPayableId) {
-                $journalLines[] = [
-                    'account_id' => $withholdingPayableId,
-                    'debit' => 0,
-                    'credit' => $withholdingTotal,
-                    'project_id' => null,
-                    'dept_id' => null,
-                    'memo' => 'Withholding Tax Payable',
-                ];
-            }
-        }
-
-        // Credit Cash Account
-        $totalCashCredit = ($totalAmount + $ppnTotal) - $withholdingTotal;
-        $journalLines[] = [
-            'account_id' => $cashAccountId,
-            'debit' => 0,
-            'credit' => $totalCashCredit,
-            'project_id' => null,
-            'dept_id' => null,
-            'memo' => $invoice->is_opening_balance
-                ? 'Cash payment for opening balance invoice #'.$invoice->invoice_no
-                : 'Cash payment for purchase invoice #'.$invoice->invoice_no,
-        ];
+        $draft = $this->purchaseInvoiceJournalBuilder->build($invoice);
 
         $this->posting->postJournal([
-            'date' => $invoice->date->toDateString(),
-            'description' => $invoice->is_opening_balance
-                ? 'Direct Cash Purchase Invoice (Opening Balance) #'.$invoice->invoice_no
-                : 'Direct Cash Purchase Invoice #'.$invoice->invoice_no,
+            'date' => $draft->date ?? $invoice->date->toDateString(),
+            'description' => $draft->description,
             'source_type' => 'purchase_invoice',
             'source_id' => $invoice->id,
-            'lines' => $journalLines,
+            'lines' => $draft->lines,
         ]);
     }
 
@@ -1116,114 +926,14 @@ class PurchaseInvoiceController extends Controller
      */
     private function postCreditPurchase(PurchaseInvoice $invoice): void
     {
-        $apUnInvoiceAccountId = (int) DB::table('accounts')->where('code', '2.1.1.03')->value('id'); // AP UnInvoice
-        $apAccountId = (int) DB::table('accounts')->where('code', '2.1.1.01')->value('id'); // Utang Dagang
-        $ppnInputId = (int) (DB::table('accounts')->where('code', '1.1.4.01')->value('id') ?? DB::table('accounts')->where('code', '1.1.6')->value('id') ?? 0);
-
-        $expenseTotal = 0.0;
-        $ppnTotal = 0.0;
-        $withholdingTotal = 0.0;
-        $lines = [];
-
-        // Calculate totals and group by account for opening balance or direct credit (no GRPO)
-        $expenseByAccount = [];
-        $useLineAccounts = $invoice->is_opening_balance || ! $invoice->isLinkedToGoodsReceiptPo();
-        $dppByLineId = $this->scaledDppByPurchaseInvoiceLineId($invoice);
-        foreach ($invoice->lines as $l) {
-            $lineAmount = $dppByLineId[$l->id]
-                ?? (($l->net_amount > 0) ? (float) $l->net_amount : (float) $l->amount);
-            $expenseTotal += $lineAmount;
-
-            if ($useLineAccounts) {
-                $accountId = (int) $l->account_id;
-                if (! isset($expenseByAccount[$accountId])) {
-                    $expenseByAccount[$accountId] = 0;
-                }
-                $expenseByAccount[$accountId] += $lineAmount;
-            }
-
-            if (! empty($l->tax_code_id)) {
-                $tax = DB::table('tax_codes')->where('id', $l->tax_code_id)->first();
-                if ($tax) {
-                    $rate = (float) $tax->rate;
-                    if (str_contains(strtolower((string) $tax->name), 'ppn') || strtolower((string) $tax->type) === 'ppn_input') {
-                        $ppnTotal += round($lineAmount * ($rate / 100), 2);
-                    }
-                    if (strtolower((string) $tax->type) === 'withholding') {
-                        $withholdingTotal += round($lineAmount * ($rate / 100), 2);
-                    }
-                }
-            }
-        }
-
-        if ($ppnTotal > 0) {
-            if (! $ppnInputId) {
-                throw new \Exception('PPN Input account (1.1.4.01 or 1.1.6) not found. Please create the account in Chart of Accounts.');
-            }
-            $lines[] = [
-                'account_id' => $ppnInputId,
-                'debit' => $ppnTotal,
-                'credit' => 0,
-                'project_id' => null,
-                'dept_id' => null,
-                'memo' => 'PPN Masukan',
-            ];
-        }
-
-        if ($withholdingTotal > 0) {
-            $withholdingPayableId = (int) DB::table('accounts')->where('code', '2.1.3')->value('id');
-            if ($withholdingPayableId) {
-                $lines[] = [
-                    'account_id' => $withholdingPayableId,
-                    'debit' => 0,
-                    'credit' => $withholdingTotal,
-                    'project_id' => null,
-                    'dept_id' => null,
-                    'memo' => 'Withholding Tax Payable',
-                ];
-            }
-        }
-
-        if ($useLineAccounts) {
-            foreach ($expenseByAccount as $accountId => $amount) {
-                $lines[] = [
-                    'account_id' => $accountId,
-                    'debit' => $amount,
-                    'credit' => 0,
-                    'project_id' => null,
-                    'dept_id' => null,
-                    'memo' => $invoice->is_opening_balance ? 'Opening Balance - Expense/Inventory' : 'Expense/Inventory',
-                ];
-            }
-        } else {
-            $lines[] = [
-                'account_id' => $apUnInvoiceAccountId,
-                'debit' => $expenseTotal,
-                'credit' => 0,
-                'project_id' => null,
-                'dept_id' => null,
-                'memo' => 'Reduce AP UnInvoice',
-            ];
-        }
-
-        // Credit Utang Dagang (creating proper liability)
-        $lines[] = [
-            'account_id' => $apAccountId,
-            'debit' => 0,
-            'credit' => ($expenseTotal + $ppnTotal) - $withholdingTotal,
-            'project_id' => null,
-            'dept_id' => null,
-            'memo' => $invoice->is_opening_balance ? 'Accounts Payable - Opening Balance' : 'Accounts Payable',
-        ];
+        $draft = $this->purchaseInvoiceJournalBuilder->build($invoice);
 
         $this->posting->postJournal([
-            'date' => $invoice->date->toDateString(),
-            'description' => $invoice->is_opening_balance
-                ? 'Post AP Invoice (Opening Balance) #'.$invoice->invoice_no
-                : 'Post AP Invoice #'.$invoice->invoice_no,
+            'date' => $draft->date ?? $invoice->date->toDateString(),
+            'description' => $draft->description,
             'source_type' => 'purchase_invoice',
             'source_id' => $invoice->id,
-            'lines' => $lines,
+            'lines' => $draft->lines,
         ]);
     }
 
@@ -1405,6 +1115,13 @@ class PurchaseInvoiceController extends Controller
         if ($request->filled('company_entity_id')) {
             $query->where('pi.company_entity_id', (int) $request->company_entity_id);
         }
+
+        DocumentOpenState::applyToQuery(
+            $query,
+            'purchase_invoice',
+            'pi',
+            $request->input('open_state', DocumentOpenState::DEFAULT_STATE)
+        );
     }
 
     /**

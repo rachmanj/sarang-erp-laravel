@@ -28,7 +28,8 @@ Route::prefix('sales-invoices')->group(function () {
     Route::get('/{id}', [SalesInvoiceController::class, 'show'])->middleware('permission:ar.invoices.view')->name('sales-invoices.show');
     Route::get('/{id}/edit', [SalesInvoiceController::class, 'edit'])->middleware('permission:ar.invoices.create')->name('sales-invoices.edit');
     Route::put('/{id}', [SalesInvoiceController::class, 'update'])->middleware('permission:ar.invoices.create')->name('sales-invoices.update');
-    Route::delete('/{id}', [SalesInvoiceController::class, 'destroy'])->middleware('permission:ar.invoices.create')->name('sales-invoices.destroy');
+    Route::get('/{id}/delete-preview', [SalesInvoiceController::class, 'deletePreview'])->middleware('permission:ar.invoices.delete')->name('sales-invoices.delete-preview');
+    Route::delete('/{id}', [SalesInvoiceController::class, 'destroy'])->middleware('permission:ar.invoices.delete')->name('sales-invoices.destroy');
     Route::post('/{id}/post', [SalesInvoiceController::class, 'post'])->middleware('permission:ar.invoices.post')->name('sales-invoices.post');
     Route::get('/{id}/print', [SalesInvoiceController::class, 'print'])->middleware('permission:ar.invoices.view')->name('sales-invoices.print');
     Route::get('/{id}/pdf', [SalesInvoiceController::class, 'pdf'])->middleware('permission:ar.invoices.view')->name('sales-invoices.pdf');
@@ -42,6 +43,8 @@ Route::prefix('sales-credit-memos')->group(function () {
     Route::get('/create', [SalesCreditMemoController::class, 'create'])->middleware('permission:ar.credit-memos.create')->name('sales-credit-memos.create');
     Route::post('/', [SalesCreditMemoController::class, 'store'])->middleware('permission:ar.credit-memos.create')->name('sales-credit-memos.store');
     Route::get('/{id}', [SalesCreditMemoController::class, 'show'])->middleware('permission:ar.credit-memos.view')->name('sales-credit-memos.show');
+    Route::get('/{id}/delete-preview', [SalesCreditMemoController::class, 'deletePreview'])->middleware('permission:ar.credit-memos.delete')->name('sales-credit-memos.delete-preview');
+    Route::delete('/{id}', [SalesCreditMemoController::class, 'destroy'])->middleware('permission:ar.credit-memos.delete')->name('sales-credit-memos.destroy');
     Route::post('/{id}/post', [SalesCreditMemoController::class, 'post'])->middleware('permission:ar.credit-memos.post')->name('sales-credit-memos.post');
 });
 
@@ -58,6 +61,8 @@ Route::prefix('purchase-invoices')->group(function () {
     Route::get('/{id}', [PurchaseInvoiceController::class, 'show'])->middleware('permission:ap.invoices.view')->name('purchase-invoices.show');
     Route::get('/{id}/edit', [PurchaseInvoiceController::class, 'edit'])->middleware('permission:ap.invoices.create')->name('purchase-invoices.edit');
     Route::put('/{id}', [PurchaseInvoiceController::class, 'update'])->middleware('permission:ap.invoices.create')->name('purchase-invoices.update');
+    Route::get('/{id}/delete-preview', [PurchaseInvoiceController::class, 'deletePreview'])->middleware('permission:ap.invoices.delete')->name('purchase-invoices.delete-preview');
+    Route::delete('/{id}', [PurchaseInvoiceController::class, 'destroy'])->middleware('permission:ap.invoices.delete')->name('purchase-invoices.destroy');
     Route::post('/{id}/post', [PurchaseInvoiceController::class, 'post'])->middleware('permission:ap.invoices.post')->name('purchase-invoices.post');
     Route::post('/{id}/unpost', [PurchaseInvoiceController::class, 'unpost'])->middleware('permission:ap.invoices.post')->name('purchase-invoices.unpost');
     Route::get('/{id}/print', [PurchaseInvoiceController::class, 'print'])->middleware('permission:ap.invoices.view')->name('purchase-invoices.print');
@@ -77,6 +82,8 @@ Route::prefix('sales-receipts')->group(function () {
     Route::get('/{id}/edit', [SalesReceiptController::class, 'edit'])->middleware('permission:ar.receipts.create')->name('sales-receipts.edit');
     Route::put('/{id}', [SalesReceiptController::class, 'update'])->middleware('permission:ar.receipts.create')->name('sales-receipts.update');
     Route::get('/{id}', [SalesReceiptController::class, 'show'])->middleware('permission:ar.receipts.view')->name('sales-receipts.show');
+    Route::get('/{id}/delete-preview', [SalesReceiptController::class, 'deletePreview'])->middleware('permission:ar.receipts.delete')->name('sales-receipts.delete-preview');
+    Route::delete('/{id}', [SalesReceiptController::class, 'destroy'])->middleware('permission:ar.receipts.delete')->name('sales-receipts.destroy');
     Route::post('/{id}/post', [SalesReceiptController::class, 'post'])->middleware('permission:ar.receipts.post')->name('sales-receipts.post');
     Route::get('/{id}/print', function ($id) {
         $receipt = \App\Models\Accounting\SalesReceipt::with('lines')->findOrFail($id);
@@ -97,6 +104,8 @@ Route::prefix('purchase-payments')->group(function () {
     Route::get('/api/document-number', [PurchasePaymentController::class, 'getDocumentNumber'])->middleware('permission:ap.payments.create')->name('purchase-payments.api.document-number');
     Route::post('/', [PurchasePaymentController::class, 'store'])->middleware('permission:ap.payments.create')->name('purchase-payments.store');
     Route::get('/{id}', [PurchasePaymentController::class, 'show'])->middleware('permission:ap.payments.view')->name('purchase-payments.show');
+    Route::get('/{id}/delete-preview', [PurchasePaymentController::class, 'deletePreview'])->middleware('permission:ap.payments.delete')->name('purchase-payments.delete-preview');
+    Route::delete('/{id}', [PurchasePaymentController::class, 'destroy'])->middleware('permission:ap.payments.delete')->name('purchase-payments.destroy');
     Route::post('/{id}/post', [PurchasePaymentController::class, 'post'])->middleware('permission:ap.payments.post')->name('purchase-payments.post');
     Route::get('/{id}/print', function ($id) {
         $payment = \App\Models\Accounting\PurchasePayment::with('lines')->findOrFail($id);

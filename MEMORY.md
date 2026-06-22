@@ -1,5 +1,5 @@
 **Purpose**: AI's persistent knowledge base for project context and learnings
-**Last Updated**: 2026-05-30 (SI export, SR entity filter, cash expense date range + HELP)
+**Last Updated**: 2026-06-20 (Cascade document deletion)
 
 ## Memory Maintenance Guidelines
 
@@ -26,6 +26,86 @@
 ---
 
 ## Project Memory Entries
+
+### [120] Single document delete mode - 2026-06-20 ✅ COMPLETE
+
+**Challenge**: Cascade delete removes the full target chain; users sometimes need to delete only one document (e.g. a posted SI) while keeping base DO/SO and without touching unrelated targets until handled separately.
+
+**Solution**: `deleteSingle()` / `previewSingle()` with `mode=single` on existing routes. Reuses per-type `reverseAndDelete()` for the root only. Blocked when `DocumentDeletionGraph::descendants()` finds downstream documents. UI split-button dropdown on `document-delete-button`.
+
+**Learning**: Single delete must be blocked when targets exist — otherwise FK/pivot orphans and incoherent subledgers. Base documents were already preserved in cascade mode; single mode adds explicit leaf-only deletion with integrity guard.
+
+### [119] Cascade document deletion engine - 2026-06-20 ✅ COMPLETE
+
+**Challenge**: Users needed to delete documents and reset journals, inventory, tax, allocations, and closure state. Partial draft-only deletes existed; hard-deleting journals breaks control accounts; child documents had to be removed in correct order.
+
+**Solution**: `DocumentDeletionService` + `DocumentDeletionGraph` (FK/pivot discovery, leaf-first cascade) + per-type handlers reusing `reverseJournal`, `DeliveryService`, `GRPOJournalService`, `PurchaseInvoiceUnpostService`. Closed-period guard blocks delete. UI: `document-delete-button` modal with `delete-preview` JSON. Tests: `DocumentDeletionTest`.
+
+**Learning**: Always reverse GL via offsetting journals before hard-deleting source documents; validate shared SR/PP allocations before cascade; GRPO delete must reverse inventory not just journals.
+
+### [118] Open / Closed index filter (computed) - 2026-06-20 ✅ COMPLETE
+
+**Challenge**: Users wanted index pages to show only outstanding documents by default (unpaid SI, uninvoiced GRPO, partially received PO, etc.). Stored `closure_status` does not always match operational “open” (manual GRPO path, GRPO “received” vs invoiced).
+
+**Solution**: `DocumentOpenState` helper with live SQL per document type; shared `open-closed-filter` Blade switch (default Open) on all 8 index pages; `open_state` wired to DataTables AJAX; replaced PO `closure_status` dropdown.
+
+**Learning**: Index “open” for chain documents should be computed from allocations/qty/links, not `closure_status`. GRPO open = not yet invoiced (no per-line received qty on GRPO itself).
+
+### [117] Create Target Document buttons — full chain (2026-06-20) ✅ COMPLETE
+
+**Challenge**: Users had to leave a posted PI/SI, open payment/receipt create manually, and re-pick vendor/customer + invoice. PO copy buttons 404'd (missing confirmation views). SQ convert button used wrong permission; copy services rejected `ordered` POs.
+
+**Solution**: PI→PP and SI→SR via `?purchase_invoice_id=` / `?sales_invoice_id=` with `$prefill` + JS `applyInitialAllocations()`; added missing PO copy views; fixed copy-service status guard; normalized DO→SI header placement and SO/GRPO button guards; `CreateTargetDocumentTest`.
+
+**Learning**: Allocation-based targets (PP/SR) prefill partner + entity + checkbox allocation, not line copy — reuse SR edit JS pattern. Base/Target navigation card only links existing docs; create-target buttons are separate header actions.
+
+### [116] Journal preview single source of truth (2026-06-20) ✅ COMPLETE
+
+**Challenge**: Preview Journal modal used hand-coded lines in `JournalPreviewController` while posting used richer controller/service logic — preview diverged from posted GL across GRPO, PI (missing PPN Masukan), SI (wrong AR UnInvoice side, missing VAT reclass), DO (missing COGS), SR/PP (hard-coded cash account).
+
+**Solution**: `app/Services/Accounting/JournalBuilders/*` + `JournalDraft` DTO; post and preview both call the same builder; `JournalPreviewPresenter` enriches for the modal only. `JournalPreviewMatchesPostingTest` covers all six document types including PI-with-PPN.
+
+**Learning**: Any accounting preview must share the posting line-builder — duplicated preview helpers inevitably drift. Keep builders pure (no journal insert/status/tax sync); side effects stay in post methods.
+
+### [115] Purchase Order show Base/Target navigation card (2026-06-20) ✅ COMPLETE
+
+**Challenge**: PO show page only had the Relationship Map button — it lacked the shared Base/Target Document navigation card that GRPO/PI/PP already render. PO also has no GL posting, so `JournalPreviewController` has no `purchase-order` case and a Preview Journal button there would error.
+
+**Solution**: Embedded `components.document-navigation` on `purchase_orders/show.blade.php` (`documentType => 'purchase-order'`); added an optional `showPreviewJournal` flag (default `true`) to the component and set it `false` for PO so the `PreviewJournalButton` is not initialized.
+
+**Learning**: Gate UI affordances on backend capability — only documents `JournalPreviewController` supports should render the Preview Journal button. `DocumentNavigationController` uses singular slugs (`purchase-order`); PO→GRPO/PI edges already exist in `document_relationships`, so Target navigation populates with no backend changes.
+
+### [114] Purchase & Sales flow integrity fixes (2026-06-20) ✅ COMPLETE
+
+**Challenge**: GRPO double journal; SI WTax unbalanced; credit memo PPN ×100; PO copy blocked (`status=ordered` vs `approved` guard); duplicate PI withholding; tax sync used raw DPP / legacy columns.
+
+**Solution**: Remove duplicate GRPO post; `SalesInvoicePostingMath` for credit memo; AR UnInvoice credit = net + WTax; copy guards use `approval_status=approved && status=ordered`; `PurchaseInvoiceLineTaxMath`; scaled DPP in tax sync; inventory lock + warehouse decrement on sale; GRPO per-category accounts; route permissions; `PostingService` source_type slugs.
+
+**Learning**: Document status (`ordered`) and approval status are separate; tax math must always divide rate by 100; tax sync belongs inside posting transactions when compliance rows are required.
+
+### [113] Accounting reports improvement (2026-06-20) ✅ COMPLETE
+
+**Challenge**: AP aging broken (`vendor_id`), cash ledger pointed at AR, AR/AP balances inconsistent with aging, cash flow N× full TB scans, no subledger-to-GL tie-out.
+
+**Solution**: `JournalReportQueryBuilder`; `accounts.report_group`/`normal_balance` migration; unified outstanding helper; `getSubledgerReconciliation()`; balance snapshot cache; GL running balance; period/entity filters.
+
+**Learning**: Operational subledger reports must share one settlement basis with aging; classify COA explicitly instead of prefix sniffing alone.
+
+### [112] PSAK & Indonesian tax compliance remediation (2026-06-20) ✅ COMPLETE
+
+**Challenge**: Audit found FIFO mis-implementation, PPN posting to header COA, disconnected tax compliance module, missing year-end close / equity statement, LIFO (non-PSAK), incomplete PPh/wtax posting.
+
+**Solution**: True FIFO layers in `InventoryService`; `PostingService` rejects non-postable accounts; PPN Keluaran → `2.1.2.01`; `YearEndClosingService` + fiscal-year actions on Periods; `getStatementOfChangesInEquity`, PPN reconciliation + SPT-1111 JSON export; LIFO removed; `TaxService::syncPostedPurchaseInvoice/SalesInvoice`; PPh payable `2.1.2.0x`, sales wtax → `1.1.4.02`; Coretax/e-Bupot CSV exports; `tax.*` permissions + sidebar; purchase `wtax_rate` column; Faktur Pajak fields on sales invoices.
+
+**Learning**: Enforcing `is_postable` surfaced legacy header-account usage (`4.1.1`, `2.1.2`)—posting must target leaf COA codes. Tax ledger sync should run after invoice post, not via unused `processSalesTax` on orders.
+
+### [111] Bank Reconciliation — AI PDF import + COA-linked bank master (2026-06-19) ✅ COMPLETE
+
+**Challenge**: No bank statement import or matching; stub `bank_accounts` disconnected from GL; Sales Receipt / Purchase Payment posted cash leg to hardcoded `1.1.1.01` ignoring line `account_id`.
+
+**Solution**: `bank_accounts.account_id` → COA; `bank_statements` / `bank_statement_lines` / `bank_reconciliations` / `bank_reconciliation_matches`; `BankStatementParser` (PDF text + OpenRouter JSON); `BankReconciliationService` (deterministic + AI match, adjustment via `PostingService`); `CashJournalLineBuilder` for SR/PP posting; AdminLTE workbench at `/bank-reconciliation`.
+
+**Learning**: Statement **credit** maps to book **debit** on bank COA. Match table tracks reconciled `journal_line_id` without altering `journal_lines`. MySQL index names on long table names need explicit short names.
 
 ### [110] SI list export, SR company-entity invoice filter, cash expense date range (2026-05-30) ✅ COMPLETE
 

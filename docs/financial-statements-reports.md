@@ -1,6 +1,6 @@
 # Financial statement reports (Balance Sheet, P&L, Cash Flow)
 
-**Last updated**: 2026-04-08  
+**Last updated**: 2026-06-20  
 **Audience**: Developers, finance power users, implementers configuring COA prefixes for cash flow.
 
 This document describes the **implemented** behaviour of the trading-style financial reports delivered via `ReportService` and `ReportsController`. It complements `docs/architecture.md` (routing and stack) and `docs/MODULES-AND-FEATURES.md` (feature list).
@@ -11,11 +11,15 @@ This document describes the **implemented** behaviour of the trading-style finan
 
 | Report | Route name | Notes |
 |--------|----------------|-------|
-| Trial Balance | `reports.trial-balance` | All account types; debit/credit/balance. |
-| GL Detail | `reports.gl-detail` | Lines by account + date range. |
+| Trial Balance | `reports.trial-balance` | All account types; debit/credit/balance. Optional `company_entity_id`, `period_year`/`period_month`. |
+| GL Detail | `reports.gl-detail` | Lines by account + date range with **running balance** per account. Account picker in UI. |
 | Balance Sheet | `reports.balance-sheet` | Types: `asset`, `liability`, `net_assets` only. |
-| Profit & Loss | `reports.profit-loss` | Types: `income`, `expense`; bucketed by COA root (4/5/6/7). |
+| Profit & Loss | `reports.profit-loss` | Types: `income`, `expense`; bucketed by `accounts.report_group` (fallback: COA root 4/5/6/7). |
 | Cash Flow (indirect) | `reports.cash-flow-statement` | See **Cash flow configuration** below. |
+| AR/AP Aging | `reports.ar-aging`, `reports.ap-aging` | Allocation-netted outstanding; as-of date on settlements. |
+| AR/AP Balances | `reports.ar-balances`, `reports.ap-balances` | Same basis as aging totals (not raw invoice − receipt sums). |
+| Subledger Reconciliation | `reports.subledger-reconciliation` | AR/AP aging total vs GL control account (`control_accounts` type `ar`/`ap`). |
+| Cash Ledger | `reports.cash-ledger` | Running balance for a **cash** account (default `1.1.1.x`, not AR). |
 
 **Permission**: `reports.view` (see `routes/web/reports.php` middleware).
 
@@ -25,8 +29,10 @@ This document describes the **implemented** behaviour of the trading-style finan
 
 ## Hierarchical chart display (Balance Sheet & P&L)
 
-- Rows are built from the **accounts** table (`parent_id`, `is_postable`, `code`, `name`, `type`).
+- Rows are built from the **accounts** table (`parent_id`, `is_postable`, `code`, `name`, `type`, **`report_group`**, **`normal_balance`**).
 - **Leaf/postable** balances come from **aggregated journal lines** (same rules as before).
+- P&amp;L buckets prefer `accounts.report_group` (`revenue`, `cogs`, `operating`, `other_income`, `other_expense`); legacy prefix rules apply when null.
+- Contra-assets use `report_group = contra_asset` or legacy name/code heuristics.
 - **Parent** rows show the **rollup** = own balance on that account (if any) plus all descendant balances in the subtree.
 - Each row in JSON includes: `depth`, `is_parent`, `is_postable`, `amount` (rollup for parents).
 - **Section totals** (assets, liabilities, equity; P&L section totals) remain the **sum of journal activity** in that section—not the sum of parent display lines—so figures stay reconciled to the trial balance.
@@ -52,6 +58,7 @@ This document describes the **implemented** behaviour of the trading-style finan
 | Area | Path |
 |------|------|
 | Service | `app/Services/Reports/ReportService.php` |
+| Query builder | `app/Services/Reports/JournalReportQueryBuilder.php` (posted/date/period/entity filters) |
 | Controller | `app/Http/Controllers/Reports/ReportsController.php` |
 | Routes | `routes/web/reports.php` |
 | Cash flow prefixes | `config/cash_flow.php` |
@@ -72,6 +79,8 @@ Run: `php artisan test tests/Feature/ReportsTest.php tests/Feature/ReportAccurac
 
 ## Operational notes
 
+- **Period scoping**: `period_year` + optional `period_month` resolve to calendar month (or full year when month omitted) on P&amp;L, GL Detail, cash flow, etc.
+- **Entity scoping**: Optional `company_entity_id` on journal-based reports (defaults to all entities).
 - **Posted only** is the default; use **Include unposted journals** where supported to match drafts.
 - **Hide zero lines** suppresses immaterial lines; parents may still appear if any child is non-zero or structure requires it (visibility rules in `ReportService`).
 - For **non-Trading** or custom COA, edit **`config/cash_flow.php`** (and retest reconciliation). If `1.1.4` is not input VAT in your COA, set `input_vat_prepaid_assets` to `[]` or the correct codes.

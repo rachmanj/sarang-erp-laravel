@@ -31,6 +31,7 @@ class PurchaseInvoiceLine extends Model
         'vat_amount',
         'amount_after_vat',
         'tax_code_id',
+        'wtax_rate',
         'project_id',
         'dept_id',
     ];
@@ -47,6 +48,7 @@ class PurchaseInvoiceLine extends Model
         'net_amount' => 'float',
         'vat_amount' => 'float',
         'amount_after_vat' => 'float',
+        'wtax_rate' => 'float',
     ];
 
     public function invoice(): BelongsTo

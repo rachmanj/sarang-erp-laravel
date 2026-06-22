@@ -14,7 +14,7 @@ class InventoryService
     public function processPurchaseTransaction(int $itemId, int $quantity, float $unitCost, ?string $referenceType = null, ?int $referenceId = null, ?string $notes = null, ?int $warehouseId = null, ?int $purchaseInvoiceLineId = null)
     {
         return DB::transaction(function () use ($itemId, $quantity, $unitCost, $referenceType, $referenceId, $notes, $warehouseId, $purchaseInvoiceLineId) {
-            $item = InventoryItem::findOrFail($itemId);
+            $item = InventoryItem::query()->whereKey($itemId)->lockForUpdate()->firstOrFail();
             $totalCost = $quantity * $unitCost;
 
             // Use default warehouse if not specified
@@ -62,14 +62,17 @@ class InventoryService
     public function processSaleTransaction(int $itemId, int $quantity, float $unitCost, ?string $referenceType = null, ?int $referenceId = null, ?string $notes = null, ?int $warehouseId = null)
     {
         return DB::transaction(function () use ($itemId, $quantity, $unitCost, $referenceType, $referenceId, $notes, $warehouseId) {
-            $item = InventoryItem::findOrFail($itemId);
+            $item = InventoryItem::query()->whereKey($itemId)->lockForUpdate()->firstOrFail();
 
-            // Check stock availability
             if ($item->current_stock < $quantity) {
                 throw new \Exception("Insufficient stock. Available: {$item->current_stock}, Required: {$quantity}");
             }
 
             $totalCost = $quantity * $unitCost;
+
+            if (! $warehouseId) {
+                $warehouseId = $item->default_warehouse_id;
+            }
 
             $transaction = InventoryTransaction::create([
                 'item_id' => $itemId,
@@ -84,6 +87,10 @@ class InventoryService
                 'notes' => $notes ?? 'Sale transaction',
                 'created_by' => Auth::id(),
             ]);
+
+            if ($warehouseId) {
+                $this->updateWarehouseStock($itemId, $warehouseId, -$quantity);
+            }
 
             $this->updateItemValuation($item);
 
@@ -204,8 +211,8 @@ class InventoryService
     public function calculateUnitCost(InventoryItem $item)
     {
         $transactions = $item->transactions()
-            ->where('transaction_type', 'purchase')
             ->orderBy('transaction_date', 'asc')
+            ->orderBy('id', 'asc')
             ->get();
 
         if ($transactions->isEmpty()) {
@@ -215,10 +222,10 @@ class InventoryService
         switch ($item->valuation_method) {
             case 'fifo':
                 return $this->calculateFIFOCost($transactions);
-            case 'lifo':
-                return $this->calculateLIFOCost($transactions);
             case 'weighted_average':
-                return $this->calculateWeightedAverageCost($transactions);
+                return $this->calculateWeightedAverageCost(
+                    $transactions->where('transaction_type', 'purchase')
+                );
             default:
                 return $item->purchase_price;
         }
@@ -226,33 +233,76 @@ class InventoryService
 
     private function calculateFIFOCost($transactions)
     {
-        $totalCost = 0;
-        $totalQuantity = 0;
+        $layers = $this->buildFifoLayers($transactions);
 
-        foreach ($transactions as $transaction) {
-            $totalCost += $transaction->total_cost;
-            $totalQuantity += $transaction->quantity;
+        if ($layers === []) {
+            return 0;
         }
 
-        return $totalQuantity > 0 ? $totalCost / $totalQuantity : 0;
+        $totalQty = array_sum(array_column($layers, 'quantity'));
+        $totalCost = array_sum(array_map(
+            fn (array $layer) => $layer['quantity'] * $layer['unit_cost'],
+            $layers
+        ));
+
+        return $totalQty > 0 ? round($totalCost / $totalQty, 4) : 0;
     }
 
-    private function calculateLIFOCost($transactions)
+    /**
+     * @return array<int, array{quantity: float, unit_cost: float}>
+     */
+    private function buildFifoLayers($transactions): array
     {
-        $remainingStock = $transactions->sum('quantity');
-        $totalCost = 0;
+        $layers = [];
 
-        foreach ($transactions->reverse() as $transaction) {
-            if ($remainingStock <= 0) {
+        foreach ($transactions as $transaction) {
+            $type = $transaction->transaction_type;
+            $qty = (float) $transaction->quantity;
+            $unitCost = (float) $transaction->unit_cost;
+
+            if ($type === 'purchase' && $qty > 0) {
+                $layers[] = ['quantity' => $qty, 'unit_cost' => $unitCost];
+
+                continue;
+            }
+
+            if ($type === 'adjustment' && $qty > 0) {
+                $layers[] = ['quantity' => $qty, 'unit_cost' => $unitCost];
+
+                continue;
+            }
+
+            if (in_array($type, ['sale', 'adjustment', 'transfer'], true) && $qty < 0) {
+                $this->consumeFifoLayers($layers, abs($qty));
+            }
+        }
+
+        return array_values(array_filter(
+            $layers,
+            fn (array $layer) => $layer['quantity'] > 0.00001
+        ));
+    }
+
+    /**
+     * @param  array<int, array{quantity: float, unit_cost: float}>  $layers
+     */
+    private function consumeFifoLayers(array &$layers, float $quantityToConsume): void
+    {
+        $remaining = $quantityToConsume;
+
+        foreach ($layers as $index => $layer) {
+            if ($remaining <= 0) {
                 break;
             }
 
-            $quantityToUse = min($remainingStock, $transaction->quantity);
-            $totalCost += $quantityToUse * $transaction->unit_cost;
-            $remainingStock -= $quantityToUse;
+            $consumed = min($remaining, $layer['quantity']);
+            $layers[$index]['quantity'] -= $consumed;
+            $remaining -= $consumed;
         }
 
-        return $remainingStock > 0 ? $totalCost / $remainingStock : 0;
+        if ($remaining > 0.00001) {
+            throw new \Exception('Insufficient FIFO inventory layers to consume '.$quantityToConsume.' units.');
+        }
     }
 
     private function calculateWeightedAverageCost($transactions)

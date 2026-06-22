@@ -3,9 +3,8 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class PurchaseOrder extends Model
 {
@@ -48,7 +47,7 @@ class PurchaseOrder extends Model
         'closed_by_document_type',
         'closed_by_document_id',
         'closed_at',
-        'closed_by_user_id'
+        'closed_by_user_id',
     ];
 
     protected $casts = [
@@ -73,6 +72,7 @@ class PurchaseOrder extends Model
     ];
 
     protected $auditLogIgnore = ['updated_at', 'created_at'];
+
     protected $auditEntityType = 'purchase_order';
 
     // Relationships
@@ -171,7 +171,7 @@ class PurchaseOrder extends Model
 
     public function getIsOverdueAttribute()
     {
-        if (!$this->expected_delivery_date) {
+        if (! $this->expected_delivery_date) {
             return false;
         }
 
@@ -242,12 +242,16 @@ class PurchaseOrder extends Model
 
     public function canCopyToGRPO()
     {
-        return $this->order_type === 'item' && $this->status === 'approved';
+        return $this->order_type === 'item'
+            && $this->approval_status === 'approved'
+            && $this->status === 'ordered';
     }
 
     public function canCopyToPurchaseInvoice()
     {
-        return $this->order_type === 'service' && $this->status === 'approved';
+        return $this->order_type === 'service'
+            && $this->approval_status === 'approved'
+            && $this->status === 'ordered';
     }
 
     // Closure status methods

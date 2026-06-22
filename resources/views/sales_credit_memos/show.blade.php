@@ -45,6 +45,12 @@
                                 </form>
                             @endif
                         @endcan
+                        <x-document-delete-button
+                            permission="ar.credit-memos.delete"
+                            :preview-route="route('sales-credit-memos.delete-preview', $memo->id)"
+                            :destroy-route="route('sales-credit-memos.destroy', $memo->id)"
+                            document-label="Sales Credit Memo {{ $memo->memo_no ?? '#'.$memo->id }}"
+                        />
                         <a href="{{ route('sales-credit-memos.index') }}" class="btn btn-sm btn-secondary">List</a>
                     </div>
                 </div>

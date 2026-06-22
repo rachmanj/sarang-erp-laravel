@@ -7,6 +7,7 @@ use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\SalesDashboardController;
 use App\Http\Controllers\SalesOrderController;
 use App\Http\Controllers\SalesQuotationController;
+use App\Support\DocumentOpenState;
 use Illuminate\Support\Facades\Route;
 
 // Sales Dashboard
@@ -15,7 +16,7 @@ Route::get('/sales/dashboard', [SalesDashboardController::class, 'index'])
 
 // Sales Orders
 Route::prefix('sales-orders')->group(function () {
-    Route::get('/', [SalesOrderController::class, 'index'])->name('sales-orders.index');
+    Route::get('/', [SalesOrderController::class, 'index'])->middleware('permission:sales-orders.view')->name('sales-orders.index');
     Route::get('/data', function () {
         $q = \Illuminate\Support\Facades\DB::table('sales_orders as so')
             ->leftJoin('business_partners as c', 'c.id', '=', 'so.business_partner_id')
@@ -51,6 +52,13 @@ Route::prefix('sales-orders')->group(function () {
             $q->where('so.company_entity_id', (int) request('company_entity_id'));
         }
 
+        DocumentOpenState::applyToQuery(
+            $q,
+            'sales_order',
+            'so',
+            request('open_state', DocumentOpenState::DEFAULT_STATE)
+        );
+
         return Yajra\DataTables\Facades\DataTables::of($q)
             ->editColumn('id', function ($r) {
                 static $idx = -1;
@@ -79,7 +87,7 @@ Route::prefix('sales-orders')->group(function () {
                 return $actions;
             })
             ->rawColumns(['actions'])->toJson();
-    })->name('sales-orders.data');
+    })->middleware('permission:sales-orders.view')->name('sales-orders.data');
     Route::get('/csv', function () {
         $q = \Illuminate\Support\Facades\DB::table('sales_orders as so')
             ->leftJoin('business_partners as c', 'c.id', '=', 'so.business_partner_id')
@@ -122,56 +130,60 @@ Route::prefix('sales-orders')->group(function () {
         }
 
         return response($csv, 200, ['Content-Type' => 'text/csv', 'Content-Disposition' => 'attachment; filename="sales-orders.csv"']);
-    })->name('sales-orders.csv');
-    Route::get('/create', [SalesOrderController::class, 'create'])->name('sales-orders.create');
-    Route::post('/', [SalesOrderController::class, 'store'])->name('sales-orders.store');
-    Route::get('/{id}', [SalesOrderController::class, 'show'])->name('sales-orders.show');
-    Route::get('/{id}/edit', [SalesOrderController::class, 'edit'])->name('sales-orders.edit');
-    Route::patch('/{id}', [SalesOrderController::class, 'update'])->name('sales-orders.update');
-    Route::get('/{id}/create-invoice', [SalesOrderController::class, 'createInvoice'])->name('sales-orders.create-invoice');
-    Route::get('/fix-approval/{orderNo}', function ($orderNo) {
-        $salesOrder = \App\Models\SalesOrder::where('order_no', $orderNo)->firstOrFail();
+    })->middleware('permission:sales-orders.view')->name('sales-orders.csv');
+    Route::get('/create', [SalesOrderController::class, 'create'])->middleware('permission:sales-orders.create')->name('sales-orders.create');
+    Route::post('/', [SalesOrderController::class, 'store'])->middleware('permission:sales-orders.create')->name('sales-orders.store');
+    Route::get('/{id}', [SalesOrderController::class, 'show'])->middleware('permission:sales-orders.view')->name('sales-orders.show');
+    Route::get('/{id}/delete-preview', [SalesOrderController::class, 'deletePreview'])->middleware('permission:sales-orders.delete')->name('sales-orders.delete-preview');
+    Route::delete('/{id}', [SalesOrderController::class, 'destroy'])->middleware('permission:sales-orders.delete')->name('sales-orders.destroy');
+    Route::get('/{id}/edit', [SalesOrderController::class, 'edit'])->middleware('permission:sales-orders.update')->name('sales-orders.edit');
+    Route::patch('/{id}', [SalesOrderController::class, 'update'])->middleware('permission:sales-orders.update')->name('sales-orders.update');
+    Route::get('/{id}/create-invoice', [SalesOrderController::class, 'createInvoice'])->middleware('permission:sales-orders.create')->name('sales-orders.create-invoice');
+    if (app()->environment('local')) {
+        Route::get('/fix-approval/{orderNo}', function ($orderNo) {
+            $salesOrder = \App\Models\SalesOrder::where('order_no', $orderNo)->firstOrFail();
 
-        // Ensure superadmin has officer role
-        $officerRole = \App\Models\UserRole::where('user_id', 1)
-            ->where('role_name', 'officer')
-            ->first();
+            // Ensure superadmin has officer role
+            $officerRole = \App\Models\UserRole::where('user_id', 1)
+                ->where('role_name', 'officer')
+                ->first();
 
-        if (! $officerRole) {
-            \App\Models\UserRole::create([
-                'user_id' => 1,
-                'role_name' => 'officer',
-                'is_active' => true,
-            ]);
-        }
-
-        // Create approval workflow if missing
-        $existingApprovals = \App\Models\SalesOrderApproval::where('sales_order_id', $salesOrder->id)->count();
-        if ($existingApprovals === 0) {
-            $approvalWorkflowService = app(\App\Services\ApprovalWorkflowService::class);
-            $approvalRecords = $approvalWorkflowService->createWorkflowForDocument(
-                'sales_order',
-                $salesOrder->id,
-                $salesOrder->total_amount
-            );
-
-            foreach ($approvalRecords as $record) {
-                \App\Models\SalesOrderApproval::create([
-                    'sales_order_id' => $record['document_id'],
-                    'user_id' => $record['user_id'],
-                    'approval_level' => $record['role_name'],
-                    'status' => $record['status'],
+            if (! $officerRole) {
+                \App\Models\UserRole::create([
+                    'user_id' => 1,
+                    'role_name' => 'officer',
+                    'is_active' => true,
                 ]);
             }
-        }
 
-        return redirect()->route('sales-orders.show', $salesOrder->id)
-            ->with('success', 'Approval workflow fixed. You can now approve the Sales Order.');
-    })->name('sales-orders.fix-approval');
+            // Create approval workflow if missing
+            $existingApprovals = \App\Models\SalesOrderApproval::where('sales_order_id', $salesOrder->id)->count();
+            if ($existingApprovals === 0) {
+                $approvalWorkflowService = app(\App\Services\ApprovalWorkflowService::class);
+                $approvalRecords = $approvalWorkflowService->createWorkflowForDocument(
+                    'sales_order',
+                    $salesOrder->id,
+                    $salesOrder->total_amount
+                );
 
-    Route::post('/{id}/approve', [SalesOrderController::class, 'approve'])->name('sales-orders.approve');
-    Route::post('/{id}/confirm', [SalesOrderController::class, 'confirm'])->name('sales-orders.confirm');
-    Route::post('/{id}/close', [SalesOrderController::class, 'close'])->name('sales-orders.close');
+                foreach ($approvalRecords as $record) {
+                    \App\Models\SalesOrderApproval::create([
+                        'sales_order_id' => $record['document_id'],
+                        'user_id' => $record['user_id'],
+                        'approval_level' => $record['role_name'],
+                        'status' => $record['status'],
+                    ]);
+                }
+            }
+
+            return redirect()->route('sales-orders.show', $salesOrder->id)
+                ->with('success', 'Approval workflow fixed. You can now approve the Sales Order.');
+        })->name('sales-orders.fix-approval');
+    }
+
+    Route::post('/{id}/approve', [SalesOrderController::class, 'approve'])->middleware('permission:sales-orders.approve')->name('sales-orders.approve');
+    Route::post('/{id}/confirm', [SalesOrderController::class, 'confirm'])->middleware('permission:sales-orders.approve')->name('sales-orders.confirm');
+    Route::post('/{id}/close', [SalesOrderController::class, 'close'])->middleware('permission:sales-orders.approve')->name('sales-orders.close');
 
     // Currency API Routes
     Route::get('/api/exchange-rate', [SalesOrderController::class, 'getExchangeRate'])->name('sales-orders.api.exchange-rate');
@@ -233,6 +245,7 @@ Route::prefix('sales-quotations')->middleware(['auth'])->group(function () {
     Route::get('/{id}', [SalesQuotationController::class, 'show'])->middleware('permission:ar.quotations.view')->name('sales-quotations.show');
     Route::get('/{id}/edit', [SalesQuotationController::class, 'edit'])->middleware('permission:ar.quotations.update')->name('sales-quotations.edit');
     Route::put('/{id}', [SalesQuotationController::class, 'update'])->middleware('permission:ar.quotations.update')->name('sales-quotations.update');
+    Route::get('/{id}/delete-preview', [SalesQuotationController::class, 'deletePreview'])->middleware('permission:ar.quotations.delete')->name('sales-quotations.delete-preview');
     Route::delete('/{id}', [SalesQuotationController::class, 'destroy'])->middleware('permission:ar.quotations.delete')->name('sales-quotations.destroy');
     Route::post('/{id}/send', [SalesQuotationController::class, 'send'])->middleware('permission:ar.quotations.update')->name('sales-quotations.send');
     Route::post('/{id}/accept', [SalesQuotationController::class, 'accept'])->middleware('permission:ar.quotations.update')->name('sales-quotations.accept');
@@ -250,7 +263,7 @@ Route::prefix('sales-quotations')->middleware(['auth'])->group(function () {
 
 // Delivery Orders
 Route::prefix('delivery-orders')->group(function () {
-    Route::get('/', [DeliveryOrderController::class, 'index'])->name('delivery-orders.index');
+    Route::get('/', [DeliveryOrderController::class, 'index'])->middleware('permission:sales-orders.view')->name('delivery-orders.index');
     Route::get('/data', function () {
         $q = \Illuminate\Support\Facades\DB::table('delivery_orders as do')
             ->leftJoin('business_partners as c', 'c.id', '=', 'do.business_partner_id')
@@ -288,6 +301,13 @@ Route::prefix('delivery-orders')->group(function () {
             $q->where('so.reference_no', 'like', '%'.request('customer_ref_no').'%');
         }
 
+        DocumentOpenState::applyToQuery(
+            $q,
+            'delivery_order',
+            'do',
+            request('open_state', DocumentOpenState::DEFAULT_STATE)
+        );
+
         return Yajra\DataTables\Facades\DataTables::of($q)
             ->filterColumn('do_number', function ($query, $keyword) {
                 $query->where('do.do_number', 'like', '%'.$keyword.'%');
@@ -316,24 +336,25 @@ Route::prefix('delivery-orders')->group(function () {
                 return '<a class="btn btn-xs btn-info" href="'.$url.'">View</a>';
             })
             ->rawColumns(['actions'])->toJson();
-    })->name('delivery-orders.data');
-    Route::get('/api/document-number', [DeliveryOrderController::class, 'getDocumentNumber'])->name('delivery-orders.api.document-number');
-    Route::get('/create', [DeliveryOrderController::class, 'create'])->name('delivery-orders.create');
-    Route::post('/', [DeliveryOrderController::class, 'store'])->name('delivery-orders.store');
-    Route::get('/{deliveryOrder}', [DeliveryOrderController::class, 'show'])->name('delivery-orders.show');
-    Route::get('/{deliveryOrder}/edit', [DeliveryOrderController::class, 'edit'])->name('delivery-orders.edit');
-    Route::patch('/{deliveryOrder}', [DeliveryOrderController::class, 'update'])->name('delivery-orders.update');
-    Route::delete('/{deliveryOrder}', [DeliveryOrderController::class, 'destroy'])->name('delivery-orders.destroy');
-    Route::post('/{deliveryOrder}/approve', [DeliveryOrderController::class, 'approve'])->name('delivery-orders.approve');
-    Route::post('/{deliveryOrder}/reject', [DeliveryOrderController::class, 'reject'])->name('delivery-orders.reject');
-    Route::post('/{deliveryOrder}/update-picking', [DeliveryOrderController::class, 'updatePicking'])->name('delivery-orders.update-picking');
-    Route::post('/{deliveryOrder}/update-delivery', [DeliveryOrderController::class, 'updateDelivery'])->name('delivery-orders.update-delivery');
-    Route::post('/{deliveryOrder}/mark-delivered', [DeliveryOrderController::class, 'markAsDelivered'])->name('delivery-orders.mark-delivered');
+    })->middleware('permission:sales-orders.view')->name('delivery-orders.data');
+    Route::get('/api/document-number', [DeliveryOrderController::class, 'getDocumentNumber'])->middleware('permission:sales-orders.create')->name('delivery-orders.api.document-number');
+    Route::get('/create', [DeliveryOrderController::class, 'create'])->middleware('permission:sales-orders.create')->name('delivery-orders.create');
+    Route::post('/', [DeliveryOrderController::class, 'store'])->middleware('permission:sales-orders.create')->name('delivery-orders.store');
+    Route::get('/{deliveryOrder}', [DeliveryOrderController::class, 'show'])->middleware('permission:sales-orders.view')->name('delivery-orders.show');
+    Route::get('/{deliveryOrder}/edit', [DeliveryOrderController::class, 'edit'])->middleware('permission:sales-orders.update')->name('delivery-orders.edit');
+    Route::patch('/{deliveryOrder}', [DeliveryOrderController::class, 'update'])->middleware('permission:sales-orders.update')->name('delivery-orders.update');
+    Route::get('/{deliveryOrder}/delete-preview', [DeliveryOrderController::class, 'deletePreview'])->middleware('permission:delivery-orders.delete')->name('delivery-orders.delete-preview');
+    Route::delete('/{deliveryOrder}', [DeliveryOrderController::class, 'destroy'])->middleware('permission:delivery-orders.delete')->name('delivery-orders.destroy');
+    Route::post('/{deliveryOrder}/approve', [DeliveryOrderController::class, 'approve'])->middleware('permission:sales-orders.approve')->name('delivery-orders.approve');
+    Route::post('/{deliveryOrder}/reject', [DeliveryOrderController::class, 'reject'])->middleware('permission:sales-orders.approve')->name('delivery-orders.reject');
+    Route::post('/{deliveryOrder}/update-picking', [DeliveryOrderController::class, 'updatePicking'])->middleware('permission:sales-orders.update')->name('delivery-orders.update-picking');
+    Route::post('/{deliveryOrder}/update-delivery', [DeliveryOrderController::class, 'updateDelivery'])->middleware('permission:sales-orders.update')->name('delivery-orders.update-delivery');
+    Route::post('/{deliveryOrder}/mark-delivered', [DeliveryOrderController::class, 'markAsDelivered'])->middleware('permission:sales-orders.approve')->name('delivery-orders.mark-delivered');
     Route::post('/{deliveryOrder}/reverse', [DeliveryOrderController::class, 'reverse'])
         ->middleware('permission:delivery-orders.reverse')
         ->name('delivery-orders.reverse');
-    Route::get('/{deliveryOrder}/print', [DeliveryOrderController::class, 'print'])->name('delivery-orders.print');
-    Route::get('/{deliveryOrder}/create-invoice', [DeliveryOrderController::class, 'createInvoice'])->name('delivery-orders.create-invoice');
+    Route::get('/{deliveryOrder}/print', [DeliveryOrderController::class, 'print'])->middleware('permission:sales-orders.view')->name('delivery-orders.print');
+    Route::get('/{deliveryOrder}/create-invoice', [DeliveryOrderController::class, 'createInvoice'])->middleware('permission:sales-orders.create')->name('delivery-orders.create-invoice');
 });
 
 // Purchase Dashboard
@@ -342,16 +363,13 @@ Route::get('/purchase/dashboard', [PurchaseDashboardController::class, 'index'])
 
 // Purchase Orders
 Route::prefix('purchase-orders')->group(function () {
-    Route::get('/', [PurchaseOrderController::class, 'index'])->name('purchase-orders.index');
+    Route::get('/', [PurchaseOrderController::class, 'index'])->middleware('permission:purchase-orders.view')->name('purchase-orders.index');
     Route::get('/data', function () {
         $q = \Illuminate\Support\Facades\DB::table('purchase_orders as po')
             ->leftJoin('business_partners as v', 'v.id', '=', 'po.business_partner_id')
             ->select('po.id', 'po.date', 'po.order_no', 'po.business_partner_id', 'v.name as vendor_name', 'po.total_amount', 'po.status', 'po.closure_status', 'po.closed_at', 'po.closed_by_document_type', 'po.closed_by_document_id');
         if (request()->filled('status')) {
             $q->where('po.status', request('status'));
-        }
-        if (request()->filled('closure_status')) {
-            $q->where('po.closure_status', request('closure_status'));
         }
         if (request()->filled('from')) {
             $q->whereDate('po.date', '>=', request('from'));
@@ -371,6 +389,13 @@ Route::prefix('purchase-orders')->group(function () {
                 $w->where('po.order_no', 'like', '%'.$kw.'%')->orWhere('po.description', 'like', '%'.$kw.'%')->orWhere('v.name', 'like', '%'.$kw.'%');
             });
         }
+
+        DocumentOpenState::applyToQuery(
+            $q,
+            'purchase_order',
+            'po',
+            request('open_state', DocumentOpenState::DEFAULT_STATE)
+        );
 
         return Yajra\DataTables\Facades\DataTables::of($q)
             ->editColumn('date', function ($r) {
@@ -402,7 +427,7 @@ Route::prefix('purchase-orders')->group(function () {
                 return $actions;
             })
             ->rawColumns(['actions', 'closure_status'])->toJson();
-    })->name('purchase-orders.data');
+    })->middleware('permission:purchase-orders.view')->name('purchase-orders.data');
     Route::get('/csv', function () {
         $q = \Illuminate\Support\Facades\DB::table('purchase_orders as po')
             ->leftJoin('business_partners as v', 'v.id', '=', 'po.business_partner_id')
@@ -449,24 +474,25 @@ Route::prefix('purchase-orders')->group(function () {
         }
 
         return response($csv, 200, ['Content-Type' => 'text/csv', 'Content-Disposition' => 'attachment; filename="purchase-orders.csv"']);
-    })->name('purchase-orders.csv');
-    Route::get('/create', [PurchaseOrderController::class, 'create'])->name('purchase-orders.create');
-    Route::post('/', [PurchaseOrderController::class, 'store'])->name('purchase-orders.store');
-    Route::get('/{id}', [PurchaseOrderController::class, 'show'])->name('purchase-orders.show');
-    Route::get('/{id}/edit', [PurchaseOrderController::class, 'edit'])->name('purchase-orders.edit');
-    Route::put('/{id}', [PurchaseOrderController::class, 'update'])->name('purchase-orders.update');
-    Route::get('/{id}/create-invoice', [PurchaseOrderController::class, 'createInvoice'])->name('purchase-orders.create-invoice');
-    Route::get('/{id}/create-assets', [PurchaseOrderController::class, 'createAssets'])->name('purchase-orders.create-assets');
-    Route::post('/{id}/store-assets', [PurchaseOrderController::class, 'storeAssets'])->name('purchase-orders.store-assets');
-    Route::get('/asset-categories', [PurchaseOrderController::class, 'getAssetCategories'])->name('purchase-orders.asset-categories');
-    Route::post('/{id}/approve', [PurchaseOrderController::class, 'approve'])->name('purchase-orders.approve');
-    Route::post('/{id}/close', [PurchaseOrderController::class, 'close'])->name('purchase-orders.close');
-    Route::delete('/{id}', [PurchaseOrderController::class, 'destroy'])->name('purchase-orders.destroy');
-    Route::get('/{id}/copy-to-grpo', [PurchaseOrderController::class, 'showCopyToGRPO'])->name('purchase-orders.show-copy-to-grpo');
-    Route::post('/{id}/copy-to-grpo', [PurchaseOrderController::class, 'copyToGRPO'])->name('purchase-orders.copy-to-grpo');
-    Route::get('/{id}/copy-to-purchase-invoice', [PurchaseOrderController::class, 'showCopyToPurchaseInvoice'])->name('purchase-orders.show-copy-to-purchase-invoice');
-    Route::get('/{id}/copy-to-purchase-invoice/execute', [PurchaseOrderController::class, 'copyToPurchaseInvoice'])->name('purchase-orders.copy-to-purchase-invoice');
-    Route::get('/{id}/print', [PurchaseOrderController::class, 'print'])->name('purchase-orders.print');
+    })->middleware('permission:purchase-orders.view')->name('purchase-orders.csv');
+    Route::get('/create', [PurchaseOrderController::class, 'create'])->middleware('permission:purchase-orders.create')->name('purchase-orders.create');
+    Route::post('/', [PurchaseOrderController::class, 'store'])->middleware('permission:purchase-orders.create')->name('purchase-orders.store');
+    Route::get('/{id}', [PurchaseOrderController::class, 'show'])->middleware('permission:purchase-orders.view')->name('purchase-orders.show');
+    Route::get('/{id}/edit', [PurchaseOrderController::class, 'edit'])->middleware('permission:purchase-orders.update')->name('purchase-orders.edit');
+    Route::put('/{id}', [PurchaseOrderController::class, 'update'])->middleware('permission:purchase-orders.update')->name('purchase-orders.update');
+    Route::get('/{id}/create-invoice', [PurchaseOrderController::class, 'createInvoice'])->middleware('permission:purchase-orders.create')->name('purchase-orders.create-invoice');
+    Route::get('/{id}/create-assets', [PurchaseOrderController::class, 'createAssets'])->middleware('permission:purchase-orders.create')->name('purchase-orders.create-assets');
+    Route::post('/{id}/store-assets', [PurchaseOrderController::class, 'storeAssets'])->middleware('permission:purchase-orders.create')->name('purchase-orders.store-assets');
+    Route::get('/asset-categories', [PurchaseOrderController::class, 'getAssetCategories'])->middleware('permission:purchase-orders.view')->name('purchase-orders.asset-categories');
+    Route::post('/{id}/approve', [PurchaseOrderController::class, 'approve'])->middleware('permission:purchase-orders.approve')->name('purchase-orders.approve');
+    Route::post('/{id}/close', [PurchaseOrderController::class, 'close'])->middleware('permission:purchase-orders.approve')->name('purchase-orders.close');
+    Route::get('/{id}/delete-preview', [PurchaseOrderController::class, 'deletePreview'])->middleware('permission:purchase-orders.delete')->name('purchase-orders.delete-preview');
+    Route::delete('/{id}', [PurchaseOrderController::class, 'destroy'])->middleware('permission:purchase-orders.delete')->name('purchase-orders.destroy');
+    Route::get('/{id}/copy-to-grpo', [PurchaseOrderController::class, 'showCopyToGRPO'])->middleware('permission:purchase-orders.create')->name('purchase-orders.show-copy-to-grpo');
+    Route::post('/{id}/copy-to-grpo', [PurchaseOrderController::class, 'copyToGRPO'])->middleware('permission:purchase-orders.create')->name('purchase-orders.copy-to-grpo');
+    Route::get('/{id}/copy-to-purchase-invoice', [PurchaseOrderController::class, 'showCopyToPurchaseInvoice'])->middleware('permission:purchase-orders.create')->name('purchase-orders.show-copy-to-purchase-invoice');
+    Route::get('/{id}/copy-to-purchase-invoice/execute', [PurchaseOrderController::class, 'copyToPurchaseInvoice'])->middleware('permission:purchase-orders.create')->name('purchase-orders.copy-to-purchase-invoice');
+    Route::get('/{id}/print', [PurchaseOrderController::class, 'print'])->middleware('permission:purchase-orders.view')->name('purchase-orders.print');
 
     // Unit Conversion API Routes
     Route::get('/api/item-units', [PurchaseOrderController::class, 'getItemUnits'])->name('purchase-orders.api.item-units');
@@ -479,7 +505,7 @@ Route::prefix('purchase-orders')->group(function () {
 
 // Goods Receipt PO
 Route::prefix('goods-receipt-pos')->group(function () {
-    Route::get('/', [GoodsReceiptPOController::class, 'index'])->name('goods-receipt-pos.index');
+    Route::get('/', [GoodsReceiptPOController::class, 'index'])->middleware('permission:purchase-orders.view')->name('goods-receipt-pos.index');
     Route::get('/data', function () {
         $q = \Illuminate\Support\Facades\DB::table('goods_receipt_po as grpo')
             ->leftJoin('business_partners as v', 'v.id', '=', 'grpo.business_partner_id')
@@ -506,6 +532,13 @@ Route::prefix('goods-receipt-pos')->group(function () {
             $q->where('grpo.company_entity_id', (int) request('company_entity_id'));
         }
 
+        DocumentOpenState::applyToQuery(
+            $q,
+            'grpo',
+            'grpo',
+            request('open_state', DocumentOpenState::DEFAULT_STATE)
+        );
+
         return Yajra\DataTables\Facades\DataTables::of($q)
             ->editColumn('total_amount', fn ($r) => number_format((float) $r->total_amount, 2))
             ->addColumn('vendor', fn ($r) => $r->vendor_name ?: ('#'.$r->business_partner_id))
@@ -515,7 +548,7 @@ Route::prefix('goods-receipt-pos')->group(function () {
                 return '<a class="btn btn-xs btn-info" href="'.$url.'">View</a>';
             })
             ->rawColumns(['actions'])->toJson();
-    })->name('goods-receipt-pos.data');
+    })->middleware('permission:purchase-orders.view')->name('goods-receipt-pos.data');
     Route::get('/csv', function () {
         $q = \Illuminate\Support\Facades\DB::table('goods_receipt_po as grpo')
             ->leftJoin('business_partners as v', 'v.id', '=', 'grpo.business_partner_id')
@@ -548,26 +581,24 @@ Route::prefix('goods-receipt-pos')->group(function () {
         }
 
         return response($csv, 200, ['Content-Type' => 'text/csv', 'Content-Disposition' => 'attachment; filename="goods-receipt-pos.csv"']);
-    })->name('goods-receipt-pos.csv');
-    Route::get('/create', [GoodsReceiptPOController::class, 'create'])->name('goods-receipt-pos.create');
-    Route::get('/api/document-number', [GoodsReceiptPOController::class, 'getDocumentNumber'])->name('goods-receipt-pos.api.document-number');
-    Route::post('/', [GoodsReceiptPOController::class, 'store'])->name('goods-receipt-pos.store');
+    })->middleware('permission:purchase-orders.view')->name('goods-receipt-pos.csv');
+    Route::get('/create', [GoodsReceiptPOController::class, 'create'])->middleware('permission:purchase-orders.create')->name('goods-receipt-pos.create');
+    Route::get('/api/document-number', [GoodsReceiptPOController::class, 'getDocumentNumber'])->middleware('permission:purchase-orders.create')->name('goods-receipt-pos.api.document-number');
+    Route::post('/', [GoodsReceiptPOController::class, 'store'])->middleware('permission:purchase-orders.create')->name('goods-receipt-pos.store');
 
-    // AJAX endpoints for enhanced functionality (must come before parameterized routes)
-    Route::get('/available-pos', [GoodsReceiptPOController::class, 'getAvailablePOs'])->name('goods-receipt-pos.available-pos');
-    Route::get('/vendor-pos', [GoodsReceiptPOController::class, 'getVendorPOs'])->name('goods-receipt-pos.vendor-pos');
-    Route::get('/remaining-lines', [GoodsReceiptPOController::class, 'getRemainingPOLines'])->name('goods-receipt-pos.remaining-lines');
+    Route::get('/available-pos', [GoodsReceiptPOController::class, 'getAvailablePOs'])->middleware('permission:purchase-orders.view')->name('goods-receipt-pos.available-pos');
+    Route::get('/vendor-pos', [GoodsReceiptPOController::class, 'getVendorPOs'])->middleware('permission:purchase-orders.view')->name('goods-receipt-pos.vendor-pos');
+    Route::get('/remaining-lines', [GoodsReceiptPOController::class, 'getRemainingPOLines'])->middleware('permission:purchase-orders.view')->name('goods-receipt-pos.remaining-lines');
 
-    // Parameterized routes (must come after specific routes)
-    Route::get('/{id}', [GoodsReceiptPOController::class, 'show'])->name('goods-receipt-pos.show');
-    Route::get('/{id}/create-invoice', [GoodsReceiptPOController::class, 'createInvoice'])->name('goods-receipt-pos.create-invoice');
-    Route::post('/{id}/receive', [GoodsReceiptPOController::class, 'receive'])->name('goods-receipt-pos.receive');
+    Route::get('/{id}', [GoodsReceiptPOController::class, 'show'])->middleware('permission:purchase-orders.view')->name('goods-receipt-pos.show');
+    Route::get('/{id}/create-invoice', [GoodsReceiptPOController::class, 'createInvoice'])->middleware('permission:purchase-orders.create')->name('goods-receipt-pos.create-invoice');
+    Route::post('/{id}/receive', [GoodsReceiptPOController::class, 'receive'])->middleware('permission:purchase-orders.create')->name('goods-receipt-pos.receive');
 
-    // Journal management routes
-    Route::post('/{id}/create-journal', [GoodsReceiptPOController::class, 'createJournal'])->name('goods-receipt-pos.create-journal');
-    Route::post('/{id}/reverse-journal', [GoodsReceiptPOController::class, 'reverseJournal'])->name('goods-receipt-pos.reverse-journal');
-    Route::get('/{id}/journal', [GoodsReceiptPOController::class, 'showJournal'])->name('goods-receipt-pos.journal');
+    Route::post('/{id}/create-journal', [GoodsReceiptPOController::class, 'createJournal'])->middleware('permission:purchase-orders.approve')->name('goods-receipt-pos.create-journal');
+    Route::post('/{id}/reverse-journal', [GoodsReceiptPOController::class, 'reverseJournal'])->middleware('permission:purchase-orders.approve')->name('goods-receipt-pos.reverse-journal');
+    Route::get('/{id}/journal', [GoodsReceiptPOController::class, 'showJournal'])->middleware('permission:purchase-orders.view')->name('goods-receipt-pos.journal');
 
-    // Inventory transaction fix route
-    Route::post('/{id}/fix-inventory', [GoodsReceiptPOController::class, 'fixInventoryTransactions'])->name('goods-receipt-pos.fix-inventory');
+    Route::get('/{id}/delete-preview', [GoodsReceiptPOController::class, 'deletePreview'])->middleware('permission:goods-receipt-pos.delete')->name('goods-receipt-pos.delete-preview');
+    Route::delete('/{id}', [GoodsReceiptPOController::class, 'destroy'])->middleware('permission:goods-receipt-pos.delete')->name('goods-receipt-pos.destroy');
+    Route::post('/{id}/fix-inventory', [GoodsReceiptPOController::class, 'fixInventoryTransactions'])->middleware('permission:purchase-orders.approve')->name('goods-receipt-pos.fix-inventory');
 });

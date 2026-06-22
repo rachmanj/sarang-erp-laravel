@@ -16,9 +16,10 @@ class ReportsController extends Controller
     public function trialBalance(Request $request)
     {
         $onlyPosted = ! $request->boolean('include_unposted');
+        $filters = $this->reportFilters($request);
         $export = $request->query('export');
         if ($export === 'csv') {
-            $data = $this->service->getTrialBalance($request->query('date'), $onlyPosted);
+            $data = $this->service->getTrialBalance($request->query('date'), $onlyPosted, $filters);
             $csv = "code,name,type,currencies,debit,credit,balance\n";
             foreach ($data['rows'] as $r) {
                 $csv .= sprintf(
@@ -40,7 +41,7 @@ class ReportsController extends Controller
             ]);
         }
         if ($export === 'pdf') {
-            $data = $this->service->getTrialBalance($request->query('date'), $onlyPosted);
+            $data = $this->service->getTrialBalance($request->query('date'), $onlyPosted, $filters);
             $pdf = app(\App\Services\PdfService::class)->renderViewToString('reports.pdf.trial-balance', $data);
 
             return response($pdf, 200, [
@@ -49,21 +50,23 @@ class ReportsController extends Controller
             ]);
         }
         if ($request->wantsJson()) {
-            $data = $this->service->getTrialBalance($request->query('date'), $onlyPosted);
+            $data = $this->service->getTrialBalance($request->query('date'), $onlyPosted, $filters);
 
             return response()->json($data);
         }
 
-        return view('reports.trial-balance');
+        return view('reports.trial-balance', ['companyEntities' => $this->companyEntities()]);
     }
 
     public function balanceSheet(Request $request)
     {
         $asOf = $request->query('as_of');
+        $priorAsOf = $request->query('prior_as_of');
         $onlyPosted = ! $request->boolean('include_unposted');
         $hideZero = ! $request->boolean('show_zero');
         $export = $request->query('export');
-        $data = $this->service->getBalanceSheet($asOf, $onlyPosted, $hideZero);
+        $filters = $this->reportFilters($request);
+        $data = $this->service->getBalanceSheet($asOf, $onlyPosted, $hideZero, $priorAsOf, $filters);
 
         if ($export === 'csv') {
             $csv = "section,code,name,depth,is_parent,amount\n";
@@ -109,7 +112,7 @@ class ReportsController extends Controller
             return response()->json($data);
         }
 
-        return view('reports.balance-sheet');
+        return view('reports.balance-sheet', ['companyEntities' => $this->companyEntities()]);
     }
 
     public function profitLoss(Request $request)
@@ -117,7 +120,7 @@ class ReportsController extends Controller
         $onlyPosted = ! $request->boolean('include_unposted');
         $hideZero = ! $request->boolean('show_zero');
         $export = $request->query('export');
-        $filters = $request->only(['from', 'to', 'project_id', 'fund_id', 'dept_id']);
+        $filters = $this->reportFilters($request);
         $data = $this->service->getProfitAndLoss($filters, $onlyPosted, $hideZero);
 
         if ($export === 'csv') {
@@ -161,14 +164,14 @@ class ReportsController extends Controller
             return response()->json($data);
         }
 
-        return view('reports.profit-loss');
+        return view('reports.profit-loss', ['companyEntities' => $this->companyEntities()]);
     }
 
     public function cashFlowStatement(Request $request)
     {
         $onlyPosted = ! $request->boolean('include_unposted');
         $export = $request->query('export');
-        $filters = $request->only(['from', 'to']);
+        $filters = $this->reportFilters($request);
         $data = $this->service->getCashFlowStatement($filters, $onlyPosted);
 
         if ($export === 'csv') {
@@ -205,20 +208,20 @@ class ReportsController extends Controller
             return response()->json($data);
         }
 
-        return view('reports.cash-flow-statement');
+        return view('reports.cash-flow-statement', ['companyEntities' => $this->companyEntities()]);
     }
 
     public function glDetail(Request $request)
     {
         $onlyPosted = ! $request->boolean('include_unposted');
-        $filters = $request->only(['account_id', 'from', 'to', 'project_id', 'fund_id', 'dept_id']);
+        $filters = $this->reportFilters($request);
         $export = $request->query('export');
         if ($export === 'csv') {
             $data = $this->service->getGlDetail($filters, $onlyPosted);
-            $csv = "date,journal,account_code,account_name,currency,debit,credit,debit_fc,credit_fc,rate,memo\n";
+            $csv = "date,journal,account_code,account_name,currency,debit,credit,balance,debit_fc,credit_fc,rate,memo\n";
             foreach ($data['rows'] as $r) {
                 $csv .= sprintf(
-                    "%s,%s,%s,%s,%s,%.2f,%.2f,%.2f,%.2f,%.6f,%s\n",
+                    "%s,%s,%s,%s,%s,%.2f,%.2f,%.2f,%.2f,%.2f,%.6f,%s\n",
                     $r['date'],
                     str_replace(',', ' ', (string) ($r['journal_desc'] ?? '')),
                     $r['account_code'],
@@ -226,6 +229,7 @@ class ReportsController extends Controller
                     $r['currency_code'] ?? 'IDR',
                     $r['debit'],
                     $r['credit'],
+                    $r['balance'],
                     $r['debit_foreign'],
                     $r['credit_foreign'],
                     $r['exchange_rate'],
@@ -253,7 +257,15 @@ class ReportsController extends Controller
             return response()->json($data);
         }
 
-        return view('reports.gl-detail');
+        $accounts = \Illuminate\Support\Facades\DB::table('accounts')
+            ->where('is_postable', true)
+            ->orderBy('code')
+            ->get(['id', 'code', 'name']);
+
+        return view('reports.gl-detail', [
+            'accounts' => $accounts,
+            'companyEntities' => $this->companyEntities(),
+        ]);
     }
 
     public function arAging(Request $request)
@@ -350,7 +362,9 @@ class ReportsController extends Controller
             return response()->json($data);
         }
 
-        return view('reports.cash-ledger');
+        $cashAccounts = $this->service->getCashAccountOptions();
+
+        return view('reports.cash-ledger', ['cashAccounts' => $cashAccounts]);
     }
 
     public function withholdingRecap(Request $request)
@@ -382,7 +396,7 @@ class ReportsController extends Controller
     public function arBalances(Request $request)
     {
         $export = $request->query('export');
-        $data = $this->service->getArBalances();
+        $data = $this->service->getArBalances($request->query('as_of'));
         if ($export === 'csv') {
             $csv = "customer,invoices,receipts,balance\n";
             foreach ($data['rows'] as $r) {
@@ -406,7 +420,7 @@ class ReportsController extends Controller
     public function apBalances(Request $request)
     {
         $export = $request->query('export');
-        $data = $this->service->getApBalances();
+        $data = $this->service->getApBalances($request->query('as_of'));
         if ($export === 'csv') {
             $csv = "vendor,invoices,payments,balance\n";
             foreach ($data['rows'] as $r) {
@@ -425,5 +439,79 @@ class ReportsController extends Controller
         }
 
         return view('reports.ap-balances', $data);
+    }
+
+    public function subledgerReconciliation(Request $request)
+    {
+        $onlyPosted = ! $request->boolean('include_unposted');
+        $filters = $this->reportFilters($request);
+        $data = $this->service->getSubledgerReconciliation($request->query('as_of'), $onlyPosted, $filters);
+
+        if ($request->wantsJson()) {
+            return response()->json($data);
+        }
+
+        return view('reports.subledger-reconciliation', $data);
+    }
+
+    public function statementOfChangesInEquity(Request $request)
+    {
+        $onlyPosted = ! $request->boolean('include_unposted');
+        $filters = $this->reportFilters($request);
+        $data = $this->service->getStatementOfChangesInEquity($filters, $onlyPosted);
+
+        if ($request->wantsJson()) {
+            return response()->json($data);
+        }
+
+        return view('reports.statement-of-changes-in-equity', $data);
+    }
+
+    public function ppnReconciliation(Request $request)
+    {
+        $onlyPosted = ! $request->boolean('include_unposted');
+        $filters = $this->reportFilters($request);
+        $data = $this->service->getPpnReconciliation($filters, $onlyPosted);
+
+        if ($request->query('export') === 'json') {
+            return response()->json($this->service->exportSptPpn1111($filters, $onlyPosted));
+        }
+
+        if ($request->wantsJson()) {
+            return response()->json($data);
+        }
+
+        return view('reports.ppn-reconciliation', $data);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function reportFilters(Request $request): array
+    {
+        return $request->only([
+            'from',
+            'to',
+            'as_of',
+            'date',
+            'account_id',
+            'project_id',
+            'dept_id',
+            'period_year',
+            'period_month',
+            'company_entity_id',
+            'prior_from',
+            'prior_to',
+        ]);
+    }
+
+    /**
+     * @return \Illuminate\Support\Collection<int, object>
+     */
+    private function companyEntities()
+    {
+        return \Illuminate\Support\Facades\DB::table('company_entities')
+            ->orderBy('name')
+            ->get(['id', 'name']);
     }
 }

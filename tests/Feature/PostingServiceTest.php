@@ -28,7 +28,7 @@ class PostingServiceTest extends TestCase
             'source_id' => 1,
             'lines' => [
                 ['account_id' => $this->accountId('1.1.2.01'), 'debit' => 100, 'credit' => 0],
-                ['account_id' => $this->accountId('4.1.1'), 'debit' => 0, 'credit' => 100],
+                ['account_id' => $this->accountId('4.1.1.01'), 'debit' => 0, 'credit' => 100],
             ],
         ];
         $jid = $service->postJournal($payload);
@@ -61,7 +61,7 @@ class PostingServiceTest extends TestCase
             'source_id' => 2,
             'lines' => [
                 ['account_id' => $this->accountId('1.1.2.01'), 'debit' => 50, 'credit' => 0],
-                ['account_id' => $this->accountId('4.1.1'), 'debit' => 0, 'credit' => 50],
+                ['account_id' => $this->accountId('4.1.1.01'), 'debit' => 0, 'credit' => 50],
             ],
         ]);
         $rid = $service->reverseJournal($jid, now()->toDateString());
@@ -79,7 +79,7 @@ class PostingServiceTest extends TestCase
             'source_id' => 3,
             'lines' => [
                 ['account_id' => $this->accountId('1.1.2.01'), 'debit' => -10, 'credit' => 0],
-                ['account_id' => $this->accountId('4.1.1'), 'debit' => 0, 'credit' => 10],
+                ['account_id' => $this->accountId('4.1.1.01'), 'debit' => 0, 'credit' => 10],
             ],
         ]);
     }
@@ -94,7 +94,7 @@ class PostingServiceTest extends TestCase
             'source_id' => 4,
             'lines' => [
                 ['account_id' => $this->accountId('1.1.2.01'), 'debit' => 0, 'credit' => 0],
-                ['account_id' => $this->accountId('4.1.1'), 'debit' => 0, 'credit' => 0],
+                ['account_id' => $this->accountId('4.1.1.01'), 'debit' => 0, 'credit' => 0],
             ],
         ]);
     }
@@ -121,7 +121,7 @@ class PostingServiceTest extends TestCase
                     'dept_id' => $deptId,
                 ],
                 [
-                    'account_id' => $this->accountId('4.1.1'),
+                    'account_id' => $this->accountId('4.1.1.01'),
                     'debit' => 0,
                     'credit' => 75,
                     'project_id' => $projectId,
@@ -147,6 +147,23 @@ class PostingServiceTest extends TestCase
             $this->assertSame($fundId, (int) $l->fund_id);
             $this->assertSame($deptId, (int) $l->dept_id);
         }
+    }
+
+    public function test_non_postable_account_rejected(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('is not postable');
+
+        $service = app(PostingService::class);
+        $service->postJournal([
+            'date' => now()->toDateString(),
+            'source_type' => 'test',
+            'source_id' => 6,
+            'lines' => [
+                ['account_id' => $this->accountId('2.1.2'), 'debit' => 0, 'credit' => 100],
+                ['account_id' => $this->accountId('1.1.2.01'), 'debit' => 100, 'credit' => 0],
+            ],
+        ]);
     }
 
     private function accountId(string $code): int

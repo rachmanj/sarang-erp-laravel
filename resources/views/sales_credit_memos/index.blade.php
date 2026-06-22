@@ -31,38 +31,48 @@
                             toastr.error(@json(session('error')));
                         </script>
                     @endif
-                    <div class="card">
-                        <div class="card-header d-flex justify-content-between align-items-center">
-                            <h3 class="card-title">Sales Credit Memos</h3>
-                            <div>
-                                <div class="d-inline-block mr-2">
-                                    <label class="mr-1 small mb-0">Entity:</label>
-                                    <div class="form-check form-check-inline d-inline">
-                                        <input class="form-check-input" type="radio" name="entity_filter" id="entity-all" value="" checked>
-                                        <label class="form-check-label" for="entity-all">All</label>
-                                    </div>
-                                    @if ($ptCahaya ?? null)
-                                        <div class="form-check form-check-inline d-inline">
-                                            <input class="form-check-input" type="radio" name="entity_filter" id="entity-pt" value="{{ $ptCahaya->id }}">
-                                            <label class="form-check-label" for="entity-pt">PT Cahaya Sarange Jaya</label>
+                    <div class="card card-outline card-primary">
+                        <div class="card-header">
+                            <div class="d-flex flex-wrap justify-content-between align-items-center">
+                                <h3 class="card-title mb-2 mb-md-0">
+                                    <i class="fas fa-file-invoice mr-1"></i>
+                                    Sales Credit Memos
+                                </h3>
+                            </div>
+
+                            <div class="border-top pt-3 mt-1">
+                                <div class="d-flex flex-wrap align-items-end">
+                                    <x-document-index-filter-group label="Entity">
+                                        <x-entity-filter-buttons />
+                                    </x-document-index-filter-group>
+
+                                    <x-document-index-filter-group label="Period" for="filter_from">
+                                        <div class="d-flex align-items-center">
+                                            <input type="date" id="filter_from" class="form-control form-control-sm" style="width:150px">
+                                            <span class="text-muted mx-1">–</span>
+                                            <input type="date" id="filter_to" class="form-control form-control-sm" style="width:150px">
                                         </div>
-                                    @endif
-                                    @if ($cvCahaya ?? null)
-                                        <div class="form-check form-check-inline d-inline">
-                                            <input class="form-check-input" type="radio" name="entity_filter" id="entity-cv" value="{{ $cvCahaya->id }}">
-                                            <label class="form-check-label" for="entity-cv">CV Cahaya Saranghae</label>
-                                        </div>
-                                    @endif
+                                    </x-document-index-filter-group>
+
+                                    <x-document-index-filter-group label="Search" for="filter_q">
+                                        <input type="text" id="filter_q" class="form-control form-control-sm"
+                                            style="width:220px" placeholder="Memo no, invoice, customer…">
+                                    </x-document-index-filter-group>
+
+                                    <x-document-index-filter-group label="Posting" for="filter_status">
+                                        <select id="filter_status" class="form-control form-control-sm" style="width:120px">
+                                            <option value="">Any</option>
+                                            <option value="draft">Draft</option>
+                                            <option value="posted">Posted</option>
+                                        </select>
+                                    </x-document-index-filter-group>
+
+                                    <x-document-index-filter-group label="&nbsp;">
+                                        <button id="apply_filters" type="button" class="btn btn-sm btn-info">
+                                            <i class="fas fa-filter mr-1"></i>Apply
+                                        </button>
+                                    </x-document-index-filter-group>
                                 </div>
-                                <input type="date" id="filter_from" class="form-control form-control-sm d-inline-block" style="width:160px">
-                                <input type="date" id="filter_to" class="form-control form-control-sm d-inline-block" style="width:160px">
-                                <input type="text" id="filter_q" class="form-control form-control-sm d-inline-block" style="width:200px" placeholder="Memo, invoice, customer...">
-                                <select id="filter_status" class="form-control form-control-sm d-inline-block" style="width:140px">
-                                    <option value="">All</option>
-                                    <option value="draft">Draft</option>
-                                    <option value="posted">Posted</option>
-                                </select>
-                                <button id="apply_filters" class="btn btn-sm btn-info">Apply</button>
                             </div>
                         </div>
                         <div class="card-body p-0">

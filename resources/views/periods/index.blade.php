@@ -78,6 +78,29 @@
                         </div>
                     </div>
                 </div>
+                @can('periods.close')
+                    <div class="col-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h3 class="card-title">Fiscal Year Actions ({{ $year }})</h3>
+                            </div>
+                            <div class="card-body">
+                                <form method="post" action="{{ route('periods.close-fiscal-year') }}" class="mb-2"
+                                    onsubmit="return confirm('Close fiscal year {{ $year }} and post year-end journal?');">
+                                    @csrf
+                                    <input type="hidden" name="year" value="{{ $year }}">
+                                    <button type="submit" class="btn btn-danger btn-sm">Close Fiscal Year</button>
+                                </form>
+                                <form method="post" action="{{ route('periods.open-fiscal-year') }}"
+                                    onsubmit="return confirm('Roll retained earnings and open fiscal year {{ $year }}?');">
+                                    @csrf
+                                    <input type="hidden" name="year" value="{{ $year }}">
+                                    <button type="submit" class="btn btn-secondary btn-sm">Open Fiscal Year (Roll Retained Earnings)</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                @endcan
             </div>
         </div>
     </section>

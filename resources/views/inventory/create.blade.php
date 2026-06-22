@@ -232,9 +232,6 @@
                                         <option value="fifo" {{ old('valuation_method') == 'fifo' ? 'selected' : '' }}>
                                             FIFO (First In, First Out)
                                         </option>
-                                        <option value="lifo" {{ old('valuation_method') == 'lifo' ? 'selected' : '' }}>
-                                            LIFO (Last In, First Out)
-                                        </option>
                                         <option value="weighted_average"
                                             {{ old('valuation_method') == 'weighted_average' ? 'selected' : '' }}>
                                             Weighted Average

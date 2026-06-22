@@ -69,18 +69,26 @@
                                 </a>
                             @endif
                         @endcan
+                        @can('ar.receipts.create')
+                            @if ($canCreateReceipt ?? false)
+                                <a href="{{ route('sales-receipts.create', ['sales_invoice_id' => $invoice->id]) }}" class="btn btn-sm btn-success">
+                                    <i class="fas fa-hand-holding-usd"></i> Create Receipt
+                                </a>
+                            @endif
+                        @endcan
                         @can('ar.invoices.create')
                             @if ($invoice->status === 'draft')
                                 <a href="{{ route('sales-invoices.edit', $invoice->id) }}" class="btn btn-sm btn-primary">
                                     <i class="fas fa-edit mr-1"></i> Edit
                                 </a>
-                                <form method="post" action="{{ route('sales-invoices.destroy', $invoice->id) }}" class="d-inline" onsubmit="return confirm('Delete this draft invoice?');">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button class="btn btn-sm btn-danger" type="submit"><i class="fas fa-trash mr-1"></i>Delete</button>
-                                </form>
                             @endif
                         @endcan
+                        <x-document-delete-button
+                            permission="ar.invoices.delete"
+                            :preview-route="route('sales-invoices.delete-preview', $invoice->id)"
+                            :destroy-route="route('sales-invoices.destroy', $invoice->id)"
+                            document-label="Sales Invoice {{ $invoice->invoice_no ?? '#'.$invoice->id }}"
+                        />
                         <div class="btn-group">
                             <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                                 <i class="fas fa-print"></i> Print
@@ -309,10 +317,10 @@
                     </div>
 
                     @php
-                        $alloc = \Illuminate\Support\Facades\DB::table('sales_receipt_allocations')
+                        $alloc = $totalAllocated ?? \Illuminate\Support\Facades\DB::table('sales_receipt_allocations')
                             ->where('invoice_id', $invoice->id)
                             ->sum('amount');
-                        $remaining = max(0, (float) $invoiceFooter['amount_due'] - (float) $alloc);
+                        $remaining = $remainingBalance ?? max(0, (float) $invoiceFooter['amount_due'] - (float) $alloc);
                     @endphp
                     <div class="row mt-3">
                         <div class="col-md-6">

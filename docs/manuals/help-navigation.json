@@ -26,8 +26,68 @@
             "title_id": "Laporan",
             "menu_path_en": "Main sidebar → Reports (expand for report lists and Open Items, etc.).",
             "menu_path_id": "Menu samping utama → Laporan (buka submenu untuk daftar laporan, Open Items, dll.).",
-            "keywords_en": ["report", "aging", "open items", "export", "excel"],
-            "keywords_id": ["laporan", "umur", "open items", "ekspor", "excel"]
+            "keywords_en": ["report", "aging", "open items", "export", "excel", "subledger reconciliation", "PPN reconciliation", "changes in equity", "statement of equity"],
+            "keywords_id": ["laporan", "umur", "open items", "ekspor", "excel", "rekonsiliasi subledger", "rekonsiliasi PPN", "perubahan ekuitas"]
+        },
+        {
+            "id": "bank-accounts",
+            "title_en": "Bank Accounts",
+            "title_id": "Rekening Bank",
+            "menu_path_en": "Sidebar → Accounting → Bank Accounts.",
+            "menu_path_id": "Menu samping → Accounting → Bank Accounts.",
+            "keywords_en": ["bank account", "COA link", "cash account", "1.1.1", "master bank"],
+            "keywords_id": ["rekening bank", "akun bank", "hubung COA", "kas bank"],
+            "notes": "Manuals: bank-reconciliation-manual-en.md / bank-reconciliation-manual-id.md"
+        },
+        {
+            "id": "bank-reconciliation",
+            "title_en": "Bank Reconciliation",
+            "title_id": "Rekonsiliasi Bank",
+            "menu_path_en": "Sidebar → Accounting → Bank Reconciliation → Import Statement or open a session.",
+            "menu_path_id": "Menu samping → Accounting → Bank Reconciliation → Import Statement atau buka sesi.",
+            "keywords_en": ["bank reconciliation", "statement import", "PDF", "match", "auto match", "AI match", "adjustment journal"],
+            "keywords_id": ["rekonsiliasi bank", "rekening koran", "impor PDF", "cocokkan", "matching", "jurnal penyesuaian"],
+            "notes": "Manuals: bank-reconciliation-manual-en.md / bank-reconciliation-manual-id.md. Requires bank_accounts linked to COA."
+        },
+        {
+            "id": "tax-compliance",
+            "title_en": "Tax Compliance (PPN / PPh)",
+            "title_id": "Tax Compliance (PPN / PPh)",
+            "menu_path_en": "Sidebar → Accounting → Tax Compliance.",
+            "menu_path_id": "Menu samping → Accounting → Tax Compliance.",
+            "keywords_en": ["tax compliance", "PPN", "PPh", "withholding", "Faktur Pajak", "Coretax", "e-Bupot", "SPT", "tax transactions"],
+            "keywords_id": ["kepatuhan pajak", "PPN", "PPh", "potong", "faktur pajak", "Coretax", "e-Bupot", "SPT"],
+            "notes": "Manuals: tax-compliance-manual-en.md / tax-compliance-manual-id.md. PPN Reconciliation under Reports menu."
+        },
+        {
+            "id": "document-workflow-features",
+            "title_en": "Document navigation, Preview Journal, Open/Closed filter, Create Target, Delete",
+            "title_id": "Navigasi dokumen, Preview Journal, filter Open/Closed, Create Target, Hapus",
+            "menu_path_en": "Document show pages → Base/Target card, Preview Journal, Delete dropdown; list pages → Open/Closed switch; header Create Payment/Receipt/Invoice buttons.",
+            "menu_path_id": "Halaman detail → kartu Base/Target, Preview Journal, dropdown Delete; daftar → switch Open/Closed; tombol Create Payment/Receipt/Invoice.",
+            "keywords_en": ["preview journal", "base document", "target document", "open closed filter", "delete document", "cascade delete", "create payment", "create receipt", "copy to GRPO"],
+            "keywords_id": ["preview journal", "base target", "filter open closed", "hapus dokumen", "delete cascade", "buat payment", "buat receipt", "copy GRPO"],
+            "notes": "Manuals: document-workflow-features-manual-en.md / document-workflow-features-manual-id.md"
+        },
+        {
+            "id": "accounting-reports-enhanced",
+            "title_en": "Enhanced accounting reports",
+            "title_id": "Laporan akuntansi diperbarui",
+            "menu_path_en": "Sidebar → Reports → Changes in Equity, Subledger Reconciliation, PPN Reconciliation, GL Detail, AR/AP Balances.",
+            "menu_path_id": "Menu samping → Reports → Changes in Equity, Subledger Reconciliation, PPN Reconciliation, GL Detail, AR/AP Balances.",
+            "keywords_en": ["subledger reconciliation", "PPN reconciliation", "changes in equity", "GL running balance", "AR balances", "AP balances"],
+            "keywords_id": ["rekonsiliasi subledger", "rekonsiliasi PPN", "perubahan ekuitas", "saldo berjalan GL"],
+            "notes": "Manuals: accounting-reports-manual-en.md / accounting-reports-manual-id.md"
+        },
+        {
+            "id": "periods-year-end",
+            "title_en": "Accounting periods and fiscal year close",
+            "title_id": "Periode akuntansi dan tutup tahun fiskal",
+            "menu_path_en": "Sidebar → Accounting → Periods → Close month or Close Fiscal Year.",
+            "menu_path_id": "Menu samping → Accounting → Periods → tutup bulan atau Close Fiscal Year.",
+            "keywords_en": ["period close", "fiscal year", "year end", "retained earnings", "closed period", "block posting"],
+            "keywords_id": ["tutup periode", "tutup buku", "akhir tahun", "laba ditahan", "periode tertutup"],
+            "notes": "Posting and document delete blocked in closed periods. See tax-compliance manual for tax period alignment."
         },
         {
             "id": "approval-dashboard",
@@ -158,9 +218,9 @@
             "title_id": "Valuasi persediaan & biaya (FIFO, unit cost)",
             "menu_path_en": "Inventory → item detail: Recent Transactions (Unit Cost vs document price); item edit: valuation method.",
             "menu_path_id": "Inventory → detail item: Recent Transactions (Unit Cost vs harga dokumen); edit item: metode valuasi.",
-            "keywords_en": ["FIFO", "LIFO", "weighted average", "valuation", "unit cost", "COGS", "inventory cost", "purchase price", "selling price", "change valuation method"],
-            "keywords_id": ["FIFO", "LIFO", "rata-rata", "valuasi", "unit cost", "HPP", "biaya persediaan", "harga beli", "harga jual", "ganti metode valuasi", "persediaan"],
-            "notes": "Manuals: inventory-valuation-and-costing-manual-en.md / inventory-valuation-and-costing-manual-id.md. Reindex: php artisan help:reindex"
+            "keywords_en": ["FIFO", "weighted average", "valuation", "unit cost", "COGS", "inventory cost", "purchase price", "selling price", "change valuation method"],
+            "keywords_id": ["FIFO", "rata-rata", "valuasi", "unit cost", "HPP", "biaya persediaan", "harga beli", "harga jual", "ganti metode valuasi", "persediaan"],
+            "notes": "Manuals: inventory-valuation-and-costing-manual-en.md / inventory-valuation-and-costing-manual-id.md. LIFO removed (PSAK). Reindex: php artisan help:reindex"
         },
         {
             "id": "inventory-transfer",

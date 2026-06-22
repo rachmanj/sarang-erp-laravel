@@ -2,12 +2,15 @@
 
 namespace App\Http\Controllers\Accounting;
 
+use App\Http\Controllers\Concerns\HandlesDocumentDeletion;
 use App\Http\Controllers\Controller;
 use App\Models\Accounting\SalesCreditMemo;
 use App\Models\Accounting\SalesCreditMemoLine;
 use App\Models\Accounting\SalesInvoice;
 use App\Services\Accounting\PostingService;
+use App\Services\Accounting\SalesInvoicePostingMath;
 use App\Services\DocumentNumberingService;
+use App\Services\Documents\DocumentType;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -15,6 +18,8 @@ use Yajra\DataTables\Facades\DataTables;
 
 class SalesCreditMemoController extends Controller
 {
+    use HandlesDocumentDeletion;
+
     public function __construct(
         private PostingService $posting,
         private DocumentNumberingService $documentNumberingService
@@ -23,6 +28,7 @@ class SalesCreditMemoController extends Controller
         $this->middleware('permission:ar.credit-memos.view')->only(['index', 'show', 'data']);
         $this->middleware('permission:ar.credit-memos.create')->only(['create', 'store']);
         $this->middleware('permission:ar.credit-memos.post')->only(['post']);
+        $this->middleware('permission:ar.credit-memos.delete')->only(['destroy', 'deletePreview']);
     }
 
     public function index()
@@ -205,7 +211,7 @@ class SalesCreditMemoController extends Controller
             return back()->with('success', 'Already posted');
         }
 
-        $invoice = $memo->salesInvoice;
+        $invoice = $memo->salesInvoice->load('lines');
         $reason = $this->creditMemoBlockedReason($invoice);
         if ($reason) {
             return back()->with('error', $reason);
@@ -213,23 +219,24 @@ class SalesCreditMemoController extends Controller
 
         $arUnInvoiceAccountId = (int) DB::table('accounts')->where('code', '1.1.2.04')->value('id');
         $arAccountId = (int) DB::table('accounts')->where('code', '1.1.2.01')->value('id');
-        $ppnOutputId = (int) DB::table('accounts')->where('code', '2.1.2')->value('id');
+        $ppnOutputId = (int) DB::table('accounts')->where('code', '2.1.2.01')->value('id');
+        $wtaxPrepaidId = (int) DB::table('accounts')->where('code', '1.1.4.02')->value('id');
 
-        $revenueTotal = 0.0;
-        $ppnTotal = 0.0;
-
-        foreach ($memo->lines as $l) {
-            $revenueTotal += (float) $l->amount;
-            if (! empty($l->tax_code_id)) {
-                $rate = (float) DB::table('tax_codes')->where('id', $l->tax_code_id)->value('rate');
-                $ppnTotal += round($l->amount * $rate, 2);
-            }
+        $totals = SalesInvoicePostingMath::summarizeLinesForPosting($invoice->lines);
+        $headerDiscount = round((float) ($invoice->discount_amount ?? 0), 2);
+        $arAmount = round($totals['gross_total'] - $headerDiscount, 2);
+        if ($arAmount < 0) {
+            $arAmount = 0;
         }
+        $arUnInvoiceDebit = round($arAmount + ($totals['wtax_total'] ?? 0), 2);
+        $ppnTotal = $totals['ppn_total'];
+        $wtaxTotal = $totals['wtax_total'] ?? 0.0;
+        $ppnByRevenueAccount = $totals['ppn_by_revenue_account'];
 
         $lines = [
             [
                 'account_id' => $arUnInvoiceAccountId,
-                'debit' => $revenueTotal,
+                'debit' => $arUnInvoiceDebit,
                 'credit' => 0,
                 'project_id' => null,
                 'dept_id' => null,
@@ -238,13 +245,39 @@ class SalesCreditMemoController extends Controller
             [
                 'account_id' => $arAccountId,
                 'debit' => 0,
-                'credit' => $revenueTotal + $ppnTotal,
+                'credit' => $arAmount,
                 'project_id' => null,
                 'dept_id' => null,
                 'memo' => 'Reduce AR — Credit Memo #'.$memo->memo_no,
             ],
         ];
+
+        if ($wtaxTotal > 0 && $wtaxPrepaidId) {
+            $lines[] = [
+                'account_id' => $wtaxPrepaidId,
+                'debit' => 0,
+                'credit' => $wtaxTotal,
+                'project_id' => null,
+                'dept_id' => null,
+                'memo' => 'Reverse PPh 23 Dibayar Dimuka — Credit Memo #'.$memo->memo_no,
+            ];
+        }
+
         if ($ppnTotal > 0) {
+            foreach ($ppnByRevenueAccount as $revenueAccountId => $ppnPart) {
+                if ($ppnPart <= 0) {
+                    continue;
+                }
+                $lines[] = [
+                    'account_id' => (int) $revenueAccountId,
+                    'debit' => 0,
+                    'credit' => $ppnPart,
+                    'project_id' => null,
+                    'dept_id' => null,
+                    'memo' => 'Reverse VAT reclass — Credit Memo #'.$memo->memo_no,
+                ];
+            }
+
             $lines[] = [
                 'account_id' => $ppnOutputId,
                 'debit' => $ppnTotal,
@@ -287,5 +320,15 @@ class SalesCreditMemoController extends Controller
         }
 
         return null;
+    }
+
+    protected function documentDeletionType(): string
+    {
+        return DocumentType::SALES_CREDIT_MEMO;
+    }
+
+    public function destroy(int $id)
+    {
+        return $this->destroyDocument($id);
     }
 }

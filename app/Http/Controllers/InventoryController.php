@@ -233,7 +233,7 @@ class InventoryController extends Controller
                 'price_level_2_percentage' => ['nullable', 'numeric', 'min:0', 'max:1000'],
                 'price_level_3_percentage' => ['nullable', 'numeric', 'min:0', 'max:1000'],
                 'item_type' => ['required', 'in:item,service'],
-                'valuation_method' => ['required', 'in:fifo,lifo,weighted_average'],
+                'valuation_method' => ['required', 'in:fifo,weighted_average'],
                 'is_active' => ['nullable'],
             ];
 
@@ -538,7 +538,7 @@ class InventoryController extends Controller
             'max_stock_level' => ['required', 'integer', 'min:0'],
             'reorder_point' => ['required', 'integer', 'min:0'],
             'item_type' => ['required', 'in:item,service'],
-            'valuation_method' => ['required', 'in:fifo,lifo,weighted_average'],
+            'valuation_method' => ['required', 'in:fifo,weighted_average'],
             'is_active' => ['nullable'],
         ]);
 
@@ -1090,9 +1090,7 @@ class InventoryController extends Controller
 
         switch ($item->valuation_method) {
             case 'fifo':
-                return $this->calculateFIFOCost($transactions);
-            case 'lifo':
-                return $this->calculateLIFOCost($transactions);
+                return app(\App\Services\InventoryService::class)->calculateUnitCost($item);
             case 'weighted_average':
                 return $this->calculateWeightedAverageCost($transactions);
             default:

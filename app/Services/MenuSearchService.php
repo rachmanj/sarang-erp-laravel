@@ -37,8 +37,30 @@ class MenuSearchService
             ['approval', 'approvals', 'dashboard']
         );
 
+        // Domain Assistant (navbar)
+        if ($user->can('access-domain-assistant')) {
+            $items[] = $this->buildMenuItem(
+                'Domain Assistant',
+                route('assistant.index'),
+                'fas fa-robot',
+                'Assistant',
+                'Navbar > Domain Assistant',
+                ['domain assistant', 'robot', 'live data', 'chat', 'assistant', 'ERP data']
+            );
+        }
+
         // Inventory Group
         if ($user->hasAnyPermission(['inventory.view', 'inventory.create', 'inventory.update', 'warehouse.view', 'gr-gi.view'])) {
+            if ($user->can('inventory.view')) {
+                $items[] = $this->buildMenuItem(
+                    'Inventory Dashboard',
+                    route('inventory.dashboard'),
+                    'fas fa-boxes',
+                    'Inventory',
+                    'MAIN > Inventory > Dashboard',
+                    ['inventory', 'dashboard', 'stock', 'valuation']
+                );
+            }
             if ($user->can('inventory.view')) {
                 $items[] = $this->buildMenuItem(
                     'Inventory Items',
@@ -74,7 +96,15 @@ class MenuSearchService
                     'fas fa-boxes',
                     'Inventory',
                     'MAIN > Inventory > Valuation Report',
-                    ['inventory', 'valuation', 'report', 'cost']
+                    ['inventory', 'valuation', 'report', 'cost', 'FIFO', 'weighted average']
+                );
+                $items[] = $this->buildMenuItem(
+                    'Inventory Detail Report',
+                    route('inventory.detail-report'),
+                    'fas fa-boxes',
+                    'Inventory',
+                    'MAIN > Inventory > Detail Report',
+                    ['inventory', 'detail report', 'stock movement', 'transactions']
                 );
             }
             if ($user->can('warehouse.view')) {
@@ -310,7 +340,7 @@ class MenuSearchService
         );
 
         // Accounting Group
-        if ($user->hasAnyPermission(['journals.view', 'accounts.view', 'account_statements.view', 'currencies.view'])) {
+        if ($user->hasAnyPermission(['journals.view', 'accounts.view', 'account_statements.view', 'currencies.view', 'bank_reconciliation.view', 'bank_accounts.view', 'tax.view', 'periods.view'])) {
             $items[] = $this->buildMenuItem(
                 'Journals',
                 route('journals.index'),
@@ -393,6 +423,36 @@ class MenuSearchService
                     'Accounting',
                     'MAIN > Accounting > Currency Revaluations',
                     ['currency revaluations', 'revaluation', 'forex adjustment']
+                );
+            }
+            if ($user->can('bank_accounts.view')) {
+                $items[] = $this->buildMenuItem(
+                    'Bank Accounts',
+                    route('bank-accounts.index'),
+                    'fas fa-university',
+                    'Accounting',
+                    'MAIN > Accounting > Bank Accounts',
+                    ['bank accounts', 'bank', 'COA', 'cash account', 'reconciliation']
+                );
+            }
+            if ($user->can('bank_reconciliation.view')) {
+                $items[] = $this->buildMenuItem(
+                    'Bank Reconciliation',
+                    route('bank-reconciliation.index'),
+                    'fas fa-balance-scale',
+                    'Accounting',
+                    'MAIN > Accounting > Bank Reconciliation',
+                    ['bank reconciliation', 'statement', 'match', 'import PDF', 'reconcile']
+                );
+            }
+            if ($user->can('tax.view')) {
+                $items[] = $this->buildMenuItem(
+                    'Tax Compliance',
+                    route('tax.index'),
+                    'fas fa-percent',
+                    'Accounting',
+                    'MAIN > Accounting > Tax Compliance',
+                    ['tax', 'PPN', 'PPh', 'VAT', 'withholding', 'e-Faktur', 'Coretax', 'SPT']
                 );
             }
         }
@@ -486,6 +546,14 @@ class MenuSearchService
                 ['cash flow', 'statement of cash flows', 'scf', 'reports', 'financial', 'indirect']
             );
             $items[] = $this->buildMenuItem(
+                'Statement of Changes in Equity',
+                route('reports.statement-of-changes-in-equity'),
+                'fas fa-chart-bar',
+                'Reports',
+                'REPORTS > Statement of Changes in Equity',
+                ['changes in equity', 'equity statement', 'retained earnings', 'reports', 'PSAK']
+            );
+            $items[] = $this->buildMenuItem(
                 'GL Detail',
                 route('reports.gl-detail'),
                 'fas fa-chart-bar',
@@ -532,6 +600,22 @@ class MenuSearchService
                 'Reports',
                 'REPORTS > AP Party Balances',
                 ['ap balances', 'accounts payable', 'reports']
+            );
+            $items[] = $this->buildMenuItem(
+                'Subledger Reconciliation',
+                route('reports.subledger-reconciliation'),
+                'fas fa-chart-bar',
+                'Reports',
+                'REPORTS > Subledger Reconciliation',
+                ['subledger reconciliation', 'AR AP GL tie-out', 'control account', 'reports']
+            );
+            $items[] = $this->buildMenuItem(
+                'PPN Reconciliation',
+                route('reports.ppn-reconciliation'),
+                'fas fa-chart-bar',
+                'Reports',
+                'REPORTS > PPN Reconciliation',
+                ['PPN reconciliation', 'VAT reconciliation', 'PPN Masukan', 'PPN Keluaran', 'SPT', 'tax reports']
             );
             $items[] = $this->buildMenuItem(
                 'Downloads',

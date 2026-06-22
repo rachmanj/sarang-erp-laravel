@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\HandlesDocumentDeletion;
 use App\Models\GoodsReceiptPO;
 use App\Models\GoodsReceiptPOLine;
 use App\Models\InventoryItem;
@@ -11,6 +12,7 @@ use App\Services\CompanyEntityService;
 use App\Services\DocumentClosureService;
 use App\Services\DocumentNumberingService;
 use App\Services\DocumentRelationshipService;
+use App\Services\Documents\DocumentType;
 use App\Services\GRPOCopyService;
 use App\Services\GRPOJournalService;
 use App\Services\GrpoLinePurchaseOrderPricingService;
@@ -23,6 +25,8 @@ use Illuminate\Support\Facades\DB;
 
 class GoodsReceiptPOController extends Controller
 {
+    use HandlesDocumentDeletion;
+
     public function __construct(
         private DocumentNumberingService $documentNumberingService,
         private GRPOCopyService $grpoCopyService,
@@ -182,30 +186,8 @@ class GoodsReceiptPOController extends Controller
                 app(PurchaseWorkflowAuditService::class)->logGRPOCreation($purchaseOrder, $grpo->id);
             }
 
-            // Automatically create and post journal entries since goods are received
             try {
-                $journal = $this->grpoJournalService->createJournalEntries($grpo);
-
-                // Post the journal using PostingService
-                $journalPayload = [
-                    'date' => $journal->date,
-                    'description' => $journal->description,
-                    'source_type' => $journal->source_type,
-                    'source_id' => $journal->source_id,
-                    'posted_by' => Auth::id(),
-                    'lines' => $journal->lines->map(function ($line) {
-                        return [
-                            'account_id' => $line->account_id,
-                            'description' => $line->description,
-                            'debit' => $line->debit,
-                            'credit' => $line->credit,
-                            'project_id' => $line->project_id,
-                            'dept_id' => $line->dept_id,
-                        ];
-                    })->toArray(),
-                ];
-
-                $this->postingService->postJournal($journalPayload);
+                $this->grpoJournalService->createJournalEntries($grpo);
 
                 return redirect()->route('goods-receipt-pos.index')->with('success', 'Goods Receipt PO created, goods received, and journal entries posted');
             } catch (\Exception $e) {
@@ -354,7 +336,8 @@ class GoodsReceiptPOController extends Controller
     {
         $query = PurchaseOrder::with(['vendor', 'lines.inventoryItem'])
             ->where('order_type', 'item')
-            ->where('status', 'approved');
+            ->where('approval_status', 'approved')
+            ->where('status', 'ordered');
 
         // Filter by vendor if specified
         if ($request->has('business_partner_id')) {
@@ -589,5 +572,15 @@ class GoodsReceiptPOController extends Controller
         } catch (\Exception $e) {
             return back()->with('error', 'Error fixing inventory transactions: '.$e->getMessage());
         }
+    }
+
+    protected function documentDeletionType(): string
+    {
+        return DocumentType::GOODS_RECEIPT_PO;
+    }
+
+    public function destroy(int $id)
+    {
+        return $this->destroyDocument($id);
     }
 }

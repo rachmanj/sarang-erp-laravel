@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Accounting;
 
 use App\Exports\SalesInvoiceListExport;
+use App\Http\Controllers\Concerns\HandlesDocumentDeletion;
 use App\Http\Controllers\Controller;
 use App\Models\Accounting\SalesInvoice;
 use App\Models\Accounting\SalesInvoiceLine;
@@ -13,13 +14,16 @@ use App\Models\SalesOrder;
 use App\Models\SalesOrderLine;
 use App\Models\SalesQuotation;
 use App\Models\User;
+use App\Services\Accounting\JournalBuilders\SalesInvoiceJournalBuilder;
 use App\Services\Accounting\PostingService;
 use App\Services\Accounting\SalesInvoicePostingMath;
 use App\Services\CompanyEntityService;
 use App\Services\DocumentClosureService;
 use App\Services\DocumentNumberingService;
 use App\Services\DocumentRelationshipService;
+use App\Services\Documents\DocumentType;
 use App\Services\SalesWorkflowAuditService;
+use App\Support\DocumentOpenState;
 use Carbon\Carbon;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Http\Request;
@@ -31,18 +35,21 @@ use Yajra\DataTables\Facades\DataTables;
 
 class SalesInvoiceController extends Controller
 {
+    use HandlesDocumentDeletion;
+
     public function __construct(
         private PostingService $posting,
         private DocumentNumberingService $documentNumberingService,
         private DocumentClosureService $documentClosureService,
         private DocumentRelationshipService $documentRelationshipService,
-        private CompanyEntityService $companyEntityService
+        private CompanyEntityService $companyEntityService,
+        private SalesInvoiceJournalBuilder $salesInvoiceJournalBuilder,
     ) {
         $this->middleware(['auth']);
         $this->middleware('permission:ar.invoices.view')->only(['index', 'show']);
         $this->middleware('permission:ar.invoices.create')->only(['create', 'store', 'edit', 'update']);
         $this->middleware('permission:ar.invoices.post')->only(['post']);
-        $this->middleware('permission:ar.invoices.create')->only(['destroy']);
+        $this->middleware('permission:ar.invoices.delete')->only(['destroy', 'deletePreview']);
     }
 
     public function index()
@@ -691,36 +698,14 @@ class SalesInvoiceController extends Controller
         });
     }
 
+    protected function documentDeletionType(): string
+    {
+        return DocumentType::SALES_INVOICE;
+    }
+
     public function destroy(int $id)
     {
-        $invoice = SalesInvoice::with('deliveryOrders')->findOrFail($id);
-        if ($invoice->status !== 'draft') {
-            return redirect()->route('sales-invoices.show', $invoice->id)
-                ->with('error', 'Only draft Sales Invoices can be deleted.');
-        }
-        $allocated = DB::table('sales_receipt_allocations')->where('invoice_id', $invoice->id)->exists();
-        if ($allocated) {
-            return redirect()->route('sales-invoices.show', $invoice->id)
-                ->with('error', 'Cannot delete: this invoice has payment allocations.');
-        }
-        $linkedDoIds = $invoice->deliveryOrders->pluck('id')->all();
-        $invoice->lines()->delete();
-        $invoice->deliveryOrders()->detach();
-        $invoice->delete();
-        foreach ($linkedDoIds as $doId) {
-            $do = DeliveryOrder::find($doId);
-            if ($do && ($do->closure_status ?? 'open') === 'closed' && ($do->closed_by_document_id ?? null) == $id) {
-                $do->update([
-                    'closure_status' => 'open',
-                    'closed_by_document_type' => null,
-                    'closed_by_document_id' => null,
-                    'closed_at' => null,
-                    'closed_by_user_id' => null,
-                ]);
-            }
-        }
-
-        return redirect()->route('sales-invoices.index')->with('success', 'Sales Invoice deleted.');
+        return $this->destroyDocument($id);
     }
 
     public function show(int $id)
@@ -751,8 +736,25 @@ class SalesInvoiceController extends Controller
             && ! $hasCreditMemo;
 
         $invoiceFooter = SalesInvoicePostingMath::invoiceFooterTotals($invoice);
+        $totalAllocated = (float) DB::table('sales_receipt_allocations')
+            ->where('invoice_id', $invoice->id)
+            ->sum('amount');
+        $remainingBalance = max(0, (float) $invoiceFooter['amount_due'] - $totalAllocated);
+        $canCreateReceipt = $user instanceof User
+            && $user->can('ar.receipts.create')
+            && $invoice->status === 'posted'
+            && ! $invoice->is_opening_balance
+            && $remainingBalance > 0.01;
 
-        return view('sales_invoices.show', compact('invoice', 'canCreateCreditMemo', 'hasCreditMemo', 'invoiceFooter'));
+        return view('sales_invoices.show', compact(
+            'invoice',
+            'canCreateCreditMemo',
+            'hasCreditMemo',
+            'invoiceFooter',
+            'totalAllocated',
+            'remainingBalance',
+            'canCreateReceipt'
+        ));
     }
 
     public function print(Request $request, int $id)
@@ -829,127 +831,20 @@ class SalesInvoiceController extends Controller
             return back()->with('success', 'Already posted');
         }
 
-        $arUnInvoiceAccountId = (int) DB::table('accounts')->where('code', '1.1.2.04')->value('id'); // AR UnInvoice
-        $arAccountId = (int) DB::table('accounts')->where('code', '1.1.2.01')->value('id'); // Piutang Dagang
-        $ppnOutputId = (int) DB::table('accounts')->where('code', '2.1.2')->value('id');
+        $draft = $this->salesInvoiceJournalBuilder->build($invoice);
 
-        $totals = SalesInvoicePostingMath::summarizeLinesForPosting($invoice->lines);
-        $grossTotal = $totals['gross_total'];
-        $headerDiscount = round((float) ($invoice->discount_amount ?? 0), 2);
-        $arAmount = round($grossTotal - $headerDiscount, 2);
-        if ($arAmount < 0) {
-            $arAmount = 0;
-        }
-        $ppnTotal = $totals['ppn_total'];
-        $ppnByRevenueAccount = $totals['ppn_by_revenue_account'];
-        $lines = [];
-
-        // Check if this is an opening balance invoice
-        // Opening balance invoices post directly to AR and Retained Earnings Opening Balance
-        $isOpeningBalance = $invoice->is_opening_balance;
-
-        if ($isOpeningBalance) {
-            // Opening balance invoice: Post directly to AR and Retained Earnings Opening Balance (3.3.1)
-            $retainedEarningsAccountId = (int) DB::table('accounts')->where('code', '3.3.1')->value('id'); // Saldo Awal Laba Ditahan
-
-            if (! $retainedEarningsAccountId) {
-                throw new \Exception('Retained Earnings Opening Balance account (3.3.1) not found. Please ensure this account exists in the chart of accounts.');
-            }
-
-            // Debit AR for the full tax-inclusive receivable; split exclusive vs PPN on credits.
-            $lines[] = [
-                'account_id' => $arAccountId,
-                'debit' => $arAmount,
-                'credit' => 0,
-                'project_id' => null,
-                'dept_id' => null,
-                'memo' => 'Accounts Receivable - Opening Balance',
-            ];
-
-            // Credit Retained Earnings Opening Balance (3.3.1)
-            $lines[] = [
-                'account_id' => $retainedEarningsAccountId,
-                'debit' => 0,
-                'credit' => round($arAmount - $ppnTotal, 2),
-                'project_id' => null,
-                'dept_id' => null,
-                'memo' => 'Saldo Awal Laba Ditahan - Opening Balance',
-            ];
-
-            // Credit VAT Output Account (recognizing VAT liability)
-            if ($ppnTotal > 0) {
-                $lines[] = [
-                    'account_id' => $ppnOutputId,
-                    'debit' => 0,
-                    'credit' => $ppnTotal,
-                    'project_id' => null,
-                    'dept_id' => null,
-                    'memo' => 'PPN Keluaran',
-                ];
-            }
-        } else {
-            // Regular invoice: Post using AR UnInvoice flow
-            // At DO completion we credited revenue for the tax-inclusive gross. When we invoice we:
-            // 1. Credit AR UnInvoice (clear uninvoiced AR)
-            // 2. Debit AR for the same gross (customer balance)
-            // 3. Debit each line revenue account for its VAT (reclass gross revenue → net + PPN)
-            // 4. Credit PPN (rate is a percent, e.g. 11 = 11%)
-            $lines[] = [
-                'account_id' => $arUnInvoiceAccountId,
-                'debit' => 0,
-                'credit' => $arAmount,
-                'project_id' => null,
-                'dept_id' => null,
-                'memo' => 'Reduce AR UnInvoice - convert to invoiced AR',
-            ];
-
-            $lines[] = [
-                'account_id' => $arAccountId,
-                'debit' => $arAmount,
-                'credit' => 0,
-                'project_id' => null,
-                'dept_id' => null,
-                'memo' => 'Accounts Receivable',
-            ];
-
-            if ($ppnTotal > 0) {
-                foreach ($ppnByRevenueAccount as $revenueAccountId => $ppnPart) {
-                    if ($ppnPart <= 0) {
-                        continue;
-                    }
-                    $lines[] = [
-                        'account_id' => (int) $revenueAccountId,
-                        'debit' => $ppnPart,
-                        'credit' => 0,
-                        'project_id' => null,
-                        'dept_id' => null,
-                        'memo' => 'Reclass VAT from revenue (DO gross → PPN)',
-                    ];
-                }
-
-                $lines[] = [
-                    'account_id' => $ppnOutputId,
-                    'debit' => 0,
-                    'credit' => $ppnTotal,
-                    'project_id' => null,
-                    'dept_id' => null,
-                    'memo' => 'PPN Keluaran',
-                ];
-            }
-        }
-
-        DB::transaction(function () use ($invoice, $lines) {
-            $jid = $this->posting->postJournal([
-                'date' => $invoice->date->toDateString(),
-                'description' => $invoice->is_opening_balance
-                    ? 'Post AR Invoice (Opening Balance) #'.$invoice->invoice_no
-                    : 'Post AR Invoice #'.$invoice->invoice_no,
+        DB::transaction(function () use ($invoice, $draft) {
+            $this->posting->postJournal([
+                'date' => $draft->date ?? $invoice->date->toDateString(),
+                'description' => $draft->description,
                 'source_type' => 'sales_invoice',
                 'source_id' => $invoice->id,
-                'lines' => $lines,
+                'lines' => $draft->lines,
             ]);
 
             $invoice->update(['status' => 'posted', 'posted_at' => now()]);
+
+            app(\App\Services\TaxService::class)->syncPostedSalesInvoice($invoice->fresh(['lines', 'businessPartner']));
         });
 
         return back()->with('success', 'Invoice posted');
@@ -1076,5 +971,12 @@ class SalesInvoiceController extends Controller
         if ($request->filled('company_entity_id')) {
             $query->where('si.company_entity_id', (int) $request->company_entity_id);
         }
+
+        DocumentOpenState::applyToQuery(
+            $query,
+            'sales_invoice',
+            'si',
+            $request->input('open_state', DocumentOpenState::DEFAULT_STATE)
+        );
     }
 }

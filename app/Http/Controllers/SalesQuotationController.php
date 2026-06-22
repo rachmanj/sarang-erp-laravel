@@ -2,28 +2,35 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\SalesQuotation;
-use App\Models\SalesQuotationLine;
-use App\Models\SalesQuotationApproval;
+use App\Http\Controllers\Concerns\HandlesDocumentDeletion;
 use App\Models\InventoryItem;
-use App\Services\QuotationService;
-use App\Services\QuotationConversionService;
-use App\Services\DocumentNumberingService;
+use App\Models\SalesQuotation;
 use App\Services\CompanyEntityService;
 use App\Services\CurrencyService;
+use App\Services\DocumentNumberingService;
+use App\Services\Documents\DocumentType;
 use App\Services\ExchangeRateService;
+use App\Services\QuotationConversionService;
+use App\Services\QuotationService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\Facades\DataTables;
 
 class SalesQuotationController extends Controller
 {
+    use HandlesDocumentDeletion;
+
     protected $quotationService;
+
     protected $quotationConversionService;
+
     protected $documentNumberingService;
+
     protected $companyEntityService;
+
     protected $currencyService;
+
     protected $exchangeRateService;
 
     public function __construct(
@@ -46,6 +53,7 @@ class SalesQuotationController extends Controller
     {
         $ptCahaya = \App\Models\CompanyEntity::where('code', '71')->first();
         $cvCahaya = \App\Models\CompanyEntity::where('code', '72')->first();
+
         return view('sales_quotations.index', compact('ptCahaya', 'cvCahaya'));
     }
 
@@ -63,7 +71,7 @@ class SalesQuotationController extends Controller
                 'net_amount',
                 'status',
                 'approval_status',
-                'created_at'
+                'created_at',
             ]);
 
         if ($request->filled('from')) {
@@ -91,10 +99,10 @@ class SalesQuotationController extends Controller
         }
         if ($request->filled('q')) {
             $query->where(function ($q) use ($request) {
-                $q->where('quotation_no', 'like', '%' . $request->q . '%')
-                    ->orWhere('reference_no', 'like', '%' . $request->q . '%')
+                $q->where('quotation_no', 'like', '%'.$request->q.'%')
+                    ->orWhere('reference_no', 'like', '%'.$request->q.'%')
                     ->orWhereHas('businessPartner', function ($bp) use ($request) {
-                        $bp->where('name', 'like', '%' . $request->q . '%');
+                        $bp->where('name', 'like', '%'.$request->q.'%');
                     });
             });
         }
@@ -113,25 +121,26 @@ class SalesQuotationController extends Controller
                 return $row->date ? $row->date->format('d-M-Y') : '';
             })
             ->editColumn('valid_until_date', function ($row) {
-                if (!$row->valid_until_date) {
+                if (! $row->valid_until_date) {
                     return '';
                 }
                 $date = $row->valid_until_date->format('d-M-Y');
-                $isExpired = $row->valid_until_date < now()->toDateString() && !in_array($row->status, ['converted', 'rejected', 'expired']);
-                $isExpiringSoon = $row->valid_until_date <= now()->addDays(3)->toDateString() && !$isExpired && !in_array($row->status, ['converted', 'rejected', 'expired']);
-                
+                $isExpired = $row->valid_until_date < now()->toDateString() && ! in_array($row->status, ['converted', 'rejected', 'expired']);
+                $isExpiringSoon = $row->valid_until_date <= now()->addDays(3)->toDateString() && ! $isExpired && ! in_array($row->status, ['converted', 'rejected', 'expired']);
+
                 if ($isExpired) {
-                    return '<span class="text-danger" title="Expired">' . $date . '</span>';
+                    return '<span class="text-danger" title="Expired">'.$date.'</span>';
                 } elseif ($isExpiringSoon) {
-                    return '<span class="text-warning" title="Expiring Soon">' . $date . '</span>';
+                    return '<span class="text-warning" title="Expiring Soon">'.$date.'</span>';
                 }
+
                 return $date;
             })
             ->editColumn('total_amount', function ($row) {
-                return 'Rp ' . number_format($row->total_amount, 0, ',', '.');
+                return 'Rp '.number_format($row->total_amount, 0, ',', '.');
             })
             ->editColumn('net_amount', function ($row) {
-                return 'Rp ' . number_format($row->net_amount, 0, ',', '.');
+                return 'Rp '.number_format($row->net_amount, 0, ',', '.');
             })
             ->addColumn('status_badge', function ($row) {
                 $badges = [
@@ -142,7 +151,8 @@ class SalesQuotationController extends Controller
                     'expired' => '<span class="badge badge-warning">Expired</span>',
                     'converted' => '<span class="badge badge-primary">Converted</span>',
                 ];
-                return $badges[$row->status] ?? '<span class="badge badge-secondary">' . ucfirst($row->status) . '</span>';
+
+                return $badges[$row->status] ?? '<span class="badge badge-secondary">'.ucfirst($row->status).'</span>';
             })
             ->addColumn('approval_badge', function ($row) {
                 $badges = [
@@ -150,32 +160,34 @@ class SalesQuotationController extends Controller
                     'approved' => '<span class="badge badge-success">Approved</span>',
                     'rejected' => '<span class="badge badge-danger">Rejected</span>',
                 ];
+
                 return $badges[$row->approval_status] ?? '';
             })
             ->addColumn('actions', function ($row) {
                 $actions = '<div class="btn-group">';
-                $actions .= '<a href="' . route('sales-quotations.show', $row->id) . '" class="btn btn-xs btn-info" title="View"><i class="fas fa-eye"></i></a>';
-                
+                $actions .= '<a href="'.route('sales-quotations.show', $row->id).'" class="btn btn-xs btn-info" title="View"><i class="fas fa-eye"></i></a>';
+
                 if ($row->status === 'draft') {
-                    $actions .= '<a href="' . route('sales-quotations.edit', $row->id) . '" class="btn btn-xs btn-warning" title="Edit"><i class="fas fa-edit"></i></a>';
+                    $actions .= '<a href="'.route('sales-quotations.edit', $row->id).'" class="btn btn-xs btn-warning" title="Edit"><i class="fas fa-edit"></i></a>';
                 }
-                
+
                 if ($row->canBeSent()) {
-                    $actions .= '<form method="POST" action="' . route('sales-quotations.send', $row->id) . '" style="display:inline;" data-confirm="Send this quotation to customer?">';
+                    $actions .= '<form method="POST" action="'.route('sales-quotations.send', $row->id).'" style="display:inline;" data-confirm="Send this quotation to customer?">';
                     $actions .= csrf_field();
                     $actions .= '<button type="submit" class="btn btn-xs btn-primary" title="Send"><i class="fas fa-paper-plane"></i></button>';
                     $actions .= '</form>';
                 }
-                
+
                 if ($row->canBeConverted()) {
-                    $actions .= '<a href="' . route('sales-quotations.convert', $row->id) . '" class="btn btn-xs btn-success" title="Convert to Sales Order"><i class="fas fa-exchange-alt"></i></a>';
+                    $actions .= '<a href="'.route('sales-quotations.convert', $row->id).'" class="btn btn-xs btn-success" title="Convert to Sales Order"><i class="fas fa-exchange-alt"></i></a>';
                 }
-                
+
                 if (in_array($row->status, ['sent', 'accepted'])) {
-                    $actions .= '<a href="' . route('sales-quotations.print', $row->id) . '" class="btn btn-xs btn-secondary" title="Print" target="_blank"><i class="fas fa-print"></i></a>';
+                    $actions .= '<a href="'.route('sales-quotations.print', $row->id).'" class="btn btn-xs btn-secondary" title="Print" target="_blank"><i class="fas fa-print"></i></a>';
                 }
-                
+
                 $actions .= '</div>';
+
                 return $actions;
             })
             ->rawColumns(['valid_until_date', 'status_badge', 'approval_badge', 'actions'])
@@ -256,14 +268,14 @@ class SalesQuotationController extends Controller
                 $vatAmount = $originalAmount * ($line['vat_rate'] / 100);
                 $wtaxAmount = $originalAmount * ($line['wtax_rate'] / 100);
                 $lineAmount = $originalAmount + $vatAmount - $wtaxAmount;
-                
+
                 $lineDiscountAmount = $line['discount_amount'] ?? 0;
                 $lineDiscountPercentage = $line['discount_percentage'] ?? 0;
-                
+
                 if ($lineDiscountPercentage > 0) {
                     $lineDiscountAmount = ($lineAmount * $lineDiscountPercentage) / 100;
                 }
-                
+
                 $lineAmount = $lineAmount - $lineDiscountAmount;
                 $totalAmount += $lineAmount;
 
@@ -278,11 +290,11 @@ class SalesQuotationController extends Controller
             $data['total_amount_foreign'] = $totalAmountForeign;
 
             $quotation = $this->quotationService->createQuotation($data);
-            
+
             return redirect()->route('sales-quotations.show', $quotation->id)
                 ->with('success', 'Sales Quotation created successfully');
         } catch (\Exception $e) {
-            return back()->withInput()->with('error', 'Error creating quotation: ' . $e->getMessage());
+            return back()->withInput()->with('error', 'Error creating quotation: '.$e->getMessage());
         }
     }
 
@@ -290,14 +302,14 @@ class SalesQuotationController extends Controller
     {
         $salesQuotation = SalesQuotation::with(['lines.inventoryItem', 'lines.account', 'lines.orderUnit', 'lines.taxCode', 'businessPartner', 'businessPartnerProject', 'companyEntity', 'currency', 'warehouse', 'approvals.user', 'convertedToSalesOrder'])
             ->findOrFail($id);
-        
+
         return view('sales_quotations.show', compact('salesQuotation'));
     }
 
     public function edit($id)
     {
         $quotation = SalesQuotation::with(['lines', 'businessPartner.projects', 'companyEntity', 'warehouse', 'currency'])->findOrFail($id);
-        
+
         if ($quotation->status !== 'draft') {
             return redirect()->route('sales-quotations.show', $id)
                 ->with('error', 'Quotation can only be edited when in draft status');
@@ -326,7 +338,7 @@ class SalesQuotationController extends Controller
     public function update(Request $request, $id)
     {
         $quotation = SalesQuotation::findOrFail($id);
-        
+
         if ($quotation->status !== 'draft') {
             return redirect()->route('sales-quotations.show', $id)
                 ->with('error', 'Quotation can only be updated when in draft status');
@@ -378,14 +390,14 @@ class SalesQuotationController extends Controller
                 $vatAmount = $originalAmount * ($line['vat_rate'] / 100);
                 $wtaxAmount = $originalAmount * ($line['wtax_rate'] / 100);
                 $lineAmount = $originalAmount + $vatAmount - $wtaxAmount;
-                
+
                 $lineDiscountAmount = $line['discount_amount'] ?? 0;
                 $lineDiscountPercentage = $line['discount_percentage'] ?? 0;
-                
+
                 if ($lineDiscountPercentage > 0) {
                     $lineDiscountAmount = ($lineAmount * $lineDiscountPercentage) / 100;
                 }
-                
+
                 $lineAmount = $lineAmount - $lineDiscountAmount;
                 $totalAmount += $lineAmount;
 
@@ -400,42 +412,34 @@ class SalesQuotationController extends Controller
             $data['total_amount_foreign'] = $totalAmountForeign;
 
             $quotation = $this->quotationService->updateQuotation($id, $data);
-            
+
             return redirect()->route('sales-quotations.show', $quotation->id)
                 ->with('success', 'Sales Quotation updated successfully');
         } catch (\Exception $e) {
-            return back()->withInput()->with('error', 'Error updating quotation: ' . $e->getMessage());
+            return back()->withInput()->with('error', 'Error updating quotation: '.$e->getMessage());
         }
+    }
+
+    protected function documentDeletionType(): string
+    {
+        return DocumentType::SALES_QUOTATION;
     }
 
     public function destroy($id)
     {
-        $quotation = SalesQuotation::findOrFail($id);
-        
-        if ($quotation->status !== 'draft') {
-            return redirect()->route('sales-quotations.show', $id)
-                ->with('error', 'Quotation can only be deleted when in draft status');
-        }
-
-        try {
-            $quotation->delete();
-            return redirect()->route('sales-quotations.index')
-                ->with('success', 'Sales Quotation deleted successfully');
-        } catch (\Exception $e) {
-            return redirect()->route('sales-quotations.show', $id)
-                ->with('error', 'Error deleting quotation: ' . $e->getMessage());
-        }
+        return $this->destroyDocument((int) $id);
     }
 
     public function send($id)
     {
         try {
             $quotation = $this->quotationService->sendQuotation($id);
+
             return redirect()->route('sales-quotations.show', $id)
                 ->with('success', 'Quotation sent successfully');
         } catch (\Exception $e) {
             return redirect()->route('sales-quotations.show', $id)
-                ->with('error', 'Error sending quotation: ' . $e->getMessage());
+                ->with('error', 'Error sending quotation: '.$e->getMessage());
         }
     }
 
@@ -443,11 +447,12 @@ class SalesQuotationController extends Controller
     {
         try {
             $quotation = $this->quotationService->acceptQuotation($id);
+
             return redirect()->route('sales-quotations.show', $id)
                 ->with('success', 'Quotation accepted successfully');
         } catch (\Exception $e) {
             return redirect()->route('sales-quotations.show', $id)
-                ->with('error', 'Error accepting quotation: ' . $e->getMessage());
+                ->with('error', 'Error accepting quotation: '.$e->getMessage());
         }
     }
 
@@ -459,19 +464,20 @@ class SalesQuotationController extends Controller
 
         try {
             $quotation = $this->quotationService->rejectQuotation($id, $data['reason'] ?? null);
+
             return redirect()->route('sales-quotations.show', $id)
                 ->with('success', 'Quotation rejected successfully');
         } catch (\Exception $e) {
             return redirect()->route('sales-quotations.show', $id)
-                ->with('error', 'Error rejecting quotation: ' . $e->getMessage());
+                ->with('error', 'Error rejecting quotation: '.$e->getMessage());
         }
     }
 
     public function convert($id)
     {
         $quotation = SalesQuotation::findOrFail($id);
-        
-        if (!$quotation->canBeConverted()) {
+
+        if (! $quotation->canBeConverted()) {
             return redirect()->route('sales-quotations.show', $id)
                 ->with('error', 'Quotation cannot be converted in current status');
         }
@@ -488,17 +494,19 @@ class SalesQuotationController extends Controller
 
         try {
             $salesOrder = $this->quotationConversionService->convertQuotationToSalesOrder($id, $data);
+
             return redirect()->route('sales-orders.show', $salesOrder->id)
                 ->with('success', 'Quotation converted to Sales Order successfully');
         } catch (\Exception $e) {
             return redirect()->route('sales-quotations.show', $id)
-                ->with('error', 'Error converting quotation: ' . $e->getMessage());
+                ->with('error', 'Error converting quotation: '.$e->getMessage());
         }
     }
 
     public function print($id)
     {
         $salesQuotation = SalesQuotation::with(['lines.inventoryItem', 'lines.account', 'businessPartner', 'businessPartnerProject', 'companyEntity', 'warehouse', 'currency'])->findOrFail($id);
+
         return view('sales_quotations.print', compact('salesQuotation'));
     }
 
@@ -515,7 +523,7 @@ class SalesQuotationController extends Controller
                 ->where('status', 'pending')
                 ->first();
 
-            if (!$approval) {
+            if (! $approval) {
                 return redirect()->route('sales-quotations.show', $id)
                     ->with('error', 'No pending approval found for this user');
             }
@@ -536,7 +544,7 @@ class SalesQuotationController extends Controller
                 ->with('success', 'Quotation approved successfully');
         } catch (\Exception $e) {
             return redirect()->route('sales-quotations.show', $id)
-                ->with('error', 'Error approving quotation: ' . $e->getMessage());
+                ->with('error', 'Error approving quotation: '.$e->getMessage());
         }
     }
 
@@ -553,7 +561,7 @@ class SalesQuotationController extends Controller
                 ->where('status', 'pending')
                 ->first();
 
-            if (!$approval) {
+            if (! $approval) {
                 return redirect()->route('sales-quotations.show', $id)
                     ->with('error', 'No pending approval found for this user');
             }
@@ -568,7 +576,7 @@ class SalesQuotationController extends Controller
                 ->with('success', 'Quotation approval rejected');
         } catch (\Exception $e) {
             return redirect()->route('sales-quotations.show', $id)
-                ->with('error', 'Error rejecting approval: ' . $e->getMessage());
+                ->with('error', 'Error rejecting approval: '.$e->getMessage());
         }
     }
 
@@ -579,7 +587,7 @@ class SalesQuotationController extends Controller
 
         try {
             $baseCurrency = $this->currencyService->getBaseCurrency();
-            if (!$baseCurrency) {
+            if (! $baseCurrency) {
                 return response()->json(['error' => 'Base currency not found'], 400);
             }
 
@@ -589,13 +597,13 @@ class SalesQuotationController extends Controller
 
             $exchangeRate = $this->exchangeRateService->getRate($currencyId, $baseCurrency->id, $date);
 
-            if (!$exchangeRate) {
+            if (! $exchangeRate) {
                 return response()->json(['error' => 'Exchange rate not found for the selected currency and date'], 400);
             }
 
             return response()->json(['rate' => $exchangeRate->rate]);
         } catch (\Exception $e) {
-            return response()->json(['error' => 'Error retrieving exchange rate: ' . $e->getMessage()], 500);
+            return response()->json(['error' => 'Error retrieving exchange rate: '.$e->getMessage()], 500);
         }
     }
 
@@ -605,7 +613,7 @@ class SalesQuotationController extends Controller
         $date = $request->input('date', now()->toDateString());
 
         try {
-            if (!$entityId) {
+            if (! $entityId) {
                 return response()->json(['error' => 'Company entity is required'], 400);
             }
 
@@ -615,7 +623,7 @@ class SalesQuotationController extends Controller
 
             return response()->json(['document_number' => $documentNumber]);
         } catch (\Exception $e) {
-            return response()->json(['error' => 'Error generating document number: ' . $e->getMessage()], 500);
+            return response()->json(['error' => 'Error generating document number: '.$e->getMessage()], 500);
         }
     }
 }

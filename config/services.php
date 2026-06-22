@@ -58,4 +58,9 @@ return [
         'max_tool_iterations' => (int) env('DOMAIN_ASSISTANT_MAX_TOOL_ITERATIONS', 5),
     ],
 
+    'bank_reconciliation' => [
+        'model' => env('BANK_RECON_MODEL', 'openai/gpt-4o-mini'),
+        'pdf_engine' => env('BANK_RECON_PDF_ENGINE', 'pdf-text'),
+    ],
+
 ];

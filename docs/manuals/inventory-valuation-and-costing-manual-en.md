@@ -6,11 +6,10 @@ This document supplements the **Inventory Module** manual. It explains how Saran
 
 ## Valuation method choices on inventory items
 
-On the item create/edit form, the system offers **three** valuation methods:
+On the item create/edit form, the system offers **two** valuation methods (PSAK-aligned; LIFO was removed):
 
-- **FIFO** — screen label; cost logic is driven from purchase history (see below).
-- **LIFO** — cost is computed using a last-in style layer walk (per application code).
-- **Weighted average** — label for an average-cost style method based on purchase lines.
+- **FIFO** — First In, First Out layer consumption for inventory cost and COGS.
+- **Weighted average** — average-cost style based on purchase layers.
 
 **Note:** There is **no** separate “Manual” valuation mode on the item; stock adjustments still capture a unit cost on the adjustment transaction itself.
 
@@ -18,13 +17,9 @@ On the item create/edit form, the system offers **three** valuation methods:
 
 ## How unit cost is calculated (inventory value and COGS)
 
-The calculation uses **purchase** transactions only: it sums purchase amounts and purchase quantities across the **full purchase history** recorded for the item.
+- **FIFO** — cost is computed using true FIFO layers (oldest purchase layers consumed first on outbound movements).
 
-- **FIFO and Weighted average** — in the **current implementation the formula is the same**:  
-  **average cost = total cost of all purchases ÷ total quantity of all purchases.**  
-  This is a **purchase weighted average**, **not** strict classical FIFO layer consumption (oldest layers first) for every sale line.
-
-- **LIFO** — the application computes cost by walking purchase layers starting from the **newest** until the model’s remaining quantity is covered (see inventory service code).
+- **Weighted average** — cost uses a weighted average of purchase layers at the time of the movement.
 
 - If there are **no** purchase transactions yet, cost may fall back to the item’s **default purchase price** on the master record.
 

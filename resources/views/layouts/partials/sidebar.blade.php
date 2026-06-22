@@ -384,7 +384,7 @@
                 </li>
 
                 <!-- 6. Accounting Group -->
-                @canany(['journals.view', 'accounts.view', 'account_statements.view', 'currencies.view'])
+                @canany(['journals.view', 'accounts.view', 'account_statements.view', 'currencies.view', 'bank_reconciliation.view', 'bank_accounts.view', 'tax.view'])
                     @php
                         $acctActive =
                             request()->routeIs('journals.*') ||
@@ -395,7 +395,10 @@
                             request()->routeIs('control-accounts.*') ||
                             request()->routeIs('currencies.*') ||
                             request()->routeIs('exchange-rates.*') ||
-                            request()->routeIs('currency-revaluations.*');
+                            request()->routeIs('currency-revaluations.*') ||
+                            request()->routeIs('bank-reconciliation.*') ||
+                            request()->routeIs('bank-accounts.*') ||
+                            request()->routeIs('tax.*');
                     @endphp
                     <li class="nav-item {{ $acctActive ? 'menu-is-opening menu-open' : '' }}">
                         <a href="#" class="nav-link {{ $acctActive ? 'active' : '' }}">
@@ -480,6 +483,33 @@
                                         class="nav-link {{ request()->routeIs('currency-revaluations.*') ? 'active' : '' }}">
                                         <i class="far fa-circle nav-icon"></i>
                                         <p>Currency Revaluations</p>
+                                    </a>
+                                </li>
+                            @endcan
+                            @can('bank_accounts.view')
+                                <li class="nav-item">
+                                    <a href="{{ route('bank-accounts.index') }}"
+                                        class="nav-link {{ request()->routeIs('bank-accounts.*') ? 'active' : '' }}">
+                                        <i class="far fa-circle nav-icon"></i>
+                                        <p>Bank Accounts</p>
+                                    </a>
+                                </li>
+                            @endcan
+                            @can('bank_reconciliation.view')
+                                <li class="nav-item">
+                                    <a href="{{ route('bank-reconciliation.index') }}"
+                                        class="nav-link {{ request()->routeIs('bank-reconciliation.*') ? 'active' : '' }}">
+                                        <i class="far fa-circle nav-icon"></i>
+                                        <p>Bank Reconciliation</p>
+                                    </a>
+                                </li>
+                            @endcan
+                            @can('tax.view')
+                                <li class="nav-item">
+                                    <a href="{{ route('tax.index') }}"
+                                        class="nav-link {{ request()->routeIs('tax.*') ? 'active' : '' }}">
+                                        <i class="far fa-circle nav-icon"></i>
+                                        <p>Tax Compliance</p>
                                     </a>
                                 </li>
                             @endcan

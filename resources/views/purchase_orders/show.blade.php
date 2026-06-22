@@ -79,14 +79,6 @@
                                     </button>
                                 </form>
                             @endif
-                            <form method="post" action="{{ route('purchase-orders.destroy', $order->id) }}" class="d-inline"
-                                data-confirm="Are you sure you want to delete this Purchase Order? This action cannot be undone.">
-                                @csrf
-                                @method('DELETE')
-                                <button class="btn btn-sm btn-danger" aria-label="Delete Purchase Order" type="submit">
-                                    <i class="fas fa-trash"></i> Delete
-                                </button>
-                            </form>
                         @elseif ($pendingApprovalForCurrentUser)
                             <form method="post" action="{{ route('purchase-orders.approve', $order->id) }}" class="d-inline mr-1"
                                 data-confirm="Approve this Purchase Order?">
@@ -96,6 +88,12 @@
                                 </button>
                             </form>
                         @endif
+                        <x-document-delete-button
+                            permission="purchase-orders.delete"
+                            :preview-route="route('purchase-orders.delete-preview', $order->id)"
+                            :destroy-route="route('purchase-orders.destroy', $order->id)"
+                            document-label="Purchase Order {{ $order->order_no ?? '#'.$order->id }}"
+                        />
                         @if ($order->status === 'ordered' || $order->status === 'approved')
                             <form method="post" action="{{ route('purchase-orders.close', $order->id) }}" class="d-inline"
                                 data-confirm="Close this Purchase Order?">
@@ -121,6 +119,16 @@
                         @endcan
                     </div>
                 </div>
+
+                {{-- Document Navigation Components --}}
+                <div class="card-body border-bottom">
+                    @include('components.document-navigation', [
+                        'documentType' => 'purchase-order',
+                        'documentId' => $order->id,
+                        'showPreviewJournal' => false,
+                    ])
+                </div>
+
                 <div class="card-body">
                     @if (session('error'))
                         <div class="alert alert-danger alert-dismissible fade show">

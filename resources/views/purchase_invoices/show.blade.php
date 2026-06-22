@@ -76,6 +76,20 @@
                                         </form>
                                     @endif
                                 @endcan
+                                <x-document-delete-button
+                                    permission="ap.invoices.delete"
+                                    :preview-route="route('purchase-invoices.delete-preview', $invoice->id)"
+                                    :destroy-route="route('purchase-invoices.destroy', $invoice->id)"
+                                    document-label="Purchase Invoice {{ $invoice->invoice_no ?? '#'.$invoice->id }}"
+                                />
+                                @can('ap.payments.create')
+                                    @if ($canCreatePayment ?? false)
+                                        <a href="{{ route('purchase-payments.create', ['purchase_invoice_id' => $invoice->id]) }}"
+                                            class="btn btn-sm btn-success">
+                                            <i class="fas fa-money-check-alt mr-1"></i> Create Payment
+                                        </a>
+                                    @endif
+                                @endcan
                                 <div class="btn-group">
                                     <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle"
                                         data-toggle="dropdown">

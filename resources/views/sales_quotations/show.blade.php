@@ -56,7 +56,7 @@
                                 </button>
                             </form>
                         @endif
-                        @if($salesQuotation->canBeConverted() && auth()->user()->can('sales.quotations.convert'))
+                        @if($salesQuotation->canBeConverted() && auth()->user()->can('ar.quotations.convert'))
                             <a href="{{ route('sales-quotations.convert', $salesQuotation->id) }}" class="btn btn-sm btn-success">
                                 <i class="fas fa-exchange-alt"></i> Convert to SO
                             </a>
@@ -69,6 +69,12 @@
                         <a href="{{ route('sales-quotations.print', $salesQuotation->id) }}" class="btn btn-sm btn-info" target="_blank">
                             <i class="fas fa-print"></i> Print
                         </a>
+                        <x-document-delete-button
+                            permission="ar.quotations.delete"
+                            :preview-route="route('sales-quotations.delete-preview', $salesQuotation->id)"
+                            :destroy-route="route('sales-quotations.destroy', $salesQuotation->id)"
+                            document-label="Sales Quotation {{ $salesQuotation->quotation_no ?? '#'.$salesQuotation->id }}"
+                        />
                     </div>
                 </div>
                 <div class="card-body">

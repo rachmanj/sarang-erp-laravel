@@ -62,18 +62,13 @@
                                         <i class="fas fa-edit"></i> Edit
                                     </a>
                                 @endif
-                                @if ($deliveryOrder->canBeCancelled())
-                                    <form method="post" action="{{ route('delivery-orders.destroy', $deliveryOrder) }}"
-                                        class="d-inline"
-                                        onsubmit="return confirm('Cancel this delivery order? Reservations will be released and picked stock will be returned where applicable.');">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button type="submit" class="btn btn-sm btn-outline-danger">
-                                            <i class="fas fa-ban"></i> Cancel delivery order
-                                        </button>
-                                    </form>
-                                @endif
-                                @can('delivery-orders.reverse')
+                                <x-document-delete-button
+                                    permission="delivery-orders.delete"
+                                    :preview-route="route('delivery-orders.delete-preview', $deliveryOrder)"
+                                    :destroy-route="route('delivery-orders.destroy', $deliveryOrder)"
+                                    document-label="Delivery Order {{ $deliveryOrder->do_number ?? '#'.$deliveryOrder->id }}"
+                                />
+                                @can('ar.receipts.reverse')
                                     @if (in_array($deliveryOrder->status, ['partial_delivered', 'delivered', 'completed'], true))
                                         @if ($reason = $deliveryOrder->reversalBlockReason())
                                             <div class="alert alert-warning py-2 px-3 mb-1">
@@ -94,6 +89,12 @@
                                         @endif
                                     @endif
                                 @endcan
+                                @if (in_array($deliveryOrder->status, ['delivered', 'completed']) && $deliveryOrder->approval_status === 'approved' && ($deliveryOrder->closure_status ?? 'open') !== 'closed')
+                                    <a href="{{ route('delivery-orders.create-invoice', $deliveryOrder) }}"
+                                        class="btn btn-sm btn-success mr-1">
+                                        <i class="fas fa-file-invoice-dollar"></i> Create Invoice
+                                    </a>
+                                @endif
                                 <a href="{{ route('delivery-orders.index') }}" class="btn btn-sm btn-secondary">
                                     <i class="fas fa-arrow-left"></i> Back
                                 </a>
@@ -274,18 +275,6 @@
                                 </div>
                             @endif
 
-                            <!-- Create Invoice Action -->
-                            @if (in_array($deliveryOrder->status, ['delivered', 'completed']) && $deliveryOrder->approval_status === 'approved' && ($deliveryOrder->closure_status ?? 'open') !== 'closed')
-                                <div class="row mt-3">
-                                    <div class="col-md-12">
-                                        <a href="{{ route('delivery-orders.create-invoice', $deliveryOrder) }}"
-                                            class="btn btn-success">
-                                            <i class="fas fa-file-invoice-dollar"></i> Create Invoice from Delivery Order
-                                        </a>
-                                        <small class="text-muted ml-2">Creates Sales Invoice from delivered quantities</small>
-                                    </div>
-                                </div>
-                            @endif
                         </div>
                     </div>
                 </div>

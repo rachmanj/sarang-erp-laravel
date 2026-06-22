@@ -2,17 +2,22 @@
 
 namespace App\Http\Controllers\Accounting;
 
+use App\Http\Controllers\Concerns\HandlesDocumentDeletion;
 use App\Http\Controllers\Controller;
 use App\Models\Accounting\PurchaseInvoice;
 use App\Models\Accounting\PurchasePayment;
 use App\Models\Accounting\PurchasePaymentLine;
 use App\Models\PurchaseOrder;
+use App\Services\Accounting\JournalBuilders\PurchasePaymentJournalBuilder;
 use App\Services\Accounting\PostingService;
+use App\Services\Accounting\PurchaseInvoiceFooterMath;
 use App\Services\CompanyEntityService;
 use App\Services\DocumentClosureService;
 use App\Services\DocumentNumberingService;
 use App\Services\DocumentRelationshipService;
+use App\Services\Documents\DocumentType;
 use App\Services\PurchaseWorkflowAuditService;
+use App\Support\DocumentOpenState;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -21,17 +26,21 @@ use Yajra\DataTables\Facades\DataTables;
 
 class PurchasePaymentController extends Controller
 {
+    use HandlesDocumentDeletion;
+
     public function __construct(
         private PostingService $posting,
         private DocumentNumberingService $documentNumberingService,
         private DocumentClosureService $documentClosureService,
         private CompanyEntityService $companyEntityService,
-        private DocumentRelationshipService $documentRelationshipService
+        private DocumentRelationshipService $documentRelationshipService,
+        private PurchasePaymentJournalBuilder $purchasePaymentJournalBuilder,
     ) {
         $this->middleware(['auth']);
         $this->middleware('permission:ap.payments.view')->only(['index', 'show']);
         $this->middleware('permission:ap.payments.create')->only(['create', 'store', 'getAvailableInvoices', 'previewAllocation']);
         $this->middleware('permission:ap.payments.post')->only(['post']);
+        $this->middleware('permission:ap.payments.delete')->only(['destroy', 'deletePreview']);
     }
 
     public function index()
@@ -42,14 +51,50 @@ class PurchasePaymentController extends Controller
         return view('purchase_payments.index', compact('ptCahaya', 'cvCahaya'));
     }
 
-    public function create()
+    public function create(Request $request)
     {
         $vendors = DB::table('business_partners')->where('partner_type', 'supplier')->orderBy('name')->get();
         $accounts = DB::table('accounts')->where('is_postable', 1)->orderBy('code')->get();
         $entities = $this->companyEntityService->getActiveEntities();
         $defaultEntity = $this->companyEntityService->getDefaultEntity();
+        $prefill = null;
 
-        return view('purchase_payments.create', compact('vendors', 'accounts', 'entities', 'defaultEntity'));
+        $purchaseInvoiceId = (int) $request->query('purchase_invoice_id', 0);
+        if ($purchaseInvoiceId) {
+            $invoice = PurchaseInvoice::with(['paymentAllocations'])->findOrFail($purchaseInvoiceId);
+
+            if (! $this->invoiceEligibleForPayment($invoice)) {
+                return redirect()->route('purchase-invoices.show', $invoice->id)
+                    ->with('error', 'This invoice cannot be used to create a payment.');
+            }
+
+            $invoiceFooter = PurchaseInvoiceFooterMath::invoiceFooterTotals($invoice);
+            $totalAllocated = $invoice->paymentAllocations->sum('amount');
+            $remainingBalance = round((float) $invoiceFooter['amount_due'] - (float) $totalAllocated, 2);
+
+            if ($remainingBalance <= 0.01) {
+                return redirect()->route('purchase-invoices.show', $invoice->id)
+                    ->with('error', 'This invoice has no remaining balance to pay.');
+            }
+
+            $prefill = [
+                'business_partner_id' => $invoice->business_partner_id,
+                'company_entity_id' => $invoice->company_entity_id,
+                'description' => 'Payment for '.($invoice->invoice_no ?? '#'.$invoice->id),
+                'allocations' => [
+                    (string) $invoice->id => $remainingBalance,
+                ],
+            ];
+        }
+
+        return view('purchase_payments.create', compact('vendors', 'accounts', 'entities', 'defaultEntity', 'prefill'));
+    }
+
+    private function invoiceEligibleForPayment(PurchaseInvoice $invoice): bool
+    {
+        return $invoice->status === 'posted'
+            && $invoice->payment_method !== 'cash'
+            && ! $invoice->is_direct_purchase;
     }
 
     public function getDocumentNumber(Request $request)
@@ -280,39 +325,15 @@ class PurchasePaymentController extends Controller
             return back()->with('success', 'Already posted');
         }
 
-        $cashAccountId = (int) DB::table('accounts')->where('code', '1.1.1.01')->value('id'); // Kas di Tangan
-        $apAccountId = (int) DB::table('accounts')->where('code', '2.1.1.01')->value('id'); // Utang Dagang
+        $draft = $this->purchasePaymentJournalBuilder->build($payment);
 
-        $total = (float) $payment->total_amount;
-        $lines = [];
-        // Credit Cash/Bank
-        $lines[] = [
-            'account_id' => $cashAccountId,
-            'debit' => 0,
-            'credit' => $total,
-            'project_id' => null,
-            'fund_id' => null,
-            'dept_id' => null,
-            'memo' => 'Payment cash/bank',
-        ];
-        // Debit AP
-        $lines[] = [
-            'account_id' => $apAccountId,
-            'debit' => $total,
-            'credit' => 0,
-            'project_id' => null,
-            'fund_id' => null,
-            'dept_id' => null,
-            'memo' => 'Settle Accounts Payable',
-        ];
-
-        DB::transaction(function () use ($payment, $lines) {
-            $jid = $this->posting->postJournal([
-                'date' => $payment->date->toDateString(),
-                'description' => 'Post Purchase Payment #'.$payment->id,
+        DB::transaction(function () use ($payment, $draft) {
+            $this->posting->postJournal([
+                'date' => $draft->date ?? $payment->date->toDateString(),
+                'description' => $draft->description,
                 'source_type' => 'purchase_payment',
                 'source_id' => $payment->id,
-                'lines' => $lines,
+                'lines' => $draft->lines,
             ]);
 
             $payment->update(['status' => 'posted', 'posted_at' => now()]);
@@ -347,6 +368,13 @@ class PurchasePaymentController extends Controller
         if ($request->filled('company_entity_id')) {
             $q->where('pp.company_entity_id', (int) $request->company_entity_id);
         }
+
+        DocumentOpenState::applyToQuery(
+            $q,
+            'purchase_payment',
+            'pp',
+            $request->input('open_state', DocumentOpenState::DEFAULT_STATE)
+        );
 
         return DataTables::of($q)
             ->editColumn('total_amount', function ($row) {
@@ -458,5 +486,15 @@ class PurchasePaymentController extends Controller
         }
 
         return response()->json(['rows' => $rows]);
+    }
+
+    protected function documentDeletionType(): string
+    {
+        return DocumentType::PURCHASE_PAYMENT;
+    }
+
+    public function destroy(int $id)
+    {
+        return $this->destroyDocument($id);
     }
 }

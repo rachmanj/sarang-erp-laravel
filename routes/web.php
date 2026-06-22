@@ -91,6 +91,8 @@ Route::middleware('auth')->group(function () {
 
     require __DIR__.'/web/journals.php';
 
+    require __DIR__.'/web/bank_reconciliation.php';
+
     require __DIR__.'/web/orders.php';
 
     // Periods
@@ -98,6 +100,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/', [PeriodController::class, 'index'])->middleware('permission:periods.view')->name('periods.index');
         Route::post('/close', [PeriodController::class, 'close'])->middleware('permission:periods.close')->name('periods.close');
         Route::post('/open', [PeriodController::class, 'open'])->middleware('permission:periods.close')->name('periods.open');
+        Route::post('/close-fiscal-year', [PeriodController::class, 'closeFiscalYear'])->middleware('permission:periods.close')->name('periods.close-fiscal-year');
+        Route::post('/open-fiscal-year', [PeriodController::class, 'openFiscalYear'])->middleware('permission:periods.close')->name('periods.open-fiscal-year');
     });
 
     require __DIR__.'/web/ar_ap.php';
@@ -485,6 +489,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/transactions/{transaction}', [TaxController::class, 'showTransaction'])->name('tax.transactions.show');
         Route::post('/transactions/{transaction}/mark-paid', [TaxController::class, 'markAsPaid'])->middleware('permission:tax.update')->name('tax.transactions.mark-paid');
         Route::get('/transactions/export', [TaxController::class, 'exportTransactions'])->name('tax.transactions.export');
+        Route::get('/export/coretax', [TaxController::class, 'exportCoretax'])->middleware('permission:tax.view')->name('tax.export.coretax');
+        Route::get('/export/ebupot', [TaxController::class, 'exportEbupot'])->middleware('permission:tax.view')->name('tax.export.ebupot');
 
         // Tax Periods
         Route::get('/periods', [TaxController::class, 'periods'])->name('tax.periods');

@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Models\AssistantConversation;
 use App\Observers\AuditLogObserver;
 use App\Services\Assistant\DomainAssistantOpenRouterClient;
+use App\Services\Bank\BankReconciliationOpenRouterClient;
 use App\Services\Help\HelpOpenRouterClient;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\Auth;
@@ -27,6 +28,13 @@ class AppServiceProvider extends ServiceProvider
 
         $this->app->singleton(DomainAssistantOpenRouterClient::class, function () {
             return new DomainAssistantOpenRouterClient(
+                config('services.openrouter.api_key'),
+                (string) config('services.openrouter.site_url', config('app.url')),
+            );
+        });
+
+        $this->app->singleton(BankReconciliationOpenRouterClient::class, function () {
+            return new BankReconciliationOpenRouterClient(
                 config('services.openrouter.api_key'),
                 (string) config('services.openrouter.site_url', config('app.url')),
             );

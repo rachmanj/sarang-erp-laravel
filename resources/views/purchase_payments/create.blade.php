@@ -251,6 +251,8 @@
         let availableInvoices = [];
         let selectedInvoices = new Set();
         let allocationIndex = 0;
+        const prefill = @json($prefill ?? null);
+        const initialAllocationMap = prefill && prefill.allocations ? prefill.allocations : null;
 
         $(document).ready(function() {
             // Initialize Select2BS4
@@ -324,10 +326,62 @@
                 const data = await response.json();
                 availableInvoices = data.invoices || [];
                 renderInvoiceTable();
+                applyInitialAllocations();
                 showInvoiceSelection();
             } catch (error) {
                 console.error('Error loading invoices:', error);
                 toastr.error('Failed to load invoices. Please try again.');
+            }
+        }
+
+        function applyInitialAllocations() {
+            if (!initialAllocationMap || typeof initialAllocationMap !== 'object') {
+                updateTotals();
+                return;
+            }
+            allocationIndex = 0;
+            selectedInvoices.clear();
+            Object.entries(initialAllocationMap).forEach(([invoiceIdStr, amount]) => {
+                const invoiceId = parseInt(invoiceIdStr, 10);
+                const checkbox = $(`.invoice-checkbox[data-invoice-id="${invoiceId}"]`);
+                if (!checkbox.length) {
+                    return;
+                }
+                checkbox.prop('checked', true);
+                selectedInvoices.add(invoiceId);
+                const row = checkbox.closest('tr');
+                const allocationInput = row.find('.allocation-amount-input');
+                const hiddenInput = row.find('.allocation-invoice-id[data-invoice-id="' + invoiceId + '"]');
+                allocationInput.show().prop('disabled', false);
+                let amt = parseFloat(amount);
+                const max = parseFloat(allocationInput.data('max'));
+                if (amt > max) {
+                    amt = max;
+                }
+                allocationInput.val(amt.toFixed(2));
+                const currentIndex = allocationIndex++;
+                allocationInput.attr('name', `allocations[${currentIndex}][amount]`);
+                hiddenInput.attr('name', `allocations[${currentIndex}][invoice_id]`);
+            });
+            rebuildAllocationIndices();
+            updateTotals();
+            updatePaymentLine();
+            validateForm();
+        }
+
+        async function applyPrefill() {
+            if (!prefill) {
+                return;
+            }
+            if (prefill.company_entity_id) {
+                $('#company_entity_id').val(String(prefill.company_entity_id)).trigger('change');
+            }
+            if (prefill.description) {
+                $('textarea[name="description"], input[name="description"]').val(prefill.description);
+            }
+            if (prefill.business_partner_id) {
+                $('#business_partner_id').val(String(prefill.business_partner_id)).trigger('change');
+                await loadAvailableInvoices(prefill.business_partner_id);
             }
         }
 
@@ -660,6 +714,8 @@
         // Initialize if vendor is pre-selected
         @if (old('business_partner_id'))
             $('#business_partner_id').trigger('change');
+        @else
+            applyPrefill();
         @endif
     </script>
 @endpush

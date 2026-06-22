@@ -3,8 +3,8 @@
 namespace App\Models\Accounting;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Account extends Model
 {
@@ -13,7 +13,9 @@ class Account extends Model
         'name',
         'type',
         'is_postable',
-        'parent_id'
+        'parent_id',
+        'report_group',
+        'normal_balance',
     ];
 
     // Relationships
@@ -66,9 +68,10 @@ class Account extends Model
 
     public function getIsChildAttribute()
     {
-        return !is_null($this->parent_id);
+        return ! is_null($this->parent_id);
     }
 
     protected $auditLogIgnore = ['updated_at', 'created_at'];
+
     protected $auditEntityType = 'account';
 }

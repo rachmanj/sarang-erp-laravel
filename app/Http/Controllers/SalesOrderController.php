@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\HandlesDocumentDeletion;
 use App\Models\CustomerCreditLimit;
 use App\Models\CustomerPricingTier;
 use App\Models\InventoryItem;
@@ -11,6 +12,7 @@ use App\Services\CompanyEntityService;
 use App\Services\CurrencyService;
 use App\Services\DocumentClosureService;
 use App\Services\DocumentNumberingService;
+use App\Services\Documents\DocumentType;
 use App\Services\ExchangeRateService;
 use App\Services\SalesInvoiceService;
 use App\Services\SalesService;
@@ -21,6 +23,8 @@ use Yajra\DataTables\Facades\DataTables;
 
 class SalesOrderController extends Controller
 {
+    use HandlesDocumentDeletion;
+
     protected $salesService;
 
     protected $salesInvoiceService;
@@ -769,5 +773,15 @@ class SalesOrderController extends Controller
         }
 
         return response()->json(['valid' => true]);
+    }
+
+    protected function documentDeletionType(): string
+    {
+        return DocumentType::SALES_ORDER;
+    }
+
+    public function destroy(int $id)
+    {
+        return $this->destroyDocument($id);
     }
 }

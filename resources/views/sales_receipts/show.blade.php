@@ -61,6 +61,12 @@
                                         </form>
                                     @endif
                                 @endcan
+                                <x-document-delete-button
+                                    permission="ar.receipts.delete"
+                                    :preview-route="route('sales-receipts.delete-preview', $receipt->id)"
+                                    :destroy-route="route('sales-receipts.destroy', $receipt->id)"
+                                    document-label="Sales Receipt {{ $receipt->receipt_no ?? '#'.$receipt->id }}"
+                                />
                                 <a class="btn btn-sm btn-outline-secondary"
                                     href="{{ route('sales-receipts.print', $receipt->id) }}" target="_blank">Print</a>
                                 <a class="btn btn-sm btn-outline-primary"

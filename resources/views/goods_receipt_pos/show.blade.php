@@ -41,8 +41,10 @@
                                     @endif
                                 @endcan
                                 @can('ap.invoices.create')
-                                    <a href="{{ route('goods-receipt-pos.create-invoice', $grpo->id) }}"
-                                        class="btn btn-sm btn-success">Create Purchase Invoice</a>
+                                    @if ($grpo->status === 'received')
+                                        <a href="{{ route('goods-receipt-pos.create-invoice', $grpo->id) }}"
+                                            class="btn btn-sm btn-success">Create Purchase Invoice</a>
+                                    @endif
                                 @endcan
                                 @can('po.receipts.print')
                                     <a class="btn btn-sm btn-outline-secondary" href="#" target="_blank">Print</a>
@@ -50,6 +52,12 @@
                                 @can('po.receipts.pdf')
                                     <a class="btn btn-sm btn-outline-primary" href="#" target="_blank">PDF</a>
                                 @endcan
+                                <x-document-delete-button
+                                    permission="goods-receipt-pos.delete"
+                                    :preview-route="route('goods-receipt-pos.delete-preview', $grpo->id)"
+                                    :destroy-route="route('goods-receipt-pos.destroy', $grpo->id)"
+                                    document-label="Goods Receipt PO {{ $grpo->grn_no ?? '#'.$grpo->id }}"
+                                />
                                 <a href="{{ route('goods-receipt-pos.index') }}" class="btn btn-sm btn-secondary ml-2">
                                     <i class="fas fa-arrow-left"></i> Back to GRPO List
                                 </a>

@@ -37,7 +37,6 @@
                         <select name="valuation_method" class="form-control form-control-sm mr-1">
                             <option value="">All Methods</option>
                             <option value="fifo">FIFO</option>
-                            <option value="lifo">LIFO</option>
                             <option value="weighted_average">Weighted Average</option>
                         </select>
                         <select name="stock_status" class="form-control form-control-sm mr-1">

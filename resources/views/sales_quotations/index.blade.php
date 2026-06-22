@@ -12,60 +12,81 @@
 @section('content')
     <div class="row">
         <div class="col-12">
-            <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <div>
-                        <a href="{{ route('sales-quotations.create') }}" class="btn btn-primary btn-sm">
-                            <i class="fas fa-plus"></i> Create Quotation
-                        </a>
+            <div class="card card-outline card-primary">
+                <div class="card-header">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center">
+                        <h3 class="card-title mb-2 mb-md-0">
+                            <i class="fas fa-file-alt mr-1"></i>
+                            Sales Quotations
+                        </h3>
+                        <div class="d-flex flex-wrap align-items-center">
+                            <a href="{{ route('sales-quotations.create') }}" class="btn btn-sm btn-primary mr-1 mb-1">
+                                <i class="fas fa-plus mr-1"></i>Create
+                            </a>
+                            <a class="btn btn-sm btn-success mb-1" id="csv" href="#">
+                                <i class="fas fa-file-csv mr-1"></i>Export CSV
+                            </a>
+                        </div>
                     </div>
-                    <form class="form-inline" id="filters">
-                        <label class="mr-1 small mb-0">Entity:</label>
-                        <div class="form-check form-check-inline mr-2">
-                            <input class="form-check-input" type="radio" name="entity_filter" id="entity-all" value="" checked>
-                            <label class="form-check-label" for="entity-all">All</label>
-                        </div>
-                        @if ($ptCahaya ?? null)
-                        <div class="form-check form-check-inline mr-2">
-                            <input class="form-check-input" type="radio" name="entity_filter" id="entity-pt" value="{{ $ptCahaya->id }}">
-                            <label class="form-check-label" for="entity-pt">PT Cahaya Sarange Jaya</label>
-                        </div>
-                        @endif
-                        @if ($cvCahaya ?? null)
-                        <div class="form-check form-check-inline mr-2">
-                            <input class="form-check-input" type="radio" name="entity_filter" id="entity-cv" value="{{ $cvCahaya->id }}">
-                            <label class="form-check-label" for="entity-cv">CV Cahaya Saranghae</label>
-                        </div>
-                        @endif
-                        <input type="date" name="from" class="form-control form-control-sm mr-1" placeholder="From">
-                        <input type="date" name="to" class="form-control form-control-sm mr-1" placeholder="To">
-                        <input type="text" name="q" class="form-control form-control-sm mr-1" placeholder="Search">
-                        <select name="status" class="form-control form-control-sm mr-1">
-                            <option value="">All Status</option>
-                            <option value="draft">Draft</option>
-                            <option value="sent">Sent</option>
-                            <option value="accepted">Accepted</option>
-                            <option value="rejected">Rejected</option>
-                            <option value="expired">Expired</option>
-                            <option value="converted">Converted</option>
-                        </select>
-                        <select name="approval_status" class="form-control form-control-sm mr-1">
-                            <option value="">All Approval</option>
-                            <option value="pending">Pending</option>
-                            <option value="approved">Approved</option>
-                            <option value="rejected">Rejected</option>
-                        </select>
-                        <select name="expired" class="form-control form-control-sm mr-1">
-                            <option value="">All</option>
-                            <option value="yes">Expired</option>
-                            <option value="no">Not Expired</option>
-                        </select>
-                        <button class="btn btn-sm btn-secondary" type="submit">Apply</button>
-                        <a class="btn btn-sm btn-outline-secondary ml-1" id="csv" href="#">CSV</a>
-                    </form>
+
+                    <div class="border-top pt-3 mt-1">
+                        <form class="d-flex flex-wrap align-items-end" id="filters">
+                            <x-document-index-filter-group label="Entity">
+                                <x-entity-filter-buttons />
+                            </x-document-index-filter-group>
+
+                            <x-document-index-filter-group label="Period">
+                                <div class="d-flex align-items-center">
+                                    <input type="date" name="from" class="form-control form-control-sm" style="width:150px">
+                                    <span class="text-muted mx-1">–</span>
+                                    <input type="date" name="to" class="form-control form-control-sm" style="width:150px">
+                                </div>
+                            </x-document-index-filter-group>
+
+                            <x-document-index-filter-group label="Search" for="filter_q">
+                                <input type="text" name="q" id="filter_q" class="form-control form-control-sm"
+                                    style="width:220px" placeholder="Quotation no, customer…">
+                            </x-document-index-filter-group>
+
+                            <x-document-index-filter-group label="Status" for="filter_status">
+                                <select name="status" id="filter_status" class="form-control form-control-sm" style="width:130px">
+                                    <option value="">Any</option>
+                                    <option value="draft">Draft</option>
+                                    <option value="sent">Sent</option>
+                                    <option value="accepted">Accepted</option>
+                                    <option value="rejected">Rejected</option>
+                                    <option value="expired">Expired</option>
+                                    <option value="converted">Converted</option>
+                                </select>
+                            </x-document-index-filter-group>
+
+                            <x-document-index-filter-group label="Approval" for="filter_approval">
+                                <select name="approval_status" id="filter_approval" class="form-control form-control-sm" style="width:130px">
+                                    <option value="">Any</option>
+                                    <option value="pending">Pending</option>
+                                    <option value="approved">Approved</option>
+                                    <option value="rejected">Rejected</option>
+                                </select>
+                            </x-document-index-filter-group>
+
+                            <x-document-index-filter-group label="Expiry" for="filter_expired">
+                                <select name="expired" id="filter_expired" class="form-control form-control-sm" style="width:130px">
+                                    <option value="">Any</option>
+                                    <option value="yes">Expired</option>
+                                    <option value="no">Not Expired</option>
+                                </select>
+                            </x-document-index-filter-group>
+
+                            <x-document-index-filter-group label="&nbsp;">
+                                <button class="btn btn-sm btn-info" type="submit">
+                                    <i class="fas fa-filter mr-1"></i>Apply
+                                </button>
+                            </x-document-index-filter-group>
+                        </form>
+                    </div>
                 </div>
-                <div class="card-body">
-                    <table class="table table-bordered table-striped" id="tbl-quotations">
+                <div class="card-body p-0">
+                    <table class="table table-bordered table-striped table-sm mb-0" id="tbl-quotations">
                         <thead>
                             <tr>
                                 <th>#</th>
@@ -100,6 +121,8 @@
                         f.forEach(function(p) {
                             d[p.name] = p.value;
                         });
+                        var entityVal = $('input[name="entity_filter"]:checked').val();
+                        if (entityVal) d.company_entity_id = entityVal;
                     }
                 },
                 columns: [{

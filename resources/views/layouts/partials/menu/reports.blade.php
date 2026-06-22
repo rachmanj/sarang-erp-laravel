@@ -29,6 +29,13 @@
                 </a>
             </li>
             <li class="nav-item">
+                <a href="{{ route('reports.statement-of-changes-in-equity') }}"
+                    class="nav-link {{ request()->routeIs('reports.statement-of-changes-in-equity') ? 'active' : '' }}">
+                    <i class="far fa-circle nav-icon"></i>
+                    <p>Changes in Equity</p>
+                </a>
+            </li>
+            <li class="nav-item">
                 <a href="{{ route('reports.cash-flow-statement') }}"
                     class="nav-link {{ request()->routeIs('reports.cash-flow-statement') ? 'active' : '' }}">
                     <i class="far fa-circle nav-icon"></i>
@@ -78,6 +85,13 @@
                 </a>
             </li>
             <li class="nav-item">
+                <a href="{{ route('reports.subledger-reconciliation') }}"
+                    class="nav-link {{ request()->routeIs('reports.subledger-reconciliation') ? 'active' : '' }}">
+                    <i class="far fa-circle nav-icon"></i>
+                    <p>Subledger Reconciliation</p>
+                </a>
+            </li>
+            <li class="nav-item">
                 <a href="{{ route('downloads.index') }}"
                     class="nav-link {{ request()->routeIs('downloads.*') ? 'active' : '' }}">
                     <i class="far fa-circle nav-icon"></i>
@@ -89,6 +103,13 @@
                     class="nav-link {{ request()->routeIs('reports.withholding-recap') ? 'active' : '' }}">
                     <i class="far fa-circle nav-icon"></i>
                     <p>Withholding Recap</p>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="{{ route('reports.ppn-reconciliation') }}"
+                    class="nav-link {{ request()->routeIs('reports.ppn-reconciliation') ? 'active' : '' }}">
+                    <i class="far fa-circle nav-icon"></i>
+                    <p>PPN Reconciliation</p>
                 </a>
             </li>
             @can('reports.open-items')

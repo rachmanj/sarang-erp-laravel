@@ -48,6 +48,12 @@
                                         </form>
                                     @endif
                                 @endcan
+                                <x-document-delete-button
+                                    permission="ap.payments.delete"
+                                    :preview-route="route('purchase-payments.delete-preview', $payment->id)"
+                                    :destroy-route="route('purchase-payments.destroy', $payment->id)"
+                                    document-label="Purchase Payment {{ $payment->payment_no ?? '#'.$payment->id }}"
+                                />
                                 <a class="btn btn-sm btn-outline-secondary"
                                     href="{{ route('purchase-payments.print', $payment->id) }}" target="_blank">Print</a>
                                 <a class="btn btn-sm btn-outline-primary"

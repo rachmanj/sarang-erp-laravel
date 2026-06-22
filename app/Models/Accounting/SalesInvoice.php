@@ -15,6 +15,11 @@ class SalesInvoice extends Model
 
     protected $fillable = [
         'invoice_no',
+        'faktur_pajak_no',
+        'faktur_transaction_code',
+        'is_pkp',
+        'dpp_nilai_lain',
+        'ppnbm_amount',
         'date',
         'due_date',
         'terms_days',
@@ -43,6 +48,9 @@ class SalesInvoice extends Model
         'discount_amount' => 'decimal:2',
         'discount_percentage' => 'decimal:2',
         'is_opening_balance' => 'boolean',
+        'is_pkp' => 'boolean',
+        'dpp_nilai_lain' => 'decimal:2',
+        'ppnbm_amount' => 'decimal:2',
     ];
 
     protected $auditLogIgnore = ['updated_at', 'created_at'];

@@ -9,29 +9,30 @@ use Illuminate\Support\Facades\Cache;
 
 class MenuSearchController extends Controller
 {
-    protected $menuSearchService;
+    /**
+     * Bump when menu structure / searchable items change so cached lists refresh.
+     */
+    private const CACHE_VERSION = 2;
 
-    public function __construct(MenuSearchService $menuSearchService)
-    {
-        $this->menuSearchService = $menuSearchService;
-    }
+    public function __construct(
+        protected MenuSearchService $menuSearchService,
+    ) {}
 
     /**
      * Get all searchable menu items for the current user
-     * 
-     * @param Request $request
+     *
      * @return \Illuminate\Http\JsonResponse
      */
     public function index(Request $request)
     {
         $user = $request->user();
 
-        if (!$user) {
+        if (! $user) {
             return response()->json(['items' => []], 401);
         }
 
-        // Cache menu items per user (cache key includes user ID and permissions hash)
-        $cacheKey = 'menu_items_user_' . $user->id . '_' . md5(implode(',', $user->getAllPermissions()->pluck('name')->toArray()));
+        // Cache menu items per user (version + permissions hash busts stale lists after menu updates)
+        $cacheKey = 'menu_items_v'.self::CACHE_VERSION.'_user_'.$user->id.'_'.md5(implode(',', $user->getAllPermissions()->pluck('name')->toArray()));
 
         $items = Cache::remember($cacheKey, 3600, function () {
             return $this->menuSearchService->getSearchableMenuItems();
@@ -39,21 +40,17 @@ class MenuSearchController extends Controller
 
         // If search query provided, filter items
         $query = $request->get('q', '');
-        if (!empty($query)) {
+        if (! empty($query)) {
             $items = $this->filterItems($items, $query);
         }
 
         return response()->json([
-            'items' => $items
+            'items' => $items,
         ]);
     }
 
     /**
      * Filter menu items based on search query
-     * 
-     * @param array $items
-     * @param string $query
-     * @return array
      */
     private function filterItems(array $items, string $query): array
     {

@@ -2,18 +2,23 @@
 
 namespace App\Http\Controllers\Accounting;
 
+use App\Http\Controllers\Concerns\HandlesDocumentDeletion;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\UpdateSalesReceiptRequest;
 use App\Models\Accounting\SalesInvoice;
 use App\Models\Accounting\SalesReceipt;
 use App\Models\Accounting\SalesReceiptLine;
 use App\Models\SalesOrder;
+use App\Services\Accounting\JournalBuilders\SalesReceiptJournalBuilder;
 use App\Services\Accounting\PostingService;
+use App\Services\Accounting\SalesInvoicePostingMath;
 use App\Services\CompanyEntityService;
 use App\Services\DocumentClosureService;
 use App\Services\DocumentNumberingService;
 use App\Services\DocumentRelationshipService;
+use App\Services\Documents\DocumentType;
 use App\Services\SalesWorkflowAuditService;
+use App\Support\DocumentOpenState;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -22,16 +27,20 @@ use Yajra\DataTables\Facades\DataTables;
 
 class SalesReceiptController extends Controller
 {
+    use HandlesDocumentDeletion;
+
     public function __construct(
         private PostingService $posting,
         private DocumentNumberingService $documentNumberingService,
         private DocumentClosureService $documentClosureService,
-        private CompanyEntityService $companyEntityService
+        private CompanyEntityService $companyEntityService,
+        private SalesReceiptJournalBuilder $salesReceiptJournalBuilder,
     ) {
         $this->middleware(['auth']);
         $this->middleware('permission:ar.receipts.view')->only(['index', 'show']);
         $this->middleware('permission:ar.receipts.create')->only(['create', 'store', 'edit', 'update', 'getAvailableInvoices', 'previewAllocation']);
         $this->middleware('permission:ar.receipts.post')->only(['post']);
+        $this->middleware('permission:ar.receipts.delete')->only(['destroy', 'deletePreview']);
     }
 
     public function index()
@@ -42,14 +51,45 @@ class SalesReceiptController extends Controller
         return view('sales_receipts.index', compact('ptCahaya', 'cvCahaya'));
     }
 
-    public function create()
+    public function create(Request $request)
     {
         $customers = DB::table('business_partners')->where('partner_type', 'customer')->orderBy('name')->get();
         $accounts = DB::table('accounts')->where('is_postable', 1)->orderBy('code')->get();
         $entities = $this->companyEntityService->getActiveEntities();
         $defaultEntity = $this->companyEntityService->getDefaultEntity();
+        $prefill = null;
 
-        return view('sales_receipts.create', compact('customers', 'accounts', 'entities', 'defaultEntity'));
+        $salesInvoiceId = (int) $request->query('sales_invoice_id', 0);
+        if ($salesInvoiceId) {
+            $invoice = SalesInvoice::query()->findOrFail($salesInvoiceId);
+
+            if ($invoice->status !== 'posted' || $invoice->is_opening_balance) {
+                return redirect()->route('sales-invoices.show', $invoice->id)
+                    ->with('error', 'Only posted regular sales invoices can be used to create a receipt.');
+            }
+
+            $invoiceFooter = SalesInvoicePostingMath::invoiceFooterTotals($invoice);
+            $totalAllocated = (float) DB::table('sales_receipt_allocations')
+                ->where('invoice_id', $invoice->id)
+                ->sum('amount');
+            $remainingBalance = round(max(0, (float) $invoiceFooter['amount_due'] - $totalAllocated), 2);
+
+            if ($remainingBalance <= 0.01) {
+                return redirect()->route('sales-invoices.show', $invoice->id)
+                    ->with('error', 'This invoice has no remaining balance to receive.');
+            }
+
+            $prefill = [
+                'business_partner_id' => $invoice->business_partner_id,
+                'company_entity_id' => $invoice->company_entity_id,
+                'description' => 'Receipt for '.($invoice->invoice_no ?? '#'.$invoice->id),
+                'allocations' => [
+                    (string) $invoice->id => $remainingBalance,
+                ],
+            ];
+        }
+
+        return view('sales_receipts.create', compact('customers', 'accounts', 'entities', 'defaultEntity', 'prefill'));
     }
 
     public function getDocumentNumber(Request $request)
@@ -431,39 +471,15 @@ class SalesReceiptController extends Controller
             return back()->with('success', 'Already posted');
         }
 
-        $cashAccountId = (int) DB::table('accounts')->where('code', '1.1.1.01')->value('id'); // Kas di Tangan
-        $arAccountId = (int) DB::table('accounts')->where('code', '1.1.2.01')->value('id'); // Piutang Dagang
+        $draft = $this->salesReceiptJournalBuilder->build($receipt);
 
-        $total = (float) $receipt->total_amount;
-        $lines = [];
-        // Debit Cash/Bank
-        $lines[] = [
-            'account_id' => $cashAccountId,
-            'debit' => $total,
-            'credit' => 0,
-            'project_id' => null,
-            'fund_id' => null,
-            'dept_id' => null,
-            'memo' => 'Receipt cash/bank',
-        ];
-        // Credit AR
-        $lines[] = [
-            'account_id' => $arAccountId,
-            'debit' => 0,
-            'credit' => $total,
-            'project_id' => null,
-            'fund_id' => null,
-            'dept_id' => null,
-            'memo' => 'Settle Accounts Receivable',
-        ];
-
-        DB::transaction(function () use ($receipt, $lines) {
-            $jid = $this->posting->postJournal([
-                'date' => $receipt->date->toDateString(),
-                'description' => 'Post Sales Receipt #'.$receipt->id,
+        DB::transaction(function () use ($receipt, $draft) {
+            $this->posting->postJournal([
+                'date' => $draft->date ?? $receipt->date->toDateString(),
+                'description' => $draft->description,
                 'source_type' => 'sales_receipt',
                 'source_id' => $receipt->id,
-                'lines' => $lines,
+                'lines' => $draft->lines,
             ]);
 
             $receipt->update(['status' => 'posted', 'posted_at' => now()]);
@@ -498,6 +514,13 @@ class SalesReceiptController extends Controller
         if ($request->filled('company_entity_id')) {
             $q->where('sr.company_entity_id', (int) $request->company_entity_id);
         }
+
+        DocumentOpenState::applyToQuery(
+            $q,
+            'sales_receipt',
+            'sr',
+            $request->input('open_state', DocumentOpenState::DEFAULT_STATE)
+        );
 
         return DataTables::of($q)
             ->editColumn('total_amount', function ($row) {
@@ -620,5 +643,15 @@ class SalesReceiptController extends Controller
                 ];
             }),
         ]);
+    }
+
+    protected function documentDeletionType(): string
+    {
+        return DocumentType::SALES_RECEIPT;
+    }
+
+    public function destroy(int $id)
+    {
+        return $this->destroyDocument($id);
     }
 }

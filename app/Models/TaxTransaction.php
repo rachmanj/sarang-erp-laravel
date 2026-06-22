@@ -2,9 +2,9 @@
 
 namespace App\Models;
 
+use App\Models\Master\TaxCode;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use App\Models\Master\TaxCode;
 
 class TaxTransaction extends Model
 {
@@ -14,10 +14,12 @@ class TaxTransaction extends Model
         'transaction_type',
         'tax_type',
         'tax_category',
+        'tax_code_id',
         'reference_id',
         'reference_type',
         'vendor_id',
         'customer_id',
+        'business_partner_id',
         'tax_number',
         'tax_name',
         'tax_address',
@@ -32,7 +34,7 @@ class TaxTransaction extends Model
         'payment_reference',
         'notes',
         'created_by',
-        'updated_by'
+        'updated_by',
     ];
 
     protected $casts = [
@@ -49,6 +51,11 @@ class TaxTransaction extends Model
     public function taxCode(): BelongsTo
     {
         return $this->belongsTo(TaxCode::class, 'tax_code_id');
+    }
+
+    public function businessPartner(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\BusinessPartner::class, 'business_partner_id');
     }
 
     public function vendor(): BelongsTo
@@ -128,7 +135,7 @@ class TaxTransaction extends Model
 
     public function getDaysOverdueAttribute()
     {
-        if (!$this->is_overdue) {
+        if (! $this->is_overdue) {
             return 0;
         }
 
@@ -137,12 +144,12 @@ class TaxTransaction extends Model
 
     public function getFormattedTaxAmountAttribute()
     {
-        return 'Rp ' . number_format($this->tax_amount, 2);
+        return 'Rp '.number_format($this->tax_amount, 2);
     }
 
     public function getFormattedTotalAmountAttribute()
     {
-        return 'Rp ' . number_format($this->total_amount, 2);
+        return 'Rp '.number_format($this->total_amount, 2);
     }
 
     // Methods
@@ -170,17 +177,17 @@ class TaxTransaction extends Model
 
     public static function generateTransactionNumber($taxType, $taxCategory)
     {
-        $prefix = strtoupper($taxType . '_' . $taxCategory);
+        $prefix = strtoupper($taxType.'_'.$taxCategory);
         $year = date('Y');
         $month = date('m');
 
-        $lastTransaction = self::where('transaction_no', 'like', $prefix . '_' . $year . $month . '%')
+        $lastTransaction = self::where('transaction_no', 'like', $prefix.'_'.$year.$month.'%')
             ->orderBy('transaction_no', 'desc')
             ->first();
 
         $sequence = $lastTransaction ?
-            (int)substr($lastTransaction->transaction_no, -6) + 1 : 1;
+            (int) substr($lastTransaction->transaction_no, -6) + 1 : 1;
 
-        return $prefix . '_' . $year . $month . str_pad($sequence, 6, '0', STR_PAD_LEFT);
+        return $prefix.'_'.$year.$month.str_pad($sequence, 6, '0', STR_PAD_LEFT);
     }
 }

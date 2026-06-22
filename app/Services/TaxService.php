@@ -2,13 +2,13 @@
 
 namespace App\Services;
 
-use App\Models\TaxTransaction;
+use App\Models\TaxComplianceLog;
 use App\Models\TaxPeriod;
 use App\Models\TaxReport;
 use App\Models\TaxSetting;
-use App\Models\TaxComplianceLog;
-use Illuminate\Support\Facades\DB;
+use App\Models\TaxTransaction;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class TaxService
 {
@@ -27,17 +27,17 @@ class TaxService
                 'transaction_type' => $data['transaction_type'],
                 'tax_type' => $data['tax_type'],
                 'tax_category' => $data['tax_category'],
+                'tax_code_id' => $this->resolveTaxCodeId($data),
                 'reference_id' => $data['reference_id'] ?? null,
                 'reference_type' => $data['reference_type'] ?? null,
-                'vendor_id' => $data['vendor_id'] ?? null,
-                'customer_id' => $data['customer_id'] ?? null,
+                'business_partner_id' => $data['business_partner_id'] ?? null,
                 'tax_number' => $data['tax_number'] ?? null,
                 'tax_name' => $data['tax_name'] ?? null,
                 'tax_address' => $data['tax_address'] ?? null,
                 'taxable_amount' => $data['taxable_amount'],
                 'tax_rate' => $data['tax_rate'],
-                'tax_amount' => 0, // Will be calculated
-                'total_amount' => 0, // Will be calculated
+                'tax_amount' => 0,
+                'total_amount' => 0,
                 'status' => 'pending',
                 'due_date' => $data['due_date'] ?? null,
                 'notes' => $data['notes'] ?? null,
@@ -86,7 +86,7 @@ class TaxService
 
         $data = [
             'transaction_date' => now()->toDateString(),
-            'transaction_type' => 'sales',
+            'transaction_type' => 'sale',
             'tax_type' => $taxType,
             'tax_category' => 'output',
             'reference_id' => $salesOrderId,
@@ -152,7 +152,7 @@ class TaxService
         return DB::transaction(function () use ($periodId) {
             $period = TaxPeriod::findOrFail($periodId);
 
-            if (!$period->canBeClosed()) {
+            if (! $period->canBeClosed()) {
                 throw new \Exception('Tax period cannot be closed in current status');
             }
 
@@ -194,7 +194,7 @@ class TaxService
         return DB::transaction(function () use ($reportId) {
             $report = TaxReport::findOrFail($reportId);
 
-            if (!$report->canBeSubmitted()) {
+            if (! $report->canBeSubmitted()) {
                 throw new \Exception('Report cannot be submitted in current status');
             }
 
@@ -212,7 +212,7 @@ class TaxService
         return DB::transaction(function () use ($reportId) {
             $report = TaxReport::findOrFail($reportId);
 
-            if (!$report->canBeApproved()) {
+            if (! $report->canBeApproved()) {
                 throw new \Exception('Report cannot be approved in current status');
             }
 
@@ -238,7 +238,7 @@ class TaxService
         $ppnStatusLabel = 'Balance';
         $ppnStatusColor = 'info';
         $ppnStatusIcon = 'fa-balance-scale';
-        
+
         if ($ppnNet > 0) {
             $ppnStatus = 'kurang_bayar';
             $ppnStatusLabel = 'Kurang Bayar';
@@ -319,10 +319,214 @@ class TaxService
         return $deadlines;
     }
 
+    public function syncPostedPurchaseInvoice(\App\Models\Accounting\PurchaseInvoice $invoice): void
+    {
+        TaxTransaction::query()
+            ->where('reference_type', 'purchase_invoice')
+            ->where('reference_id', $invoice->id)
+            ->delete();
+
+        $partner = $invoice->businessPartner;
+        $npwp = $partner?->registration_number;
+        $partnerName = $partner?->name ?? 'Vendor';
+
+        $scaledRows = \App\Services\Accounting\HeaderDiscountAllocation::purchaseInvoiceLineScaled($invoice);
+        $dppByLineId = collect($scaledRows)->keyBy('line_id');
+
+        foreach ($invoice->lines as $line) {
+            $base = (float) ($dppByLineId[$line->id]['dpp'] ?? \App\Services\Accounting\HeaderDiscountAllocation::piLineNetBeforeHeader($line));
+            $tax = $line->tax_code_id
+                ? DB::table('tax_codes')->where('id', $line->tax_code_id)->first()
+                : null;
+
+            if ($tax && (str_contains(strtolower((string) $tax->name), 'ppn') || strtolower((string) $tax->type) === 'ppn_input')) {
+                $this->createTaxTransaction([
+                    'transaction_date' => $invoice->date->toDateString(),
+                    'transaction_type' => 'purchase',
+                    'tax_type' => 'ppn',
+                    'tax_category' => 'input',
+                    'tax_code_id' => $line->tax_code_id,
+                    'reference_id' => $invoice->id,
+                    'reference_type' => 'purchase_invoice',
+                    'business_partner_id' => $invoice->business_partner_id,
+                    'tax_number' => $npwp,
+                    'tax_name' => $partnerName,
+                    'taxable_amount' => $base,
+                    'tax_rate' => (float) $tax->rate,
+                    'due_date' => now()->addMonth()->setDay(20)->toDateString(),
+                    'notes' => 'PPN Masukan from PI '.$invoice->invoice_no,
+                ]);
+            }
+
+            $wtaxRate = (float) ($line->wtax_rate ?? 0);
+            $withholdingAmount = \App\Services\Accounting\PurchaseInvoiceLineTaxMath::withholdingAmount($base, $tax, $wtaxRate);
+            if ($withholdingAmount > 0) {
+                $this->createTaxTransaction([
+                    'transaction_date' => $invoice->date->toDateString(),
+                    'transaction_type' => 'purchase',
+                    'tax_type' => \App\Services\Accounting\PurchaseInvoiceLineTaxMath::withholdingTaxType($tax, $wtaxRate),
+                    'tax_category' => 'withholding',
+                    'tax_code_id' => $tax && strtolower((string) $tax->type) === 'withholding' ? $line->tax_code_id : null,
+                    'reference_id' => $invoice->id,
+                    'reference_type' => 'purchase_invoice',
+                    'business_partner_id' => $invoice->business_partner_id,
+                    'tax_number' => $npwp,
+                    'tax_name' => $partnerName,
+                    'taxable_amount' => $base,
+                    'tax_rate' => \App\Services\Accounting\PurchaseInvoiceLineTaxMath::withholdingRate($tax, $wtaxRate),
+                    'due_date' => now()->addMonth()->setDay(20)->toDateString(),
+                    'notes' => 'Withholding from PI '.$invoice->invoice_no,
+                ]);
+            }
+        }
+    }
+
+    public function syncPostedSalesInvoice(\App\Models\Accounting\SalesInvoice $invoice): void
+    {
+        TaxTransaction::query()
+            ->where('reference_type', 'sales_invoice')
+            ->where('reference_id', $invoice->id)
+            ->delete();
+
+        $partner = $invoice->businessPartner;
+        $npwp = $partner?->registration_number;
+        $partnerName = $partner?->name ?? 'Customer';
+
+        foreach ($invoice->lines as $line) {
+            $parts = \App\Services\Accounting\SalesInvoicePostingMath::splitLineFromTaxExclusivePricing($line);
+
+            if ($parts['output_vat'] > 0) {
+                $vatRate = (float) (DB::table('tax_codes')->where('id', $line->tax_code_id)->value('rate') ?? 11);
+
+                $this->createTaxTransaction([
+                    'transaction_date' => $invoice->date->toDateString(),
+                    'transaction_type' => 'sale',
+                    'tax_type' => 'ppn',
+                    'tax_category' => 'output',
+                    'tax_code_id' => $line->tax_code_id,
+                    'reference_id' => $invoice->id,
+                    'reference_type' => 'sales_invoice',
+                    'business_partner_id' => $invoice->business_partner_id,
+                    'tax_number' => $npwp,
+                    'tax_name' => $partnerName,
+                    'taxable_amount' => $parts['dpp'],
+                    'tax_rate' => $vatRate,
+                    'due_date' => now()->addMonth()->setDay(20)->toDateString(),
+                    'notes' => 'PPN Keluaran from SI '.$invoice->invoice_no,
+                ]);
+            }
+
+            if ($parts['wtax'] > 0) {
+                $this->createTaxTransaction([
+                    'transaction_date' => $invoice->date->toDateString(),
+                    'transaction_type' => 'sale',
+                    'tax_type' => 'pph_23',
+                    'tax_category' => 'withholding',
+                    'reference_id' => $invoice->id,
+                    'reference_type' => 'sales_invoice',
+                    'business_partner_id' => $invoice->business_partner_id,
+                    'tax_number' => $npwp,
+                    'tax_name' => $partnerName,
+                    'taxable_amount' => $parts['dpp'],
+                    'tax_rate' => (float) ($line->wtax_rate ?? 0),
+                    'due_date' => now()->addMonth()->setDay(20)->toDateString(),
+                    'notes' => 'Customer withholding from SI '.$invoice->invoice_no,
+                ]);
+            }
+        }
+    }
+
+    public function exportCoretaxSalesInvoices(array $filters = []): array
+    {
+        $from = $filters['from'] ?? now()->startOfMonth()->toDateString();
+        $to = $filters['to'] ?? now()->toDateString();
+
+        $rows = DB::table('sales_invoices as si')
+            ->join('business_partners as bp', 'bp.id', '=', 'si.business_partner_id')
+            ->where('si.status', 'posted')
+            ->whereDate('si.date', '>=', $from)
+            ->whereDate('si.date', '<=', $to)
+            ->orderBy('si.date')
+            ->get([
+                'si.id',
+                'si.invoice_no',
+                'si.date',
+                'si.total_amount',
+                'si.faktur_pajak_no',
+                'si.faktur_transaction_code',
+                'si.is_pkp',
+                'si.dpp_nilai_lain',
+                'si.ppnbm_amount',
+                'bp.name as customer_name',
+                'bp.registration_number as customer_npwp',
+            ]);
+
+        return [
+            'export_type' => 'coretax_efaktur_csv',
+            'period_from' => $from,
+            'period_to' => $to,
+            'rows' => $rows->map(fn ($row) => [
+                'invoice_no' => $row->invoice_no,
+                'faktur_pajak_no' => $row->faktur_pajak_no,
+                'transaction_code' => $row->faktur_transaction_code ?? '01',
+                'invoice_date' => $row->date,
+                'customer_npwp' => $row->customer_npwp,
+                'customer_name' => $row->customer_name,
+                'dpp_nilai_lain' => $row->dpp_nilai_lain,
+                'ppnbm' => $row->ppnbm_amount,
+                'total_amount' => $row->total_amount,
+                'is_pkp' => (bool) $row->is_pkp,
+            ])->all(),
+        ];
+    }
+
+    public function exportEbupotWithholding(array $filters = []): array
+    {
+        $from = $filters['from'] ?? now()->startOfMonth()->toDateString();
+        $to = $filters['to'] ?? now()->toDateString();
+
+        $rows = TaxTransaction::query()
+            ->where('tax_category', 'withholding')
+            ->whereDate('transaction_date', '>=', $from)
+            ->whereDate('transaction_date', '<=', $to)
+            ->orderBy('transaction_date')
+            ->get();
+
+        return [
+            'export_type' => 'ebupot_csv',
+            'period_from' => $from,
+            'period_to' => $to,
+            'rows' => $rows->map(fn (TaxTransaction $tx) => [
+                'transaction_no' => $tx->transaction_no,
+                'transaction_date' => $tx->transaction_date?->toDateString(),
+                'tax_type' => $tx->tax_type,
+                'tax_number' => $tx->tax_number,
+                'tax_name' => $tx->tax_name,
+                'taxable_amount' => $tx->taxable_amount,
+                'tax_rate' => $tx->tax_rate,
+                'tax_amount' => $tx->tax_amount,
+                'reference_type' => $tx->reference_type,
+                'reference_id' => $tx->reference_id,
+            ])->all(),
+        ];
+    }
+
+    private function mapWithholdingTaxType(string $taxCode): string
+    {
+        return match (strtoupper($taxCode)) {
+            'PPH21' => 'pph_21',
+            'PPH22' => 'pph_22',
+            'PPH26' => 'pph_26',
+            'PPH42', 'PPH4_2' => 'pph_4_2',
+            default => 'pph_23',
+        };
+    }
+
     private function getTaxRate($taxType)
     {
         $taxRates = TaxSetting::getTaxRates();
-        return $taxRates[$taxType . '_rate'] ?? 0;
+
+        return $taxRates[$taxType.'_rate'] ?? 0;
     }
 
     private function getReportName($reportType)
@@ -353,7 +557,7 @@ class TaxService
 
         // Create current tax period if it doesn't exist
         $currentPeriod = TaxPeriod::getCurrentPeriod();
-        if (!$currentPeriod) {
+        if (! $currentPeriod) {
             $startDate = now()->startOfMonth()->toDateString();
             $endDate = now()->endOfMonth()->toDateString();
 
@@ -368,5 +572,26 @@ class TaxService
         }
 
         return true;
+    }
+
+    private function resolveTaxCodeId(array $data): int
+    {
+        if (! empty($data['tax_code_id'])) {
+            return (int) $data['tax_code_id'];
+        }
+
+        $code = match ($data['tax_type'] ?? '') {
+            'ppn' => ($data['tax_category'] ?? '') === 'output' ? 'PPN11_OUT' : 'PPN11_IN',
+            'pph_21' => 'PPH21',
+            'pph_22' => 'PPH22',
+            default => 'PPH23',
+        };
+
+        $id = (int) DB::table('tax_codes')->where('code', $code)->value('id');
+        if ($id <= 0) {
+            throw new \RuntimeException("Tax code {$code} not found for tax transaction sync.");
+        }
+
+        return $id;
     }
 }

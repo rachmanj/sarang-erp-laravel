@@ -485,10 +485,12 @@ class SalesService
 
                 // Create inventory transaction if item is linked
                 if ($line->inventory_item_id) {
+                    $inventoryItem = \App\Models\InventoryItem::findOrFail($line->inventory_item_id);
+                    $unitCost = $this->inventoryService->calculateUnitCost($inventoryItem);
                     $this->inventoryService->processSaleTransaction(
                         $line->inventory_item_id,
                         $deliveredQty,
-                        $line->unit_price,
+                        $unitCost,
                         'sales_order',
                         $so->id,
                         "Delivered from SO {$so->order_no}",
@@ -793,12 +795,12 @@ class SalesService
     private function getDefaultSalesAccount()
     {
         $account = DB::table('accounts')
-            ->where('code', '4.1.1') // Sales Revenue
-            ->orWhere('name', 'like', '%Sales Revenue%')
+            ->where('code', '4.1.1.01')
+            ->orWhere('name', 'like', '%Penjualan Stationery%')
             ->first();
 
         if (! $account) {
-            throw new Exception('Default sales account not found. Please create account with code 4.1.1');
+            throw new Exception('Default sales account not found. Please create account with code 4.1.1.01');
         }
 
         return $account->id;

@@ -265,13 +265,12 @@
             const valuationMethodData = {
                 @php
                     $fifoCount = $items->where('valuation_method', 'fifo')->count();
-                    $lifoCount = $items->where('valuation_method', 'lifo')->count();
                     $weightedCount = $items->where('valuation_method', 'weighted_average')->count();
                 @endphp
-                labels: ['FIFO', 'LIFO', 'Weighted Average'],
+                labels: ['FIFO', 'Weighted Average'],
                 datasets: [{
-                    data: [{{ $fifoCount }}, {{ $lifoCount }}, {{ $weightedCount }}],
-                    backgroundColor: ['#007bff', '#28a745', '#ffc107'],
+                    data: [{{ $fifoCount }}, {{ $weightedCount }}],
+                    backgroundColor: ['#007bff', '#ffc107'],
                     borderWidth: 1
                 }]
             };

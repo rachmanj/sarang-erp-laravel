@@ -2,9 +2,8 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
-use Illuminate\Database\Seeder;
 use App\Models\Master\TaxCode;
+use Illuminate\Database\Seeder;
 
 class TradingTaxCodeSeeder extends Seeder
 {
@@ -63,6 +62,28 @@ class TradingTaxCodeSeeder extends Seeder
                 'name' => 'PPh Pasal 23',
                 'type' => 'withholding',
                 'rate' => 2.00,
+                'calculation_method' => 'percentage',
+                'reporting_frequency' => 'monthly',
+                'is_mandatory' => true,
+                'is_active' => true,
+                'effective_date' => '2024-01-01',
+            ],
+            [
+                'code' => 'PPH26',
+                'name' => 'PPh Pasal 26',
+                'type' => 'withholding',
+                'rate' => 20.00,
+                'calculation_method' => 'percentage',
+                'reporting_frequency' => 'monthly',
+                'is_mandatory' => true,
+                'is_active' => true,
+                'effective_date' => '2024-01-01',
+            ],
+            [
+                'code' => 'PPH42',
+                'name' => 'PPh Pasal 4(2)',
+                'type' => 'withholding',
+                'rate' => 0.50,
                 'calculation_method' => 'percentage',
                 'reporting_frequency' => 'monthly',
                 'is_mandatory' => true,

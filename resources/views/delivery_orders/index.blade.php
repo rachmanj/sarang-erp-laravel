@@ -16,81 +16,77 @@
         <div class="container-fluid">
             <div class="row">
                 <div class="col-12">
-                    <div class="card card-primary card-outline">
+                    <div class="card card-outline card-primary">
                         <div class="card-header">
-                            <h3 class="card-title">
-                                <i class="fas fa-truck mr-1"></i>
-                                Delivery Orders
-                            </h3>
-                            <a href="{{ route('delivery-orders.create') }}" class="btn btn-sm btn-primary float-right">
-                                <i class="fas fa-plus"></i> Create Delivery Order
-                            </a>
-                        </div>
-                        <div class="card-body">
-                            <!-- Filters -->
-                            <div class="row mb-3">
-                                <div class="col-12 mb-2">
-                                    <label class="mr-2">Entity:</label>
-                                    <div class="form-check form-check-inline">
-                                        <input class="form-check-input" type="radio" name="entity-filter" id="entity-all" value="" checked>
-                                        <label class="form-check-label" for="entity-all">All</label>
-                                    </div>
-                                    @if ($ptCahaya ?? null)
-                                    <div class="form-check form-check-inline">
-                                        <input class="form-check-input" type="radio" name="entity-filter" id="entity-pt" value="{{ $ptCahaya->id }}">
-                                        <label class="form-check-label" for="entity-pt">PT Cahaya Sarange Jaya</label>
-                                    </div>
-                                    @endif
-                                    @if ($cvCahaya ?? null)
-                                    <div class="form-check form-check-inline">
-                                        <input class="form-check-input" type="radio" name="entity-filter" id="entity-cv" value="{{ $cvCahaya->id }}">
-                                        <label class="form-check-label" for="entity-cv">CV Cahaya Saranghae</label>
-                                    </div>
-                                    @endif
-                                </div>
-                                <div class="col-md-3">
-                                    <select class="form-control form-control-sm" id="status-filter">
-                                        <option value="">All Status</option>
-                                        <option value="draft">Draft</option>
-                                        <option value="picking">Picking</option>
-                                        <option value="packed">Packed</option>
-                                        <option value="ready">Ready</option>
-                                        <option value="in_transit">In Transit</option>
-                                        <option value="delivered">Delivered</option>
-                                        <option value="completed">Completed</option>
-                                        <option value="cancelled">Cancelled</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-3">
-                                    <select class="form-control form-control-sm" id="customer-filter">
-                                        <option value="">All Customers</option>
-                                        @foreach ($customers as $customer)
-                                            <option value="{{ $customer->id }}">{{ $customer->name }}</option>
-                                        @endforeach
-                                    </select>
-                                </div>
-                                <div class="col-md-2">
-                                    <input type="date" class="form-control form-control-sm" id="date-from"
-                                        placeholder="From Date">
-                                </div>
-                                <div class="col-md-2">
-                                    <input type="date" class="form-control form-control-sm" id="date-to"
-                                        placeholder="To Date">
-                                </div>
-                                <div class="col-md-2">
-                                    <input type="text" class="form-control form-control-sm" id="customer-ref-filter"
-                                        placeholder="Customer Ref No">
-                                </div>
-                                <div class="col-md-2">
-                                    <button class="btn btn-sm btn-secondary" onclick="applyFilters()">
-                                        <i class="fas fa-filter"></i> Filter
-                                    </button>
+                            <div class="d-flex flex-wrap justify-content-between align-items-center">
+                                <h3 class="card-title mb-2 mb-md-0">
+                                    <i class="fas fa-truck mr-1"></i>
+                                    Delivery Orders
+                                </h3>
+                                <div class="d-flex flex-wrap align-items-center">
+                                    <a href="{{ route('delivery-orders.create') }}" class="btn btn-sm btn-primary mb-1">
+                                        <i class="fas fa-plus mr-1"></i>Create
+                                    </a>
                                 </div>
                             </div>
 
-                            <!-- DataTable -->
+                            <div class="border-top pt-3 mt-1">
+                                <div class="d-flex flex-wrap align-items-end">
+                                    <x-document-index-filter-group label="Entity">
+                                        <x-entity-filter-buttons />
+                                    </x-document-index-filter-group>
+
+                                    <x-document-index-filter-group label="Completion">
+                                        @include('components.open-closed-filter')
+                                    </x-document-index-filter-group>
+
+                                    <x-document-index-filter-group label="Period" for="date-from">
+                                        <div class="d-flex align-items-center">
+                                            <input type="date" class="form-control form-control-sm" id="date-from" style="width:150px">
+                                            <span class="text-muted mx-1">–</span>
+                                            <input type="date" class="form-control form-control-sm" id="date-to" style="width:150px">
+                                        </div>
+                                    </x-document-index-filter-group>
+
+                                    <x-document-index-filter-group label="Customer" for="customer-filter">
+                                        <select class="form-control form-control-sm" id="customer-filter" style="width:180px">
+                                            <option value="">Any</option>
+                                            @foreach ($customers as $customer)
+                                                <option value="{{ $customer->id }}">{{ $customer->name }}</option>
+                                            @endforeach
+                                        </select>
+                                    </x-document-index-filter-group>
+
+                                    <x-document-index-filter-group label="Customer Ref" for="customer-ref-filter">
+                                        <input type="text" class="form-control form-control-sm" id="customer-ref-filter"
+                                            style="width:140px" placeholder="Ref no">
+                                    </x-document-index-filter-group>
+
+                                    <x-document-index-filter-group label="Status" for="status-filter">
+                                        <select class="form-control form-control-sm" id="status-filter" style="width:140px">
+                                            <option value="">Any</option>
+                                            <option value="draft">Draft</option>
+                                            <option value="picking">Picking</option>
+                                            <option value="packed">Packed</option>
+                                            <option value="ready">Ready</option>
+                                            <option value="in_transit">In Transit</option>
+                                            <option value="delivered">Delivered</option>
+                                            <option value="completed">Completed</option>
+                                            <option value="cancelled">Cancelled</option>
+                                        </select>
+                                    </x-document-index-filter-group>
+
+                                    <x-document-index-filter-group label="&nbsp;">
+                                        <button type="button" class="btn btn-sm btn-info" onclick="applyFilters()">
+                                            <i class="fas fa-filter mr-1"></i>Apply
+                                        </button>
+                                    </x-document-index-filter-group>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-body p-0">
                             <div class="table-responsive">
-                                <table class="table table-bordered table-striped" id="delivery-orders-table">
+                                <table class="table table-bordered table-striped table-sm mb-0" id="delivery-orders-table">
                                     <thead>
                                         <tr>
                                             <th>DO Number</th>
@@ -128,8 +124,9 @@
                         d.date_from = $('#date-from').val();
                         d.date_to = $('#date-to').val();
                         d.customer_ref_no = $('#customer-ref-filter').val();
-                        var entityVal = $('input[name="entity-filter"]:checked').val();
+                        var entityVal = $('input[name="entity_filter"]:checked').val();
                         if (entityVal) d.company_entity_id = entityVal;
+                        d.open_state = $('input[name="open_state"]:checked').val() || 'open';
                     }
                 },
                 columns: [{
@@ -227,7 +224,10 @@
                 table.ajax.reload();
             };
 
-            $('input[name="entity-filter"]').on('change', function() {
+            $('input[name="entity_filter"]').on('change', function() {
+                table.ajax.reload();
+            });
+            $('input[name="open_state"]').on('change', function() {
                 table.ajax.reload();
             });
         });

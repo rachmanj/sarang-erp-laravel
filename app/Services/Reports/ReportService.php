@@ -6,22 +6,24 @@ use Illuminate\Support\Facades\DB;
 
 class ReportService
 {
-    public function getTrialBalance(?string $date = null, bool $onlyPostedJournals = true): array
+    /** @var array<string, array<int, array<string, mixed>>> */
+    private array $balanceSnapshotCache = [];
+
+    public function __construct(private JournalReportQueryBuilder $journalQuery) {}
+
+    public function getTrialBalance(?string $date = null, bool $onlyPostedJournals = true, array $filters = []): array
     {
         $date = $date ?: now()->toDateString();
+        $filters = array_merge($filters, ['as_of' => $date]);
 
-        $query = DB::table('journal_lines as jl')
-            ->join('journals as j', 'j.id', '=', 'jl.journal_id')
-            ->join('accounts as a', 'a.id', '=', 'jl.account_id')
-            ->leftJoin('currencies as c', 'c.id', '=', 'jl.currency_id')
-            ->whereDate('j.date', '<=', $date);
-        if ($onlyPostedJournals) {
-            $query->whereNotNull('j.posted_at');
-        }
+        $query = $this->journalQuery->withAccounts($onlyPostedJournals)
+            ->leftJoin('currencies as c', 'c.id', '=', 'jl.currency_id');
+        $this->journalQuery->applyCommonFilters($query, $filters, $onlyPostedJournals);
+
         $lines = $query
-            ->selectRaw('a.id, a.code, a.name, a.type, SUM(jl.debit) as debit, SUM(jl.credit) as credit, 
+            ->selectRaw('a.id, a.code, a.name, a.type, a.report_group, a.normal_balance, SUM(jl.debit) as debit, SUM(jl.credit) as credit,
                         GROUP_CONCAT(DISTINCT c.code ORDER BY c.code SEPARATOR ", ") as currencies')
-            ->groupBy('a.id', 'a.code', 'a.name', 'a.type')
+            ->groupBy('a.id', 'a.code', 'a.name', 'a.type', 'a.report_group', 'a.normal_balance')
             ->orderBy('a.code')
             ->get();
 
@@ -36,7 +38,7 @@ class ReportService
                 'debit' => (float) $r->debit,
                 'credit' => (float) $r->credit,
                 'balance' => $balance,
-                'currencies' => $r->currencies ?: 'IDR', // Default to IDR if no currency info
+                'currencies' => $r->currencies ?: 'IDR',
             ];
         })->toArray();
 
@@ -47,20 +49,24 @@ class ReportService
                 'debit' => array_sum(array_column($rows, 'debit')),
                 'credit' => array_sum(array_column($rows, 'credit')),
             ],
+            'filters' => $this->journalQuery->normalizeFilters($filters),
         ];
     }
 
     public function getGlDetail(array $filters = [], bool $onlyPostedJournals = true): array
     {
-        $query = DB::table('journal_lines as jl')
-            ->join('journals as j', 'j.id', '=', 'jl.journal_id')
-            ->join('accounts as a', 'a.id', '=', 'jl.account_id')
+        $normalized = $this->journalQuery->normalizeFilters($filters);
+        $query = $this->journalQuery->withAccounts($onlyPostedJournals)
             ->leftJoin('currencies as c', 'c.id', '=', 'jl.currency_id')
             ->select(
+                'j.id as journal_id',
                 'j.date',
                 'j.description as journal_desc',
+                'a.id as account_id',
                 'a.code as account_code',
                 'a.name as account_name',
+                'a.type as account_type',
+                'a.normal_balance',
                 'jl.debit',
                 'jl.credit',
                 'jl.memo',
@@ -69,79 +75,77 @@ class ReportService
                 'jl.debit_foreign',
                 'jl.credit_foreign'
             );
-        if ($onlyPostedJournals) {
-            $query->whereNotNull('j.posted_at');
+        $this->journalQuery->applyCommonFilters($query, $filters, $onlyPostedJournals);
+
+        $rawRows = $query->orderBy('a.code')->orderBy('j.date')->orderBy('j.id')->get();
+
+        $openingByAccount = [];
+        if ($normalized['from']) {
+            $openQuery = $this->journalQuery->base($onlyPostedJournals)
+                ->selectRaw('jl.account_id, COALESCE(SUM(jl.debit - jl.credit), 0) as balance')
+                ->whereDate('j.date', '<', $normalized['from']);
+            $this->journalQuery->applyCommonFilters(
+                $openQuery,
+                array_merge($filters, ['from' => null, 'to' => null, 'period_year' => null, 'period_month' => null]),
+                $onlyPostedJournals
+            );
+            if ($normalized['account_id']) {
+                $openQuery->where('jl.account_id', $normalized['account_id']);
+            }
+            foreach ($openQuery->groupBy('jl.account_id')->get() as $row) {
+                $openingByAccount[(int) $row->account_id] = (float) $row->balance;
+            }
         }
 
-        if (! empty($filters['account_id'])) {
-            $query->where('a.id', $filters['account_id']);
-        }
-        if (! empty($filters['from'])) {
-            $query->whereDate('j.date', '>=', $filters['from']);
-        }
-        if (! empty($filters['to'])) {
-            $query->whereDate('j.date', '<=', $filters['to']);
-        }
-        if (! empty($filters['project_id'])) {
-            $query->where('jl.project_id', $filters['project_id']);
-        }
-        if (! empty($filters['fund_id'])) {
-            $query->where('jl.fund_id', $filters['fund_id']);
-        }
-        if (! empty($filters['dept_id'])) {
-            $query->where('jl.dept_id', $filters['dept_id']);
-        }
+        $runningByAccount = $openingByAccount;
+        $rows = [];
+        foreach ($rawRows as $r) {
+            $accountId = (int) $r->account_id;
+            $runningByAccount[$accountId] = ($runningByAccount[$accountId] ?? 0.0)
+                + (float) $r->debit - (float) $r->credit;
 
-        $rows = $query->orderBy('j.date')->orderBy('j.id')->get()->toArray();
+            $rows[] = [
+                'date' => $r->date,
+                'journal_desc' => $r->journal_desc,
+                'account_id' => $accountId,
+                'account_code' => $r->account_code,
+                'account_name' => $r->account_name,
+                'debit' => (float) $r->debit,
+                'credit' => (float) $r->credit,
+                'balance' => round($runningByAccount[$accountId], 2),
+                'memo' => $r->memo,
+                'currency_code' => $r->currency_code ?: 'IDR',
+                'exchange_rate' => (float) $r->exchange_rate ?: 1.000000,
+                'debit_foreign' => (float) $r->debit_foreign,
+                'credit_foreign' => (float) $r->credit_foreign,
+            ];
+        }
 
         return [
-            'filters' => $filters,
-            'rows' => array_map(function ($r) {
-                return [
-                    'date' => $r->date,
-                    'journal_desc' => $r->journal_desc,
-                    'account_code' => $r->account_code,
-                    'account_name' => $r->account_name,
-                    'debit' => (float) $r->debit,
-                    'credit' => (float) $r->credit,
-                    'memo' => $r->memo,
-                    'currency_code' => $r->currency_code ?: 'IDR',
-                    'exchange_rate' => (float) $r->exchange_rate ?: 1.000000,
-                    'debit_foreign' => (float) $r->debit_foreign,
-                    'credit_foreign' => (float) $r->credit_foreign,
-                ];
-            }, $rows),
+            'filters' => $normalized,
+            'rows' => $rows,
+            'opening_balances' => array_map(fn ($v) => round($v, 2), $openingByAccount),
         ];
     }
 
-    public function getBalanceSheet(?string $asOf = null, bool $onlyPostedJournals = true, bool $hideZeroLines = true): array
+    public function getBalanceSheet(?string $asOf = null, bool $onlyPostedJournals = true, bool $hideZeroLines = true, ?string $priorAsOf = null, array $filters = []): array
     {
         $date = $asOf ?: now()->toDateString();
-
-        $query = DB::table('journal_lines as jl')
-            ->join('journals as j', 'j.id', '=', 'jl.journal_id')
-            ->join('accounts as a', 'a.id', '=', 'jl.account_id')
-            ->whereDate('j.date', '<=', $date)
-            ->whereIn('a.type', ['asset', 'liability', 'net_assets']);
-        if ($onlyPostedJournals) {
-            $query->whereNotNull('j.posted_at');
-        }
-        $lines = $query
-            ->selectRaw('a.id, a.code, a.name, a.type, SUM(jl.debit) as debit, SUM(jl.credit) as credit')
-            ->groupBy('a.id', 'a.code', 'a.name', 'a.type')
-            ->orderBy('a.code')
-            ->get();
+        $snapshot = $this->getAccountBalanceSnapshot($date, $onlyPostedJournals, $filters);
 
         $totalAssets = 0.0;
         $totalLiabilities = 0.0;
         $totalEquity = 0.0;
         $ownById = [];
-        foreach ($lines as $r) {
-            $amount = $this->balanceSheetDisplayAmount($r->type, (float) $r->debit, (float) $r->credit);
-            $ownById[(int) $r->id] = round($amount, 2);
-            if ($r->type === 'asset') {
+        foreach ($snapshot as $row) {
+            if (! in_array($row['type'], ['asset', 'liability', 'net_assets'], true)) {
+                continue;
+            }
+            $amount = $row['display_amount'];
+            $ownById[$row['account_id']] = round($amount, 2);
+            if ($row['type'] === 'asset') {
                 $totalAssets += $amount;
-            } elseif ($r->type === 'liability') {
+            } elseif ($row['type'] === 'liability') {
                 $totalLiabilities += $amount;
             } else {
                 $totalEquity += $amount;
@@ -167,34 +171,33 @@ class ReportService
         $equity = $this->buildBalanceSheetHierarchyForType('net_assets', $coaAccounts, $ownById, $hideZeroLines);
 
         $difference = round($totalAssets - $totalLiabilities - $totalEquity, 2);
-
-        $unclosedPnl = $this->cumulativeProfitLossDisplayTotal($date, $onlyPostedJournals);
+        $unclosedPnl = $this->cumulativeProfitLossDisplayTotal($date, $onlyPostedJournals, $filters);
         $differenceVsUnclosedPnl = round($difference - $unclosedPnl, 2);
+
+        $sections = [
+            ['key' => 'assets', 'label' => 'Assets', 'rows' => $assets, 'total' => $totalAssets],
+            ['key' => 'liabilities', 'label' => 'Liabilities', 'rows' => $liabilities, 'total' => $totalLiabilities],
+            ['key' => 'equity', 'label' => 'Equity / Net assets', 'rows' => $equity, 'total' => $totalEquity],
+        ];
+
+        $priorTotals = null;
+        if ($priorAsOf) {
+            $prior = $this->getBalanceSheet($priorAsOf, $onlyPostedJournals, $hideZeroLines, null, $filters);
+            $priorTotals = $prior['totals'];
+            foreach ($sections as $sectionIndex => $section) {
+                $priorRowsByCode = collect($prior['sections'][$sectionIndex]['rows'] ?? [])->keyBy('code');
+                foreach ($section['rows'] as $idx => $row) {
+                    $sections[$sectionIndex]['rows'][$idx]['prior_amount'] = (float) ($priorRowsByCode[$row['code']]['amount'] ?? 0);
+                }
+            }
+        }
 
         return [
             'as_of' => $date,
+            'prior_as_of' => $priorAsOf,
             'report_title' => 'Balance Sheet',
             'entity_name' => (string) config('app.name'),
-            'sections' => [
-                [
-                    'key' => 'assets',
-                    'label' => 'Assets',
-                    'rows' => $assets,
-                    'total' => $totalAssets,
-                ],
-                [
-                    'key' => 'liabilities',
-                    'label' => 'Liabilities',
-                    'rows' => $liabilities,
-                    'total' => $totalLiabilities,
-                ],
-                [
-                    'key' => 'equity',
-                    'label' => 'Equity / Net assets',
-                    'rows' => $equity,
-                    'total' => $totalEquity,
-                ],
-            ],
+            'sections' => $sections,
             'totals' => [
                 'assets' => $totalAssets,
                 'liabilities' => $totalLiabilities,
@@ -202,53 +205,39 @@ class ReportService
                 'difference' => $difference,
                 'unclosed_pnl_cumulative' => $unclosedPnl,
                 'difference_vs_unclosed_pnl' => $differenceVsUnclosedPnl,
+                'prior' => $priorTotals,
             ],
             'only_posted_journals' => $onlyPostedJournals,
             'hide_zero_lines' => $hideZeroLines,
+            'filters' => $this->journalQuery->normalizeFilters($filters),
         ];
     }
 
     public function getProfitAndLoss(array $filters = [], bool $onlyPostedJournals = true, bool $hideZeroLines = true): array
     {
-        $from = $filters['from'] ?? now()->startOfMonth()->toDateString();
-        $to = $filters['to'] ?? now()->toDateString();
+        $normalized = $this->journalQuery->normalizeFilters($filters);
+        $from = $normalized['from'] ?? now()->startOfMonth()->toDateString();
+        $to = $normalized['to'] ?? now()->toDateString();
 
-        $query = DB::table('journal_lines as jl')
-            ->join('journals as j', 'j.id', '=', 'jl.journal_id')
-            ->join('accounts as a', 'a.id', '=', 'jl.account_id')
-            ->whereIn('a.type', ['income', 'expense'])
-            ->whereDate('j.date', '>=', $from)
-            ->whereDate('j.date', '<=', $to);
-        if ($onlyPostedJournals) {
-            $query->whereNotNull('j.posted_at');
-        }
-        if (! empty($filters['project_id'])) {
-            $query->where('jl.project_id', $filters['project_id']);
-        }
-        if (! empty($filters['fund_id'])) {
-            $query->where('jl.fund_id', $filters['fund_id']);
-        }
-        if (! empty($filters['dept_id'])) {
-            $query->where('jl.dept_id', $filters['dept_id']);
-        }
+        $query = $this->journalQuery->withAccounts($onlyPostedJournals)
+            ->whereIn('a.type', ['income', 'expense']);
+        $this->journalQuery->applyCommonFilters($query, array_merge($filters, ['from' => $from, 'to' => $to]), $onlyPostedJournals);
 
         $lines = $query
-            ->selectRaw('a.id, a.code, a.name, a.type, SUM(jl.debit) as debit, SUM(jl.credit) as credit')
-            ->groupBy('a.id', 'a.code', 'a.name', 'a.type')
+            ->selectRaw('a.id, a.code, a.name, a.type, a.report_group, a.normal_balance, SUM(jl.debit) as debit, SUM(jl.credit) as credit')
+            ->groupBy('a.id', 'a.code', 'a.name', 'a.type', 'a.report_group', 'a.normal_balance')
             ->orderBy('a.code')
             ->get();
 
         $ownById = [];
         foreach ($lines as $r) {
-            $debit = (float) $r->debit;
-            $credit = (float) $r->credit;
-            $ownById[(int) $r->id] = round($this->profitLossRowAmount($r->type, $debit, $credit), 2);
+            $ownById[(int) $r->id] = round($this->profitLossRowAmount($r->type, (float) $r->debit, (float) $r->credit, $r->report_group, $r->normal_balance), 2);
         }
 
         $coaAccounts = DB::table('accounts')
             ->whereIn('type', ['income', 'expense'])
             ->orderBy('code')
-            ->get(['id', 'parent_id', 'code', 'name', 'is_postable', 'type']);
+            ->get(['id', 'parent_id', 'code', 'name', 'is_postable', 'type', 'report_group', 'normal_balance']);
         $accountById = [];
         foreach ($coaAccounts as $a) {
             $accountById[(int) $a->id] = $a;
@@ -266,29 +255,18 @@ class ReportService
             'other_expense' => 'Other expense (7.x — expense)',
         ];
 
-        $totalRevenue = 0.0;
-        $totalCogs = 0.0;
-        $totalOperating = 0.0;
-        $totalOtherIncome = 0.0;
-        $totalOtherExpense = 0.0;
+        $totals = array_fill_keys($bucketKeys, 0.0);
         foreach ($lines as $r) {
-            $amt = round($this->profitLossRowAmount($r->type, (float) $r->debit, (float) $r->credit), 2);
+            $amt = round($this->profitLossRowAmount($r->type, (float) $r->debit, (float) $r->credit, $r->report_group, $r->normal_balance), 2);
             if ($hideZeroLines && abs($amt) < 0.0005) {
                 continue;
             }
-            match ($this->profitLossBucket($r->code, $r->type)) {
-                'revenue' => $totalRevenue += $amt,
-                'cogs' => $totalCogs += $amt,
-                'operating' => $totalOperating += $amt,
-                'other_income' => $totalOtherIncome += $amt,
-                'other_expense' => $totalOtherExpense += $amt,
-            };
+            $bucket = $this->profitLossBucket($r->code, $r->type, $r->report_group);
+            $totals[$bucket] += $amt;
         }
-        $totalRevenue = round($totalRevenue, 2);
-        $totalCogs = round($totalCogs, 2);
-        $totalOperating = round($totalOperating, 2);
-        $totalOtherIncome = round($totalOtherIncome, 2);
-        $totalOtherExpense = round($totalOtherExpense, 2);
+        foreach ($totals as $key => $value) {
+            $totals[$key] = round($value, 2);
+        }
 
         $buckets = [];
         foreach ($bucketKeys as $bucketKey) {
@@ -301,9 +279,18 @@ class ReportService
             );
         }
 
-        $grossProfit = round($totalRevenue - $totalCogs, 2);
-        $operatingIncome = round($grossProfit - $totalOperating, 2);
-        $netIncome = round($operatingIncome + $totalOtherIncome - $totalOtherExpense, 2);
+        $grossProfit = round($totals['revenue'] - $totals['cogs'], 2);
+        $operatingIncome = round($grossProfit - $totals['operating'], 2);
+        $netIncome = round($operatingIncome + $totals['other_income'] - $totals['other_expense'], 2);
+
+        $priorSubtotals = null;
+        if (! empty($filters['prior_from']) && ! empty($filters['prior_to'])) {
+            $prior = $this->getProfitAndLoss([
+                'from' => $filters['prior_from'],
+                'to' => $filters['prior_to'],
+            ], $onlyPostedJournals, $hideZeroLines);
+            $priorSubtotals = $prior['subtotals'];
+        }
 
         $sections = [];
         foreach ($bucketKeys as $key) {
@@ -311,20 +298,14 @@ class ReportService
                 'key' => $key,
                 'label' => $bucketLabels[$key],
                 'rows' => $buckets[$key],
-                'total' => match ($key) {
-                    'revenue' => $totalRevenue,
-                    'cogs' => $totalCogs,
-                    'operating' => $totalOperating,
-                    'other_income' => $totalOtherIncome,
-                    'other_expense' => $totalOtherExpense,
-                },
+                'total' => $totals[$key],
             ];
         }
 
         return [
             'from' => $from,
             'to' => $to,
-            'filters' => $filters,
+            'filters' => $normalized,
             'report_title' => 'Profit & Loss Statement',
             'entity_name' => (string) config('app.name'),
             'sections' => $sections,
@@ -333,6 +314,7 @@ class ReportService
                 'operating_income' => $operatingIncome,
                 'net_income' => $netIncome,
             ],
+            'prior_subtotals' => $priorSubtotals,
             'only_posted_journals' => $onlyPostedJournals,
             'hide_zero_lines' => $hideZeroLines,
         ];
@@ -340,48 +322,30 @@ class ReportService
 
     public function getCashFlowStatement(array $filters = [], bool $onlyPostedJournals = true): array
     {
-        $from = $filters['from'] ?? now()->startOfMonth()->toDateString();
-        $to = $filters['to'] ?? now()->toDateString();
+        $normalized = $this->journalQuery->normalizeFilters($filters);
+        $from = $normalized['from'] ?? now()->startOfMonth()->toDateString();
+        $to = $normalized['to'] ?? now()->toDateString();
         $begin = \Carbon\Carbon::parse($from)->subDay()->toDateString();
-
         $px = config('cash_flow.account_prefixes', []);
 
-        $pl = $this->getProfitAndLoss(['from' => $from, 'to' => $to], $onlyPostedJournals, false);
+        $pl = $this->getProfitAndLoss(array_merge($filters, ['from' => $from, 'to' => $to]), $onlyPostedJournals, false);
         $netIncome = $pl['subtotals']['net_income'];
+        $depreciationAddBack = $this->periodDepreciationExpenseAmount($from, $to, $onlyPostedJournals, $filters);
 
-        $depreciationAddBack = $this->periodDepreciationExpenseAmount($from, $to, $onlyPostedJournals);
+        $beginSnapshot = $this->getAccountBalanceSnapshot($begin, $onlyPostedJournals, $filters);
+        $endSnapshot = $this->getAccountBalanceSnapshot($to, $onlyPostedJournals, $filters);
 
-        $arBegin = $this->aggregateDisplayBalanceByPrefixes($begin, $px['receivables'] ?? ['1.1.2'], $onlyPostedJournals);
-        $arEnd = $this->aggregateDisplayBalanceByPrefixes($to, $px['receivables'] ?? ['1.1.2'], $onlyPostedJournals);
-        $changeAr = round($arEnd - $arBegin, 2);
-        $wcAr = round(-$changeAr, 2);
+        $arBegin = $this->aggregateDisplayBalanceByPrefixesFromSnapshot($beginSnapshot, $px['receivables'] ?? ['1.1.2']);
+        $arEnd = $this->aggregateDisplayBalanceByPrefixesFromSnapshot($endSnapshot, $px['receivables'] ?? ['1.1.2']);
+        $wcAr = round(-($arEnd - $arBegin), 2);
 
-        $invBegin = $this->aggregateDisplayBalanceByPrefixes($begin, $px['inventory'] ?? ['1.1.3'], $onlyPostedJournals);
-        $invEnd = $this->aggregateDisplayBalanceByPrefixes($to, $px['inventory'] ?? ['1.1.3'], $onlyPostedJournals);
-        $wcInv = round(-($invEnd - $invBegin), 2);
-
+        $wcInv = round(-($this->prefixDelta($beginSnapshot, $endSnapshot, $px['inventory'] ?? ['1.1.3'])), 2);
         $prePrefixes = $px['prepaid'] ?? ['1.1.5', '1.1.7'];
-        $preBegin = $this->aggregateDisplayBalanceByPrefixes($begin, $prePrefixes, $onlyPostedJournals);
-        $preEnd = $this->aggregateDisplayBalanceByPrefixes($to, $prePrefixes, $onlyPostedJournals);
-        $wcPrepaid = round(-($preEnd - $preBegin), 2);
-
-        $apBegin = $this->aggregateDisplayBalanceByPrefixes($begin, $px['payables'] ?? ['2.1.1'], $onlyPostedJournals);
-        $apEnd = $this->aggregateDisplayBalanceByPrefixes($to, $px['payables'] ?? ['2.1.1'], $onlyPostedJournals);
-        $wcAp = round($apEnd - $apBegin, 2);
-
-        $accrBegin = $this->aggregateDisplayBalanceByPrefixes($begin, $px['accrued_liabilities'] ?? ['2.1.4'], $onlyPostedJournals);
-        $accrEnd = $this->aggregateDisplayBalanceByPrefixes($to, $px['accrued_liabilities'] ?? ['2.1.4'], $onlyPostedJournals);
-        $wcAccr = round($accrEnd - $accrBegin, 2);
-
-        $taxPx = $px['tax_payables'] ?? [];
-        $taxBegin = $this->aggregateDisplayBalanceByPrefixes($begin, $taxPx, $onlyPostedJournals);
-        $taxEnd = $this->aggregateDisplayBalanceByPrefixes($to, $taxPx, $onlyPostedJournals);
-        $wcTaxPayables = round($taxEnd - $taxBegin, 2);
-
-        $vatPx = $px['input_vat_prepaid_assets'] ?? [];
-        $vatBegin = $this->aggregateDisplayBalanceByPrefixes($begin, $vatPx, $onlyPostedJournals);
-        $vatEnd = $this->aggregateDisplayBalanceByPrefixes($to, $vatPx, $onlyPostedJournals);
-        $wcInputVatPrepaid = round(-($vatEnd - $vatBegin), 2);
+        $wcPrepaid = round(-($this->prefixDelta($beginSnapshot, $endSnapshot, $prePrefixes)), 2);
+        $wcAp = round($this->prefixDelta($beginSnapshot, $endSnapshot, $px['payables'] ?? ['2.1.1']), 2);
+        $wcAccr = round($this->prefixDelta($beginSnapshot, $endSnapshot, $px['accrued_liabilities'] ?? ['2.1.4']), 2);
+        $wcTaxPayables = round($this->prefixDelta($beginSnapshot, $endSnapshot, $px['tax_payables'] ?? []), 2);
+        $wcInputVatPrepaid = round(-($this->prefixDelta($beginSnapshot, $endSnapshot, $px['input_vat_prepaid_assets'] ?? [])), 2);
 
         $operatingLines = [
             ['key' => 'net_income', 'label' => 'Net income', 'amount' => $netIncome],
@@ -396,73 +360,44 @@ class ReportService
         ];
         $operatingSubtotal = round(array_sum(array_column($operatingLines, 'amount')), 2);
 
-        $ncaPx = $px['non_current_assets'] ?? ['1.2'];
-        $ncaBegin = $this->aggregateDisplayBalanceByPrefixes($begin, $ncaPx, $onlyPostedJournals);
-        $ncaEnd = $this->aggregateDisplayBalanceByPrefixes($to, $ncaPx, $onlyPostedJournals);
-        $investingAmount = round(-($ncaEnd - $ncaBegin), 2);
+        $investingAmount = round(-($this->prefixDelta($beginSnapshot, $endSnapshot, $px['non_current_assets'] ?? ['1.2'])), 2);
         $investingLines = [
             ['key' => 'nc_assets', 'label' => 'Net change in non-current assets (configured prefixes)', 'amount' => $investingAmount],
         ];
-        $investingSubtotal = $investingAmount;
 
-        $stBorrowPx = $px['short_term_borrowings'] ?? ['2.1.3'];
-        $stBegin = $this->aggregateDisplayBalanceByPrefixes($begin, $stBorrowPx, $onlyPostedJournals);
-        $stEnd = $this->aggregateDisplayBalanceByPrefixes($to, $stBorrowPx, $onlyPostedJournals);
-        $finShortTermBorrowings = round($stEnd - $stBegin, 2);
-
-        $ltPx = $px['long_term_liabilities'] ?? ['2.2'];
-        $ltBegin = $this->aggregateDisplayBalanceByPrefixes($begin, $ltPx, $onlyPostedJournals);
-        $ltEnd = $this->aggregateDisplayBalanceByPrefixes($to, $ltPx, $onlyPostedJournals);
-        $finLongTerm = round($ltEnd - $ltBegin, 2);
-
-        $eqFinPx = $px['equity_financing_prefixes'] ?? ['3.1', '3.2'];
-        $eqFinBegin = $this->aggregateDisplayBalanceByPrefixes($begin, $eqFinPx, $onlyPostedJournals);
-        $eqFinEnd = $this->aggregateDisplayBalanceByPrefixes($to, $eqFinPx, $onlyPostedJournals);
-        $finEquityCapital = round($eqFinEnd - $eqFinBegin, 2);
-
+        $finShortTermBorrowings = round($this->prefixDelta($beginSnapshot, $endSnapshot, $px['short_term_borrowings'] ?? ['2.1.3']), 2);
+        $finLongTerm = round($this->prefixDelta($beginSnapshot, $endSnapshot, $px['long_term_liabilities'] ?? ['2.2']), 2);
+        $finEquityCapital = round($this->prefixDelta($beginSnapshot, $endSnapshot, $px['equity_financing_prefixes'] ?? ['3.1', '3.2']), 2);
         $financingLines = [
             ['key' => 'short_term_borrowings', 'label' => 'Net change in short-term borrowings (configured prefixes)', 'amount' => $finShortTermBorrowings],
             ['key' => 'lt_liabilities', 'label' => 'Net change in long-term liabilities (configured prefixes)', 'amount' => $finLongTerm],
             ['key' => 'equity_capital', 'label' => 'Net change in share capital / premium (equity_financing_prefixes; excludes 3.3 by default)', 'amount' => $finEquityCapital],
         ];
         $financingSubtotal = round(array_sum(array_column($financingLines, 'amount')), 2);
-
-        $netChangeComputed = round($operatingSubtotal + $investingSubtotal + $financingSubtotal, 2);
+        $netChangeComputed = round($operatingSubtotal + $investingLines[0]['amount'] + $financingSubtotal, 2);
 
         $cashPx = $px['cash_and_bank'] ?? ['1.1.1'];
-        $cashBegin = $this->aggregateDisplayBalanceByPrefixes($begin, $cashPx, $onlyPostedJournals);
-        $cashEnd = $this->aggregateDisplayBalanceByPrefixes($to, $cashPx, $onlyPostedJournals);
+        $cashBegin = $this->aggregateDisplayBalanceByPrefixesFromSnapshot($beginSnapshot, $cashPx);
+        $cashEnd = $this->aggregateDisplayBalanceByPrefixesFromSnapshot($endSnapshot, $cashPx);
         $netChangeCash = round($cashEnd - $cashBegin, 2);
-        $reconciliationDifference = round($netChangeComputed - $netChangeCash, 2);
 
         return [
             'from' => $from,
             'to' => $to,
             'begin_balance_date' => $begin,
             'method' => 'indirect',
-            'operating' => [
-                'label' => 'Cash flows from operating activities',
-                'lines' => $operatingLines,
-                'subtotal' => $operatingSubtotal,
-            ],
-            'investing' => [
-                'label' => 'Cash flows from investing activities',
-                'lines' => $investingLines,
-                'subtotal' => $investingSubtotal,
-            ],
-            'financing' => [
-                'label' => 'Cash flows from financing activities',
-                'lines' => $financingLines,
-                'subtotal' => $financingSubtotal,
-            ],
+            'operating' => ['label' => 'Cash flows from operating activities', 'lines' => $operatingLines, 'subtotal' => $operatingSubtotal],
+            'investing' => ['label' => 'Cash flows from investing activities', 'lines' => $investingLines, 'subtotal' => $investingLines[0]['amount']],
+            'financing' => ['label' => 'Cash flows from financing activities', 'lines' => $financingLines, 'subtotal' => $financingSubtotal],
             'summary' => [
                 'net_change_computed' => $netChangeComputed,
                 'cash_begin_display' => $cashBegin,
                 'cash_end_display' => $cashEnd,
                 'net_change_cash_accounts' => $netChangeCash,
-                'reconciliation_difference' => $reconciliationDifference,
+                'reconciliation_difference' => round($netChangeComputed - $netChangeCash, 2),
             ],
             'only_posted_journals' => $onlyPostedJournals,
+            'filters' => $normalized,
             'prefix_config_key' => 'cash_flow.account_prefixes',
             'notes' => [
                 'Account prefixes are read from config/cash_flow.php (adjust for nonprofit or custom COA).',
@@ -476,165 +411,58 @@ class ReportService
     public function getArAging(?string $asOf = null, array $options = []): array
     {
         $asOfDate = $asOf ?: now()->toDateString();
-        $invoices = DB::table('sales_invoices as si')
-            ->leftJoin('business_partners as c', 'c.id', '=', 'si.business_partner_id')
-            ->where('si.status', 'posted')
-            ->whereDate(DB::raw('COALESCE(si.due_date, si.date)'), '<=', $asOfDate)
-            ->leftJoin('sales_receipt_allocations as sra', 'sra.invoice_id', '=', 'si.id')
-            ->leftJoin('sales_receipts as sr', function ($join) {
-                $join->on('sr.id', '=', 'sra.receipt_id')->where('sr.status', '=', 'posted');
-            })
-            ->select('si.id', 'si.business_partner_id as customer_id', DB::raw('COALESCE(si.due_date, si.date) as effective_date'), 'si.total_amount', DB::raw('COALESCE(SUM(sra.amount),0) as settled_amount'), 'c.name as customer_name')
-            ->groupBy('si.id', 'si.business_partner_id', 'effective_date', 'si.total_amount', 'c.name')
-            ->get();
-
-        $buckets = [];
-        foreach ($invoices as $inv) {
-            $days = \Carbon\Carbon::parse($inv->effective_date)->diffInDays(\Carbon\Carbon::parse($asOfDate));
-            $bucket = $this->bucketLabel($days);
-            $key = (int) $inv->customer_id;
-            if (! isset($buckets[$key])) {
-                $buckets[$key] = ['customer_id' => $key, 'customer_name' => $inv->customer_name, 'current' => 0, 'd31_60' => 0, 'd61_90' => 0, 'd91_plus' => 0, 'total' => 0];
-            }
-            $net = max(0, (float) $inv->total_amount - (float) $inv->settled_amount);
-            if ($net <= 0) {
-                continue;
-            }
-            switch ($bucket) {
-                case 'current':
-                    $buckets[$key]['current'] += $net;
-                    break;
-                case '31-60':
-                    $buckets[$key]['d31_60'] += $net;
-                    break;
-                case '61-90':
-                    $buckets[$key]['d61_90'] += $net;
-                    break;
-                default:
-                    $buckets[$key]['d91_plus'] += $net;
-                    break;
-            }
-            $buckets[$key]['total'] += $net;
-        }
-
-        $rows = array_values($buckets);
-        if (! empty($options['overdue_only'])) {
-            $rows = array_values(array_filter($rows, function ($r) {
-                return ($r['d31_60'] + $r['d61_90'] + $r['d91_plus']) > 0;
-            }));
-        }
+        $rows = $this->buildArOutstandingRows($asOfDate, bucket: true, options: $options);
 
         return [
             'as_of' => $asOfDate,
             'rows' => $rows,
-            'totals' => [
-                'current' => array_sum(array_column($rows, 'current')),
-                'd31_60' => array_sum(array_column($rows, 'd31_60')),
-                'd61_90' => array_sum(array_column($rows, 'd61_90')),
-                'd91_plus' => array_sum(array_column($rows, 'd91_plus')),
-                'total' => array_sum(array_column($rows, 'total')),
-            ],
+            'totals' => $this->sumAgingTotals($rows),
         ];
     }
 
     public function getApAging(?string $asOf = null, array $options = []): array
     {
         $asOfDate = $asOf ?: now()->toDateString();
-        $invoices = DB::table('purchase_invoices as pi')
-            ->leftJoin('vendors as v', 'v.id', '=', 'pi.vendor_id')
-            ->where('status', 'posted')
-            ->whereDate(DB::raw('COALESCE(pi.due_date, pi.date)'), '<=', $asOfDate)
-            ->leftJoin('purchase_payment_allocations as ppa', 'ppa.invoice_id', '=', 'pi.id')
-            ->leftJoin('purchase_payments as pp', function ($join) {
-                $join->on('pp.id', '=', 'ppa.payment_id')->where('pp.status', '=', 'posted');
-            })
-            ->select('pi.id', 'pi.vendor_id', DB::raw('COALESCE(pi.due_date, pi.date) as effective_date'), 'pi.total_amount', DB::raw('COALESCE(SUM(ppa.amount),0) as settled_amount'), 'v.name as vendor_name')
-            ->groupBy('pi.id', 'pi.vendor_id', 'effective_date', 'pi.total_amount', 'v.name')
-            ->get();
-
-        $buckets = [];
-        foreach ($invoices as $inv) {
-            $days = \Carbon\Carbon::parse($inv->effective_date)->diffInDays(\Carbon\Carbon::parse($asOfDate));
-            $bucket = $this->bucketLabel($days);
-            $key = (int) $inv->vendor_id;
-            if (! isset($buckets[$key])) {
-                $buckets[$key] = ['vendor_id' => $key, 'vendor_name' => $inv->vendor_name, 'current' => 0, 'd31_60' => 0, 'd61_90' => 0, 'd91_plus' => 0, 'total' => 0];
-            }
-            $net = max(0, (float) $inv->total_amount - (float) $inv->settled_amount);
-            if ($net <= 0) {
-                continue;
-            }
-            switch ($bucket) {
-                case 'current':
-                    $buckets[$key]['current'] += $net;
-                    break;
-                case '31-60':
-                    $buckets[$key]['d31_60'] += $net;
-                    break;
-                case '61-90':
-                    $buckets[$key]['d61_90'] += $net;
-                    break;
-                default:
-                    $buckets[$key]['d91_plus'] += $net;
-                    break;
-            }
-            $buckets[$key]['total'] += $net;
-        }
-
-        $rows = array_values($buckets);
-        if (! empty($options['overdue_only'])) {
-            $rows = array_values(array_filter($rows, function ($r) {
-                return ($r['d31_60'] + $r['d61_90'] + $r['d91_plus']) > 0;
-            }));
-        }
+        $rows = $this->buildApOutstandingRows($asOfDate, bucket: true, options: $options);
 
         return [
             'as_of' => $asOfDate,
             'rows' => $rows,
-            'totals' => [
-                'current' => array_sum(array_column($rows, 'current')),
-                'd31_60' => array_sum(array_column($rows, 'd31_60')),
-                'd61_90' => array_sum(array_column($rows, 'd61_90')),
-                'd91_plus' => array_sum(array_column($rows, 'd91_plus')),
-                'total' => array_sum(array_column($rows, 'total')),
-            ],
+            'totals' => $this->sumAgingTotals($rows),
         ];
     }
 
     public function getCashLedger(array $filters = [], bool $onlyPostedJournals = true): array
     {
-        $accountId = ! empty($filters['account_id']) ? (int) $filters['account_id'] : (int) DB::table('accounts')->where('code', '1.1.2.01')->value('id');
-        $q = DB::table('journal_lines as jl')
-            ->join('journals as j', 'j.id', '=', 'jl.journal_id')
+        $accountId = ! empty($filters['account_id'])
+            ? (int) $filters['account_id']
+            : ($this->journalQuery->defaultCashAccountId() ?? 0);
+
+        $normalized = $this->journalQuery->normalizeFilters($filters);
+        $q = $this->journalQuery->base($onlyPostedJournals)
             ->select('j.date', 'j.description', 'jl.debit', 'jl.credit')
             ->where('jl.account_id', $accountId);
-        if ($onlyPostedJournals) {
-            $q->whereNotNull('j.posted_at');
-        }
-        if (! empty($filters['from'])) {
-            $q->whereDate('j.date', '>=', $filters['from']);
-        }
-        if (! empty($filters['to'])) {
-            $q->whereDate('j.date', '<=', $filters['to']);
-        }
+        $this->journalQuery->applyCommonFilters($q, $filters, $onlyPostedJournals);
+
         $rows = $q->orderBy('j.date')->orderBy('j.id')->get()->toArray();
         $opening = 0.0;
-        if (! empty($filters['from'])) {
-            $openQ = DB::table('journal_lines as jl')
-                ->join('journals as j', 'j.id', '=', 'jl.journal_id')
+        if ($normalized['from']) {
+            $openQ = $this->journalQuery->base($onlyPostedJournals)
                 ->where('jl.account_id', $accountId)
-                ->whereDate('j.date', '<', $filters['from']);
-            if ($onlyPostedJournals) {
-                $openQ->whereNotNull('j.posted_at');
-            }
-            $opening = (float) $openQ->selectRaw('COALESCE(SUM(jl.debit - jl.credit),0) as bal')
-                ->value('bal');
+                ->whereDate('j.date', '<', $normalized['from']);
+            $this->journalQuery->applyCommonFilters(
+                $openQ,
+                array_merge($filters, ['from' => null, 'to' => null, 'period_year' => null, 'period_month' => null]),
+                $onlyPostedJournals
+            );
+            $opening = (float) $openQ->selectRaw('COALESCE(SUM(jl.debit - jl.credit),0) as bal')->value('bal');
         }
+
         $balance = $opening;
         $out = [];
         if ($opening !== 0.0) {
             $out[] = [
-                'date' => $filters['from'] ?? '',
+                'date' => $normalized['from'] ?? '',
                 'description' => 'Opening Balance',
                 'debit' => 0.0,
                 'credit' => 0.0,
@@ -652,13 +480,501 @@ class ReportService
             ];
         }
 
-        return ['rows' => $out, 'filters' => $filters, 'account_id' => $accountId, 'opening_balance' => round($opening, 2)];
+        $account = $accountId ? DB::table('accounts')->where('id', $accountId)->first(['id', 'code', 'name']) : null;
+
+        return [
+            'rows' => $out,
+            'filters' => $normalized,
+            'account_id' => $accountId,
+            'account' => $account ? ['id' => (int) $account->id, 'code' => $account->code, 'name' => $account->name] : null,
+            'opening_balance' => round($opening, 2),
+            'cash_accounts' => $this->listCashAccounts(),
+        ];
+    }
+
+    public function getArBalances(?string $asOf = null): array
+    {
+        $asOfDate = $asOf ?: now()->toDateString();
+        $partnerRows = $this->buildArOutstandingRows($asOfDate, bucket: false);
+        $rows = array_map(fn (array $r) => [
+            'customer_id' => $r['customer_id'],
+            'customer_name' => $r['customer_name'],
+            'invoices' => round($r['gross'], 2),
+            'receipts' => round($r['settled'], 2),
+            'balance' => round($r['total'], 2),
+        ], $partnerRows);
+
+        return [
+            'as_of' => $asOfDate,
+            'rows' => $rows,
+            'totals' => [
+                'invoices' => round(array_sum(array_column($rows, 'invoices')), 2),
+                'receipts' => round(array_sum(array_column($rows, 'receipts')), 2),
+                'balance' => round(array_sum(array_column($rows, 'balance')), 2),
+            ],
+        ];
+    }
+
+    public function getApBalances(?string $asOf = null): array
+    {
+        $asOfDate = $asOf ?: now()->toDateString();
+        $partnerRows = $this->buildApOutstandingRows($asOfDate, bucket: false);
+        $rows = array_map(fn (array $r) => [
+            'vendor_id' => $r['vendor_id'],
+            'vendor_name' => $r['vendor_name'],
+            'invoices' => round($r['gross'], 2),
+            'payments' => round($r['settled'], 2),
+            'balance' => round($r['total'], 2),
+        ], $partnerRows);
+
+        return [
+            'as_of' => $asOfDate,
+            'rows' => $rows,
+            'totals' => [
+                'invoices' => round(array_sum(array_column($rows, 'invoices')), 2),
+                'payments' => round(array_sum(array_column($rows, 'payments')), 2),
+                'balance' => round(array_sum(array_column($rows, 'balance')), 2),
+            ],
+        ];
+    }
+
+    public function getSubledgerReconciliation(?string $asOf = null, bool $onlyPostedJournals = true, array $filters = []): array
+    {
+        $asOfDate = $asOf ?: now()->toDateString();
+        $sections = [];
+
+        foreach ([
+            'ar' => ['aging' => 'getArAging', 'label' => 'Accounts Receivable'],
+            'ap' => ['aging' => 'getApAging', 'label' => 'Accounts Payable'],
+        ] as $controlType => $meta) {
+            $aging = $this->{$meta['aging']}($asOfDate);
+            $subledgerTotal = (float) ($aging['totals']['total'] ?? 0);
+
+            $control = DB::table('control_accounts as ca')
+                ->join('accounts as a', 'a.id', '=', 'ca.account_id')
+                ->where('ca.control_type', $controlType)
+                ->where('ca.is_active', true)
+                ->select('ca.account_id', 'a.code', 'a.name', 'a.type')
+                ->first();
+
+            $glBalance = 0.0;
+            if ($control) {
+                $snapshot = $this->getAccountBalanceSnapshot($asOfDate, $onlyPostedJournals, $filters);
+                foreach ($snapshot as $row) {
+                    if ((int) $row['account_id'] === (int) $control->account_id) {
+                        $glBalance = $row['display_amount'];
+                        break;
+                    }
+                }
+            }
+
+            $sections[] = [
+                'control_type' => $controlType,
+                'label' => $meta['label'],
+                'control_account_code' => $control?->code,
+                'control_account_name' => $control?->name,
+                'subledger_total' => round($subledgerTotal, 2),
+                'gl_control_balance' => round($glBalance, 2),
+                'variance' => round($glBalance - $subledgerTotal, 2),
+                'is_balanced' => abs($glBalance - $subledgerTotal) < 0.05,
+            ];
+        }
+
+        return [
+            'as_of' => $asOfDate,
+            'sections' => $sections,
+            'only_posted_journals' => $onlyPostedJournals,
+            'filters' => $this->journalQuery->normalizeFilters($filters),
+        ];
+    }
+
+    public function getCashAccountOptions(): array
+    {
+        return $this->listCashAccounts();
+    }
+
+    public function getWithholdingRecap(array $filters = []): array
+    {
+        $invoiceQuery = DB::table('purchase_invoice_lines as pil')
+            ->join('purchase_invoices as pi', 'pi.id', '=', 'pil.invoice_id')
+            ->join('tax_codes as t', 't.id', '=', 'pil.tax_code_id')
+            ->where('pi.status', 'posted')
+            ->whereRaw('LOWER(t.type) = ?', ['withholding']);
+
+        if (! empty($filters['from'])) {
+            $invoiceQuery->whereDate('pi.date', '>=', $filters['from']);
+        }
+        if (! empty($filters['to'])) {
+            $invoiceQuery->whereDate('pi.date', '<=', $filters['to']);
+        }
+        if (! empty($filters['vendor_id'])) {
+            $invoiceQuery->where('pi.business_partner_id', (int) $filters['vendor_id']);
+        }
+
+        $invoiceQuery = $invoiceQuery
+            ->select('pi.id as invoice_id', 'pi.business_partner_id as vendor_id', DB::raw('ROUND(SUM(pil.amount * t.rate / 100), 2) as inv_withholding'))
+            ->groupBy('pi.id', 'pi.business_partner_id');
+
+        $rows = DB::query()->fromSub($invoiceQuery, 'w')
+            ->leftJoin('business_partners as bp', 'bp.id', '=', 'w.vendor_id')
+            ->select('w.vendor_id', 'bp.name as vendor_name', DB::raw('SUM(w.inv_withholding) as withholding_total'))
+            ->groupBy('w.vendor_id', 'bp.name')
+            ->get()
+            ->map(fn ($r) => [
+                'vendor_id' => (int) $r->vendor_id,
+                'vendor_name' => $r->vendor_name,
+                'withholding_total' => round((float) $r->withholding_total, 2),
+            ])->toArray();
+
+        return [
+            'filters' => $filters,
+            'rows' => $rows,
+            'totals' => ['withholding_total' => array_sum(array_column($rows, 'withholding_total'))],
+        ];
+    }
+
+    public function getStatementOfChangesInEquity(array $filters = [], bool $onlyPostedJournals = true): array
+    {
+        $normalized = $this->journalQuery->normalizeFilters($filters);
+        $from = $normalized['from'] ?? now()->startOfYear()->toDateString();
+        $to = $normalized['to'] ?? now()->toDateString();
+        $openingDate = \Carbon\Carbon::parse($from)->subDay()->toDateString();
+
+        $equityAccounts = DB::table('accounts')
+            ->where('type', 'net_assets')
+            ->where('is_postable', true)
+            ->orderBy('code')
+            ->get(['id', 'code', 'name']);
+
+        $openingSnapshot = $this->getAccountBalanceSnapshot($openingDate, $onlyPostedJournals, $filters);
+        $closingSnapshot = $this->getAccountBalanceSnapshot($to, $onlyPostedJournals, $filters);
+        $openingById = collect($openingSnapshot)->keyBy('account_id');
+        $closingById = collect($closingSnapshot)->keyBy('account_id');
+
+        $rows = [];
+        $openingTotal = 0.0;
+        $closingTotal = 0.0;
+        foreach ($equityAccounts as $account) {
+            $opening = (float) ($openingById[(int) $account->id]['display_amount'] ?? 0);
+            $closing = (float) ($closingById[(int) $account->id]['display_amount'] ?? 0);
+            $rows[] = [
+                'code' => $account->code,
+                'name' => $account->name,
+                'opening' => round($opening, 2),
+                'movement' => round($closing - $opening, 2),
+                'closing' => round($closing, 2),
+            ];
+            $openingTotal += $opening;
+            $closingTotal += $closing;
+        }
+
+        $pnl = $this->getProfitAndLoss(array_merge($filters, ['from' => $from, 'to' => $to]), $onlyPostedJournals, false);
+
+        return [
+            'from' => $from,
+            'to' => $to,
+            'report_title' => 'Statement of Changes in Equity',
+            'entity_name' => (string) config('app.name'),
+            'rows' => $rows,
+            'net_income' => (float) ($pnl['subtotals']['net_income'] ?? 0),
+            'totals' => [
+                'opening' => round($openingTotal, 2),
+                'movement' => round($closingTotal - $openingTotal, 2),
+                'closing' => round($closingTotal, 2),
+            ],
+            'only_posted_journals' => $onlyPostedJournals,
+            'filters' => $normalized,
+        ];
+    }
+
+    public function getPpnReconciliation(array $filters = [], bool $onlyPostedJournals = true): array
+    {
+        $normalized = $this->journalQuery->normalizeFilters($filters);
+        $from = $normalized['from'] ?? now()->startOfMonth()->toDateString();
+        $to = $normalized['to'] ?? now()->toDateString();
+        $begin = \Carbon\Carbon::parse($from)->subDay()->toDateString();
+
+        $outputPrefixes = ['2.1.2.01'];
+        $inputPrefixes = ['1.1.4.01', '1.1.6'];
+
+        $beginSnapshot = $this->getAccountBalanceSnapshot($begin, $onlyPostedJournals, $filters);
+        $endSnapshot = $this->getAccountBalanceSnapshot($to, $onlyPostedJournals, $filters);
+
+        $outputVat = round(abs($this->prefixDelta($beginSnapshot, $endSnapshot, $outputPrefixes)), 2);
+        $inputVat = round(abs($this->prefixDelta($beginSnapshot, $endSnapshot, $inputPrefixes)), 2);
+
+        return [
+            'from' => $from,
+            'to' => $to,
+            'report_title' => 'PPN Masukan / Keluaran Reconciliation',
+            'ppn_keluaran' => $outputVat,
+            'ppn_masukan' => $inputVat,
+            'net_payable' => round($outputVat - $inputVat, 2),
+            'only_posted_journals' => $onlyPostedJournals,
+            'filters' => $normalized,
+        ];
+    }
+
+    public function exportSptPpn1111(array $filters = [], bool $onlyPostedJournals = true): array
+    {
+        $recon = $this->getPpnReconciliation($filters, $onlyPostedJournals);
+
+        return [
+            'form' => 'SPT-1111',
+            'period_from' => $recon['from'],
+            'period_to' => $recon['to'],
+            'fields' => [
+                'ppn_keluaran' => $recon['ppn_keluaran'],
+                'ppn_masukan' => $recon['ppn_masukan'],
+                'ppn_kurang_lebih_bayar' => $recon['net_payable'],
+            ],
+        ];
+    }
+
+    public function balanceSheetDisplayTotalForPrefixes(?string $asOf, array $prefixes, bool $onlyPostedJournals = true, array $filters = []): float
+    {
+        $snapshot = $this->getAccountBalanceSnapshot($asOf, $onlyPostedJournals, $filters);
+
+        return $this->aggregateDisplayBalanceByPrefixesFromSnapshot($snapshot, $prefixes);
     }
 
     /**
-     * @param  \Illuminate\Support\Collection<int, object>|array<int, object>  $coaAccounts
+     * @return array<int, array{account_id: int, code: string, name: string, type: string, debit: float, credit: float, display_amount: float, report_group: ?string, normal_balance: ?string}>
+     */
+    private function getAccountBalanceSnapshot(?string $asOf, bool $onlyPostedJournals, array $filters = []): array
+    {
+        $normalized = $this->journalQuery->normalizeFilters(array_merge($filters, ['as_of' => $asOf ?: now()->toDateString()]));
+        $cacheKey = implode('|', [
+            $normalized['as_of'] ?? '',
+            $onlyPostedJournals ? '1' : '0',
+            $normalized['company_entity_id'] ?? '',
+        ]);
+
+        if (isset($this->balanceSnapshotCache[$cacheKey])) {
+            return $this->balanceSnapshotCache[$cacheKey];
+        }
+
+        $query = $this->journalQuery->withAccounts($onlyPostedJournals);
+        $this->journalQuery->applyCommonFilters($query, array_merge($filters, ['as_of' => $normalized['as_of']]), $onlyPostedJournals);
+
+        $lines = $query
+            ->selectRaw('a.id, a.code, a.name, a.type, a.report_group, a.normal_balance, SUM(jl.debit) as debit, SUM(jl.credit) as credit')
+            ->groupBy('a.id', 'a.code', 'a.name', 'a.type', 'a.report_group', 'a.normal_balance')
+            ->orderBy('a.code')
+            ->get();
+
+        $snapshot = [];
+        foreach ($lines as $r) {
+            $snapshot[] = [
+                'account_id' => (int) $r->id,
+                'code' => $r->code,
+                'name' => $r->name,
+                'type' => $r->type,
+                'report_group' => $r->report_group,
+                'normal_balance' => $r->normal_balance,
+                'debit' => (float) $r->debit,
+                'credit' => (float) $r->credit,
+                'display_amount' => $this->balanceSheetDisplayAmount(
+                    $r->type,
+                    (float) $r->debit,
+                    (float) $r->credit,
+                    $r->code,
+                    $r->name,
+                    $r->report_group,
+                    $r->normal_balance
+                ),
+            ];
+        }
+
+        return $this->balanceSnapshotCache[$cacheKey] = $snapshot;
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $snapshot
+     */
+    private function aggregateDisplayBalanceByPrefixesFromSnapshot(array $snapshot, array $prefixes): float
+    {
+        if ($prefixes === []) {
+            return 0.0;
+        }
+
+        $sum = 0.0;
+        foreach ($snapshot as $row) {
+            if (! in_array($row['type'], ['asset', 'liability', 'net_assets'], true)) {
+                continue;
+            }
+            foreach ($prefixes as $prefix) {
+                if ($this->accountCodeUnderPrefix($row['code'], $prefix)) {
+                    $sum += $row['display_amount'];
+                    break;
+                }
+            }
+        }
+
+        return round($sum, 2);
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $beginSnapshot
+     * @param  array<int, array<string, mixed>>  $endSnapshot
+     */
+    private function prefixDelta(array $beginSnapshot, array $endSnapshot, array $prefixes): float
+    {
+        return $this->aggregateDisplayBalanceByPrefixesFromSnapshot($endSnapshot, $prefixes)
+            - $this->aggregateDisplayBalanceByPrefixesFromSnapshot($beginSnapshot, $prefixes);
+    }
+
+    private function aggregateDisplayBalanceByPrefixes(?string $asOf, array $prefixes, bool $onlyPostedJournals, array $filters = []): float
+    {
+        $snapshot = $this->getAccountBalanceSnapshot($asOf, $onlyPostedJournals, $filters);
+
+        return $this->aggregateDisplayBalanceByPrefixesFromSnapshot($snapshot, $prefixes);
+    }
+
+    /**
      * @return array<int, array<string, mixed>>
      */
+    private function buildArOutstandingRows(string $asOfDate, bool $bucket, array $options = []): array
+    {
+        $invoices = DB::table('sales_invoices as si')
+            ->leftJoin('business_partners as c', 'c.id', '=', 'si.business_partner_id')
+            ->where('si.status', 'posted')
+            ->whereDate(DB::raw('COALESCE(si.due_date, si.date)'), '<=', $asOfDate)
+            ->leftJoin('sales_receipt_allocations as sra', 'sra.invoice_id', '=', 'si.id')
+            ->leftJoin('sales_receipts as sr', function ($join) use ($asOfDate) {
+                $join->on('sr.id', '=', 'sra.receipt_id')
+                    ->where('sr.status', '=', 'posted')
+                    ->whereDate('sr.date', '<=', $asOfDate);
+            })
+            ->select(
+                'si.id',
+                'si.business_partner_id as customer_id',
+                DB::raw('COALESCE(si.due_date, si.date) as effective_date'),
+                'si.total_amount',
+                DB::raw('COALESCE(SUM(sra.amount),0) as settled_amount'),
+                'c.name as customer_name'
+            )
+            ->groupBy('si.id', 'si.business_partner_id', 'effective_date', 'si.total_amount', 'c.name')
+            ->get();
+
+        return $this->aggregateOutstandingRows($invoices, $asOfDate, 'customer_id', 'customer_name', $bucket, $options);
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function buildApOutstandingRows(string $asOfDate, bool $bucket, array $options = []): array
+    {
+        $invoices = DB::table('purchase_invoices as pi')
+            ->leftJoin('business_partners as bp', 'bp.id', '=', 'pi.business_partner_id')
+            ->where('pi.status', 'posted')
+            ->whereDate(DB::raw('COALESCE(pi.due_date, pi.date)'), '<=', $asOfDate)
+            ->leftJoin('purchase_payment_allocations as ppa', 'ppa.invoice_id', '=', 'pi.id')
+            ->leftJoin('purchase_payments as pp', function ($join) use ($asOfDate) {
+                $join->on('pp.id', '=', 'ppa.payment_id')
+                    ->where('pp.status', '=', 'posted')
+                    ->whereDate('pp.date', '<=', $asOfDate);
+            })
+            ->select(
+                'pi.id',
+                'pi.business_partner_id as vendor_id',
+                DB::raw('COALESCE(pi.due_date, pi.date) as effective_date'),
+                'pi.total_amount',
+                DB::raw('COALESCE(SUM(ppa.amount),0) as settled_amount'),
+                'bp.name as vendor_name'
+            )
+            ->groupBy('pi.id', 'pi.business_partner_id', 'effective_date', 'pi.total_amount', 'bp.name')
+            ->get();
+
+        return $this->aggregateOutstandingRows($invoices, $asOfDate, 'vendor_id', 'vendor_name', $bucket, $options);
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, object>  $invoices
+     * @return array<int, array<string, mixed>>
+     */
+    private function aggregateOutstandingRows($invoices, string $asOfDate, string $idKey, string $nameKey, bool $bucket, array $options): array
+    {
+        $partners = [];
+        foreach ($invoices as $inv) {
+            $net = max(0, (float) $inv->total_amount - (float) $inv->settled_amount);
+            if ($net <= 0) {
+                continue;
+            }
+
+            $key = (int) $inv->{$idKey};
+            if (! isset($partners[$key])) {
+                $partners[$key] = [
+                    $idKey => $key,
+                    $nameKey => $inv->{$nameKey},
+                    'gross' => 0.0,
+                    'settled' => 0.0,
+                    'total' => 0.0,
+                    'current' => 0.0,
+                    'd31_60' => 0.0,
+                    'd61_90' => 0.0,
+                    'd91_plus' => 0.0,
+                ];
+            }
+
+            $partners[$key]['gross'] += (float) $inv->total_amount;
+            $partners[$key]['settled'] += (float) $inv->settled_amount;
+            $partners[$key]['total'] += $net;
+
+            if ($bucket) {
+                $days = \Carbon\Carbon::parse($inv->effective_date)->diffInDays(\Carbon\Carbon::parse($asOfDate));
+                match ($this->bucketLabel($days)) {
+                    'current' => $partners[$key]['current'] += $net,
+                    '31-60' => $partners[$key]['d31_60'] += $net,
+                    '61-90' => $partners[$key]['d61_90'] += $net,
+                    default => $partners[$key]['d91_plus'] += $net,
+                };
+            }
+        }
+
+        $rows = array_values($partners);
+        if ($bucket && ! empty($options['overdue_only'])) {
+            $rows = array_values(array_filter($rows, fn ($r) => ($r['d31_60'] + $r['d61_90'] + $r['d91_plus']) > 0));
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $rows
+     * @return array<string, float>
+     */
+    private function sumAgingTotals(array $rows): array
+    {
+        return [
+            'current' => array_sum(array_column($rows, 'current')),
+            'd31_60' => array_sum(array_column($rows, 'd31_60')),
+            'd61_90' => array_sum(array_column($rows, 'd61_90')),
+            'd91_plus' => array_sum(array_column($rows, 'd91_plus')),
+            'total' => array_sum(array_column($rows, 'total')),
+        ];
+    }
+
+    /**
+     * @return array<int, array{id: int, code: string, name: string}>
+     */
+    private function listCashAccounts(): array
+    {
+        $prefixes = config('cash_flow.account_prefixes.cash_and_bank', ['1.1.1']);
+
+        return DB::table('accounts')
+            ->where('is_postable', true)
+            ->where(function ($query) use ($prefixes) {
+                foreach ($prefixes as $prefix) {
+                    $query->orWhere('code', $prefix)->orWhere('code', 'like', $prefix.'.%');
+                }
+            })
+            ->orderBy('code')
+            ->get(['id', 'code', 'name'])
+            ->map(fn ($a) => ['id' => (int) $a->id, 'code' => $a->code, 'name' => $a->name])
+            ->all();
+    }
+
     private function buildBalanceSheetHierarchyForType(string $type, $coaAccounts, array $ownById, bool $hideZeroLines): array
     {
         $subset = [];
@@ -678,25 +994,15 @@ class ReportService
         return $this->buildHierarchyRowsFromAccountSubset($subset, $idSet, $ownById, $hideZeroLines);
     }
 
-    /**
-     * @param  \Illuminate\Support\Collection<int, object>  $lines
-     * @param  array<int, object>  $accountById
-     * @return array<int, array<string, mixed>>
-     */
-    private function buildProfitLossHierarchyForBucket(
-        string $bucketKey,
-        $lines,
-        array $accountById,
-        array $ownById,
-        bool $hideZeroLines
-    ): array {
+    private function buildProfitLossHierarchyForBucket(string $bucketKey, $lines, array $accountById, array $ownById, bool $hideZeroLines): array
+    {
         $idsInBucket = [];
         foreach ($lines as $r) {
             $amt = $ownById[(int) $r->id] ?? 0.0;
             if ($hideZeroLines && abs($amt) < 0.0005) {
                 continue;
             }
-            if ($this->profitLossBucket($r->code, $r->type) !== $bucketKey) {
+            if ($this->profitLossBucket($r->code, $r->type, $r->report_group ?? null) !== $bucketKey) {
                 continue;
             }
             $idsInBucket[] = (int) $r->id;
@@ -706,7 +1012,7 @@ class ReportService
             $cur = $id;
             while ($cur && isset($accountById[$cur])) {
                 $acc = $accountById[$cur];
-                if ($this->profitLossBucket($acc->code, $acc->type) !== $bucketKey) {
+                if ($this->profitLossBucket($acc->code, $acc->type, $acc->report_group ?? null) !== $bucketKey) {
                     break;
                 }
                 $expanded[$cur] = true;
@@ -723,17 +1029,10 @@ class ReportService
                 $subset[] = $accountById[$vid];
             }
         }
-        $idSet = $expanded;
 
-        return $this->buildHierarchyRowsFromAccountSubset($subset, $idSet, $ownById, $hideZeroLines);
+        return $this->buildHierarchyRowsFromAccountSubset($subset, $expanded, $ownById, $hideZeroLines);
     }
 
-    /**
-     * @param  array<int, object>  $subset
-     * @param  array<int, bool>  $idSet
-     * @param  array<int, float>  $ownById
-     * @return array<int, array<string, mixed>>
-     */
     private function buildHierarchyRowsFromAccountSubset(array $subset, array $idSet, array $ownById, bool $hideZeroLines): array
     {
         $byId = [];
@@ -749,9 +1048,7 @@ class ReportService
             }
         }
         foreach (array_keys($children) as $pid) {
-            usort($children[$pid], function (int $x, int $y) use ($byId) {
-                return strcmp($byId[$x]->code, $byId[$y]->code);
-            });
+            usort($children[$pid], fn (int $x, int $y) => strcmp($byId[$x]->code, $byId[$y]->code));
         }
         $own = [];
         foreach (array_keys($idSet) as $iid) {
@@ -767,9 +1064,7 @@ class ReportService
                 $roots[] = $id;
             }
         }
-        usort($roots, function (int $x, int $y) use ($byId) {
-            return strcmp($byId[$x]->code, $byId[$y]->code);
-        });
+        usort($roots, fn (int $x, int $y) => strcmp($byId[$x]->code, $byId[$y]->code));
         $rows = [];
         foreach ($roots as $rid) {
             $rows = array_merge($rows, $this->dfsHierarchyRows($rid, 0, $children, $rollup, $visible, $byId));
@@ -778,12 +1073,6 @@ class ReportService
         return $rows;
     }
 
-    /**
-     * @param  array<int, bool>  $idSet
-     * @param  array<int, array<int>>  $children
-     * @param  array<int, float>  $own
-     * @return array<int, float>
-     */
     private function computeRollupForForest(array $idSet, array $children, array $own): array
     {
         $memo = [];
@@ -805,12 +1094,6 @@ class ReportService
         return $memo;
     }
 
-    /**
-     * @param  array<int>  $allIds
-     * @param  array<int, array<int>>  $children
-     * @param  array<int, float>  $rollup
-     * @return array<int, bool>
-     */
     private function computeVisibilityForForest(array $allIds, array $children, array $rollup, bool $hideZeroLines): array
     {
         $vis = [];
@@ -839,34 +1122,21 @@ class ReportService
         return $vis;
     }
 
-    /**
-     * @param  array<int, array<int>>  $children
-     * @param  array<int, float>  $rollup
-     * @param  array<int, bool>  $visible
-     * @param  array<int, object>  $byId
-     * @return array<int, array<string, mixed>>
-     */
-    private function dfsHierarchyRows(
-        int $id,
-        int $depth,
-        array $children,
-        array $rollup,
-        array $visible,
-        array $byId
-    ): array {
+    private function dfsHierarchyRows(int $id, int $depth, array $children, array $rollup, array $visible, array $byId): array
+    {
         if (! ($visible[$id] ?? false)) {
             return [];
         }
         $a = $byId[$id];
-        $isParent = ! empty($children[$id]);
         $row = [
             'account_id' => $id,
             'code' => $a->code,
             'name' => $a->name,
             'amount' => $rollup[$id] ?? 0.0,
             'depth' => $depth,
-            'is_parent' => $isParent,
+            'is_parent' => ! empty($children[$id]),
             'is_postable' => (bool) $a->is_postable,
+            'is_contra_asset' => $a->type === 'asset' && $this->isContraAssetAccount($a->code, $a->name, $a->report_group ?? null),
         ];
         $out = [$row];
         foreach ($children[$id] ?? [] as $cid) {
@@ -876,24 +1146,21 @@ class ReportService
         return $out;
     }
 
-    private function cumulativeProfitLossDisplayTotal(string $asOfDate, bool $onlyPostedJournals): float
+    private function cumulativeProfitLossDisplayTotal(string $asOfDate, bool $onlyPostedJournals, array $filters = []): float
     {
-        $query = DB::table('journal_lines as jl')
-            ->join('journals as j', 'j.id', '=', 'jl.journal_id')
-            ->join('accounts as a', 'a.id', '=', 'jl.account_id')
-            ->whereDate('j.date', '<=', $asOfDate)
+        $query = $this->journalQuery->withAccounts($onlyPostedJournals)
             ->whereIn('a.type', ['income', 'expense']);
-        if ($onlyPostedJournals) {
-            $query->whereNotNull('j.posted_at');
-        }
+        $this->journalQuery->applyCommonFilters($query, array_merge($filters, ['as_of' => $asOfDate]), $onlyPostedJournals);
+
         $lines = $query
-            ->selectRaw('a.type, SUM(jl.debit) as debit, SUM(jl.credit) as credit')
-            ->groupBy('a.type')
+            ->selectRaw('a.type, a.report_group, a.normal_balance, SUM(jl.debit) as debit, SUM(jl.credit) as credit')
+            ->groupBy('a.type', 'a.report_group', 'a.normal_balance')
             ->get();
+
         $incomeTotal = 0.0;
         $expenseTotal = 0.0;
         foreach ($lines as $r) {
-            $amt = $this->profitLossRowAmount($r->type, (float) $r->debit, (float) $r->credit);
+            $amt = $this->profitLossRowAmount($r->type, (float) $r->debit, (float) $r->credit, $r->report_group, $r->normal_balance);
             if ($r->type === 'income') {
                 $incomeTotal += $amt;
             } else {
@@ -904,8 +1171,25 @@ class ReportService
         return round($incomeTotal - $expenseTotal, 2);
     }
 
-    private function balanceSheetDisplayAmount(string $type, float $debit, float $credit): float
-    {
+    private function balanceSheetDisplayAmount(
+        string $type,
+        float $debit,
+        float $credit,
+        ?string $code = null,
+        ?string $name = null,
+        ?string $reportGroup = null,
+        ?string $normalBalance = null
+    ): float {
+        if ($normalBalance === 'credit' && $type === 'asset') {
+            return $credit - $debit;
+        }
+        if ($normalBalance === 'debit' && in_array($type, ['liability', 'net_assets'], true)) {
+            return $debit - $credit;
+        }
+        if ($type === 'asset' && $this->isContraAssetAccount($code, $name, $reportGroup)) {
+            return $credit - $debit;
+        }
+
         return match ($type) {
             'asset' => $debit - $credit,
             'liability', 'net_assets' => $credit - $debit,
@@ -913,8 +1197,27 @@ class ReportService
         };
     }
 
-    private function profitLossRowAmount(string $type, float $debit, float $credit): float
+    private function isContraAssetAccount(?string $code, ?string $name, ?string $reportGroup = null): bool
     {
+        if ($reportGroup === 'contra_asset') {
+            return true;
+        }
+        if ($name && str_contains(strtolower($name), 'akumulasi penyusutan')) {
+            return true;
+        }
+
+        return $code !== null && (bool) preg_match('/^1\.2\.\d+\.(03|05|07)$/', $code);
+    }
+
+    private function profitLossRowAmount(string $type, float $debit, float $credit, ?string $reportGroup = null, ?string $normalBalance = null): float
+    {
+        if ($normalBalance === 'credit' && $type === 'expense') {
+            return $credit - $debit;
+        }
+        if ($normalBalance === 'debit' && $type === 'income') {
+            return $debit - $credit;
+        }
+
         return match ($type) {
             'income' => $credit - $debit,
             'expense' => $debit - $credit,
@@ -922,8 +1225,12 @@ class ReportService
         };
     }
 
-    private function profitLossBucket(string $accountCode, string $type): string
+    private function profitLossBucket(string $accountCode, string $type, ?string $reportGroup = null): string
     {
+        if ($reportGroup && in_array($reportGroup, ['revenue', 'cogs', 'operating', 'other_income', 'other_expense'], true)) {
+            return $reportGroup;
+        }
+
         $dot = strpos($accountCode, '.');
         $root = $dot === false ? $accountCode : substr($accountCode, 0, $dot);
         if ($type === 'income') {
@@ -946,54 +1253,17 @@ class ReportService
         return $code === $prefix || str_starts_with($code, $prefix.'.');
     }
 
-    /**
-     * Balance sheet display total for accounts whose code matches any prefix (asset / liability / net_assets only).
-     * Useful for reconciliation and tests against journal data.
-     */
-    public function balanceSheetDisplayTotalForPrefixes(?string $asOf, array $prefixes, bool $onlyPostedJournals = true): float
+    private function periodDepreciationExpenseAmount(string $from, string $to, bool $onlyPostedJournals, array $filters = []): float
     {
-        return $this->aggregateDisplayBalanceByPrefixes($asOf, $prefixes, $onlyPostedJournals);
-    }
-
-    private function aggregateDisplayBalanceByPrefixes(?string $asOf, array $prefixes, bool $onlyPostedJournals): float
-    {
-        if ($prefixes === []) {
-            return 0.0;
-        }
-        $tb = $this->getTrialBalance($asOf, $onlyPostedJournals);
-        $sum = 0.0;
-        foreach ($tb['rows'] as $r) {
-            if (! in_array($r['type'], ['asset', 'liability', 'net_assets'], true)) {
-                continue;
-            }
-            foreach ($prefixes as $prefix) {
-                if ($this->accountCodeUnderPrefix($r['code'], $prefix)) {
-                    $sum += $this->balanceSheetDisplayAmount($r['type'], $r['debit'], $r['credit']);
-                    break;
-                }
-            }
-        }
-
-        return round($sum, 2);
-    }
-
-    private function periodDepreciationExpenseAmount(string $from, string $to, bool $onlyPostedJournals): float
-    {
-        $query = DB::table('journal_lines as jl')
-            ->join('journals as j', 'j.id', '=', 'jl.journal_id')
-            ->join('accounts as a', 'a.id', '=', 'jl.account_id')
+        $query = $this->journalQuery->withAccounts($onlyPostedJournals)
             ->where('a.type', 'expense')
-            ->whereDate('j.date', '>=', $from)
-            ->whereDate('j.date', '<=', $to)
             ->where(function ($q) {
                 $q->where('a.code', 'like', '6.2.9%')
                     ->orWhere('a.code', 'like', '5.2.6%')
                     ->orWhereRaw('LOWER(a.name) like ?', ['%depreciation%'])
                     ->orWhereRaw('LOWER(a.name) like ?', ['%penyusutan%']);
             });
-        if ($onlyPostedJournals) {
-            $query->whereNotNull('j.posted_at');
-        }
+        $this->journalQuery->applyCommonFilters($query, array_merge($filters, ['from' => $from, 'to' => $to]), $onlyPostedJournals);
 
         return round((float) $query->selectRaw('COALESCE(SUM(jl.debit - jl.credit), 0) as x')->value('x'), 2);
     }
@@ -1011,98 +1281,5 @@ class ReportService
         }
 
         return '91+';
-    }
-
-    public function getArBalances(): array
-    {
-        $inv = DB::table('sales_invoices')->where('status', 'posted')
-            ->select('business_partner_id', DB::raw('SUM(total_amount) as total'))
-            ->groupBy('business_partner_id')->pluck('total', 'business_partner_id');
-        $rcp = DB::table('sales_receipts')->where('status', 'posted')
-            ->select('business_partner_id', DB::raw('SUM(total_amount) as total'))
-            ->groupBy('business_partner_id')->pluck('total', 'business_partner_id');
-        $rows = [];
-        $partnerIds = array_unique(array_merge(array_keys($inv->toArray()), array_keys($rcp->toArray())));
-        foreach ($partnerIds as $pid) {
-            $invt = (float) ($inv[$pid] ?? 0);
-            $rcpt = (float) ($rcp[$pid] ?? 0);
-            $name = DB::table('business_partners')->where('id', $pid)->value('name');
-            $rows[] = ['customer_id' => (int) $pid, 'customer_name' => $name, 'invoices' => $invt, 'receipts' => $rcpt, 'balance' => round($invt - $rcpt, 2)];
-        }
-
-        return ['rows' => $rows, 'totals' => [
-            'invoices' => array_sum(array_column($rows, 'invoices')),
-            'receipts' => array_sum(array_column($rows, 'receipts')),
-            'balance' => array_sum(array_column($rows, 'balance')),
-        ]];
-    }
-
-    public function getApBalances(): array
-    {
-        $inv = DB::table('purchase_invoices')->where('status', 'posted')
-            ->select('business_partner_id', DB::raw('SUM(total_amount) as total'))
-            ->groupBy('business_partner_id')->pluck('total', 'business_partner_id');
-        $pay = DB::table('purchase_payments')->where('status', 'posted')
-            ->select('business_partner_id', DB::raw('SUM(total_amount) as total'))
-            ->groupBy('business_partner_id')->pluck('total', 'business_partner_id');
-        $rows = [];
-        $partnerIds = array_unique(array_merge(array_keys($inv->toArray()), array_keys($pay->toArray())));
-        foreach ($partnerIds as $pid) {
-            $invt = (float) ($inv[$pid] ?? 0);
-            $payt = (float) ($pay[$pid] ?? 0);
-            $name = DB::table('business_partners')->where('id', $pid)->value('name');
-            $rows[] = ['vendor_id' => (int) $pid, 'vendor_name' => $name, 'invoices' => $invt, 'payments' => $payt, 'balance' => round($invt - $payt, 2)];
-        }
-
-        return ['rows' => $rows, 'totals' => [
-            'invoices' => array_sum(array_column($rows, 'invoices')),
-            'payments' => array_sum(array_column($rows, 'payments')),
-            'balance' => array_sum(array_column($rows, 'balance')),
-        ]];
-    }
-
-    public function getWithholdingRecap(array $filters = []): array
-    {
-        // Per-invoice rounding: first compute each invoice's withholding, then sum by vendor
-        $invoiceQuery = DB::table('purchase_invoice_lines as pil')
-            ->join('purchase_invoices as pi', 'pi.id', '=', 'pil.invoice_id')
-            ->join('tax_codes as t', 't.id', '=', 'pil.tax_code_id')
-            ->where('pi.status', 'posted')
-            ->whereRaw('LOWER(t.type) = ?', ['withholding']);
-
-        if (! empty($filters['from'])) {
-            $invoiceQuery->whereDate('pi.date', '>=', $filters['from']);
-        }
-        if (! empty($filters['to'])) {
-            $invoiceQuery->whereDate('pi.date', '<=', $filters['to']);
-        }
-        if (! empty($filters['vendor_id'])) {
-            $invoiceQuery->where('pi.business_partner_id', (int) $filters['vendor_id']);
-        }
-
-        $invoiceQuery = $invoiceQuery
-            ->select('pi.id as invoice_id', 'pi.business_partner_id as vendor_id', DB::raw('ROUND(SUM(pil.amount * t.rate), 2) as inv_withholding'))
-            ->groupBy('pi.id', 'pi.business_partner_id');
-
-        $q = DB::query()->fromSub($invoiceQuery, 'w')
-            ->leftJoin('business_partners as bp', 'bp.id', '=', 'w.vendor_id')
-            ->select('w.vendor_id', 'bp.name as vendor_name', DB::raw('SUM(w.inv_withholding) as withholding_total'))
-            ->groupBy('w.vendor_id', 'bp.name');
-
-        $rows = $q->get()->map(function ($r) {
-            return [
-                'vendor_id' => (int) $r->vendor_id,
-                'vendor_name' => $r->vendor_name,
-                'withholding_total' => round((float) $r->withholding_total, 2),
-            ];
-        })->toArray();
-
-        return [
-            'filters' => $filters,
-            'rows' => $rows,
-            'totals' => [
-                'withholding_total' => array_sum(array_column($rows, 'withholding_total')),
-            ],
-        ];
     }
 }

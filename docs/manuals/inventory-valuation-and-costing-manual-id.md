@@ -6,11 +6,10 @@ Dokumen ini melengkapi **Manual Modul Inventory** dengan penjelasan teknis dan p
 
 ## Pilihan metode valuasi pada item inventory
 
-Pada form item (buat/edit), sistem menawarkan **tiga** metode valuasi stok:
+Pada form item (buat/edit), sistem menawarkan **dua** metode valuasi stok (selaras PSAK; LIFO sudah dihapus):
 
-- **FIFO** — label di layar; dipakai untuk perhitungan biaya mengacu pada data pembelian.
-- **LIFO** — biaya dihitung dengan logika lapisan dari arah pembelian terbaru (sesuai implementasi kode).
-- **Rata-rata tertimbang (weighted average)** — istilah di layar untuk metode rata-rata berbasis transaksi pembelian.
+- **FIFO** — First In, First Out; konsumsi lapisan pembelian terlama dulu untuk HPP.
+- **Rata-rata tertimbang (weighted average)** — biaya rata-rata berbasis lapisan pembelian.
 
 **Catatan:** Tidak ada mode valuasi bernama “Manual” di pilihan metode pada item; penyesuaian stok tetap memasukkan biaya per unit secara manual pada transaksi penyesuaian.
 
@@ -18,13 +17,9 @@ Pada form item (buat/edit), sistem menawarkan **tiga** metode valuasi stok:
 
 ## Cara aplikasi menghitung biaya per unit (untuk nilai persediaan dan HPP)
 
-Perhitungan memakai **hanya transaksi bertipe pembelian** (`purchase`) pada item: dijumlah total biaya pembelian dan total kuantitas pembelian (seluruh riwayat pembelian yang tercatat untuk item tersebut).
+- **FIFO** — biaya dihitung dengan lapisan FIFO (pembelian terlama dikonsumsi dulu pada pengeluaran stok).
 
-- **FIFO dan Rata-rata tertimbang** — pada implementasi saat ini **rumusnya sama**:  
-  **biaya rata-rata = jumlah total biaya semua pembelian ÷ jumlah kuantitas semua pembelian.**  
-  Ini setara dengan **rata-rata tertimbang seluruh pembelian**, bukan konsumsi lapisan “yang masuk pertama keluar pertama” per unit secara ketat seperti teks buku akuntansi FIFO klasik.
-
-- **LIFO** — sistem menghitung biaya dengan menjumlahkan kontribusi dari batch pembelian mulai dari **yang terbaru** sampai kuantitas yang dianggap masih mewakili stok (sesuai fungsi perhitungan di layanan inventory).
+- **Rata-rata tertimbang** — biaya memakai rata-rata tertimbang lapisan pembelian pada saat transaksi.
 
 - Jika **belum ada** transaksi pembelian untuk item, biaya dapat mengacu ke **harga beli default** pada master item.
 

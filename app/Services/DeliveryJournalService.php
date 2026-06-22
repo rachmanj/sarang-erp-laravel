@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\DeliveryOrder;
+use App\Services\Accounting\JournalBuilders\DeliveryOrderJournalBuilder;
 use App\Services\Accounting\PostingService;
 use Exception;
 use Illuminate\Support\Facades\DB;
@@ -12,7 +13,8 @@ class DeliveryJournalService
     public function __construct(
         private PostingService $postingService,
         private DocumentNumberingService $documentNumberingService,
-        private InventoryService $inventoryService
+        private InventoryService $inventoryService,
+        private DeliveryOrderJournalBuilder $deliveryOrderJournalBuilder,
     ) {}
 
     /**
@@ -70,74 +72,14 @@ class DeliveryJournalService
      */
     public function createRevenueRecognition(DeliveryOrder $deliveryOrder): int
     {
-        if ($deliveryOrder->status !== 'delivered') {
-            throw new Exception('Delivery Order must be delivered before creating revenue recognition journal entry.');
-        }
-
-        $lines = [];
-        $totalRevenue = 0;
-        $totalCOGS = 0;
-
-        foreach ($deliveryOrder->lines as $line) {
-            if ($line->inventoryItem && $line->delivered_qty > 0) {
-                $deliveredAmount = ($line->delivered_qty / $line->ordered_qty) * $line->amount;
-                $unitCost = $this->inventoryService->calculateUnitCost($line->inventoryItem);
-                $cogsAmount = $line->delivered_qty * $unitCost;
-
-                if ($deliveredAmount > 0) {
-                    $lines[] = [
-                        'account_id' => $this->getSalesRevenueAccount(),
-                        'debit' => 0,
-                        'credit' => $deliveredAmount,
-                        'project_id' => $line->project_id ?? null,
-                        'dept_id' => $line->dept_id ?? null,
-                        'memo' => "Revenue from DO {$deliveryOrder->do_number} - {$line->item_name}",
-                    ];
-                }
-
-                if ($cogsAmount > 0) {
-                    $lines[] = [
-                        'account_id' => $this->getCOGSAccount(),
-                        'debit' => $cogsAmount,
-                        'credit' => 0,
-                        'project_id' => $line->project_id ?? null,
-                        'dept_id' => $line->dept_id ?? null,
-                        'memo' => "COGS for DO {$deliveryOrder->do_number} - {$line->item_name}",
-                    ];
-
-                    $lines[] = [
-                        'account_id' => $this->getInventoryReservedAccount(),
-                        'debit' => 0,
-                        'credit' => $cogsAmount,
-                        'project_id' => $line->project_id ?? null,
-                        'dept_id' => $line->dept_id ?? null,
-                        'memo' => "Release reserved inventory - DO {$deliveryOrder->do_number} - {$line->item_name}",
-                    ];
-                }
-
-                $totalRevenue += $deliveredAmount;
-                $totalCOGS += $cogsAmount;
-            }
-        }
-
-        if (empty($lines)) {
-            throw new Exception('No delivered items found in delivery order for revenue recognition.');
-        }
-
-        // AR UnInvoice recognition (goods delivered but not yet invoiced)
-        $lines[] = [
-            'account_id' => $this->getARUnInvoiceAccount(),
-            'debit' => $totalRevenue,
-            'credit' => 0,
-            'memo' => "AR UnInvoice - DO {$deliveryOrder->do_number}",
-        ];
+        $draft = $this->deliveryOrderJournalBuilder->buildRevenueRecognition($deliveryOrder);
 
         return $this->postingService->postJournal([
-            'date' => $deliveryOrder->actual_delivery_date->toDateString(),
-            'description' => "Revenue Recognition - DO {$deliveryOrder->do_number}",
+            'date' => $draft->date ?? $deliveryOrder->actual_delivery_date->toDateString(),
+            'description' => $draft->description,
             'source_type' => DeliveryOrder::class,
             'source_id' => $deliveryOrder->id,
-            'lines' => $lines,
+            'lines' => $draft->lines,
         ]);
     }
 
@@ -238,12 +180,12 @@ class DeliveryJournalService
     private function getSalesRevenueAccount(): int
     {
         $account = DB::table('accounts')
-            ->where('code', '4.1.1') // Sales Revenue
-            ->orWhere('name', 'like', '%Sales Revenue%')
+            ->where('code', '4.1.1.01')
+            ->orWhere('name', 'like', '%Penjualan Stationery%')
             ->first();
 
         if (! $account) {
-            throw new Exception('Sales Revenue account not found. Please create account with code 4.1.1');
+            throw new Exception('Sales Revenue account not found. Please create account with code 4.1.1.01');
         }
 
         return $account->id;
@@ -256,16 +198,13 @@ class DeliveryJournalService
     {
         $account = DB::table('accounts')
             ->where(function ($q) {
-                $q->where('code', '5.1.1')
-                    ->orWhere('code', '5.1')
-                    ->orWhere('name', 'like', '%Cost of Goods Sold%')
-                    ->orWhere('name', 'like', '%HPP Barang Dagangan%');
+                $q->where('code', '5.1.01')
+                    ->orWhere('name', 'like', '%HPP Stationery%');
             })
-            ->orderByRaw("CASE WHEN code = '5.1.1' THEN 0 WHEN code = '5.1' THEN 1 ELSE 2 END")
             ->first();
 
         if (! $account) {
-            throw new Exception('Cost of Goods Sold account not found. Please create account with code 5.1.1 or 5.1 (HPP Barang Dagangan)');
+            throw new Exception('Cost of Goods Sold account not found. Please create account with code 5.1.01');
         }
 
         return $account->id;

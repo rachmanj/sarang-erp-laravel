@@ -144,7 +144,66 @@ class ReportsTest extends TestCase
         $this->assertArrayHasKey('rows', $data);
         foreach ($data['rows'] as $row) {
             $this->assertEquals($accountId, (int) DB::table('accounts')->where('code', $row['account_code'])->value('id'));
+            $this->assertArrayHasKey('balance', $row);
         }
+    }
+
+    public function test_ap_aging_returns_valid_structure(): void
+    {
+        $response = $this->getJson('/reports/ap-aging');
+        $response->assertOk();
+        $data = $response->json();
+        $this->assertArrayHasKey('rows', $data);
+        $this->assertArrayHasKey('totals', $data);
+    }
+
+    public function test_cash_ledger_defaults_to_cash_account_not_ar(): void
+    {
+        $cashAccountId = (int) DB::table('accounts')->where('code', '1.1.1.01')->value('id');
+        $response = $this->getJson('/reports/cash-ledger');
+        $response->assertOk();
+        $data = $response->json();
+        $this->assertSame($cashAccountId, (int) $data['account_id']);
+    }
+
+    public function test_ar_balances_total_matches_aging_total(): void
+    {
+        $asOf = now()->toDateString();
+        $aging = $this->getJson('/reports/ar-aging?as_of='.$asOf)->json();
+        $balances = $this->getJson('/reports/ar-balances?as_of='.$asOf)->json();
+
+        $this->assertEqualsWithDelta(
+            (float) ($aging['totals']['total'] ?? 0),
+            (float) ($balances['totals']['balance'] ?? 0),
+            0.01
+        );
+    }
+
+    public function test_ap_balances_pdf_export_works(): void
+    {
+        $pdf = $this->get('/reports/ap-balances?export=pdf');
+        $pdf->assertOk();
+        $pdf->assertHeader('Content-Type', 'application/pdf');
+    }
+
+    public function test_subledger_reconciliation_route_works(): void
+    {
+        $response = $this->getJson('/reports/subledger-reconciliation');
+        $response->assertOk();
+        $data = $response->json();
+        $this->assertArrayHasKey('sections', $data);
+        $this->assertCount(2, $data['sections']);
+    }
+
+    public function test_profit_loss_period_filter_uses_month_range(): void
+    {
+        $year = (int) now()->year;
+        $month = (int) now()->month;
+        $response = $this->getJson('/reports/profit-loss?period_year='.$year.'&period_month='.$month);
+        $response->assertOk();
+        $data = $response->json();
+        $this->assertSame(now()->startOfMonth()->toDateString(), $data['from']);
+        $this->assertSame(now()->endOfMonth()->toDateString(), $data['to']);
     }
 
     public function test_ar_aging_has_totals_and_names(): void

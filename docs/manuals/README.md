@@ -29,7 +29,7 @@ File **`help-navigation.json`** holds short **menu path** and **keyword** entrie
 | Business partners (incl. **Account statement** tab vs Transactions) | `business-partner-module-manual-id.md` | `business-partner-module-manual.md` |
 | **Account Statements** (Accounting module — saved AST statements, draft/finalize) | `account-statements-module-manual-id.md` | `account-statements-module-manual-en.md` |
 | Inventory | `inventory-module-manual-id.md` | `inventory-module-manual.md` |
-| **Inventory valuation & costing** (FIFO/WAC, Unit Cost vs document price, go-live change) | `inventory-valuation-and-costing-manual-id.md` | `inventory-valuation-and-costing-manual-en.md` |
+| **Inventory valuation & costing** (FIFO/WAC only — LIFO removed PSAK) | `inventory-valuation-and-costing-manual-id.md` | `inventory-valuation-and-costing-manual-en.md` |
 | Part numbers | `inventory-part-numbers-manual-id.md` | `inventory-part-numbers-manual-en.md` |
 | Multi-UOM & pricing | `multi-measures-and-pricing-manual-id.md` | `multi-measures-and-pricing-manual.md` |
 | Delete inventory items | `delete-inventory-items-guide.md` | — |
@@ -43,6 +43,10 @@ File **`help-navigation.json`** holds short **menu path** and **keyword** entrie
 | **Cash Expenses** (list date range filter, immediate post) | `cash-expense-manual-id.md` | `cash-expense-manual-en.md` |
 | Sales workflow corrections (HELP chunks: CM, reverse DO, Relationship Map, entity) | `sales-workflow-corrections-help-id.md` | `sales-workflow-corrections-help-en.md` |
 | Checklist salah entitas SO (operasional) | `checklist-perbaikan-salah-entitas-so-id.md` | — |
+| **Document workflow** (Preview Journal, Open/Closed filter, Create Target, delete) | `document-workflow-features-manual-id.md` | `document-workflow-features-manual-en.md` |
+| **Bank Reconciliation** + Bank Accounts | `bank-reconciliation-manual-id.md` | `bank-reconciliation-manual-en.md` |
+| **Accounting reports** (equity, subledger, PPN reconciliation) | `accounting-reports-manual-id.md` | `accounting-reports-manual-en.md` |
+| **Tax Compliance** (PPN/PPh, exports) | `tax-compliance-manual-id.md` | `tax-compliance-manual-en.md` |
 | Customer / project | `customer-project-manual-id.md` | — |
 | Warehouse stock transfer | `warehouse-stock-transfer-manual-id.md` | `warehouse-stock-transfer-manual.md` |
 | Bank/Kas saldo awal | `setup-saldo-awal-bank-kas-manual-id.md` | — |

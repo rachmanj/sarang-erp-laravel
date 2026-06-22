@@ -18,6 +18,7 @@
             <th align="left">Account</th>
             <th align="right">Debit</th>
             <th align="right">Credit</th>
+            <th align="right">Balance</th>
             <th align="left">Memo</th>
         </tr>
     </thead>
@@ -29,6 +30,7 @@
                 <td>{{ $r['account_code'] }} {{ \Illuminate\Support\Str::limit($r['account_name'], 28) }}</td>
                 <td align="right">{{ number_format($r['debit'], 2) }}</td>
                 <td align="right">{{ number_format($r['credit'], 2) }}</td>
+                <td align="right">{{ number_format($r['balance'], 2) }}</td>
                 <td>{{ \Illuminate\Support\Str::limit($r['memo'] ?? '', 35) }}</td>
             </tr>
         @endforeach

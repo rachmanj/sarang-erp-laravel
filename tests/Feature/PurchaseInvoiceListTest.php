@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class PurchaseInvoiceListTest extends TestCase
@@ -58,5 +59,32 @@ class PurchaseInvoiceListTest extends TestCase
             'spreadsheet',
             strtolower((string) $response->headers->get('Content-Type'))
         );
+    }
+
+    public function test_purchase_invoice_show_page_renders_without_binding_error(): void
+    {
+        $vendorId = (int) DB::table('business_partners')->where('partner_type', 'supplier')->value('id');
+        $currencyId = (int) DB::table('currencies')->value('id');
+        $entityId = (int) DB::table('company_entities')->value('id');
+
+        $invoiceNo = 'TEST-PI-SHOW-'.uniqid();
+
+        $invoiceId = DB::table('purchase_invoices')->insertGetId([
+            'invoice_no' => $invoiceNo,
+            'date' => now()->toDateString(),
+            'business_partner_id' => $vendorId,
+            'currency_id' => $currencyId,
+            'company_entity_id' => $entityId,
+            'total_amount' => 100000,
+            'status' => 'draft',
+            'payment_method' => 'credit',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $response = $this->get("/purchase-invoices/{$invoiceId}");
+
+        $response->assertOk();
+        $response->assertSee($invoiceNo, false);
     }
 }

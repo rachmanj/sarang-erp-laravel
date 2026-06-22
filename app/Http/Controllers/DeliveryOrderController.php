@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\HandlesDocumentDeletion;
 use App\Models\DeliveryOrder;
 use App\Models\DeliveryOrderLine;
 use App\Models\Master\Customer;
@@ -10,6 +11,7 @@ use App\Services\CompanyEntityService;
 use App\Services\DeliveryService;
 use App\Services\DocumentClosureService;
 use App\Services\DocumentNumberingService;
+use App\Services\Documents\DocumentType;
 use App\Services\SalesWorkflowAuditService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -18,6 +20,8 @@ use Illuminate\Support\Facades\Log;
 
 class DeliveryOrderController extends Controller
 {
+    use HandlesDocumentDeletion;
+
     protected $deliveryService;
 
     protected $documentClosureService;
@@ -343,22 +347,14 @@ class DeliveryOrderController extends Controller
     /**
      * Remove the specified resource from storage.
      */
+    protected function documentDeletionType(): string
+    {
+        return DocumentType::DELIVERY_ORDER;
+    }
+
     public function destroy(DeliveryOrder $deliveryOrder)
     {
-        if (! $deliveryOrder->canBeCancelled()) {
-            return redirect()->back()
-                ->with('error', 'Delivery Order cannot be deleted in current status');
-        }
-
-        try {
-            $this->deliveryService->cancelDeliveryOrder($deliveryOrder->id, 'Deleted by user');
-
-            return redirect()->route('delivery-orders.index')
-                ->with('success', 'Delivery Order cancelled successfully');
-        } catch (\Exception $e) {
-            return redirect()->back()
-                ->with('error', $e->getMessage());
-        }
+        return $this->destroyDocument((int) $deliveryOrder->id);
     }
 
     /**

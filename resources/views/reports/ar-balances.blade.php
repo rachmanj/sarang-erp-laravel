@@ -13,14 +13,19 @@
     <div class="row">
         <div class="col-12">
             <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center">
+                <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
                     <h3 class="card-title">AR Party Balances</h3>
-                    <div>
+                    <form method="get" class="form-inline">
+                        <label class="mr-2 mb-0">As of
+                            <input type="date" name="as_of" value="{{ $as_of ?? now()->toDateString() }}"
+                                class="form-control form-control-sm ml-1">
+                        </label>
+                        <button class="btn btn-sm btn-secondary mr-2">Apply</button>
                         <a class="btn btn-sm btn-outline-secondary"
-                            href="{{ route('reports.ar-balances', ['export' => 'csv']) }}">CSV</a>
+                            href="{{ route('reports.ar-balances', array_merge(request()->query(), ['export' => 'csv'])) }}">CSV</a>
                         <a class="btn btn-sm btn-outline-secondary"
-                            href="{{ route('reports.ar-balances', ['export' => 'pdf']) }}">PDF</a>
-                    </div>
+                            href="{{ route('reports.ar-balances', array_merge(request()->query(), ['export' => 'pdf'])) }}">PDF</a>
+                    </form>
                 </div>
                 <div class="card-body">
                     <table class="table table-bordered table-striped">

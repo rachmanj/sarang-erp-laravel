@@ -2,10 +2,9 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
-use Illuminate\Database\Seeder;
-use App\Models\AssetCategory;
 use App\Models\Accounting\Account;
+use App\Models\AssetCategory;
+use Illuminate\Database\Seeder;
 
 class AssetCategorySeeder extends Seeder
 {
@@ -25,7 +24,7 @@ class AssetCategorySeeder extends Seeder
             '1.2.1.07',
             '6.2.9',
             '7.1.1',
-            '7.2.3'
+            '7.2.3',
         ])->get()->keyBy('code');
 
         $assetCategories = [
@@ -38,7 +37,7 @@ class AssetCategorySeeder extends Seeder
                 'salvage_value_policy' => 0,
                 'non_depreciable' => true,
                 'asset_account_id' => $accounts['1.2.1.01']->id, // Tanah
-                'accumulated_depreciation_account_id' => $accounts['1.2.1.03']->id, // Akumulasi Penyusutan Bangunan
+                'accumulated_depreciation_account_id' => $accounts['1.2.1.01']->id,
                 'depreciation_expense_account_id' => $accounts['6.2.9']->id, // Biaya Penyusutan
                 'gain_on_disposal_account_id' => $accounts['7.1.1']->id, // Pendapatan Sewa
                 'loss_on_disposal_account_id' => $accounts['7.2.3']->id, // Kerugian Penjualan Aset

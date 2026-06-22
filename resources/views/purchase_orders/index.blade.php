@@ -12,49 +12,65 @@
 @section('content')
     <div class="row">
         <div class="col-12">
-            <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <div>
-                        <a href="{{ route('purchase-orders.create') }}" class="btn btn-primary btn-sm">Create</a>
+            <div class="card card-outline card-primary">
+                <div class="card-header">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center">
+                        <h3 class="card-title mb-2 mb-md-0">
+                            <i class="fas fa-file-invoice mr-1"></i>
+                            Purchase Orders
+                        </h3>
+                        <div class="d-flex flex-wrap align-items-center">
+                            <a href="{{ route('purchase-orders.create') }}" class="btn btn-sm btn-primary mr-1 mb-1">
+                                <i class="fas fa-plus mr-1"></i>Create
+                            </a>
+                            <a class="btn btn-sm btn-success mb-1" id="csv" href="#">
+                                <i class="fas fa-file-csv mr-1"></i>Export CSV
+                            </a>
+                        </div>
                     </div>
-                    <form class="form-inline" id="filters">
-                        <label class="mr-1 small mb-0">Entity:</label>
-                        <div class="form-check form-check-inline mr-2">
-                            <input class="form-check-input" type="radio" name="entity_filter" id="entity-all" value="" checked>
-                            <label class="form-check-label" for="entity-all">All</label>
-                        </div>
-                        @if ($ptCahaya ?? null)
-                        <div class="form-check form-check-inline mr-2">
-                            <input class="form-check-input" type="radio" name="entity_filter" id="entity-pt" value="{{ $ptCahaya->id }}">
-                            <label class="form-check-label" for="entity-pt">PT Cahaya Sarange Jaya</label>
-                        </div>
-                        @endif
-                        @if ($cvCahaya ?? null)
-                        <div class="form-check form-check-inline mr-2">
-                            <input class="form-check-input" type="radio" name="entity_filter" id="entity-cv" value="{{ $cvCahaya->id }}">
-                            <label class="form-check-label" for="entity-cv">CV Cahaya Saranghae</label>
-                        </div>
-                        @endif
-                        <input type="date" name="from" class="form-control form-control-sm mr-1" placeholder="From">
-                        <input type="date" name="to" class="form-control form-control-sm mr-1" placeholder="To">
-                        <input type="text" name="q" class="form-control form-control-sm mr-1" placeholder="Search">
-                        <select name="status" class="form-control form-control-sm mr-1">
-                            <option value="">Status</option>
-                            <option value="draft">Draft</option>
-                            <option value="approved">Approved</option>
-                            <option value="closed">Closed</option>
-                        </select>
-                        <select name="closure_status" class="form-control form-control-sm mr-1">
-                            <option value="">Closure Status</option>
-                            <option value="open">Open</option>
-                            <option value="closed">Closed</option>
-                        </select>
-                        <button class="btn btn-sm btn-secondary" type="submit">Apply</button>
-                        <a class="btn btn-sm btn-outline-secondary ml-1" id="csv" href="#">CSV</a>
-                    </form>
+
+                    <div class="border-top pt-3 mt-1">
+                        <form class="d-flex flex-wrap align-items-end" id="filters">
+                            <x-document-index-filter-group label="Entity">
+                                <x-entity-filter-buttons />
+                            </x-document-index-filter-group>
+
+                            <x-document-index-filter-group label="Completion">
+                                @include('components.open-closed-filter')
+                            </x-document-index-filter-group>
+
+                            <x-document-index-filter-group label="Period">
+                                <div class="d-flex align-items-center">
+                                    <input type="date" name="from" class="form-control form-control-sm" style="width:150px">
+                                    <span class="text-muted mx-1">–</span>
+                                    <input type="date" name="to" class="form-control form-control-sm" style="width:150px">
+                                </div>
+                            </x-document-index-filter-group>
+
+                            <x-document-index-filter-group label="Search" for="filter_q">
+                                <input type="text" name="q" id="filter_q" class="form-control form-control-sm"
+                                    style="width:220px" placeholder="Order no, vendor, description…">
+                            </x-document-index-filter-group>
+
+                            <x-document-index-filter-group label="Status" for="filter_status">
+                                <select name="status" id="filter_status" class="form-control form-control-sm" style="width:140px">
+                                    <option value="">Any</option>
+                                    <option value="draft">Draft</option>
+                                    <option value="approved">Approved</option>
+                                    <option value="closed">Closed</option>
+                                </select>
+                            </x-document-index-filter-group>
+
+                            <x-document-index-filter-group label="&nbsp;">
+                                <button class="btn btn-sm btn-info" type="submit">
+                                    <i class="fas fa-filter mr-1"></i>Apply
+                                </button>
+                            </x-document-index-filter-group>
+                        </form>
+                    </div>
                 </div>
-                <div class="card-body">
-                    <table class="table table-bordered table-striped" id="tbl-po">
+                <div class="card-body p-0">
+                    <table class="table table-bordered table-striped table-sm mb-0" id="tbl-po">
                         <thead>
                             <tr>
                                 <th>#</th>
@@ -87,6 +103,7 @@
                         f.forEach(p => d[p.name] = p.value);
                         var entityVal = $('input[name="entity_filter"]:checked').val();
                         if (entityVal) d.company_entity_id = entityVal;
+                        d.open_state = $('input[name="open_state"]:checked').val() || 'open';
                     }
                 },
                 columns: [{
@@ -124,6 +141,9 @@
                 table.ajax.reload();
             });
             $('input[name="entity_filter"]').on('change', function() {
+                table.ajax.reload();
+            });
+            $('input[name="open_state"]').on('change', function() {
                 table.ajax.reload();
             });
             $('#csv').on('click', function(e) {

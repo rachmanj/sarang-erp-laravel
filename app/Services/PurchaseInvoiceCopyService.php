@@ -28,8 +28,8 @@ class PurchaseInvoiceCopyService
         }
 
         // Validate PO status
-        if ($po->status !== 'approved') {
-            throw new \Exception('Purchase Order must be approved before copying to Purchase Invoice');
+        if ($po->status !== 'ordered') {
+            throw new \Exception('Purchase Order must be ordered before copying to Purchase Invoice');
         }
 
         return DB::transaction(function () use ($po) {
@@ -121,7 +121,8 @@ class PurchaseInvoiceCopyService
     public function canCopyToPurchaseInvoice(PurchaseOrder $po): bool
     {
         return $po->order_type === 'service' &&
-            $po->status === 'approved' &&
+            $po->approval_status === 'approved' &&
+            $po->status === 'ordered' &&
             $po->lines()->whereHas('inventoryItem', function ($query) {
                 $query->where('item_type', 'service');
             })->exists();

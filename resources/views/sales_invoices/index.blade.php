@@ -21,54 +21,68 @@
                             toastr.success(@json(session('success')));
                         </script>
                     @endif
-                    <div class="card">
-                        <div class="card-header d-flex justify-content-between align-items-center">
-                            <h3 class="card-title">Sales Invoices</h3>
-                            <div>
-                                <div class="d-inline-block mr-2">
-                                    <label class="mr-1 small mb-0">Entity:</label>
-                                    <div class="form-check form-check-inline d-inline">
-                                        <input class="form-check-input" type="radio" name="entity_filter" id="entity-all" value="" checked>
-                                        <label class="form-check-label" for="entity-all">All</label>
-                                    </div>
-                                    @if ($ptCahaya ?? null)
-                                    <div class="form-check form-check-inline d-inline">
-                                        <input class="form-check-input" type="radio" name="entity_filter" id="entity-pt" value="{{ $ptCahaya->id }}">
-                                        <label class="form-check-label" for="entity-pt">PT Cahaya Sarange Jaya</label>
-                                    </div>
-                                    @endif
-                                    @if ($cvCahaya ?? null)
-                                    <div class="form-check form-check-inline d-inline">
-                                        <input class="form-check-input" type="radio" name="entity_filter" id="entity-cv" value="{{ $cvCahaya->id }}">
-                                        <label class="form-check-label" for="entity-cv">CV Cahaya Saranghae</label>
-                                    </div>
-                                    @endif
+                    <div class="card card-outline card-primary">
+                        <div class="card-header">
+                            <div class="d-flex flex-wrap justify-content-between align-items-center">
+                                <h3 class="card-title mb-2 mb-md-0">
+                                    <i class="fas fa-file-invoice mr-1"></i>
+                                    Sales Invoices
+                                </h3>
+                                <div class="d-flex flex-wrap align-items-center">
+                                    @can('ar.invoices.create')
+                                        <a href="{{ route('sales-invoices.create') }}" class="btn btn-sm btn-primary mr-1 mb-1">
+                                            <i class="fas fa-plus mr-1"></i>Create
+                                        </a>
+                                        <a href="{{ route('sales-invoices.create', ['from_do' => 1]) }}" class="btn btn-sm btn-info mr-1 mb-1">
+                                            <i class="fas fa-truck mr-1"></i>From DO
+                                        </a>
+                                        <a href="{{ route('sales-invoices.import.index') }}" class="btn btn-sm btn-outline-success mr-1 mb-1">
+                                            <i class="fas fa-upload mr-1"></i>Import OB
+                                        </a>
+                                    @endcan
+                                    <a id="export_excel" href="#" class="btn btn-sm btn-success mb-1">
+                                        <i class="fas fa-file-excel mr-1"></i>Export Excel
+                                    </a>
                                 </div>
-                                <input type="date" id="filter_from" class="form-control form-control-sm d-inline-block"
-                                    style="width:160px">
-                                <input type="date" id="filter_to" class="form-control form-control-sm d-inline-block"
-                                    style="width:160px">
-                                <input type="text" id="filter_q" class="form-control form-control-sm d-inline-block"
-                                    style="width:200px" placeholder="Search invoice, customer, ref no...">
-                                <select id="filter_status" class="form-control form-control-sm d-inline-block"
-                                    style="width:140px">
-                                    <option value="">All</option>
-                                    <option value="draft">Draft</option>
-                                    <option value="posted">Posted</option>
-                                </select>
-                                <button id="apply_filters" class="btn btn-sm btn-info">Apply</button>
-                                <a id="export_excel" href="#" class="btn btn-sm btn-success">
-                                    <i class="fas fa-file-excel mr-1"></i>Export Excel
-                                </a>
-                                @can('ar.invoices.create')
-                                    <a href="{{ route('sales-invoices.create') }}" class="btn btn-sm btn-primary">Create</a>
-                                    <a href="{{ route('sales-invoices.create', ['from_do' => 1]) }}" class="btn btn-sm btn-info">
-                                        <i class="fas fa-truck"></i> Create from Delivery Order
-                                    </a>
-                                    <a href="{{ route('sales-invoices.import.index') }}" class="btn btn-sm btn-success">
-                                        <i class="fas fa-upload"></i> Import Opening Balance
-                                    </a>
-                                @endcan
+                            </div>
+
+                            <div class="border-top pt-3 mt-1">
+                                <div class="d-flex flex-wrap align-items-end">
+                                    <x-document-index-filter-group label="Entity">
+                                        <x-entity-filter-buttons />
+                                    </x-document-index-filter-group>
+
+                                    <x-document-index-filter-group label="Completion">
+                                        @include('components.open-closed-filter')
+                                    </x-document-index-filter-group>
+
+                                    <x-document-index-filter-group label="Period" for="filter_from">
+                                        <div class="d-flex align-items-center">
+                                            <input type="date" id="filter_from" class="form-control form-control-sm" style="width:150px">
+                                            <span class="text-muted mx-1">–</span>
+                                            <input type="date" id="filter_to" class="form-control form-control-sm" style="width:150px">
+                                        </div>
+                                    </x-document-index-filter-group>
+
+                                    <x-document-index-filter-group label="Search" for="filter_q">
+                                        <input type="text" id="filter_q" class="form-control form-control-sm"
+                                            style="width:220px" placeholder="Invoice no, customer, ref…">
+                                    </x-document-index-filter-group>
+
+                                    <x-document-index-filter-group label="Posting" for="filter_status">
+                                        <select id="filter_status" class="form-control form-control-sm" style="width:120px">
+                                            <option value="">Any</option>
+                                            <option value="draft">Draft</option>
+                                            <option value="posted">Posted</option>
+                                        </select>
+                                    </x-document-index-filter-group>
+
+                                    <x-document-index-filter-group label="&nbsp;">
+                                        <button id="apply_filters" type="button" class="btn btn-sm btn-info">
+                                            <i class="fas fa-filter mr-1"></i>Apply
+                                        </button>
+                                    </x-document-index-filter-group>
+                                </div>
                             </div>
                         </div>
                         <div class="card-body p-0">
@@ -160,6 +174,7 @@
                             d.q = $('#filter_q').val();
                             d.status = $('#filter_status').val();
                             d.company_entity_id = $('input[name="entity_filter"]:checked').val() || '';
+                            d.open_state = $('input[name="open_state"]:checked').val() || 'open';
                         },
                         dataSrc: function(json) {
                             if (json.sum_total_amount !== undefined) {
@@ -217,6 +232,9 @@
                     table.ajax.reload();
                 });
                 $('input[name="entity_filter"]').on('change', function() {
+                    table.ajax.reload();
+                });
+                $('input[name="open_state"]').on('change', function() {
                     table.ajax.reload();
                 });
             });

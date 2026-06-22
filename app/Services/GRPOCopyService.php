@@ -26,8 +26,8 @@ class GRPOCopyService
         }
 
         // Validate PO status
-        if ($po->status !== 'approved') {
-            throw new \Exception('Purchase Order must be approved before copying to GRPO');
+        if ($po->status !== 'ordered') {
+            throw new \Exception('Purchase Order must be ordered before copying to GRPO');
         }
 
         return DB::transaction(function () use ($po, $selectedLines) {
@@ -127,7 +127,8 @@ class GRPOCopyService
     public function canCopyToGRPO(PurchaseOrder $po): bool
     {
         return $po->order_type === 'item' &&
-            $po->status === 'approved' &&
+            $po->approval_status === 'approved' &&
+            $po->status === 'ordered' &&
             $po->lines()->whereHas('inventoryItem', function ($query) {
                 $query->where('item_type', 'item');
             })->exists();

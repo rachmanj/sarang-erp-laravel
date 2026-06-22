@@ -1,7 +1,91 @@
 **Purpose**: Record technical decisions and rationale for future reference
-**Last Updated**: 2026-05-30 (SI export, SR entity filter, cash expense date range)
+**Last Updated**: 2026-06-20 (Single document delete mode)
 
 # Technical Decision Records
+
+## Decision: Single document delete blocked when targets exist - 2026-06-20
+
+**Context**: Users need to remove one document and its own GL/tax/inventory effects without deleting upstream base documents (SO, PO, DO, GRPO) or downstream targets (SI, SR, PI, PP). Cascade delete already removes the full target chain; a narrower mode was requested.
+
+**Decision**: Add `deleteSingle()` / `previewSingle()` with `mode=single` on existing delete-preview and destroy routes. Single delete runs the same per-type `reverseAndDelete()` handler for the root document only. **Block** when `DocumentDeletionGraph::descendants()` is non-empty — show downstream list in modal and require cascade delete or manual target removal first. UI: split-button dropdown ("Delete this document only" vs "Delete with related documents").
+
+**Implementation**: `DocumentDeletionGraph::descendants()`, `DocumentDeletionService::deleteSingle/previewSingle`, `HandlesDocumentDeletion` mode branch, updated `document-delete-button` component, extended `DocumentDeletionTest`.
+
+**Review Date**: 2027-06-20
+
+## Decision: Cascade document deletion (reverse-then-delete) - 2026-06-20
+
+**Context**: Users need to remove documents and reset downstream effects (journals, inventory, tax, allocations, closures). Partial delete existed (draft SQ/PO/SI only; DO cancel). Hard-deleting GL rows breaks control balances.
+
+**Decision**: Generic `DocumentDeletionService` with leaf-first cascade auto-delete; reverse posted journals via `PostingService::reverseJournal()` then hard-delete operational rows; block when document or journal dates fall in closed periods (no superadmin override). Confirmation modal lists full cascade via `delete-preview` API.
+
+**Implementation**: `app/Services/Documents/*`, `PurchaseInvoiceUnpostService`, per-document `.delete` permissions, `document-delete-button` Blade component, `DocumentDeletionTest`.
+
+**Review Date**: 2027-06-20
+
+## Decision: Open / Closed index filter uses computed completion - 2026-06-20
+
+**Context**: Users need index pages to default to outstanding documents (e.g. unpaid invoices, uninvoiced GRPOs). Stored `closure_status` is maintained by `DocumentClosureService` but can lag (e.g. manual GRPO create) and uses chain-closure semantics that differ from user expectations on GRPO (invoiced vs received).
+
+**Decision**: Add shared All/Open/Closed switch on all eight workflow index pages; default **Open**. Filter via `DocumentOpenState` with live SQL predicates (allocations, line qty, invoice links) rather than `closure_status`. Replace PO index `closure_status` dropdown.
+
+**Implementation**: `app/Support/DocumentOpenState.php`, `components/open-closed-filter.blade.php`, `open_state` AJAX param; tests `DocumentOpenStateFilterTest`.
+
+**Review Date**: 2027-06-20
+
+## Decision: Create Target Document buttons (full chain) - 2026-06-20
+
+**Context**: Payment/receipt creation required manual navigation and re-selecting vendor/customer + invoice allocations. Several chain transitions existed but were inconsistent (DO→SI button in body, SQ convert permission mismatch, missing PO copy confirmation views, copy services checking `status=approved` while approval sets `ordered`).
+
+**Decision**: Standardize on query-param prefill for allocation documents (PI→PP, SI→SR) following the existing SI→Credit Memo pattern; repair PO copy confirmation views and SQ convert page; normalize button placement and eligibility guards across show pages.
+
+**Implementation**: `$canCreatePayment` / `$canCreateReceipt` on invoice show controllers; `create(Request)` on payment/receipt controllers builds `$prefill` with `allocations`; create Blade JS `applyPrefill()` + `applyInitialAllocations()` (ported from SR edit); `tests/Feature/CreateTargetDocumentTest`.
+
+**Review Date**: 2027-06-20
+
+## Decision: Journal preview shares posting builders (single source of truth) - 2026-06-20
+
+**Context**: `JournalPreviewController` hand-coded simplified journal lines per document type while real posting logic lived in controllers/services (PI PPN/withholding, SI VAT reclass/PPh, DO COGS, SR/PP bank accounts, GRPO category inventory). Preview drifted from posted GL (e.g. PI 71260300217 omitted PPN Masukan and overstated AP UnInvoice).
+
+**Decision**: Extract read-only journal line construction into `app/Services/Accounting/JournalBuilders/*` returning `JournalDraft`; both post paths and `JournalPreviewController` call the same builder; `JournalPreviewPresenter` handles display enrichment only. Builders must not mutate state or insert journals.
+
+**Implementation**: `GrpoJournalBuilder`, `PurchaseInvoiceJournalBuilder`, `PurchasePaymentJournalBuilder`, `SalesReceiptJournalBuilder`, `DeliveryOrderJournalBuilder` (revenue recognition), `SalesInvoiceJournalBuilder`; refactored `GRPOJournalService`, `DeliveryJournalService`, and AR/AP posting controllers; `tests/Feature/JournalPreviewMatchesPostingTest` asserts preview lines match posted `journal_lines` for all six types.
+
+**Review Date**: 2027-06-20
+
+## Decision: Purchase & Sales document flow corrections - 2026-06-20
+
+**Context**: Production PO approval sets `status=ordered` but copy-to-GRPO guards checked `status=approved`, blocking the standard PO→GRPO→PI chain. GRPO manual store posted journals twice. SI posting with customer WTax produced unbalanced journals. Credit memo PPN used `amount × rate` without `/100`.
+
+**Decision**: Align copy guards with `approval_status === 'approved' && status === 'ordered'`; single GRPO journal via `GRPOJournalService` only; SI AR UnInvoice credit at gross-before-WTax (`net + wtax`); credit memo posting mirrors SI via `SalesInvoicePostingMath`; single withholding source (`tax_code` withholding OR line `wtax_rate`, not both); tax sync uses header-scaled DPP and runs inside SI posting transaction.
+
+**Review Date**: 2027-06-20
+
+## Decision: Accounting report layer refactor - 2026-06-20
+
+**Context**: AP aging queried non-existent `vendor_id`; cash ledger defaulted to AR; AR/AP balances disagreed with aging; cash flow repeated full trial balance scans; statement layout relied on fragile code-prefix heuristics.
+
+**Decision**: Introduce `JournalReportQueryBuilder` for shared filters; add `accounts.report_group` and `accounts.normal_balance` with migration backfill; unify AR/AP balances with allocation-netted aging; add subledger-to-GL reconciliation report; single-pass balance snapshots for cash flow/PPN/SOCE; fix cash ledger default to `1.1.1.x`.
+
+**Review Date**: 2027-06-20
+
+## Decision: Remove LIFO inventory valuation (PSAK 14) - 2026-06-20
+
+**Context**: LIFO is prohibited under PSAK 14; existing "FIFO" was weighted-average only.
+
+**Decision**: Remove `lifo` enum option; implement true FIFO layer consumption; keep weighted average.
+
+**Implementation**: Migration `2026_06_20_142300_remove_lifo_from_inventory_valuation_method.php`; `InventoryService::buildFifoLayers()`; UI/validation updates.
+
+**Review Date**: 2027-06-20
+
+## Decision: Enforce postable COA on journal posting - 2026-06-20
+
+**Context**: PPN Keluaran posted to header account `2.1.2` (non-postable).
+
+**Decision**: `PostingService::validatePayload()` rejects journals to accounts with `is_postable = false`; fix hardcoded header codes to leaf accounts (`2.1.2.01`, `4.1.1.01`, `5.1.01`).
+
+**Review Date**: 2027-06-20
 
 ## Decision Template
 
@@ -29,6 +113,23 @@ Decision: [Title] - [YYYY-MM-DD]
 ---
 
 ## Recent Decisions
+
+### Decision: Bank Reconciliation — AI-assisted PDF parsing + COA-linked bank master — 2026-06-19
+
+**Context**: Mandiri/CIMB PDF statements must be reconciled against ERP bank COA accounts; layouts differ per bank; existing `bank_accounts` table was unused.
+
+**Options Considered**:
+
+1. **Per-bank regex parsers only** — ❌ Fragile for layout changes.
+2. **PDF text extract + OpenRouter JSON normalize + deterministic/AI matching** — ✅ Reuses OpenRouter; handles Mandiri/CIMB samples; user confirms matches.
+
+**Decision**: Option 2. Link each `bank_accounts` row to a postable COA under `1.1.1.x`. Fix SR/PP posting to use line `account_id`. Store matches in `bank_reconciliation_matches` (no flag on `journal_lines`).
+
+**Implementation**: `app/Services/Bank/*`, controllers under `Accounting`, routes `routes/web/bank_reconciliation.php`, permissions migration `2026_06_19_203623_*`.
+
+**Review Date**: 2026-09-19 (add more bank templates if AI parse quality issues arise)
+
+---
 
 ### Decision: Relationship Map — extended visualization scope (full sales chain, Sales Quotation, trading / GRPO) — 2026-04-21
 

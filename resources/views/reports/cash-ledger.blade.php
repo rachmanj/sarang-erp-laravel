@@ -21,12 +21,19 @@
             <div class="row">
                 <div class="col-12">
                     <div class="card">
-                        <div class="card-header d-flex justify-content-between align-items-center">
+                        <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
                             <h3 class="card-title">Cash Ledger</h3>
                             <form method="get" class="form-inline">
-                                @if (request()->filled('account_id'))
-                                    <input type="hidden" name="account_id" value="{{ request('account_id') }}">
-                                @endif
+                                <label class="mr-2 mb-0">Account
+                                    <select name="account_id" class="form-control form-control-sm ml-1">
+                                        @foreach ($cashAccounts as $account)
+                                            <option value="{{ $account['id'] }}"
+                                                @selected((int) request('account_id', $cashAccounts[0]['id'] ?? 0) === (int) $account['id'])>
+                                                {{ $account['code'] }} - {{ $account['name'] }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </label>
                                 <input type="date" name="from" value="{{ request('from') }}"
                                     class="form-control form-control-sm mr-2">
                                 <input type="date" name="to" value="{{ request('to') }}"
@@ -88,6 +95,9 @@
 
         $(async function() {
             const params = new URLSearchParams(@json($cashLedgerQuery));
+            if (!params.get('account_id') && @json($cashAccounts[0]['id'] ?? null)) {
+                params.set('account_id', @json($cashAccounts[0]['id'] ?? ''));
+            }
             const res = await fetch(`{{ route('reports.cash-ledger') }}?${params.toString()}`, {
                 headers: {
                     'Accept': 'application/json'

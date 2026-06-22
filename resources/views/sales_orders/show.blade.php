@@ -44,11 +44,13 @@
                                         <i class="fas fa-times-circle"></i> Close
                                     </button>
                                 @endif
-                                <a href="{{ route('sales-orders.create-invoice', $order->id) }}" 
-                                    class="btn btn-sm btn-success"
-                                    aria-label="Create Invoice from Sales Order">
-                                    <i class="fas fa-file-invoice-dollar"></i> Create Invoice
-                                </a>
+                                @if ($order->approval_status === 'approved' && in_array($order->status, ['ordered', 'confirmed', 'processing', 'delivered']))
+                                    <a href="{{ route('sales-orders.create-invoice', $order->id) }}"
+                                        class="btn btn-sm btn-success"
+                                        aria-label="Create Invoice from Sales Order">
+                                        <i class="fas fa-file-invoice-dollar"></i> Create Invoice
+                                    </a>
+                                @endif
                                 @if ($order->order_type === 'item' && $order->approval_status === 'approved' && in_array($order->status, ['confirmed', 'processing']))
                                     <a href="{{ route('delivery-orders.create', ['sales_order_id' => $order->id]) }}"
                                         class="btn btn-sm btn-info" aria-label="Create Delivery Order from Sales Order">
@@ -58,6 +60,12 @@
                                 <a href="{{ route('sales-orders.index') }}" class="btn btn-sm btn-secondary">
                                     <i class="fas fa-arrow-left"></i> Back
                                 </a>
+                                <x-document-delete-button
+                                    permission="sales-orders.delete"
+                                    :preview-route="route('sales-orders.delete-preview', $order->id)"
+                                    :destroy-route="route('sales-orders.destroy', $order->id)"
+                                    document-label="Sales Order {{ $order->order_no ?? '#'.$order->id }}"
+                                />
                             </div>
                         </div>
 
