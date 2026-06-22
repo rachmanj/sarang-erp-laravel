@@ -602,6 +602,10 @@ class InventoryController extends Controller
         ]);
 
         return DB::transaction(function () use ($data, $item, $request) {
+            if ($data['adjustment_type'] === 'decrease') {
+                app(InventoryService::class)->assertCanConsumeFifoLayers($item, (float) $data['quantity']);
+            }
+
             $quantity = $data['adjustment_type'] === 'increase'
                 ? $data['quantity']
                 : -$data['quantity'];
@@ -721,6 +725,8 @@ class InventoryController extends Controller
         ]);
 
         return DB::transaction(function () use ($data, $item) {
+            app(InventoryService::class)->assertCanConsumeFifoLayers($item, (float) $data['quantity']);
+
             $totalCost = $data['quantity'] * $data['unit_cost'];
 
             // Create outgoing transaction

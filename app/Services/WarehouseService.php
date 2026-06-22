@@ -2,12 +2,12 @@
 
 namespace App\Services;
 
-use App\Models\Warehouse;
 use App\Models\InventoryItem;
-use App\Models\InventoryWarehouseStock;
 use App\Models\InventoryTransaction;
-use Illuminate\Support\Facades\DB;
+use App\Models\InventoryWarehouseStock;
+use App\Models\Warehouse;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class WarehouseService
 {
@@ -18,6 +18,7 @@ class WarehouseService
     {
         return DB::transaction(function () use ($data) {
             $warehouse = Warehouse::create($data);
+
             return $warehouse;
         });
     }
@@ -30,6 +31,7 @@ class WarehouseService
         return DB::transaction(function () use ($warehouseId, $data) {
             $warehouse = Warehouse::findOrFail($warehouseId);
             $warehouse->update($data);
+
             return $warehouse;
         });
     }
@@ -52,6 +54,7 @@ class WarehouseService
             }
 
             $warehouse->delete();
+
             return true;
         });
     }
@@ -73,9 +76,9 @@ class WarehouseService
     /**
      * Update warehouse stock
      */
-    public function updateWarehouseStock($itemId, $warehouseId, $quantityChange, $transactionType = 'adjustment', $referenceType = null, $referenceId = null, $notes = null, $transferStatus = 'pending', $transferOutId = null, $transferInId = null)
+    public function updateWarehouseStock($itemId, $warehouseId, $quantityChange, $transactionType = 'adjustment', $referenceType = null, $referenceId = null, $notes = null, $transferStatus = 'pending', $transferOutId = null, $transferInId = null, ?float $unitCost = null)
     {
-        return DB::transaction(function () use ($itemId, $warehouseId, $quantityChange, $transactionType, $referenceType, $referenceId, $notes, $transferStatus, $transferOutId, $transferInId) {
+        return DB::transaction(function () use ($itemId, $warehouseId, $quantityChange, $transactionType, $referenceType, $referenceId, $notes, $transferStatus, $transferOutId, $transferInId, $unitCost) {
             // Get or create warehouse stock record
             $warehouseStock = InventoryWarehouseStock::firstOrCreate(
                 ['item_id' => $itemId, 'warehouse_id' => $warehouseId],
@@ -95,13 +98,14 @@ class WarehouseService
             $warehouseStock->save();
 
             // Create inventory transaction
+            $resolvedUnitCost = abs($unitCost ?? 0);
             $transaction = InventoryTransaction::create([
                 'item_id' => $itemId,
                 'warehouse_id' => $warehouseId,
                 'transaction_type' => $transactionType,
                 'quantity' => $quantityChange,
-                'unit_cost' => 0, // Will be updated by inventory service
-                'total_cost' => 0,
+                'unit_cost' => $resolvedUnitCost,
+                'total_cost' => $quantityChange * $resolvedUnitCost,
                 'reference_type' => $referenceType,
                 'reference_id' => $referenceId,
                 'transfer_status' => $transferStatus,
@@ -132,21 +136,30 @@ class WarehouseService
      */
     public function transferStock($itemId, $fromWarehouseId, $toWarehouseId, $quantity, $notes = null)
     {
-        return DB::transaction(function () use ($itemId, $fromWarehouseId, $toWarehouseId, $quantity, $notes) {
+        return DB::transaction(function () use ($itemId, $fromWarehouseId, $toWarehouseId, $quantity) {
+            $item = InventoryItem::query()->findOrFail($itemId);
+            $inventoryService = app(InventoryService::class);
+            $transferUnitCost = 0.0;
+
+            if ($item->valuation_method === 'fifo' && $item->item_type !== 'service') {
+                $inventoryService->assertCanConsumeFifoLayers($item, (float) $quantity);
+                $transferUnitCost = $inventoryService->calculateFifoConsumptionUnitCost($item, (float) $quantity);
+            }
+
             // Check if source warehouse has enough stock
             $fromStock = InventoryWarehouseStock::where('item_id', $itemId)
                 ->where('warehouse_id', $fromWarehouseId)
                 ->first();
 
-            if (!$fromStock || $fromStock->quantity_on_hand < $quantity) {
+            if (! $fromStock || $fromStock->quantity_on_hand < $quantity) {
                 throw new \Exception('Insufficient stock in source warehouse');
             }
 
             // Update source warehouse stock
-            $this->updateWarehouseStock($itemId, $fromWarehouseId, -$quantity, 'transfer', 'warehouse_transfer', $toWarehouseId, "Transfer to warehouse {$toWarehouseId}", 'completed');
+            $this->updateWarehouseStock($itemId, $fromWarehouseId, -$quantity, 'transfer', 'warehouse_transfer', $toWarehouseId, "Transfer to warehouse {$toWarehouseId}", 'completed', null, null, $transferUnitCost);
 
             // Update destination warehouse stock
-            $this->updateWarehouseStock($itemId, $toWarehouseId, $quantity, 'transfer', 'warehouse_transfer', $fromWarehouseId, "Transfer from warehouse {$fromWarehouseId}", 'completed');
+            $this->updateWarehouseStock($itemId, $toWarehouseId, $quantity, 'transfer', 'warehouse_transfer', $fromWarehouseId, "Transfer from warehouse {$fromWarehouseId}", 'completed', null, null, $transferUnitCost);
 
             return true;
         });
@@ -157,12 +170,19 @@ class WarehouseService
      */
     public function createTransferOut($itemId, $fromWarehouseId, $toWarehouseId, $quantity, $notes = null)
     {
-        return DB::transaction(function () use ($itemId, $fromWarehouseId, $toWarehouseId, $quantity, $notes) {
+        return DB::transaction(function () use ($itemId, $fromWarehouseId, $toWarehouseId, $quantity) {
+            $item = InventoryItem::query()->findOrFail($itemId);
+            $inventoryService = app(InventoryService::class);
+
+            if ($item->valuation_method === 'fifo' && $item->item_type !== 'service') {
+                $inventoryService->assertCanConsumeFifoLayers($item, (float) $quantity);
+            }
+
             // Get source warehouse and its transit warehouse
             $fromWarehouse = Warehouse::findOrFail($fromWarehouseId);
             $transitWarehouse = $fromWarehouse->getTransitWarehouse();
-            
-            if (!$transitWarehouse) {
+
+            if (! $transitWarehouse) {
                 throw new \Exception('Transit warehouse not found for source warehouse');
             }
 
@@ -171,31 +191,31 @@ class WarehouseService
                 ->where('warehouse_id', $fromWarehouseId)
                 ->first();
 
-            if (!$fromStock || $fromStock->quantity_on_hand < $quantity) {
+            if (! $fromStock || $fromStock->quantity_on_hand < $quantity) {
                 throw new \Exception('Insufficient stock in source warehouse');
             }
 
             // Create transfer out transaction (source -> transit)
             $transferOutId = $this->updateWarehouseStock(
-                $itemId, 
-                $fromWarehouseId, 
-                -$quantity, 
-                'transfer', 
-                'warehouse_transfer_out', 
-                $toWarehouseId, 
-                "ITO: Transfer to {$toWarehouseId}", 
+                $itemId,
+                $fromWarehouseId,
+                -$quantity,
+                'transfer',
+                'warehouse_transfer_out',
+                $toWarehouseId,
+                "ITO: Transfer to {$toWarehouseId}",
                 'in_transit'
             );
 
             // Create transit transaction (transit warehouse receives)
             $this->updateWarehouseStock(
-                $itemId, 
-                $transitWarehouse->id, 
-                $quantity, 
-                'transfer', 
-                'warehouse_transfer_out', 
-                $fromWarehouseId, 
-                "ITO: Received from {$fromWarehouseId}", 
+                $itemId,
+                $transitWarehouse->id,
+                $quantity,
+                'transfer',
+                'warehouse_transfer_out',
+                $fromWarehouseId,
+                "ITO: Received from {$fromWarehouseId}",
                 'in_transit',
                 $transferOutId
             );
@@ -209,10 +229,10 @@ class WarehouseService
      */
     public function createTransferIn($transferOutId, $receivedQuantity = null, $notes = null)
     {
-        return DB::transaction(function () use ($transferOutId, $receivedQuantity, $notes) {
+        return DB::transaction(function () use ($transferOutId, $receivedQuantity) {
             // Get the original transfer out transaction
             $transferOut = InventoryTransaction::findOrFail($transferOutId);
-            
+
             if ($transferOut->transfer_status !== 'in_transit') {
                 throw new \Exception('Transfer is not in transit status');
             }
@@ -231,32 +251,32 @@ class WarehouseService
                 ->where('warehouse_id', $transitWarehouse->id)
                 ->first();
 
-            if (!$transitStock || $transitStock->quantity_on_hand < $quantity) {
+            if (! $transitStock || $transitStock->quantity_on_hand < $quantity) {
                 throw new \Exception('Insufficient stock in transit warehouse');
             }
 
             // Create transfer in transaction (transit -> destination)
             $transferInId = $this->updateWarehouseStock(
-                $itemId, 
-                $transitWarehouse->id, 
-                -$quantity, 
-                'transfer', 
-                'warehouse_transfer_in', 
-                $fromWarehouseId, 
-                "ITI: Transfer to destination", 
+                $itemId,
+                $transitWarehouse->id,
+                -$quantity,
+                'transfer',
+                'warehouse_transfer_in',
+                $fromWarehouseId,
+                'ITI: Transfer to destination',
                 'completed',
                 $transferOutId
             );
 
             // Create destination transaction (destination warehouse receives)
             $this->updateWarehouseStock(
-                $itemId, 
-                $toWarehouseId, 
-                $quantity, 
-                'transfer', 
-                'warehouse_transfer_in', 
-                $fromWarehouseId, 
-                "ITI: Received from transit", 
+                $itemId,
+                $toWarehouseId,
+                $quantity,
+                'transfer',
+                'warehouse_transfer_in',
+                $fromWarehouseId,
+                'ITI: Received from transit',
                 'completed',
                 $transferOutId,
                 $transferInId
@@ -266,7 +286,7 @@ class WarehouseService
             $transferOut->update([
                 'transfer_status' => 'completed',
                 'transfer_in_id' => $transferInId,
-                'received_date' => now()
+                'received_date' => now(),
             ]);
 
             return $transferInId;

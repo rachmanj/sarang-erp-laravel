@@ -247,7 +247,24 @@ class DeliveryOrderController extends Controller
         ]);
         $remainQtyByLine = $this->deliveryService->getRemainQtyByLineForDeliveryOrder($deliveryOrder);
 
-        return view('delivery_orders.show', compact('deliveryOrder', 'remainQtyByLine'));
+        $hasApprovePermission = Auth::user()->can('sales-orders.approve');
+        $stockBlockers = $this->deliveryService->getStockApprovalBlockers($deliveryOrder);
+        $approveBlockers = [];
+
+        if (! $hasApprovePermission) {
+            $approveBlockers[] = 'You do not have permission to approve delivery orders. Contact your administrator to request the sales-orders.approve permission.';
+        }
+
+        $approveBlockers = array_merge($approveBlockers, $stockBlockers);
+        $canApproveDeliveryOrder = $hasApprovePermission && empty($stockBlockers);
+
+        return view('delivery_orders.show', compact(
+            'deliveryOrder',
+            'remainQtyByLine',
+            'hasApprovePermission',
+            'approveBlockers',
+            'canApproveDeliveryOrder',
+        ));
     }
 
     /**

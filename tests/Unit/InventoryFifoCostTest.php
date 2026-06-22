@@ -80,6 +80,106 @@ class InventoryFifoCostTest extends TestCase
         $this->assertEqualsWithDelta(183.3333, $unitCost, 0.01);
     }
 
+    public function test_positive_stock_transfer_adds_fifo_layers(): void
+    {
+        $item = $this->createTestItem('fifo');
+
+        InventoryTransaction::create([
+            'item_id' => $item->id,
+            'transaction_type' => 'purchase',
+            'quantity' => 5,
+            'unit_cost' => 100,
+            'total_cost' => 500,
+            'transaction_date' => '2026-01-01',
+            'notes' => 'Opening purchase',
+            'created_by' => null,
+        ]);
+
+        InventoryTransaction::create([
+            'item_id' => $item->id,
+            'transaction_type' => 'transfer',
+            'quantity' => 3,
+            'unit_cost' => 120,
+            'total_cost' => 360,
+            'reference_type' => 'stock_transfer',
+            'reference_id' => 999,
+            'transaction_date' => '2026-01-10',
+            'notes' => 'Inbound stock transfer',
+            'created_by' => null,
+        ]);
+
+        InventoryTransaction::create([
+            'item_id' => $item->id,
+            'transaction_type' => 'sale',
+            'quantity' => -6,
+            'unit_cost' => 110,
+            'total_cost' => -660,
+            'transaction_date' => '2026-02-01',
+            'notes' => 'Sale',
+            'created_by' => null,
+        ]);
+
+        $service = app(InventoryService::class);
+        $unitCost = $service->calculateUnitCost($item->fresh());
+
+        $this->assertEqualsWithDelta(120.0, $unitCost, 0.01);
+    }
+
+    public function test_assert_can_consume_fifo_layers_blocks_over_consumption(): void
+    {
+        $item = $this->createTestItem('fifo');
+
+        InventoryTransaction::create([
+            'item_id' => $item->id,
+            'transaction_type' => 'purchase',
+            'quantity' => 1,
+            'unit_cost' => 100,
+            'total_cost' => 100,
+            'transaction_date' => '2026-01-01',
+            'notes' => 'Only one layer',
+            'created_by' => null,
+        ]);
+
+        $service = app(InventoryService::class);
+
+        $this->expectException(\Exception::class);
+        $this->expectExceptionMessage('Insufficient FIFO inventory layers to consume 12 units. Available: 1.');
+
+        $service->assertCanConsumeFifoLayers($item->fresh(), 12);
+    }
+
+    public function test_calculate_fifo_consumption_unit_cost_uses_oldest_layers(): void
+    {
+        $item = $this->createTestItem('fifo');
+
+        InventoryTransaction::create([
+            'item_id' => $item->id,
+            'transaction_type' => 'purchase',
+            'quantity' => 2,
+            'unit_cost' => 100,
+            'total_cost' => 200,
+            'transaction_date' => '2026-01-01',
+            'notes' => 'Cheap layer',
+            'created_by' => null,
+        ]);
+
+        InventoryTransaction::create([
+            'item_id' => $item->id,
+            'transaction_type' => 'purchase',
+            'quantity' => 5,
+            'unit_cost' => 200,
+            'total_cost' => 1000,
+            'transaction_date' => '2026-01-10',
+            'notes' => 'Expensive layer',
+            'created_by' => null,
+        ]);
+
+        $service = app(InventoryService::class);
+        $unitCost = $service->calculateFifoConsumptionUnitCost($item->fresh(), 3);
+
+        $this->assertEqualsWithDelta(133.3333, $unitCost, 0.01);
+    }
+
     public function test_weighted_average_differs_from_fifo_after_partial_sale(): void
     {
         $item = $this->createTestItem('fifo');

@@ -68,6 +68,8 @@ class InventoryService
                 throw new \Exception("Insufficient stock. Available: {$item->current_stock}, Required: {$quantity}");
             }
 
+            $this->assertCanConsumeFifoLayers($item, (float) $quantity);
+
             $totalCost = $quantity * $unitCost;
 
             if (! $warehouseId) {
@@ -102,6 +104,11 @@ class InventoryService
     {
         return DB::transaction(function () use ($itemId, $quantity, $unitCost, $notes) {
             $item = InventoryItem::findOrFail($itemId);
+
+            if ($quantity < 0) {
+                $this->assertCanConsumeFifoLayers($item, abs((float) $quantity));
+            }
+
             $totalCost = $quantity * $unitCost;
 
             // Create adjustment transaction
@@ -135,6 +142,8 @@ class InventoryService
             if ($fromItem->current_stock < $quantity) {
                 throw new \Exception("Insufficient stock in source item. Available: {$fromItem->current_stock}, Required: {$quantity}");
             }
+
+            $this->assertCanConsumeFifoLayers($fromItem, (float) $quantity);
 
             $totalCost = $quantity * $unitCost;
 
@@ -208,6 +217,76 @@ class InventoryService
         );
     }
 
+    public function getRemainingFifoLayers(InventoryItem $item): array
+    {
+        $transactions = $item->transactions()
+            ->orderBy('transaction_date', 'asc')
+            ->orderBy('id', 'asc')
+            ->get();
+
+        return $this->buildFifoLayers($transactions);
+    }
+
+    public function getAvailableFifoQuantity(InventoryItem $item): float
+    {
+        if ($this->shouldSkipFifoValidation($item)) {
+            return (float) $item->current_stock;
+        }
+
+        return array_sum(array_column($this->getRemainingFifoLayers($item), 'quantity'));
+    }
+
+    public function assertCanConsumeFifoLayers(InventoryItem $item, float $quantity): void
+    {
+        if ($this->shouldSkipFifoValidation($item)) {
+            return;
+        }
+
+        $available = $this->getAvailableFifoQuantity($item);
+
+        if ($available + 0.00001 < $quantity) {
+            throw new \Exception(
+                'Insufficient FIFO inventory layers to consume '.$quantity.' units. Available: '.(int) $available.'.'
+            );
+        }
+    }
+
+    public function calculateFifoConsumptionUnitCost(InventoryItem $item, float $quantity): float
+    {
+        $this->assertCanConsumeFifoLayers($item, $quantity);
+
+        $layers = $this->getRemainingFifoLayers($item);
+        $totalCost = 0.0;
+        $this->consumeFifoLayersWithCost($layers, $quantity, $totalCost);
+
+        return $quantity > 0 ? round($totalCost / $quantity, 4) : 0;
+    }
+
+    public function calculateFifoConsumptionUnitCostBeforeTransaction(
+        InventoryItem $item,
+        float $quantity,
+        int $beforeTransactionId
+    ): float {
+        $transactions = $item->transactions()
+            ->where('id', '<', $beforeTransactionId)
+            ->orderBy('transaction_date', 'asc')
+            ->orderBy('id', 'asc')
+            ->get();
+
+        $layers = $this->buildFifoLayers($transactions);
+        $totalCost = 0.0;
+        $unconsumed = $this->consumeFifoLayersWithCost($layers, $quantity, $totalCost);
+
+        if ($unconsumed > 0.00001) {
+            throw new \Exception(
+                'Cannot derive FIFO cost before transaction '.$beforeTransactionId.': insufficient layers for '
+                .$quantity.' units. Available: '.(int) ($quantity - $unconsumed).'.'
+            );
+        }
+
+        return $quantity > 0 ? round($totalCost / $quantity, 4) : 0.0;
+    }
+
     public function calculateUnitCost(InventoryItem $item)
     {
         $transactions = $item->transactions()
@@ -272,6 +351,12 @@ class InventoryService
                 continue;
             }
 
+            if ($type === 'transfer' && $qty > 0 && $unitCost > 0) {
+                $layers[] = ['quantity' => $qty, 'unit_cost' => $unitCost];
+
+                continue;
+            }
+
             if (in_array($type, ['sale', 'adjustment', 'transfer'], true) && $qty < 0) {
                 $this->consumeFifoLayers($layers, abs($qty));
             }
@@ -286,9 +371,28 @@ class InventoryService
     /**
      * @param  array<int, array{quantity: float, unit_cost: float}>  $layers
      */
+    private function shouldSkipFifoValidation(InventoryItem $item): bool
+    {
+        return $item->item_type === 'service' || $item->valuation_method !== 'fifo';
+    }
+
     private function consumeFifoLayers(array &$layers, float $quantityToConsume): void
     {
+        $unconsumedQuantity = $this->consumeFifoLayersWithCost($layers, $quantityToConsume);
+
+        if ($unconsumedQuantity > 0.00001) {
+            throw new \Exception('Insufficient FIFO inventory layers to consume '.$quantityToConsume.' units.');
+        }
+    }
+
+    /**
+     * @param  array<int, array{quantity: float, unit_cost: float}>  $layers
+     * @return float Unconsumed quantity remaining after the operation
+     */
+    private function consumeFifoLayersWithCost(array &$layers, float $quantityToConsume, ?float &$totalCost = null): float
+    {
         $remaining = $quantityToConsume;
+        $consumedCost = 0.0;
 
         foreach ($layers as $index => $layer) {
             if ($remaining <= 0) {
@@ -298,11 +402,14 @@ class InventoryService
             $consumed = min($remaining, $layer['quantity']);
             $layers[$index]['quantity'] -= $consumed;
             $remaining -= $consumed;
+            $consumedCost += $consumed * $layer['unit_cost'];
         }
 
-        if ($remaining > 0.00001) {
-            throw new \Exception('Insufficient FIFO inventory layers to consume '.$quantityToConsume.' units.');
+        if ($totalCost !== null) {
+            $totalCost = $consumedCost;
         }
+
+        return $remaining;
     }
 
     private function calculateWeightedAverageCost($transactions)

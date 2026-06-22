@@ -27,6 +27,12 @@
 
 ## Project Memory Entries
 
+### [121] FIFO layer validation + Plastic Wrape correction (2026-06-22) ✅ COMPLETE
+
+-   **Challenge**: PI 658 post failed replaying FIFO for Plastic Wrape (`item_id=162`); WH transfer #2998 moved 12 units when only 1 FIFO layer existed; positive stock transfers did not add FIFO layers.
+-   **Solution**: `InventoryService` now validates FIFO consumption on sales/transfers/adjustments; WH transfers carry consumed FIFO unit cost; positive inbound transfers with `unit_cost > 0` add layers. Data fix: `php artisan inventory:fix-plastic-wrape-fifo` corrects tx #2998/#2999 to ±1 with derived FIFO unit cost (`--dry-run` preview).
+-   **Key Learning**: Warehouse qty-on-hand can exceed FIFO layers when transfers use `unit_cost=0`; validate FIFO at transfer time, not only on PI post.
+
 ### [120] Single document delete mode - 2026-06-20 ✅ COMPLETE
 
 **Challenge**: Cascade delete removes the full target chain; users sometimes need to delete only one document (e.g. a posted SI) while keeping base DO/SO and without touching unrelated targets until handled separately.

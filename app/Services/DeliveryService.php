@@ -528,6 +528,44 @@ class DeliveryService
         });
     }
 
+    /**
+     * @return array<int, string>
+     */
+    public function getStockApprovalBlockers(DeliveryOrder $deliveryOrder): array
+    {
+        $deliveryOrder->loadMissing('lines.inventoryItem');
+
+        $blockers = [];
+
+        foreach ($deliveryOrder->lines as $line) {
+            if (! $line->inventory_item_id || ! $line->inventoryItem) {
+                continue;
+            }
+
+            $alreadyReduced = (int) abs(
+                InventoryTransaction::where('reference_type', 'delivery_order_line')
+                    ->where('reference_id', $line->id)
+                    ->where('transaction_type', 'sale')
+                    ->sum('quantity')
+            );
+
+            $shouldReduce = (int) round($line->ordered_qty);
+            $delta = $shouldReduce - $alreadyReduced;
+
+            if ($delta <= 0) {
+                continue;
+            }
+
+            $availableStock = (int) $line->inventoryItem->current_stock;
+
+            if ($availableStock < $delta) {
+                $blockers[] = "Insufficient stock for {$line->item_name}. Available: {$availableStock}, Required: {$delta}.";
+            }
+        }
+
+        return $blockers;
+    }
+
     private function reduceStockOnApproval(DeliveryOrder $deliveryOrder): void
     {
         foreach ($deliveryOrder->lines as $line) {

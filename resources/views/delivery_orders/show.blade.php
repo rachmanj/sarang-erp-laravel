@@ -249,15 +249,29 @@
                             @if ($deliveryOrder->approval_status === 'pending')
                                 <div class="row mt-3">
                                     <div class="col-md-12">
+                                        @if (!empty($approveBlockers))
+                                            <div class="alert alert-warning mb-2">
+                                                <strong><i class="fas fa-exclamation-triangle"></i> Approval unavailable:</strong>
+                                                <ul class="mb-0 mt-1 pl-3">
+                                                    @foreach ($approveBlockers as $blocker)
+                                                        <li>{{ $blocker }}</li>
+                                                    @endforeach
+                                                </ul>
+                                            </div>
+                                        @endif
                                         <form method="post"
                                             action="{{ route('delivery-orders.approve', $deliveryOrder) }}"
                                             class="d-inline">
                                             @csrf
-                                            <button type="submit" class="btn btn-success">
+                                            <button type="submit" class="btn btn-success"
+                                                @disabled(!$canApproveDeliveryOrder)
+                                                title="{{ $canApproveDeliveryOrder ? 'Approve this delivery order' : implode(' ', $approveBlockers) }}">
                                                 <i class="fas fa-check"></i> Approve
                                             </button>
                                         </form>
-                                        <button type="button" class="btn btn-danger" onclick="showRejectModal()">
+                                        <button type="button" class="btn btn-danger" onclick="showRejectModal()"
+                                            @disabled(!$hasApprovePermission)
+                                            title="{{ $hasApprovePermission ? 'Reject this delivery order' : 'You do not have permission to reject delivery orders.' }}">
                                             <i class="fas fa-times"></i> Reject
                                         </button>
                                     </div>
