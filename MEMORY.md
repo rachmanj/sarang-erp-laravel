@@ -1,5 +1,5 @@
 **Purpose**: AI's persistent knowledge base for project context and learnings
-**Last Updated**: 2026-06-20 (Cascade document deletion)
+**Last Updated**: 2026-06-24 (Account transactions drill-down)
 
 ## Memory Maintenance Guidelines
 
@@ -26,6 +26,14 @@
 ---
 
 ## Project Memory Entries
+
+### [122] COA per-account ledger drill-down (2026-06-24) ✅ COMPLETE
+
+**Challenge**: Chart of Accounts index had no drill-down; users had to navigate to Reports → GL Detail to see account transactions.
+
+**Solution**: `accounts.show` + `ReportService::getAccountLedger()` + `JournalSourceUrlResolver`; COA index links code/name to show page with opening/closing summary and source-document links gated by document permissions.
+
+**Learning**: Reuse `JournalReportQueryBuilder` for COA drill-down — do not duplicate ledger SQL. GL Detail remains the multi-account/export view; COA show is the natural single-account entry point.
 
 ### [121] FIFO layer validation + Plastic Wrape correction (2026-06-22) ✅ COMPLETE
 

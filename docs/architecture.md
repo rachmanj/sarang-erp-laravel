@@ -116,7 +116,7 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 
 ### 1. Financial Management System
 
--   **Chart of Accounts**: Hierarchical account structure with 5 types (asset, liability, net_assets, income, expense)
+-   **Chart of Accounts**: Hierarchical account structure with 5 types (asset, liability, net_assets, income, expense). **Per-account ledger drill-down (2026-06-24)**: `accounts.show` (`/accounts/{account}`) lists posted journal lines for one account with opening/closing balance summary, date filter, and clickable source-document links (`JournalSourceUrlResolver`); data via `ReportService::getAccountLedger()` (reuses `JournalReportQueryBuilder`). COA index rows link to this page.
 -   **Journal Management**: Manual journal entries with entity-aware numbering (code 12) and multi-currency support, entity resolution from source documents
 -   **Period Management**: Financial period closing with validation
 -   **Posting Service**: Centralized accounting posting with balance validation and foreign currency handling

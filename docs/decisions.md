@@ -1,7 +1,15 @@
 **Purpose**: Record technical decisions and rationale for future reference
-**Last Updated**: 2026-06-20 (Single document delete mode)
+**Last Updated**: 2026-06-24 (Account transactions drill-down)
 
 # Technical Decision Records
+
+## Decision: COA per-account ledger drill-down - 2026-06-24
+
+**Context**: Chart of Accounts was a flat CRUD list with no transaction view. GL Detail and Account Statements exist under Reports/Accounting menus but require leaving COA and selecting account separately — users expect click-through from an account to its ledger.
+
+**Decision**: Add `accounts.show` with server-rendered transaction table. Reuse `ReportService::getAccountLedger()` (same `JournalReportQueryBuilder` filters as GL Detail) rather than a separate query path. Source-document links via `JournalSourceUrlResolver` using `DocumentRelationship::getDocumentPermissionMap()` for permission gating.
+
+**Review Date**: 2027-06-24
 
 ## Decision: Single document delete blocked when targets exist - 2026-06-20
 

@@ -67,12 +67,27 @@
                 <tbody>
                     @foreach ($accounts as $a)
                         <tr>
-                            <td>{{ $a->code }}</td>
-                            <td>{{ $a->name }}</td>
+                            <td>
+                                @can('accounts.view')
+                                    <a href="{{ route('accounts.show', $a->id) }}">{{ $a->code }}</a>
+                                @else
+                                    {{ $a->code }}
+                                @endcan
+                            </td>
+                            <td>
+                                @can('accounts.view')
+                                    <a href="{{ route('accounts.show', $a->id) }}">{{ $a->name }}</a>
+                                @else
+                                    {{ $a->name }}
+                                @endcan
+                            </td>
                             <td>{{ strtoupper($a->type) }}</td>
                             <td>{{ $a->is_postable ? 'Yes' : 'No' }}</td>
                             <td>{{ optional(\DB::table('accounts')->find($a->parent_id))->code }}</td>
-                            <td>
+                            <td class="text-nowrap">
+                                @can('accounts.view')
+                                    <a href="{{ route('accounts.show', $a->id) }}" class="btn btn-xs btn-primary">View</a>
+                                @endcan
                                 @can('accounts.manage')
                                     <a href="{{ route('accounts.edit', $a->id) }}" class="btn btn-xs btn-info">Edit</a>
                                 @endcan

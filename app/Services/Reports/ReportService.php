@@ -128,6 +128,96 @@ class ReportService
         ];
     }
 
+    public function getAccountLedger(int $accountId, array $filters = [], bool $onlyPostedJournals = true): array
+    {
+        $filters['account_id'] = $accountId;
+        $normalized = $this->journalQuery->normalizeFilters($filters);
+
+        $account = DB::table('accounts')
+            ->where('id', $accountId)
+            ->first(['id', 'code', 'name', 'type', 'normal_balance', 'is_postable']);
+
+        if (! $account) {
+            throw new \InvalidArgumentException("Account {$accountId} not found.");
+        }
+
+        $query = $this->journalQuery->withAccounts($onlyPostedJournals)
+            ->leftJoin('currencies as c', 'c.id', '=', 'jl.currency_id')
+            ->select(
+                'j.id as journal_id',
+                'j.journal_no',
+                'j.date',
+                'j.description as journal_desc',
+                'j.source_type',
+                'j.source_id',
+                'jl.debit',
+                'jl.credit',
+                'jl.memo',
+                'c.code as currency_code',
+            )
+            ->where('jl.account_id', $accountId);
+        $this->journalQuery->applyCommonFilters($query, $filters, $onlyPostedJournals);
+
+        $rawRows = $query->orderBy('j.date')->orderBy('j.id')->orderBy('jl.id')->get();
+
+        $opening = 0.0;
+        if ($normalized['from']) {
+            $openQuery = $this->journalQuery->base($onlyPostedJournals)
+                ->where('jl.account_id', $accountId)
+                ->whereDate('j.date', '<', $normalized['from']);
+            $this->journalQuery->applyCommonFilters(
+                $openQuery,
+                array_merge($filters, ['from' => null, 'to' => null, 'period_year' => null, 'period_month' => null]),
+                $onlyPostedJournals
+            );
+            $opening = (float) $openQuery->selectRaw('COALESCE(SUM(jl.debit - jl.credit), 0) as bal')->value('bal');
+        }
+
+        $balance = $opening;
+        $totalDebit = 0.0;
+        $totalCredit = 0.0;
+        $rows = [];
+
+        foreach ($rawRows as $row) {
+            $debit = (float) $row->debit;
+            $credit = (float) $row->credit;
+            $totalDebit += $debit;
+            $totalCredit += $credit;
+            $balance += $debit - $credit;
+
+            $rows[] = [
+                'date' => $row->date,
+                'journal_id' => (int) $row->journal_id,
+                'journal_no' => $row->journal_no,
+                'journal_desc' => $row->journal_desc,
+                'source_type' => $row->source_type,
+                'source_id' => $row->source_id ? (int) $row->source_id : null,
+                'debit' => $debit,
+                'credit' => $credit,
+                'balance' => round($balance, 2),
+                'memo' => $row->memo,
+                'currency_code' => $row->currency_code ?: 'IDR',
+            ];
+        }
+
+        return [
+            'account' => [
+                'id' => (int) $account->id,
+                'code' => $account->code,
+                'name' => $account->name,
+                'type' => $account->type,
+                'normal_balance' => $account->normal_balance,
+                'is_postable' => (bool) $account->is_postable,
+            ],
+            'rows' => $rows,
+            'opening_balance' => round($opening, 2),
+            'total_debit' => round($totalDebit, 2),
+            'total_credit' => round($totalCredit, 2),
+            'closing_balance' => round($balance, 2),
+            'filters' => $normalized,
+        ];
+    }
+
     public function getBalanceSheet(?string $asOf = null, bool $onlyPostedJournals = true, bool $hideZeroLines = true, ?string $priorAsOf = null, array $filters = []): array
     {
         $date = $asOf ?: now()->toDateString();

@@ -1,5 +1,5 @@
 **Purpose**: Track current work and immediate priorities
-**Last Updated**: 2026-06-20 (Single document delete mode)
+**Last Updated**: 2026-06-24 (Account transactions drill-down)
 
 ## Task Management Guidelines
 
@@ -45,6 +45,7 @@ Include relevant context in brackets to help with future AI-assisted coding:
 
 ## Recently Completed
 
+-   `[done] P2: COA per-account ledger drill-down [accounts.show; ReportService::getAccountLedger; JournalSourceUrlResolver; COA index View links; AccountTransactionsShowTest; docs architecture/decisions/MEMORY [122]] (completed: 2026-06-24)`
 -   `[done] P1: Menu Search + HELP corpus sync (June 2026 week) [MenuSearchService: bank accounts, bank reconciliation, tax compliance, equity/subledger/PPN reports, inventory dashboard/detail, domain assistant; help-navigation.json + 6 new manual pairs; inventory valuation LIFO removed; help:reindex 606 chunks; MenuSearchServiceTest, HelpNavigationEntriesTest] (completed: 2026-06-20)`
 -   `[done] P1: Single document delete mode [deleteSingle/previewSingle; mode=single on delete-preview/destroy; block when descendants exist; split-button dropdown UI; DocumentDeletionTest; docs architecture/decisions/MEMORY] (completed: 2026-06-20)`
 -   `[done] P0: Cascade document deletion [DocumentDeletionService + Graph + per-type handlers; reverse-then-delete journals/tax/inventory; closed-period guard; delete-preview modal; permissions ar/ap/orders .delete; routes on all 10 types; PurchaseInvoiceUnpostService; DocumentDeletionTest; docs architecture/decisions/MEMORY] (completed: 2026-06-20)`
