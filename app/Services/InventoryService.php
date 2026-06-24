@@ -287,6 +287,51 @@ class InventoryService
         return $quantity > 0 ? round($totalCost / $quantity, 4) : 0.0;
     }
 
+    public function assertPurchaseTransactionRemovable(InventoryTransaction $transaction): void
+    {
+        if ($transaction->transaction_type !== 'purchase' || (float) $transaction->quantity <= 0) {
+            throw new \InvalidArgumentException('Expected a positive purchase inventory transaction.');
+        }
+
+        $item = InventoryItem::query()->findOrFail($transaction->item_id);
+        $quantity = (int) round((float) $transaction->quantity);
+
+        if ($item->current_stock < $quantity) {
+            throw new \Exception(
+                "Cannot reverse {$quantity} units of {$item->name}. "
+                ."On hand: {$item->current_stock}. Some units may already have been sold or transferred."
+            );
+        }
+
+        if ($this->shouldSkipFifoValidation($item)) {
+            return;
+        }
+
+        $transactions = $item->transactions()
+            ->where('id', '!=', $transaction->id)
+            ->orderBy('transaction_date', 'asc')
+            ->orderBy('id', 'asc')
+            ->get();
+
+        $this->buildFifoLayers($transactions);
+    }
+
+    public function removePurchaseInventoryTransaction(InventoryTransaction $transaction): void
+    {
+        $this->assertPurchaseTransactionRemovable($transaction);
+
+        $item = InventoryItem::query()->findOrFail($transaction->item_id);
+        $quantity = (int) round((float) $transaction->quantity);
+
+        if ($transaction->warehouse_id) {
+            $this->updateWarehouseStock((int) $transaction->item_id, (int) $transaction->warehouse_id, -$quantity);
+        }
+
+        $transaction->delete();
+
+        $this->updateItemValuation($item->fresh());
+    }
+
     public function calculateUnitCost(InventoryItem $item)
     {
         $transactions = $item->transactions()

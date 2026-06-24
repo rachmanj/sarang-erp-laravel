@@ -116,19 +116,20 @@ class DocumentDeletionSupport
 
     public function reverseInventoryByReference(string $referenceType, int $referenceId, string $notes): void
     {
-        $transactions = DB::table('inventory_transactions')
+        $transactions = InventoryTransaction::query()
             ->where('reference_type', $referenceType)
             ->where('reference_id', $referenceId)
+            ->orderBy('id')
             ->get();
 
-        $itemsToUpdate = [];
-
         foreach ($transactions as $transaction) {
-            if (! in_array($transaction->item_id, $itemsToUpdate, true)) {
-                $itemsToUpdate[] = (int) $transaction->item_id;
+            if ($transaction->transaction_type === 'purchase' && (float) $transaction->quantity > 0) {
+                $this->inventoryService->removePurchaseInventoryTransaction($transaction);
+
+                continue;
             }
 
-            DB::table('inventory_transactions')->insert([
+            InventoryTransaction::query()->create([
                 'item_id' => $transaction->item_id,
                 'transaction_type' => 'adjustment',
                 'quantity' => -((float) $transaction->quantity),
@@ -140,15 +141,11 @@ class DocumentDeletionSupport
                 'notes' => $notes,
                 'warehouse_id' => $transaction->warehouse_id,
                 'created_by' => Auth::id(),
-                'created_at' => now(),
-                'updated_at' => now(),
             ]);
 
-            DB::table('inventory_transactions')->where('id', $transaction->id)->delete();
-        }
+            $transaction->delete();
 
-        foreach ($itemsToUpdate as $itemId) {
-            $item = \App\Models\InventoryItem::find($itemId);
+            $item = \App\Models\InventoryItem::find($transaction->item_id);
             if ($item) {
                 $this->inventoryService->updateItemValuation($item);
             }
