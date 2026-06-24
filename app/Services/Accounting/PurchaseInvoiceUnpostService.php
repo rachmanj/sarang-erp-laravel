@@ -18,6 +18,51 @@ class PurchaseInvoiceUnpostService
         private PurchaseInvoiceService $purchaseInvoiceService,
     ) {}
 
+    /**
+     * @return array<int, string>
+     */
+    public function getUnpostBlockers(PurchaseInvoice $invoice): array
+    {
+        $reasons = [];
+
+        if ($invoice->status !== 'posted') {
+            $reasons[] = 'Invoice is not posted';
+        }
+
+        if ((float) $invoice->paymentAllocations()->sum('amount') > 0) {
+            $reasons[] = 'Invoice has payment allocations (Rp '.number_format($invoice->total_allocated, 2).')';
+        }
+
+        if ($invoice->closure_status === 'closed') {
+            $reasons[] = 'Invoice has been closed';
+        }
+
+        if ($invoice->is_direct_purchase && ! $invoice->is_opening_balance) {
+            $transactions = InventoryTransaction::query()
+                ->where('reference_type', 'purchase_invoice')
+                ->where('reference_id', $invoice->id)
+                ->where('transaction_type', 'purchase')
+                ->with('item')
+                ->orderBy('id')
+                ->get();
+
+            foreach ($transactions as $transaction) {
+                try {
+                    $this->inventoryService->assertPurchaseTransactionRemovable($transaction);
+                } catch (\Throwable $exception) {
+                    $reasons[] = $exception->getMessage();
+                }
+            }
+        }
+
+        return $reasons;
+    }
+
+    public function canUnpost(PurchaseInvoice $invoice): bool
+    {
+        return $this->getUnpostBlockers($invoice) === [];
+    }
+
     public function unpost(PurchaseInvoice $invoice, bool $deleteTax = true): void
     {
         if ($invoice->status !== 'posted') {

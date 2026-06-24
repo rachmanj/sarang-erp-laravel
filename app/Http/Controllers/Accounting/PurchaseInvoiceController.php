@@ -517,6 +517,8 @@ class PurchaseInvoiceController extends Controller
             $cashAccount = DB::table('accounts')->find($invoice->cash_account_id);
         }
 
+        $unpostBlockers = $this->purchaseInvoiceUnpostService->getUnpostBlockers($invoice);
+
         return view('purchase_invoices.show', compact(
             'invoice',
             'invoiceFooter',
@@ -525,7 +527,8 @@ class PurchaseInvoiceController extends Controller
             'canCreatePayment',
             'purchaseOrder',
             'linkedGoodsReceiptPos',
-            'cashAccount'
+            'cashAccount',
+            'unpostBlockers'
         ));
     }
 
@@ -846,26 +849,21 @@ class PurchaseInvoiceController extends Controller
     {
         $invoice = PurchaseInvoice::with(['lines', 'paymentAllocations'])->findOrFail($id);
 
-        if (! $invoice->canBeUnposted()) {
-            $reasons = [];
-            if ($invoice->status !== 'posted') {
-                $reasons[] = 'Invoice is not posted';
-            }
-            if ($invoice->total_allocated > 0) {
-                $reasons[] = 'Invoice has payment allocations (Rp '.number_format($invoice->total_allocated, 2).')';
-            }
-            if ($invoice->closure_status === 'closed') {
-                $reasons[] = 'Invoice has been closed';
-            }
+        $blockers = $this->purchaseInvoiceUnpostService->getUnpostBlockers($invoice);
 
-            return back()->with('error', 'Cannot unpost invoice: '.implode(', ', $reasons));
+        if ($blockers !== []) {
+            return back()->with('error', 'Cannot unpost invoice: '.implode('; ', $blockers));
         }
 
-        return DB::transaction(function () use ($invoice) {
-            $this->purchaseInvoiceUnpostService->unpost($invoice);
+        try {
+            return DB::transaction(function () use ($invoice) {
+                $this->purchaseInvoiceUnpostService->unpost($invoice);
 
-            return back()->with('success', 'Purchase invoice unposted successfully. Journal entries have been reversed.');
-        });
+                return back()->with('success', 'Purchase invoice unposted successfully. Journal entries have been reversed.');
+            });
+        } catch (\Throwable $exception) {
+            return back()->with('error', 'Cannot unpost invoice: '.$exception->getMessage());
+        }
     }
 
     protected function documentDeletionType(): string

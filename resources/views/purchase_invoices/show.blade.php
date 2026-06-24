@@ -65,7 +65,7 @@
                                                 <i class="fas fa-check mr-1"></i> Post
                                             </button>
                                         </form>
-                                    @elseif ($invoice->canBeUnposted())
+                                    @elseif (empty($unpostBlockers))
                                         <form method="post" action="{{ route('purchase-invoices.unpost', $invoice->id) }}"
                                             class="d-inline unpost-form"
                                             data-confirm="Are you sure you want to unpost this invoice? This will reverse all journal entries and inventory transactions.">
@@ -125,6 +125,18 @@
                         </div>
 
                         <div class="card-body">
+                            @if ($invoice->status === 'posted' && ! empty($unpostBlockers))
+                                <div class="alert alert-warning">
+                                    <i class="fas fa-exclamation-triangle mr-1"></i>
+                                    <strong>Cannot unpost this invoice:</strong>
+                                    <ul class="mb-0 mt-1">
+                                        @foreach ($unpostBlockers as $blocker)
+                                            <li>{{ $blocker }}</li>
+                                        @endforeach
+                                    </ul>
+                                </div>
+                            @endif
+
                             {{-- Invoice Information Section --}}
                             <div class="row mb-4">
                                 {{-- Vendor Information --}}

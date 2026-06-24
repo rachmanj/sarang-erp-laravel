@@ -103,6 +103,34 @@ class PurchaseInvoiceUnpostFifoTest extends TestCase
             ->count());
     }
 
+    public function test_unpost_returns_error_when_stock_was_partially_consumed(): void
+    {
+        $item = $this->createFifoItem();
+        $invoice = $this->postDirectPurchaseInvoice($item, 10, 90000);
+
+        InventoryTransaction::query()->create([
+            'item_id' => $item->id,
+            'transaction_type' => 'sale',
+            'quantity' => -1,
+            'unit_cost' => 90000,
+            'total_cost' => -90000,
+            'reference_type' => 'delivery_order_line',
+            'reference_id' => 999001,
+            'transaction_date' => now()->toDateString(),
+            'warehouse_id' => Warehouse::query()->value('id'),
+            'created_by' => null,
+        ]);
+
+        $response = $this->post('/purchase-invoices/'.$invoice->id.'/unpost');
+
+        $response->assertRedirect();
+        $response->assertSessionHas('error');
+        $this->assertStringContainsString('Cannot unpost invoice', session('error'));
+        $this->assertStringContainsString('9', session('error'));
+        $invoice->refresh();
+        $this->assertSame('posted', $invoice->status);
+    }
+
     public function test_repair_restores_inventory_after_failed_legacy_reversal(): void
     {
         $item = $this->createFifoItem();
