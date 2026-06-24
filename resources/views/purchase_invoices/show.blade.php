@@ -351,8 +351,8 @@
                                                             </span>
                                                         </td>
                                                         <td>
-                                                            @if ($l->inventoryItem)
-                                                                <span class="badge badge-info">{{ $l->inventoryItem->item_code }}</span>
+                                                            @if ($l->inventoryItem?->code)
+                                                                <span class="badge badge-info">{{ $l->inventoryItem->code }}</span>
                                                             @else
                                                                 <span class="text-muted">—</span>
                                                             @endif
@@ -549,7 +549,7 @@
                                                             <td>
                                                                 @if ($transaction->item)
                                                                     <strong>{{ $transaction->item->name }}</strong>
-                                                                    <br><small class="text-muted">{{ $transaction->item->item_code }}</small>
+                                                                    <br><small class="text-muted">{{ $transaction->item->code }}</small>
                                                                 @else
                                                                     —
                                                                 @endif
