@@ -227,4 +227,96 @@ class InventoryFifoCostTest extends TestCase
         $this->assertEqualsWithDelta(200.0, $avgCost, 0.01);
         $this->assertEqualsWithDelta(300.0, $fifoCost, 0.01);
     }
+
+    public function test_legacy_zero_cost_warehouse_transfer_does_not_break_fifo_replay(): void
+    {
+        $item = $this->createTestItem('fifo');
+
+        InventoryTransaction::create([
+            'item_id' => $item->id,
+            'transaction_type' => 'purchase',
+            'quantity' => 15,
+            'unit_cost' => 111000,
+            'total_cost' => 1665000,
+            'transaction_date' => '2026-02-24',
+            'notes' => 'Opening purchase',
+            'created_by' => null,
+        ]);
+
+        InventoryTransaction::create([
+            'item_id' => $item->id,
+            'transaction_type' => 'sale',
+            'quantity' => -1,
+            'unit_cost' => 111000,
+            'total_cost' => -111000,
+            'transaction_date' => '2026-03-03',
+            'notes' => 'Sale',
+            'created_by' => null,
+        ]);
+
+        InventoryTransaction::create([
+            'item_id' => $item->id,
+            'transaction_type' => 'purchase',
+            'quantity' => 1,
+            'unit_cost' => 125825,
+            'total_cost' => 125825,
+            'transaction_date' => '2026-03-25',
+            'notes' => 'Second purchase',
+            'created_by' => null,
+        ]);
+
+        InventoryTransaction::create([
+            'item_id' => $item->id,
+            'transaction_type' => 'sale',
+            'quantity' => -6,
+            'unit_cost' => 111926.56,
+            'total_cost' => -671559.36,
+            'transaction_date' => '2026-03-25',
+            'notes' => 'Sale',
+            'created_by' => null,
+        ]);
+
+        InventoryTransaction::create([
+            'item_id' => $item->id,
+            'transaction_type' => 'transfer',
+            'quantity' => -15,
+            'unit_cost' => 0,
+            'total_cost' => 0,
+            'reference_type' => 'warehouse_transfer',
+            'reference_id' => 5,
+            'transaction_date' => '2026-04-01',
+            'notes' => 'Legacy transfer out',
+            'created_by' => null,
+        ]);
+
+        InventoryTransaction::create([
+            'item_id' => $item->id,
+            'transaction_type' => 'transfer',
+            'quantity' => 15,
+            'unit_cost' => 0,
+            'total_cost' => 0,
+            'reference_type' => 'warehouse_transfer',
+            'reference_id' => 1,
+            'transaction_date' => '2026-04-01',
+            'notes' => 'Legacy transfer in',
+            'created_by' => null,
+        ]);
+
+        $service = app(InventoryService::class);
+
+        $unitCost = $service->calculateUnitCost($item->fresh());
+        $this->assertGreaterThan(0, $unitCost);
+
+        $transaction = $service->processPurchaseTransaction(
+            $item->id,
+            6,
+            122000,
+            'purchase_invoice',
+            999,
+            'Post after legacy transfer'
+        );
+
+        $this->assertSame('purchase', $transaction->transaction_type);
+        $this->assertSame(6, (int) $transaction->quantity);
+    }
 }

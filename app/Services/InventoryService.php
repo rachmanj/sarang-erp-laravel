@@ -403,6 +403,10 @@ class InventoryService
             }
 
             if (in_array($type, ['sale', 'adjustment', 'transfer'], true) && $qty < 0) {
+                if ($type === 'transfer' && $unitCost <= 0) {
+                    continue;
+                }
+
                 $this->consumeFifoLayers($layers, abs($qty));
             }
         }
