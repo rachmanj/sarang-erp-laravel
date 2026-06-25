@@ -30,6 +30,7 @@ class Kernel extends BaseKernel
         \App\Console\Commands\SyncDraftDocumentLineAmountsFromSalesOrders::class,
         \App\Console\Commands\ValidatePostedSalesInvoiceJournalsCommand::class,
         \App\Console\Commands\BackfillDraftSalesInvoiceLineAmountsCommand::class,
+        \App\Console\Commands\RepairSalesReceiptBankJournalsCommand::class,
     ];
 
     /**
