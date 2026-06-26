@@ -30,6 +30,7 @@ File **`help-navigation.json`** holds short **menu path** and **keyword** entrie
 | **Account Statements** (Accounting module — saved AST statements, draft/finalize) | `account-statements-module-manual-id.md` | `account-statements-module-manual-en.md` |
 | Inventory | `inventory-module-manual-id.md` | `inventory-module-manual.md` |
 | **Inventory valuation & costing** (FIFO/WAC only — LIFO removed PSAK) | `inventory-valuation-and-costing-manual-id.md` | `inventory-valuation-and-costing-manual-en.md` |
+| **FIFO Layer Repair** (self-service; GR/GI replay errors) | `inventory-fifo-repair-manual-id.md` | `inventory-fifo-repair-manual-en.md` |
 | Part numbers | `inventory-part-numbers-manual-id.md` | `inventory-part-numbers-manual-en.md` |
 | Multi-UOM & pricing | `multi-measures-and-pricing-manual-id.md` | `multi-measures-and-pricing-manual.md` |
 | Delete inventory items | `delete-inventory-items-guide.md` | — |

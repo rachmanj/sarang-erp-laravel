@@ -81,4 +81,6 @@ php artisan help:reindex
 - **Account Statements** (Accounting → saved GL/BP statements, draft/finalize — not the partner tab): **`account-statements-module-manual-en.md`** / **`account-statements-module-manual-id.md`**.
 - **Sales workflow corrections** (credit memos, reverse delivery, Relationship Map, wrong company entity): HELP-oriented summaries — **`sales-workflow-corrections-help-en.md`** / **`sales-workflow-corrections-help-id.md`**. Operational checklist (ID): **`checklist-perbaikan-salah-entitas-so-id.md`**.
 - **Domain Assistant** (robot icon, live ERP data — not HELP): see **`domain-assistant-manual-en.md`** in this folder.
+- **FIFO Layer Repair** (insufficient FIFO / GR approval errors after legacy cleanup): **`inventory-fifo-repair-manual-en.md`** / **`inventory-fifo-repair-manual-id.md`**.
+- **Menu Search** (navbar quick navigation, Ctrl+K): documented in **`help-navigation.json`** entry `menu-search` and **`docs/menu-search-feature-reference.md`** (no reindex needed when only `MenuSearchService` changes).
 

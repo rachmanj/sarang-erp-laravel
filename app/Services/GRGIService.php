@@ -2,26 +2,27 @@
 
 namespace App\Services;
 
+use App\Models\Accounting\Account;
+use App\Models\Accounting\Journal;
+use App\Models\GRGIAccountMapping;
 use App\Models\GRGIHeader;
+use App\Models\GRGIJournalEntry;
 use App\Models\GRGILine;
 use App\Models\GRGIPurpose;
-use App\Models\GRGIAccountMapping;
-use App\Models\GRGIJournalEntry;
 use App\Models\InventoryItem;
-use App\Models\InventoryWarehouseStock;
 use App\Models\InventoryTransaction;
-use App\Models\Accounting\Journal;
-use App\Models\Accounting\Account;
+use App\Models\InventoryWarehouseStock;
 use App\Models\ProductCategory;
 use App\Services\Accounting\PostingService;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class GRGIService
 {
     public function __construct(
         private PostingService $postingService
     ) {}
+
     /**
      * Create a new GR/GI header
      */
@@ -55,7 +56,7 @@ class GRGIService
         return DB::transaction(function () use ($headerId, $lineData) {
             $header = GRGIHeader::findOrFail($headerId);
 
-            if (!$header->canBeEdited()) {
+            if (! $header->canBeEdited()) {
                 throw new \Exception('Cannot add line to non-editable document');
             }
 
@@ -84,7 +85,7 @@ class GRGIService
             $line = GRGILine::findOrFail($lineId);
             $headerId = $line->header_id;
 
-            if (!$line->header->canBeEdited()) {
+            if (! $line->header->canBeEdited()) {
                 throw new \Exception('Cannot remove line from non-editable document');
             }
 
@@ -127,6 +128,7 @@ class GRGIService
             default:
                 // Fallback to standard cost
                 $unitPrice = $item->standard_cost ?? $item->last_purchase_price ?? 0;
+
                 return [
                     'unit_price' => $unitPrice,
                     'total_amount' => $quantity * $unitPrice,
@@ -154,7 +156,9 @@ class GRGIService
         $usedTransactions = [];
 
         foreach ($transactions as $transaction) {
-            if ($remainingQuantity <= 0) break;
+            if ($remainingQuantity <= 0) {
+                break;
+            }
 
             $availableQuantity = $transaction->quantity;
             $usedQuantity = min($remainingQuantity, $availableQuantity);
@@ -199,7 +203,9 @@ class GRGIService
         $usedTransactions = [];
 
         foreach ($transactions as $transaction) {
-            if ($remainingQuantity <= 0) break;
+            if ($remainingQuantity <= 0) {
+                break;
+            }
 
             $availableQuantity = $transaction->quantity;
             $usedQuantity = min($remainingQuantity, $availableQuantity);
@@ -240,6 +246,7 @@ class GRGIService
         if ($transactions->isEmpty()) {
             $item = InventoryItem::findOrFail($itemId);
             $unitPrice = $item->standard_cost ?? $item->last_purchase_price ?? 0;
+
             return [
                 'unit_price' => $unitPrice,
                 'total_amount' => $quantity * $unitPrice,
@@ -353,7 +360,7 @@ class GRGIService
             ->where('item_category_id', $itemCategoryId)
             ->first();
 
-        if (!$mapping) {
+        if (! $mapping) {
             throw new \Exception("Account mapping not found for purpose ID {$purposeId} and category ID {$itemCategoryId}");
         }
 
@@ -379,14 +386,14 @@ class GRGIService
         // Fallback to default inventory account
         $defaultInventoryAccount = Account::where('account_code', 'INV001')->first();
 
-        if (!$defaultInventoryAccount) {
+        if (! $defaultInventoryAccount) {
             // Try to find any inventory account
             $defaultInventoryAccount = Account::where('account_name', 'like', '%inventory%')
                 ->orWhere('account_name', 'like', '%stock%')
                 ->first();
         }
 
-        if (!$defaultInventoryAccount) {
+        if (! $defaultInventoryAccount) {
             throw new \Exception('No inventory account found. Please configure inventory accounts.');
         }
 
@@ -402,7 +409,7 @@ class GRGIService
             try {
                 $this->getAccountMapping($header->purpose_id, $line->item->category_id);
             } catch (\Exception $e) {
-                throw new \Exception("Account mapping validation failed for line {$line->id}: " . $e->getMessage());
+                throw new \Exception("Account mapping validation failed for line {$line->id}: ".$e->getMessage());
             }
         }
     }
@@ -415,7 +422,7 @@ class GRGIService
         return DB::transaction(function () use ($headerId, $approvedBy) {
             $header = GRGIHeader::with(['lines.item', 'purpose'])->findOrFail($headerId);
 
-            if (!$header->canBeApproved()) {
+            if (! $header->canBeApproved()) {
                 throw new \Exception('Document cannot be approved');
             }
 
@@ -447,7 +454,7 @@ class GRGIService
         return DB::transaction(function () use ($headerId, $cancelledBy) {
             $header = GRGIHeader::findOrFail($headerId);
 
-            if (!$header->canBeCancelled()) {
+            if (! $header->canBeCancelled()) {
                 throw new \Exception('Document cannot be cancelled');
             }
 
@@ -489,7 +496,7 @@ class GRGIService
     protected function updateWarehouseStock($itemId, $warehouseId, $quantityChange, $transactionType, $referenceId, $notes, $unitPrice = 0)
     {
         $item = InventoryItem::findOrFail($itemId);
-        
+
         // Get or create warehouse stock record
         $warehouseStock = InventoryWarehouseStock::firstOrCreate(
             ['item_id' => $itemId, 'warehouse_id' => $warehouseId],
@@ -511,7 +518,7 @@ class GRGIService
         if ($unitPrice <= 0) {
             $unitPrice = $item->purchase_price ?? 0;
         }
-        
+
         $totalCost = abs($quantityChange) * $unitPrice;
         if ($quantityChange < 0) {
             $totalCost = -$totalCost;
@@ -528,12 +535,12 @@ class GRGIService
             'reference_type' => 'gr_gi',
             'reference_id' => $referenceId,
             'transaction_date' => $transactionType === 'goods_receipt' ? now()->toDateString() : now()->toDateString(),
-            'notes' => $notes ?? "GR/GI transaction",
+            'notes' => $notes ?? 'GR/GI transaction',
             'created_by' => Auth::id(),
         ]);
 
         // Update item valuation
-        app(InventoryService::class)->updateItemValuation($item);
+        app(InventoryService::class)->updateItemValuationAfterDataRepair($item);
     }
 
     /**
@@ -566,7 +573,7 @@ class GRGIService
 
         $nextNumber = $lastNumber + 1;
 
-        return "{$prefix}{$year}{$month}" . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
+        return "{$prefix}{$year}{$month}".str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
     }
 
     /**
@@ -583,6 +590,6 @@ class GRGIService
 
         $nextNumber = $lastNumber + 1;
 
-        return "JNL{$year}{$month}" . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
+        return "JNL{$year}{$month}".str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
     }
 }

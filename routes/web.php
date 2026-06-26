@@ -360,6 +360,12 @@ Route::middleware('auth')->group(function () {
         Route::post('/{item}/transfer-stock', [InventoryController::class, 'transferStock'])->middleware('permission:inventory.transfer')->name('inventory.transfer-stock');
         Route::post('/{item}/recalculate-warehouse-stock', [InventoryController::class, 'recalculateWarehouseStock'])->middleware('permission:inventory.adjust')->name('inventory.recalculate-warehouse-stock');
 
+        Route::prefix('fifo-repair')->middleware('permission:inventory.adjust')->group(function () {
+            Route::get('/', [\App\Http\Controllers\InventoryFifoRepairController::class, 'index'])->name('inventory.fifo-repair.index');
+            Route::get('/{inventoryItem}', [\App\Http\Controllers\InventoryFifoRepairController::class, 'show'])->name('inventory.fifo-repair.show');
+            Route::post('/{inventoryItem}/repair', [\App\Http\Controllers\InventoryFifoRepairController::class, 'repair'])->name('inventory.fifo-repair.repair');
+        });
+
         // Reports and Analytics (static routes before catch-all)
         Route::get('/low-stock', [InventoryController::class, 'lowStock'])->name('inventory.low-stock');
         Route::get('/valuation-report', [InventoryController::class, 'valuationReport'])->name('inventory.valuation-report');

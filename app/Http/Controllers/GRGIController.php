@@ -2,15 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Accounting\Account;
+use App\Models\GRGIAccountMapping;
 use App\Models\GRGIHeader;
 use App\Models\GRGILine;
 use App\Models\GRGIPurpose;
-use App\Models\GRGIAccountMapping;
 use App\Models\InventoryItem;
 use App\Models\InventoryTransaction;
-use App\Models\Warehouse;
 use App\Models\ProductCategory;
-use App\Models\Accounting\Account;
+use App\Models\Warehouse;
 use App\Services\GRGIService;
 use App\Services\InventoryService;
 use Illuminate\Http\Request;
@@ -123,7 +123,7 @@ class GRGIController extends Controller
                 ->with('success', 'GR/GI document created successfully');
         } catch (\Exception $e) {
             return back()->withInput()
-                ->with('error', 'Error creating GR/GI document: ' . $e->getMessage());
+                ->with('error', 'Error creating GR/GI document: '.$e->getMessage());
         }
     }
 
@@ -146,7 +146,7 @@ class GRGIController extends Controller
     {
         $this->authorize('gr-gi.update');
 
-        if (!$grGi->canBeEdited()) {
+        if (! $grGi->canBeEdited()) {
             return redirect()->route('gr-gi.show', $grGi)
                 ->with('error', 'Document cannot be edited');
         }
@@ -176,7 +176,7 @@ class GRGIController extends Controller
     {
         $this->authorize('gr-gi.update');
 
-        if (!$grGi->canBeEdited()) {
+        if (! $grGi->canBeEdited()) {
             return redirect()->route('gr-gi.show', $grGi)
                 ->with('error', 'Document cannot be edited');
         }
@@ -235,7 +235,7 @@ class GRGIController extends Controller
                 ->with('success', 'GR/GI document updated successfully');
         } catch (\Exception $e) {
             return back()->withInput()
-                ->with('error', 'Error updating GR/GI document: ' . $e->getMessage());
+                ->with('error', 'Error updating GR/GI document: '.$e->getMessage());
         }
     }
 
@@ -258,7 +258,7 @@ class GRGIController extends Controller
                 ->with('success', 'GR/GI document submitted for approval successfully');
         } catch (\Exception $e) {
             return redirect()->route('gr-gi.show', $grGi)
-                ->with('error', 'Error submitting document: ' . $e->getMessage());
+                ->with('error', 'Error submitting document: '.$e->getMessage());
         }
     }
 
@@ -269,7 +269,7 @@ class GRGIController extends Controller
     {
         $this->authorize('gr-gi.approve');
 
-        if (!$grGi->canBeApproved()) {
+        if (! $grGi->canBeApproved()) {
             return redirect()->route('gr-gi.show', $grGi)
                 ->with('error', 'Document cannot be approved');
         }
@@ -281,7 +281,7 @@ class GRGIController extends Controller
                 ->with('success', 'GR/GI document approved successfully');
         } catch (\Exception $e) {
             return redirect()->route('gr-gi.show', $grGi)
-                ->with('error', 'Error approving document: ' . $e->getMessage());
+                ->with('error', 'Error approving document: '.$e->getMessage());
         }
     }
 
@@ -292,7 +292,7 @@ class GRGIController extends Controller
     {
         $this->authorize('gr-gi.delete');
 
-        if (!$grGi->canBeCancelled()) {
+        if (! $grGi->canBeCancelled()) {
             return redirect()->route('gr-gi.show', $grGi)
                 ->with('error', 'Document cannot be cancelled');
         }
@@ -304,7 +304,7 @@ class GRGIController extends Controller
                 ->with('success', 'GR/GI document cancelled successfully');
         } catch (\Exception $e) {
             return redirect()->route('gr-gi.show', $grGi)
-                ->with('error', 'Error cancelling document: ' . $e->getMessage());
+                ->with('error', 'Error cancelling document: '.$e->getMessage());
         }
     }
 
@@ -400,10 +400,10 @@ class GRGIController extends Controller
             $createdCount = DB::transaction(function () use ($grGi) {
                 $count = 0;
                 $inventoryService = app(InventoryService::class);
-                
+
                 foreach ($grGi->lines as $line) {
                     $item = $line->item;
-                    if (!$item) {
+                    if (! $item) {
                         continue;
                     }
 
@@ -413,7 +413,7 @@ class GRGIController extends Controller
                         ->where('item_id', $line->item_id)
                         ->first();
 
-                    if (!$existingTransaction) {
+                    if (! $existingTransaction) {
                         $quantityChange = $grGi->document_type === 'goods_receipt'
                             ? $line->quantity
                             : -$line->quantity;
@@ -440,10 +440,11 @@ class GRGIController extends Controller
                         ]);
 
                         // Update item valuation
-                        $inventoryService->updateItemValuation($item);
+                        $inventoryService->updateItemValuationAfterDataRepair($item);
                         $count++;
                     }
                 }
+
                 return $count;
             });
 
@@ -453,7 +454,7 @@ class GRGIController extends Controller
                 return back()->with('info', 'All inventory transactions already exist for this GR/GI document');
             }
         } catch (\Exception $e) {
-            return back()->with('error', 'Error fixing inventory transactions: ' . $e->getMessage());
+            return back()->with('error', 'Error fixing inventory transactions: '.$e->getMessage());
         }
     }
 }

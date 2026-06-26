@@ -1,5 +1,5 @@
 **Purpose**: AI's persistent knowledge base for project context and learnings
-**Last Updated**: 2026-06-25 (SR legacy bank journal repair; PI duplicate inventory diagnosis)
+**Last Updated**: 2026-06-25 (FIFO Layer Repair UI; PI #175 repair completed; HELP/Menu Search sync)
 
 ## Memory Maintenance Guidelines
 
@@ -27,13 +27,21 @@
 
 ## Project Memory Entries
 
+### [125] FIFO Layer Repair self-service UI (2026-06-25) ✅ COMPLETE
+
+**Challenge**: GR approval for item 201 failed after PI duplicate cleanup — strict FIFO replay short 11 units at sale txn #4070 though on-hand qty was 29. Users had no menu path to fix layer history without developer intervention.
+
+**Solution**: `InventoryFifoRepairService` + UI at **Inventory → FIFO Layer Repair** (`inventory.adjust`); backdated `fifo_layer_repair` adjustments; banner on item show; GR/GI uses `updateItemValuationAfterDataRepair()`. Tests: `InventoryFifoRepairTest`.
+
+**Learning**: Separate **qty truth** (transactions sum) from **layer truth** (FIFO replay). After duplicate PI cleanup, scan affected FIFO items via repair index before approving GR/GI.
+
 ### [124] Legacy PI inventory duplicates from repost without unpost (2026-06-25) ✅ COMPLETE
 
-**Challenge**: PI 71260300107 (#175) showed triple purchase rows per item (e.g. item 585 CON000131) — stock inflated +10 vs expected 0 after one sale. Idempotency guard (`purchase_invoice_line_id`) only prevents new duplicates; legacy rows from Mar 2026 reposts remained.
+**Challenge**: PI 71260300107 (#175) showed triple purchase rows per item (e.g. item 585 CON000131) — stock inflated after repost without unpost. Idempotency guard (`purchase_invoice_line_id`) only prevents new duplicates.
 
-**Solution**: Diagnose via `inventory:report-purchase-invoice-duplicates`; repair per item with `inventory:fix-duplicate-transaction` (keep earliest txn with line link, delete later dupes, recalc stock). PI #175 affects 41 item groups.
+**Solution**: `inventory:fix-duplicate-transaction --invoice=175 --force` removed 78 duplicate rows across two runs; `--invoice` batch + `updateItemValuationAfterDataRepair()`. Follow with FIFO Layer Repair on affected FIFO items.
 
-**Learning**: Reposting PI without `PurchaseInvoiceUnpostService::reverseDirectPurchaseInventory()` leaves purchase rows; always unpost (or repair) before repost. Monitor with report command after bulk data imports.
+**Learning**: Repost PI only after unpost or run duplicate fix + FIFO repair. Use `--invoice` for bulk PI cleanup; `--dry-run` first.
 
 ### [123] Legacy Sales Receipt bank account mis-posting (2026-06-25) ✅ COMPLETE
 

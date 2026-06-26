@@ -1,5 +1,5 @@
 Purpose: Technical reference for understanding system design and development patterns
-Last Updated: 2026-06-25 (SR legacy bank journal repair command; inventory item transaction date format; prior: 2026-06-24 COA ledger drill-down)
+Last Updated: 2026-06-25 (FIFO Layer Repair UI; legacy inventory/SR repair; HELP + Menu Search corpus sync)
 
 ## Architecture Documentation Guidelines
 
@@ -208,7 +208,9 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 -   **Stock Accuracy Verification**: `php artisan inventory:check-accuracy {item_code?}` command verifies accuracy between `current_stock` (from transactions) and sum of warehouse stock records, showing detailed breakdown including transaction analysis and warehouse allocation
 -   **Stock Reconciliation**: `php artisan inventory:reconcile-warehouse-stock {item_code?} {--warehouse_id=}` command reconciles warehouse stock from transactions, allocating stock to warehouses for transactions missing `warehouse_id` and creating/updating warehouse stock records to ensure `current_stock` equals sum of warehouse stock records
 -   **Item detail transaction history** (`/inventory/{id}` show page): transaction and valuation dates display as **`d M Y`** (e.g. `05 Jun 2026`), aligned with account ledger and purchase invoice inventory panels
--   **Legacy PI duplicate cleanup**: `php artisan inventory:report-purchase-invoice-duplicates` lists duplicate `purchase_invoice` + `item_id` groups; `php artisan inventory:fix-duplicate-transaction --item={code|id} [--dry-run]` removes duplicate rows (keeps earliest per reference) and recalculates warehouse stock/valuation. Structural idempotency via `purchase_invoice_line_id` (2026-03-31) does not auto-remove pre-migration duplicates from repost-without-unpost scenarios.
+-   **Legacy PI duplicate cleanup**: `php artisan inventory:report-purchase-invoice-duplicates` lists duplicate `purchase_invoice` + `item_id` groups; `php artisan inventory:fix-duplicate-transaction --item={code|id}` or `--invoice={PI id|invoice_no}` `[--dry-run] [--force]` removes duplicate rows (prefers row with `purchase_invoice_line_id`, deletes later dupes) and recalculates warehouse stock via `updateItemValuationAfterDataRepair()` (tolerant FIFO). Structural idempotency via `purchase_invoice_line_id` (2026-03-31) does not auto-remove pre-migration duplicates from repost-without-unpost scenarios.
+-   **FIFO Layer Repair (self-service UI)**: Routes `inventory/fifo-repair/*` (`inventory.fifo-repair.index|show|repair`), permission `inventory.adjust`. `InventoryFifoRepairService` diagnoses strict FIFO replay failures and layer/stock mismatches; repair inserts backdated `adjustment` rows with `reference_type=fifo_layer_repair` before failing outbound transactions. Index lists FIFO items needing repair; item show page displays warning banner when `diagnose()` is not `ok`. Manuals: `docs/manuals/inventory-fifo-repair-manual-*.md`.
+-   **InventoryService FIFO helpers**: `getFifoReplayError()`, `findFifoLayerDeficits()`, `getTolerantFifoLayerQuantity()`, `buildFifoLayers($transactions, bool $strict)`, `updateItemValuationAfterDataRepair()` (tolerant replay for post-cleanup recalc), `calculateUnitCostForRepair()`.
 
 #### 4.4. Sales Price Level System
 
@@ -323,16 +325,16 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 ### 6.2. GR/GI Management System
 
 -   **Goods Receipt (GR)**: Non-purchase receiving operations with automatic journal integration
--   **Goods Issue (GI)**: Non-sales issuing operations with FIFO/LIFO/Average cost valuation
+-   **Goods Issue (GI)**: Non-sales issuing operations with FIFO/weighted-average cost valuation
 -   **Purpose Management**: Configurable GR/GI purposes (Customer Return, Donation, Sample, etc.)
 -   **Account Mapping**: Automatic account mapping based on item categories and purposes
 -   **Approval Workflow**: Draft → Pending Approval → Approved status progression
--   **Inventory Transaction Creation**: Automatic inventory transaction creation when GR/GI is approved using `GRGIService::updateWarehouseStock()` with reference_type='gr_gi', proper unit cost calculation, and item valuation updates
+-   **Inventory Transaction Creation**: Automatic inventory transaction creation when GR/GI is approved using `GRGIService::updateWarehouseStock()` with reference_type='gr_gi', proper unit cost calculation, and item valuation updates via `InventoryService::updateItemValuationAfterDataRepair()` (tolerant FIFO refresh so legacy layer gaps surface as repairable data issues rather than hard-blocking approval when stock qty is otherwise consistent)
 -   **Retroactive Fix Support**: `fixInventoryTransactions()` method available for existing GR/GI documents that were approved before inventory transaction creation was implemented
 -   **Quantity Display Format**: Quantity column displays with 2 decimal places for consistency
 -   **Journal Integration**: Automatic journal entry creation on document approval via PostingService integration (GR: Debit=item category account, Credit=purpose account; GI: Debit=purpose account, Credit=item category account)
 -   **PostingService Integration**: GRGIService uses centralized PostingService for journal creation, ensuring consistent journal schema, entity resolution, currency handling, and control account balance updates
--   **Valuation Methods**: Multiple cost calculation methods (FIFO, LIFO, Average, Manual)
+-   **Valuation Methods**: FIFO and weighted average (LIFO removed — PSAK 14); manual unit cost on adjustments
 -   **SweetAlert2 Integration**: Professional confirmation dialogs for critical operations
 -   **Seeder Requirements**: GRGIPurposeSeeder and GRGIAccountMappingSeeder must be run for system initialization
 
@@ -713,7 +715,7 @@ The database schema has been consolidated from 51 to 44 migration files for impr
 -   **Portable blueprint** (for other projects): `docs/HELP-CHATBOX-REFERENCE.md` — RAG chatbox architecture, API shape, `help:reindex`, env vars, UX notes (vs Domain Assistant).
 -   **Routes** (authenticated, throttled): `POST /help/ask`, `POST /help/feedback`. **No** persistence of chat Q&A; only bug/feature submissions are stored (`help_feedback`).
 -   **Knowledge**: Markdown manuals under `docs/manuals/` (chunked by `##` headings), plus `docs/manuals/help-navigation.json` for menu-path hints. Vector rows live in `help_embeddings` (JSON embedding column). Rebuild index: `php artisan help:reindex` (requires `OPENROUTER_API_KEY`). Maintainer index and authoring rules: `docs/manuals/README.md`.
--   **Manuals (high-signal additions for retrieval)**: `sales-invoice-manual-id.md` / `sales-invoice-manual-en.md` (includes **Sales Credit Memo** section), **`sales-receipt-manual-id.md`** / **`sales-receipt-manual-en.md`** (**Sales Receipt**: create, **edit draft**, post, `ar.receipts.*` permissions), `in-app-help-manual-id.md` / `in-app-help-manual-en.md`; `delivery-order-manual-id.md` (**Cancel** vs **Reverse delivery** vs partial shipment); **`sales-workflow-corrections-help-id.md`** / **`sales-workflow-corrections-help-en.md`** (chunked keywords: CM, reverse DO, Relationship Map, wrong **Company entity**); **`checklist-perbaikan-salah-entitas-so-id.md`** (operational checklist). **`help-navigation.json`**: entries `sales-credit-memos`, **`sales-receipts`** (draft edit paths), `document-relationship-map`, `company-entity-correction`; expanded `delivery-orders` keywords for reverse.
+-   **Manuals (high-signal additions for retrieval)**: `sales-invoice-manual-id.md` / `sales-invoice-manual-en.md` (includes **Sales Credit Memo** section), **`sales-receipt-manual-id.md`** / **`sales-receipt-manual-en.md`** (**Sales Receipt**: create, **edit draft**, post, `ar.receipts.*` permissions), `in-app-help-manual-id.md` / `in-app-help-manual-en.md`; `delivery-order-manual-id.md` (**Cancel** vs **Reverse delivery** vs partial shipment); **`sales-workflow-corrections-help-id.md`** / **`sales-workflow-corrections-help-en.md`** (chunked keywords: CM, reverse DO, Relationship Map, wrong **Company entity**); **`checklist-perbaikan-salah-entitas-so-id.md`** (operational checklist); **`inventory-fifo-repair-manual-en.md`** / **`inventory-fifo-repair-manual-id.md`** (FIFO layer self-service repair, GR/GI replay errors, link to legacy PI duplicate commands). **`help-navigation.json`**: entries `sales-credit-memos`, **`sales-receipts`** (draft edit paths), `document-relationship-map`, `company-entity-correction`, **`inventory-fifo-repair`**, **`legacy-inventory-data-repair`**, **`menu-search`**; expanded `delivery-orders` keywords for reverse; `inventory-valuation` cross-links FIFO repair.
 -   **External calls**: [OpenRouter](https://openrouter.ai/) for embeddings + chat completion only; API key stays **server-side** (`config/services.php` → `openrouter.*`, `App\Services\Help\HelpOpenRouterClient`). **Timeouts**: `OPENROUTER_TIMEOUT` (default 240s), `OPENROUTER_CONNECT_TIMEOUT` (30s); embedding batches retry up to `OPENROUTER_EMBEDDING_RETRIES`; `HELP_REINDEX_BATCH_SIZE` (default 6) reduces payload size when `help:reindex` hits slow networks or cURL 28.
 -   **Optional**: `HELP_FEEDBACK_NOTIFY_EMAIL` sends a plain-text email when feedback is submitted (failures are logged; DB row still created).
 -   **UI**: Navbar launcher uses **`fas fa-book-open`** in a circular gradient badge (styles in `resources/views/layouts/partials/head.blade.php`; markup in `layouts/partials/navbar.blade.php`). Help modal: **`modal-dialog-scrollable` is not used** — the answer region `#help-answer` is the scroll container (`overflow-y: auto`, `min-height: 0`, touch-friendly) to avoid nested scroll issues; after each reply the script resets `scrollTop` and focuses the answer box for keyboard scroll.
@@ -1285,7 +1287,7 @@ The Menu Search System provides global search functionality for navigating menu 
 -   Extracts menu metadata (title, route, icon, category, breadcrumb, keywords)
 -   Filters menu items based on user permissions using Spatie Permission
 -   Generates searchable menu item array with hierarchical structure preservation
--   Covers all menu sections: Dashboard, MAIN (Inventory, Purchase, Sales, Fixed Assets, Business Partner, Accounting, Master Data), Reports, and Admin
+-   Covers all menu sections: Dashboard, MAIN (Inventory, Purchase, Sales, Fixed Assets, Business Partner, Accounting, Master Data), Reports, and Admin — including **FIFO Layer Repair** (`inventory.adjust`) and **Domain Assistant** (`access-domain-assistant`)
 
 #### API Architecture
 

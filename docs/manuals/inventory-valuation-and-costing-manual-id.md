@@ -62,6 +62,12 @@ Disarankan **mendokumentasikan** metode yang dipilih dan tanggal perubahan di ke
 
 ---
 
+## Kegagalan replay FIFO setelah perbaikan data legacy
+
+Jika posting atau approve GR/GI gagal dengan *Insufficient FIFO inventory layers* setelah duplikat baris pembelian dihapus, gunakan **Inventory → FIFO Layer Repair** (izin `inventory.adjust`). Lihat **`inventory-fifo-repair-manual-id.md`** / **`inventory-fifo-repair-manual-en.md`**.
+
+---
+
 ## Kata kunci untuk HELP (Bahasa Indonesia)
 
 valuasi persediaan, metode FIFO, LIFO, rata-rata tertimbang, weighted average, unit cost, biaya persediaan, HPP, harga beli, harga jual, faktur pembelian, delivery order, sales order, ganti metode valuasi, perdagangan, stok tipis, Recent Transactions, item inventory

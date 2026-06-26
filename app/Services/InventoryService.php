@@ -256,6 +256,98 @@ class InventoryService
         return $this->buildFifoLayers($transactions);
     }
 
+    public function getFifoReplayError(InventoryItem $item): ?string
+    {
+        if ($this->shouldSkipFifoValidation($item)) {
+            return null;
+        }
+
+        try {
+            $this->getRemainingFifoLayers($item);
+
+            return null;
+        } catch (\Throwable $exception) {
+            return $exception->getMessage();
+        }
+    }
+
+    /**
+     * @return list<array{
+     *     before_transaction_id: int,
+     *     transaction_date: string,
+     *     shortfall: float,
+     *     unit_cost: float,
+     *     warehouse_id: int|null
+     * }>
+     */
+    public function findFifoLayerDeficits(InventoryItem $item): array
+    {
+        if ($this->shouldSkipFifoValidation($item)) {
+            return [];
+        }
+
+        $transactions = $item->transactions()
+            ->orderBy('transaction_date', 'asc')
+            ->orderBy('id', 'asc')
+            ->get();
+
+        $layers = [];
+        $deficits = [];
+
+        foreach ($transactions as $transaction) {
+            $type = $transaction->transaction_type;
+            $qty = (float) $transaction->quantity;
+            $unitCost = (float) $transaction->unit_cost;
+
+            if (($type === 'purchase' && $qty > 0)
+                || ($type === 'adjustment' && $qty > 0)
+                || ($type === 'transfer' && $qty > 0 && $unitCost > 0)) {
+                $layers[] = ['quantity' => $qty, 'unit_cost' => $unitCost];
+
+                continue;
+            }
+
+            if (in_array($type, ['sale', 'adjustment', 'transfer'], true) && $qty < 0) {
+                if ($type === 'transfer' && $unitCost <= 0) {
+                    continue;
+                }
+
+                $need = abs($qty);
+                $available = array_sum(array_column($layers, 'quantity'));
+
+                if ($available + 0.00001 < $need) {
+                    $deficits[] = [
+                        'before_transaction_id' => (int) $transaction->id,
+                        'transaction_date' => $transaction->transaction_date->format('Y-m-d'),
+                        'shortfall' => round($need - $available, 4),
+                        'unit_cost' => $unitCost > 0 ? $unitCost : (float) $item->purchase_price,
+                        'warehouse_id' => $transaction->warehouse_id ?? $item->default_warehouse_id,
+                    ];
+                }
+
+                $this->consumeFifoLayersWithCost($layers, $need);
+            }
+        }
+
+        return $deficits;
+    }
+
+    public function getTolerantFifoLayerQuantity(InventoryItem $item): float
+    {
+        if ($this->shouldSkipFifoValidation($item)) {
+            return (float) $item->current_stock;
+        }
+
+        $transactions = $item->transactions()
+            ->orderBy('transaction_date', 'asc')
+            ->orderBy('id', 'asc')
+            ->get();
+
+        $layers = $this->buildFifoLayers($transactions, strict: false);
+
+        return (float) array_sum(array_column($layers, 'quantity'));
+    }
+
     public function getAvailableFifoQuantity(InventoryItem $item): float
     {
         if ($this->shouldSkipFifoValidation($item)) {

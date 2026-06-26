@@ -4,7 +4,7 @@
 
 **Source stack (this codebase)**: Laravel 12, Blade, AdminLTE 3 / Bootstrap 4, jQuery, Spatie Laravel Permission (`can`, `hasAnyPermission`), session/web auth.
 
-**Last aligned with codebase**: Sarange ERP (see `routes/api.php`, `app/Services/MenuSearchService.php`, `public/js/menu-search.js`).
+**Last aligned with codebase**: Sarange ERP (see `routes/api.php`, `app/Services/MenuSearchService.php`, `public/js/menu-search.js`). **2026-06-25**: added **FIFO Layer Repair** (`inventory.adjust` → `inventory.fifo-repair.index`).
 
 ---
 

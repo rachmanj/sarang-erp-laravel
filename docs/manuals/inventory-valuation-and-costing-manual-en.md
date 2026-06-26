@@ -60,6 +60,12 @@ Document the chosen method and any change dates in your internal policy.
 
 ---
 
+## FIFO replay failures after legacy data cleanup
+
+If posting or GR/GI approval fails with *Insufficient FIFO inventory layers* after duplicate purchase rows were removed, use **Inventory → FIFO Layer Repair** (permission `inventory.adjust`). See **`inventory-fifo-repair-manual-en.md`** / **`inventory-fifo-repair-manual-id.md`**.
+
+---
+
 ## HELP keywords (English)
 
 inventory valuation, FIFO, LIFO, weighted average, unit cost, COGS, inventory cost, purchase price, selling price, purchase invoice, delivery order, sales order, change valuation method, trading, low stock, Recent Transactions, inventory item

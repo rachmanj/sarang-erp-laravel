@@ -40,6 +40,7 @@
                     @php
                         $inventoryActive =
                             request()->routeIs('inventory.*') ||
+                            request()->routeIs('inventory.fifo-repair.*') ||
                             request()->routeIs('warehouses.*') ||
                             request()->routeIs('gr-gi.*');
                     @endphp
@@ -103,6 +104,15 @@
                                         class="nav-link {{ request()->routeIs('inventory.detail-report') ? 'active' : '' }}">
                                         <i class="far fa-circle nav-icon"></i>
                                         <p>Detail Report</p>
+                                    </a>
+                                </li>
+                            @endcan
+                            @can('inventory.adjust')
+                                <li class="nav-item">
+                                    <a href="{{ route('inventory.fifo-repair.index') }}"
+                                        class="nav-link {{ request()->routeIs('inventory.fifo-repair.*') ? 'active' : '' }}">
+                                        <i class="far fa-circle nav-icon"></i>
+                                        <p>FIFO Layer Repair</p>
                                     </a>
                                 </li>
                             @endcan

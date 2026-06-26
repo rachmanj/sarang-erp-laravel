@@ -127,6 +127,16 @@ class MenuSearchService
                     ['gr', 'gi', 'goods receipt', 'goods issue', 'transfer']
                 );
             }
+            if ($user->can('inventory.adjust')) {
+                $items[] = $this->buildMenuItem(
+                    'FIFO Layer Repair',
+                    route('inventory.fifo-repair.index'),
+                    'fas fa-boxes',
+                    'Inventory',
+                    'MAIN > Inventory > FIFO Layer Repair',
+                    ['fifo', 'layer repair', 'insufficient fifo', 'inventory repair', 'valuation error', 'legacy data']
+                );
+            }
         }
 
         // Purchase Group

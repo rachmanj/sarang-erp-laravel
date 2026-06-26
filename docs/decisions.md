@@ -1,7 +1,35 @@
 **Purpose**: Record technical decisions and rationale for future reference
-**Last Updated**: 2026-06-25 (SR legacy bank journal repair; inventory item date format)
+**Last Updated**: 2026-06-25 (FIFO Layer Repair UI; PI duplicate --invoice; GR/GI tolerant valuation)
 
 # Technical Decision Records
+
+## Decision: FIFO Layer Repair self-service UI - 2026-06-25
+
+**Context**: After cleaning duplicate PI purchase rows (e.g. PI #175), strict FIFO replay failed on downstream sales (e.g. item 201 WOR000076) with *Insufficient FIFO inventory layers*. Users needed GR approval and inventory fixes without developer/tinker access.
+
+**Decision**: Ship **Inventory → FIFO Layer Repair** (`InventoryFifoRepairService`, `InventoryFifoRepairController`, routes under `inventory/fifo-repair`, permission `inventory.adjust`). Diagnose via strict replay + deficit list; repair inserts backdated `adjustment` rows (`reference_type=fifo_layer_repair`) before failing outbound txns, then strict `updateItemValuation()`. Show warning on item detail when not `ok`. Complement — not replace — Artisan duplicate-fix commands.
+
+**Implementation**: `tests/Feature/InventoryFifoRepairTest.php`; manuals `inventory-fifo-repair-manual-*.md`; MenuSearchService + `help-navigation.json`.
+
+**Review Date**: 2027-06-25
+
+## Decision: Tolerant inventory valuation after data repair and on GR/GI approval - 2026-06-25
+
+**Context**: `inventory:fix-duplicate-transaction` and GR/GI approval called strict `updateItemValuation()`, which re-threw FIFO replay errors when historical layers were still short after qty cleanup — blocking bulk PI repair and GR approval even when on-hand qty was operationally correct.
+
+**Decision**: Add `InventoryService::updateItemValuationAfterDataRepair()` (tolerant FIFO replay for recalc only). Use it in `FixDuplicateInventoryTransaction` and `GRGIService::updateWarehouseStock()`. Reserve strict replay for normal posting paths and post-repair validation in `InventoryFifoRepairService::repair()`.
+
+**Review Date**: 2027-06-25
+
+## Decision: PI duplicate fix by invoice (`--invoice`) - 2026-06-25
+
+**Context**: PI 71260300107 (#175) had 41 item groups with 2–3 purchase rows each from repost without inventory unpost. Per-item `--item` repair was slow; keep row with `purchase_invoice_line_id` when choosing survivor.
+
+**Decision**: Extend `inventory:fix-duplicate-transaction` with `--invoice={id|invoice_no}` and `--force` for batch PI cleanup; prefer transaction linked to `purchase_invoice_line_id`; recalc via `updateItemValuationAfterDataRepair()` with per-item try/catch so one bad FIFO item does not abort the whole invoice.
+
+**Implementation**: `FixDuplicateInventoryTransactionTest`; runbook in `docs/action-plans/inventory-transaction-deduplication-prevention.md`.
+
+**Review Date**: 2027-06-25
 
 ## Decision: Legacy Sales Receipt bank journal repair command - 2026-06-25
 

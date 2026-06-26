@@ -437,7 +437,12 @@ class InventoryController extends Controller
         // Get audit trail
         $auditTrail = app(AuditLogService::class)->getAuditTrail('inventory_item', $id);
 
-        return view('inventory.show', compact('item', 'transactions', 'valuations', 'auditTrail', 'warehouses'));
+        $fifoDiagnosis = null;
+        if ($item->valuation_method === 'fifo' && $item->item_type === 'item') {
+            $fifoDiagnosis = app(\App\Services\InventoryFifoRepairService::class)->diagnose($item);
+        }
+
+        return view('inventory.show', compact('item', 'transactions', 'valuations', 'auditTrail', 'warehouses', 'fifoDiagnosis'));
     }
 
     /**

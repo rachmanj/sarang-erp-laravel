@@ -220,7 +220,37 @@
             "menu_path_id": "Inventory → detail item: Recent Transactions (Unit Cost vs harga dokumen); edit item: metode valuasi.",
             "keywords_en": ["FIFO", "weighted average", "valuation", "unit cost", "COGS", "inventory cost", "purchase price", "selling price", "change valuation method"],
             "keywords_id": ["FIFO", "rata-rata", "valuasi", "unit cost", "HPP", "biaya persediaan", "harga beli", "harga jual", "ganti metode valuasi", "persediaan"],
-            "notes": "Manuals: inventory-valuation-and-costing-manual-en.md / inventory-valuation-and-costing-manual-id.md. LIFO removed (PSAK). Reindex: php artisan help:reindex"
+            "notes": "Manuals: inventory-valuation-and-costing-manual-en.md / inventory-valuation-and-costing-manual-id.md. For FIFO replay failures after legacy cleanup see inventory-fifo-repair-manual-*.md. LIFO removed (PSAK). Reindex: php artisan help:reindex"
+        },
+        {
+            "id": "inventory-fifo-repair",
+            "title_en": "FIFO Layer Repair (self-service)",
+            "title_id": "Perbaikan lapisan FIFO (self-service)",
+            "menu_path_en": "Sidebar → Inventory → FIFO Layer Repair. Item detail shows warning banner when applicable.",
+            "menu_path_id": "Menu samping → Inventory → FIFO Layer Repair. Banner peringatan di detail item bila perlu.",
+            "keywords_en": ["FIFO layer repair", "insufficient FIFO", "FIFO replay", "GR approval failed", "valuation error", "legacy inventory", "duplicate PI"],
+            "keywords_id": ["perbaikan FIFO", "lapisan FIFO", "insufficient FIFO", "GR gagal", "error valuasi", "duplikat PI", "persediaan legacy"],
+            "notes": "Manuals: inventory-fifo-repair-manual-en.md / inventory-fifo-repair-manual-id.md. Permission inventory.adjust. Reindex: php artisan help:reindex"
+        },
+        {
+            "id": "legacy-inventory-data-repair",
+            "title_en": "Legacy inventory data repair (duplicate PI, SR bank journals)",
+            "title_id": "Perbaikan data legacy persediaan & SR",
+            "menu_path_en": "Administrator Artisan commands — not a sidebar menu. See manuals for inventory:fix-duplicate-transaction and sales-receipts:repair-bank-journals.",
+            "menu_path_id": "Perintah Artisan administrator — bukan menu sidebar. Lihat manual untuk inventory:fix-duplicate-transaction dan sales-receipts:repair-bank-journals.",
+            "keywords_en": ["duplicate purchase invoice", "fix duplicate transaction", "repair bank journal", "sales receipt", "legacy data", "PI repost"],
+            "keywords_id": ["duplikat purchase invoice", "perbaikan transaksi", "journal bank SR", "sales receipt", "data legacy", "repost PI"],
+            "notes": "Commands: inventory:report-purchase-invoice-duplicates, inventory:fix-duplicate-transaction (--item or --invoice), sales-receipts:repair-bank-journals. Action plan: docs/action-plans/inventory-transaction-deduplication-prevention.md. After PI cleanup use FIFO Layer Repair for affected FIFO items."
+        },
+        {
+            "id": "menu-search",
+            "title_en": "Menu Search (navbar)",
+            "title_id": "Pencarian menu (navbar)",
+            "menu_path_en": "Top navbar search field (Ctrl+K / Cmd+K). Filters sidebar destinations you may access.",
+            "menu_path_id": "Kolom pencarian navbar atas (Ctrl+K / Cmd+K). Menyaring menu yang boleh diakses sesuai izin.",
+            "keywords_en": ["menu search", "search menu", "find menu", "navigate", "ctrl+k", "quick access"],
+            "keywords_id": ["cari menu", "pencarian menu", "search menu", "navigasi cepat", "ctrl+k"],
+            "notes": "Implementation: MenuSearchService, GET /api/menu/search, public/js/menu-search.js. Reference: docs/menu-search-feature-reference.md. Permission-aware; reindex not required when only MenuSearchService changes."
         },
         {
             "id": "inventory-transfer",

@@ -11,6 +11,16 @@
 @endsection
 
 @section('content')
+    @if (($fifoDiagnosis['status'] ?? null) && ! in_array($fifoDiagnosis['status'], ['ok', 'not_applicable'], true))
+        <div class="alert alert-warning">
+            <strong>FIFO layer issue detected.</strong>
+            {{ $fifoDiagnosis['error'] ?? 'Warehouse stock and FIFO cost layers are out of sync.' }}
+            @can('inventory.adjust')
+                <a href="{{ route('inventory.fifo-repair.show', $item->id) }}" class="alert-link ml-2">Open FIFO Layer Repair</a>
+            @endcan
+        </div>
+    @endif
+
     <div class="row">
         <div class="col-md-4">
             <div class="card">
