@@ -185,24 +185,33 @@ class InventoryService
 
     public function updateItemValuation(InventoryItem $item)
     {
+        return $this->persistItemValuation($item, $this->calculateUnitCost($item));
+    }
+
+    /**
+     * Recalculate valuation after correcting historical inventory rows.
+     * Uses tolerant FIFO replay so past sales that consumed phantom duplicate stock do not abort the repair.
+     */
+    public function updateItemValuationAfterDataRepair(InventoryItem $item): InventoryValuation
+    {
+        return $this->persistItemValuation($item, $this->calculateUnitCostForRepair($item));
+    }
+
+    private function persistItemValuation(InventoryItem $item, float $unitCost): InventoryValuation
+    {
         $currentStock = $item->current_stock;
         $valuationDate = now()->toDateString();
 
-        // Check if valuation already exists for today
         $existingValuation = InventoryValuation::where('item_id', $item->id)
             ->where('valuation_date', $valuationDate)
             ->first();
 
-        // Skip if valuation exists and stock hasn't changed
         if ($existingValuation && $existingValuation->quantity_on_hand == $currentStock) {
             return $existingValuation;
         }
 
-        // Calculate new unit cost based on valuation method
-        $unitCost = $this->calculateUnitCost($item);
         $totalValue = $currentStock * $unitCost;
 
-        // Use updateOrCreate to handle duplicate entries gracefully
         return InventoryValuation::updateOrCreate(
             [
                 'item_id' => $item->id,
@@ -215,6 +224,26 @@ class InventoryService
                 'valuation_method' => $item->valuation_method,
             ]
         );
+    }
+
+    public function calculateUnitCostForRepair(InventoryItem $item): float
+    {
+        $transactions = $item->transactions()
+            ->orderBy('transaction_date', 'asc')
+            ->orderBy('id', 'asc')
+            ->get();
+
+        if ($transactions->isEmpty()) {
+            return (float) $item->purchase_price;
+        }
+
+        return match ($item->valuation_method) {
+            'fifo' => $this->calculateFIFOCost($transactions, strict: false),
+            'weighted_average' => $this->calculateWeightedAverageCost(
+                $transactions->where('transaction_type', 'purchase')
+            ) ?: (float) $item->purchase_price,
+            default => (float) $item->purchase_price,
+        };
     }
 
     public function getRemainingFifoLayers(InventoryItem $item): array
@@ -355,12 +384,16 @@ class InventoryService
         }
     }
 
-    private function calculateFIFOCost($transactions)
+    private function calculateFIFOCost($transactions, bool $strict = true): float
     {
-        $layers = $this->buildFifoLayers($transactions);
+        $layers = $this->buildFifoLayers($transactions, $strict);
 
         if ($layers === []) {
-            return 0;
+            $purchaseAverage = $this->calculateWeightedAverageCost(
+                $transactions->where('transaction_type', 'purchase')
+            );
+
+            return $purchaseAverage > 0 ? round($purchaseAverage, 4) : 0;
         }
 
         $totalQty = array_sum(array_column($layers, 'quantity'));
@@ -375,7 +408,7 @@ class InventoryService
     /**
      * @return array<int, array{quantity: float, unit_cost: float}>
      */
-    private function buildFifoLayers($transactions): array
+    private function buildFifoLayers($transactions, bool $strict = true): array
     {
         $layers = [];
 
@@ -407,7 +440,11 @@ class InventoryService
                     continue;
                 }
 
-                $this->consumeFifoLayers($layers, abs($qty));
+                if ($strict) {
+                    $this->consumeFifoLayers($layers, abs($qty));
+                } else {
+                    $this->consumeFifoLayersWithCost($layers, abs($qty));
+                }
             }
         }
 
