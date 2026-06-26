@@ -187,7 +187,8 @@
 - **Manual**: See `docs/manuals/purchase-invoice-manual-id.md` and `docs/manuals/purchase-invoice-manual-en.md`
 - **Invoice date validation**: On create and draft update, **Date** must be **on or before today** (application timezone), unless **Opening Balance Invoice** is checked or the user has permission **`ap.invoices.future_date`** (assign via Admin → Roles)
 - **Line Items**: Multiple line items with tax handling
-- **Inventory idempotency (direct purchase / stock post)**: `inventory_transactions.purchase_invoice_line_id` with DB uniqueness; pessimistic lock on post; single-flight Post UI; optional `php artisan inventory:report-purchase-invoice-duplicates` for monitoring (see `docs/action-plans/inventory-transaction-deduplication-prevention.md`)
+- **Inventory idempotency (direct purchase / stock post)**: `inventory_transactions.purchase_invoice_line_id` with DB uniqueness; pessimistic lock on post; single-flight Post UI; `php artisan inventory:report-purchase-invoice-duplicates` for monitoring; `php artisan inventory:fix-duplicate-transaction --item=... [--dry-run]` for legacy duplicate cleanup (see `docs/action-plans/inventory-transaction-deduplication-prevention.md`)
+- **Inventory item detail**: Transaction history dates on `/inventory/{id}` use **`d M Y`** format (e.g. `05 Jun 2026`)
 - **Payment Allocation**: Automatic allocation to purchase payments
 - **AP UnInvoice Accounting**: Intermediate account handling for accrual accounting
 - **Multi-Currency Support**: Foreign currency invoices with exchange rate handling
@@ -269,6 +270,7 @@
 - **Invoice-First Flow**: Select customer → load outstanding Sales Invoices via `getAvailableInvoices` API → select invoices to receive payment with checkboxes (Select All/Deselect All) → enter allocation amount per invoice → receipt lines auto-populated from total allocation
 - **Explicit Allocation**: User selects which invoices to pay and allocation amounts; receipt total must match allocation total; validation prevents over-allocation
 - **Automatic Numbering**: Entity-aware format `EEYYDDNNNNN` (code 09)
+- **Posting**: Debits COA account from receipt lines via `SalesReceiptJournalBuilder` / `CashJournalLineBuilder`; credits Piutang Dagang. **Legacy repair**: `php artisan sales-receipts:repair-bank-journals` for SRs posted before 2026-06-23 that debited Kas di Tangan (`1.1.1.01`) regardless of selected bank
 - **Show Page**: Receipt Information, System Information, Sales Invoices Being Paid (with links), Receipt Lines—mirrors Purchase Payment layout
 - **Multi-Currency Support**: Foreign currency receipts
 - **Document Closure**: Automatic closure of fully paid Sales Invoices

@@ -54,7 +54,7 @@ Key stock movements by `purchase_invoice_line_id` (not only `purchase_invoice` +
 | #   | Action           | Details                                                                                                                                                                                                 |
 | --- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 3.1 | **Monitoring**   | ✅ **Done (2026-03-31).** `php artisan inventory:report-purchase-invoice-duplicates` — lists legacy duplicate PI+item groups and count of purchase rows missing `purchase_invoice_line_id`. |
-| 3.2 | **Runbook**      | Use `inventory:fix-duplicate-transaction --item=... --dry-run` for legacy duplicates; use report command above for visibility. |
+| 3.2 | **Runbook**      | Use `inventory:fix-duplicate-transaction --item=... --dry-run` for legacy duplicates; use report command above for visibility. **Known live case (2026-06-25)**: PI `71260300107` (#175) — 41 item groups with 2–3 purchase rows each from repost without inventory unpost (e.g. item 585 CON000131: keep txn with `purchase_invoice_line_id`, delete NULL-line dupes). |
 | 3.3 | **Decision log** | Updated in `docs/decisions.md`. |
 
 
@@ -94,5 +94,6 @@ Key stock movements by `purchase_invoice_line_id` (not only `purchase_invoice` +
 | ---------- | ------------------- |
 | 2026-03-31 | Initial action plan |
 | 2026-03-31 | Phases 1–3 implemented (lock, UI, line FK, unique, idempotency, test, report command) |
+| 2026-06-25 | Documented live legacy duplicate pattern on PI #175; runbook points to `inventory:fix-duplicate-transaction` |
 
 

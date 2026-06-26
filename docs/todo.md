@@ -1,5 +1,5 @@
 **Purpose**: Track current work and immediate priorities
-**Last Updated**: 2026-06-24 (Account transactions drill-down)
+**Last Updated**: 2026-06-25 (SR legacy bank posting repair + inventory UX/docs)
 
 ## Task Management Guidelines
 
@@ -42,9 +42,12 @@ Include relevant context in brackets to help with future AI-assisted coding:
 
 -   `[ ] P1: Audit Trail System Implementation - Phase 1 [Complete Core UI - Create missing views (index, show, by-user, by-action), enhance AuditLogController with statistics and filtering, add sidebar menu integration, implement DataTables with server-side processing, add export functionality (Excel, PDF, CSV), see docs/audit-trail-phase1-detailed-action-plan.md for complete implementation guide]`
 -   `[WIP] P0: Multi-Entity Company Profile - Phase 2 Services & Numbering Integration [CompanyEntityService, DocumentNumberingService refactor, controller/service updates for PO/GRPO/PI/PP/SO/DO/SI/SR, docs/company-profile-multi-entity-plan.md]`
+-   `[ ] P1: Legacy data repair — Sales Receipt bank journals [37 posted SRs before 2026-06-23 debited 1.1.1.01 instead of receipt line bank; run `php artisan sales-receipts:repair-bank-journals --dry-run` then `--force`; example SR 71260900007 → should DR 1.1.1.02 CIMB; RepairSalesReceiptBankJournalsCommand; docs/decisions MEMORY [123]]`
+-   `[ ] P1: Legacy data repair — PI duplicate inventory [PI 71260300107 (#175) triple-posted inventory on repost without unpost cleanup; 41 items affected; `inventory:report-purchase-invoice-duplicates`; per-item `inventory:fix-duplicate-transaction --item=... --dry-run`; example item 585 CON000131; docs/action-plans/inventory-transaction-deduplication-prevention.md MEMORY [124]]`
 
 ## Recently Completed
 
+-   `[done] P2: Sales Receipt legacy bank posting repair command + inventory item date format [RepairSalesReceiptBankJournalsCommand (reverse wrong journal + repost via SalesReceiptJournalBuilder); registered in Kernel; RepairSalesReceiptBankJournalsCommandTest; inventory/show transaction_date `d M Y` aligned with accounts.show; docs architecture/decisions/MEMORY/todo] (completed: 2026-06-25)`
 -   `[done] P2: COA per-account ledger drill-down [accounts.show; ReportService::getAccountLedger; JournalSourceUrlResolver; COA index View links; AccountTransactionsShowTest; docs architecture/decisions/MEMORY [122]] (completed: 2026-06-24)`
 -   `[done] P1: Menu Search + HELP corpus sync (June 2026 week) [MenuSearchService: bank accounts, bank reconciliation, tax compliance, equity/subledger/PPN reports, inventory dashboard/detail, domain assistant; help-navigation.json + 6 new manual pairs; inventory valuation LIFO removed; help:reindex 606 chunks; MenuSearchServiceTest, HelpNavigationEntriesTest] (completed: 2026-06-20)`
 -   `[done] P1: Single document delete mode [deleteSingle/previewSingle; mode=single on delete-preview/destroy; block when descendants exist; split-button dropdown UI; DocumentDeletionTest; docs architecture/decisions/MEMORY] (completed: 2026-06-20)`

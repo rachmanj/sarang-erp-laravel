@@ -1,5 +1,5 @@
 **Purpose**: AI's persistent knowledge base for project context and learnings
-**Last Updated**: 2026-06-24 (Account transactions drill-down)
+**Last Updated**: 2026-06-25 (SR legacy bank journal repair; PI duplicate inventory diagnosis)
 
 ## Memory Maintenance Guidelines
 
@@ -26,6 +26,22 @@
 ---
 
 ## Project Memory Entries
+
+### [124] Legacy PI inventory duplicates from repost without unpost (2026-06-25) ✅ COMPLETE
+
+**Challenge**: PI 71260300107 (#175) showed triple purchase rows per item (e.g. item 585 CON000131) — stock inflated +10 vs expected 0 after one sale. Idempotency guard (`purchase_invoice_line_id`) only prevents new duplicates; legacy rows from Mar 2026 reposts remained.
+
+**Solution**: Diagnose via `inventory:report-purchase-invoice-duplicates`; repair per item with `inventory:fix-duplicate-transaction` (keep earliest txn with line link, delete later dupes, recalc stock). PI #175 affects 41 item groups.
+
+**Learning**: Reposting PI without `PurchaseInvoiceUnpostService::reverseDirectPurchaseInventory()` leaves purchase rows; always unpost (or repair) before repost. Monitor with report command after bulk data imports.
+
+### [123] Legacy Sales Receipt bank account mis-posting (2026-06-25) ✅ COMPLETE
+
+**Challenge**: SR 71260900007 debited `1.1.1.01` Kas di Tangan though receipt line selected CIMB `1.1.1.02`; 37 posted SRs before 2026-06-23 affected (~Rp 2.59B). AR credit was correct; bank GL and reconciliation wrong. Some PT receipts journaled under default CV entity.
+
+**Solution**: Root cause: pre-`SalesReceiptJournalBuilder` `post()` hard-coded cash account. Shipped `RepairSalesReceiptBankJournalsCommand` — reverse wrong journal + repost via builder (`--dry-run`, `--force`). Tests: `RepairSalesReceiptBankJournalsCommandTest`.
+
+**Learning**: SR/PP bank posting fix (2026-06-19) only applied to new posts; live data needs one-time repair command. Verify net effect per account (intended bank debit = total, AR net credit = total) before/after repair.
 
 ### [122] COA per-account ledger drill-down (2026-06-24) ✅ COMPLETE
 

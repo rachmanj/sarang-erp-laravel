@@ -61,7 +61,9 @@ Posting mencatat ke akuntansi. Perlu izin **`ar.receipts.post`**.
 1. Buka receipt.
 2. Klik **Post**.
 
-**Kata kunci:** posting sales receipt, finalisasi SR, jurnal dari penerimaan.
+Jurnal **mendebit akun kas/bank pada baris penerimaan** (bukan akun kas tetap) dan **mengkredit piutang dagang** sesuai total alokasi. **Data lama (sebelum Juni 2026):** beberapa SR yang sudah posted mungkin masih tercatat ke Kas di Tangan di GL — administrator memperbaiki dengan `php artisan sales-receipts:repair-bank-journals --dry-run` (lihat `docs/decisions.md`).
+
+**Kata kunci:** posting sales receipt, finalisasi SR, jurnal dari penerimaan, akun bank baris penerimaan.
 
 ---
 

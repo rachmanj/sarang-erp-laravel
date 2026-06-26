@@ -320,7 +320,7 @@
                                 <tbody>
                                     @foreach ($transactions as $transaction)
                                         <tr>
-                                            <td>{{ \Carbon\Carbon::parse($transaction->transaction_date)->format('d/m/Y') }}
+                                            <td>{{ \Carbon\Carbon::parse($transaction->transaction_date)->format('d M Y') }}
                                             </td>
                                             <td>
                                                 <span

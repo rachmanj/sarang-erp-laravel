@@ -61,7 +61,9 @@ Posting turns the draft into accounting entries. You need permission **`ar.recei
 1. Open the receipt.
 2. Click **Post**.
 
-**Keywords:** post sales receipt, finalize receipt, journal from SR.
+The journal **debits the cash/bank COA account on each receipt line** (not a fixed petty-cash account) and **credits accounts receivable** for the allocated total. **Legacy data (before June 2026):** some posted receipts may still show Kas di Tangan in the GL instead of the selected bank — administrators repair with `php artisan sales-receipts:repair-bank-journals --dry-run` (see `docs/decisions.md`).
+
+**Keywords:** post sales receipt, finalize receipt, journal from SR, bank account receipt line.
 
 ---
 

@@ -1,7 +1,17 @@
 **Purpose**: Record technical decisions and rationale for future reference
-**Last Updated**: 2026-06-24 (Account transactions drill-down)
+**Last Updated**: 2026-06-25 (SR legacy bank journal repair; inventory item date format)
 
 # Technical Decision Records
+
+## Decision: Legacy Sales Receipt bank journal repair command - 2026-06-25
+
+**Context**: SRs posted before 2026-06-23 used hard-coded `1.1.1.01` Kas di Tangan in `SalesReceiptController::post()` instead of the bank/cash account on receipt lines. `SalesReceiptJournalBuilder` (2026-06-19/20) fixed new posts but 37 live SRs had wrong cash/bank debits; PT receipts often posted under default CV entity.
+
+**Decision**: Add `php artisan sales-receipts:repair-bank-journals` to detect affected receipts (net bank debit ≠ receipt line account), reverse the original mis-posted journal if not already reversed, and repost using `SalesReceiptJournalBuilder`. Support `--dry-run`, `--id`, `--receipt-no`, `--force`. Do not silently edit `journal_lines` in place — preserve audit trail via reversal + repost.
+
+**Implementation**: `RepairSalesReceiptBankJournalsCommand` registered in `app/Console/Kernel.php`; `RepairSalesReceiptBankJournalsCommandTest`.
+
+**Review Date**: 2027-06-25
 
 ## Decision: COA per-account ledger drill-down - 2026-06-24
 
