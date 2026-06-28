@@ -4,6 +4,8 @@ namespace App\Services\Accounting;
 
 use App\Models\Accounting\PurchaseInvoice;
 use App\Models\Accounting\PurchaseInvoiceLine;
+use App\Models\Accounting\SalesInvoice;
+use App\Models\Accounting\SalesInvoiceLine;
 use Illuminate\Support\Collection;
 
 final class HeaderDiscountAllocation
@@ -144,6 +146,55 @@ final class HeaderDiscountAllocation
             $out[] = [
                 'line_id' => (int) $line->id,
                 'dpp' => $dpp,
+                'header_share' => $headerShares[$i],
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * @return list<array{line_id: int, dpp: float, output_vat: float, wtax: float, payable: float, header_share: float}>
+     */
+    public static function salesInvoiceLineScaled(SalesInvoice $invoice): array
+    {
+        $lines = $invoice->lines->sortBy('id')->values();
+        if ($lines->isEmpty()) {
+            return [];
+        }
+
+        $lineDiscountSum = round((float) $lines->sum('discount_amount'), 2);
+        $invoiceDiscount = round((float) ($invoice->discount_amount ?? 0), 2);
+        $headerOnly = round(max(0.0, $invoiceDiscount - $lineDiscountSum), 2);
+
+        $payables = [];
+        foreach ($lines as $i => $line) {
+            /** @var SalesInvoiceLine $line */
+            $parts = SalesInvoicePostingMath::splitLineFromTaxExclusivePricing($line);
+            $payables[$i] = $parts['gross'];
+        }
+
+        $T = round(array_sum($payables), 2);
+        $H = round(min($headerOnly, $T), 2);
+        $s = self::payableScale($T, $H);
+        $headerShares = self::splitHeaderAcrossPayables($payables, $H);
+
+        $out = [];
+        foreach ($lines as $i => $line) {
+            /** @var SalesInvoiceLine $line */
+            $parts = SalesInvoicePostingMath::splitLineFromTaxExclusivePricing($line);
+            $dpp = round($parts['dpp'] * $s, 2);
+            $vatRate = $parts['dpp'] > 0 ? ($parts['output_vat'] / $parts['dpp']) * 100 : 0.0;
+            $wtaxRate = $parts['dpp'] > 0 ? ($parts['wtax'] / $parts['dpp']) * 100 : 0.0;
+            $outputVat = $vatRate > 0 ? round($dpp * ($vatRate / 100), 2) : 0.0;
+            $wtax = $wtaxRate > 0 ? round($dpp * ($wtaxRate / 100), 2) : 0.0;
+
+            $out[] = [
+                'line_id' => (int) $line->id,
+                'dpp' => $dpp,
+                'output_vat' => $outputVat,
+                'wtax' => $wtax,
+                'payable' => round($dpp + $outputVat - $wtax, 2),
                 'header_share' => $headerShares[$i],
             ];
         }

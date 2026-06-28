@@ -1,6 +1,6 @@
 @extends('layouts.main')
 
-@section('title', isset($prefill['delivery_order_ids']) ? 'Create Sales Invoice from DO(s)' : 'Create Sales Invoice')
+@section('title', isset($prefill['delivery_order_ids']) ? 'Create Sales Invoice from DO(s)' : (($directSale ?? false) ? 'Create Direct Sale' : 'Create Sales Invoice'))
 
 @section('title_page')
     @if (isset($prefill['delivery_order_ids']))
@@ -272,9 +272,59 @@
                                     </div>
                                 </div>
 
+                                @if (!isset($prefill['delivery_order_ids']))
+                                    <div class="card card-warning card-outline mb-3" id="direct-sale-card">
+                                        <div class="card-header py-2">
+                                            <h3 class="card-title">
+                                                <i class="fas fa-cash-register mr-1"></i>
+                                                Direct Sale
+                                            </h3>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="form-check mb-2">
+                                                <input type="checkbox" name="is_direct_sale" id="is_direct_sale" value="1"
+                                                    class="form-check-input"
+                                                    {{ old('is_direct_sale', $directSale ?? false) ? 'checked' : '' }}>
+                                                <label class="form-check-label" for="is_direct_sale">
+                                                    Direct sale (bypass Sales Order / Delivery Order; issue stock on post)
+                                                </label>
+                                            </div>
+                                            <div id="direct-sale-options" style="{{ old('is_direct_sale', $directSale ?? false) ? '' : 'display:none;' }}">
+                                                <div class="row">
+                                                    <div class="col-md-4">
+                                                        <div class="form-group mb-2">
+                                                            <label for="payment_method">Payment</label>
+                                                            <select name="payment_method" id="payment_method" class="form-control form-control-sm">
+                                                                <option value="credit" {{ old('payment_method', 'credit') === 'credit' ? 'selected' : '' }}>Credit (AR — pay later)</option>
+                                                                <option value="cash" {{ old('payment_method') === 'cash' ? 'selected' : '' }}>Cash (paid now)</option>
+                                                            </select>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-4" id="cash_account_field" style="{{ old('payment_method') === 'cash' ? '' : 'display:none;' }}">
+                                                        <div class="form-group mb-2">
+                                                            <label for="cash_account_id">Cash / Bank Account</label>
+                                                            <select name="cash_account_id" id="cash_account_id" class="form-control form-control-sm select2bs4">
+                                                                <option value="">Select account</option>
+                                                                @foreach ($cashAccounts ?? [] as $cashAccount)
+                                                                    <option value="{{ $cashAccount->id }}" {{ (string) old('cash_account_id') === (string) $cashAccount->id ? 'selected' : '' }}>
+                                                                        {{ $cashAccount->code }} - {{ $cashAccount->name }}
+                                                                    </option>
+                                                                @endforeach
+                                                            </select>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <small class="text-muted">
+                                                    Direct sale lines require an inventory item. Stock is reduced when the invoice is posted.
+                                                </small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                @endif
+
                                 <div class="row">
                                     <div class="col-md-12">
-                                        <div class="form-group row mb-2">
+                                        <div class="form-group row mb-2" id="opening-balance-row">
                                             <div class="col-sm-9 offset-sm-3">
                                                 <div class="form-check">
                                                     <input type="checkbox" name="is_opening_balance" id="is_opening_balance"
@@ -311,7 +361,8 @@
                                             <table class="table table-sm table-striped mb-0" id="lines-table">
                                                 <thead>
                                                     <tr>
-                                                        <th style="width: 22%">Revenue Account <span
+                                                        <th style="width: 22%; display:none;" class="direct-sale-col">Item <span class="text-danger">*</span></th>
+                                                        <th style="width: 22%" class="normal-revenue-col">Revenue Account <span
                                                                 class="text-danger">*</span></th>
                                                         <th style="width: 12%">Item Code</th>
                                                         <th style="width: 20%">Item Name</th>
@@ -428,7 +479,19 @@
                                                         @endforeach
                                                     @else
                                                         <tr class="line-item">
-                                                            <td>
+                                                            <td class="direct-sale-item-cell" style="display:none;">
+                                                                <input type="hidden" name="lines[0][inventory_item_id]" value="">
+                                                                <div class="input-group input-group-sm">
+                                                                    <input type="text" class="form-control form-control-sm direct-sale-item-display" readonly placeholder="Select item">
+                                                                    <div class="input-group-append">
+                                                                        <button type="button" class="btn btn-outline-secondary btn-sm item-search-btn" data-line-idx="0">
+                                                                            <i class="fas fa-search"></i>
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                                <input type="hidden" name="lines[0][account_id]" value="{{ $accounts->first()->id ?? '' }}">
+                                                            </td>
+                                                            <td class="normal-revenue-cell">
                                                                 <input type="hidden" name="lines[0][description]" value="">
                                                                 <input type="hidden" name="lines[0][item_code]" value="">
                                                                 <input type="hidden" name="lines[0][item_name]" value="">
@@ -557,10 +620,14 @@
             </div>
         </div>
     </section>
+
+    @include('components.item-selection-modal')
 @endsection
 
 @push('scripts')
     <script>
+        let isDirectSaleMode = {{ old('is_direct_sale', $directSale ?? false) ? 'true' : 'false' }};
+        const revenueAccountOptions = `@foreach ($accounts as $a)<option value="{{ $a->id }}">{{ $a->code }} - {{ $a->name }}</option>@endforeach`;
         let idx = {{ isset($prefill) && isset($prefill['lines']) ? count($prefill['lines']) : 1 }};
         let siUpdatingDiscount = false;
 
@@ -587,6 +654,114 @@
         }
 
         $(document).ready(function() {
+            $('.select2bs4').select2({
+                theme: 'bootstrap4',
+                placeholder: 'Select an option',
+                allowClear: true
+            });
+
+            function toggleDirectSaleUi() {
+                isDirectSaleMode = $('#is_direct_sale').is(':checked');
+                $('#direct-sale-options').toggle(isDirectSaleMode);
+                $('#opening-balance-row').toggle(!isDirectSaleMode);
+                $('#prefill-do-card').toggle(!isDirectSaleMode);
+                $('.direct-sale-col').toggle(isDirectSaleMode);
+                $('.normal-revenue-col').toggle(!isDirectSaleMode);
+                $('.direct-sale-item-cell').toggle(isDirectSaleMode);
+                $('.normal-revenue-cell').toggle(!isDirectSaleMode);
+
+                if (isDirectSaleMode) {
+                    $('#is_opening_balance').prop('checked', false);
+                }
+
+                const paymentMethod = $('#payment_method').val();
+                $('#cash_account_field').toggle(isDirectSaleMode && paymentMethod === 'cash');
+            }
+
+            $('#is_direct_sale').on('change', toggleDirectSaleUi);
+            $('#payment_method').on('change', function() {
+                $('#cash_account_field').toggle(isDirectSaleMode && $(this).val() === 'cash');
+            });
+            toggleDirectSaleUi();
+
+            $(document).on('click', '.item-search-btn', function() {
+                window.currentLineIdx = $(this).data('line-idx');
+                $('#itemSelectionModal').modal('show');
+                loadDirectSaleItems();
+            });
+
+            function loadDirectSaleItems(page = 1) {
+                $.ajax({
+                    url: '{{ route('inventory.search') }}',
+                    method: 'GET',
+                    data: {
+                        code: $('#searchCode').val(),
+                        name: $('#searchName').val(),
+                        category_id: $('#searchCategory').val(),
+                        item_type: $('#searchType').val() || 'item',
+                        page: page,
+                        per_page: 20,
+                    },
+                    success: function(response) {
+                        const tbody = $('#itemsTable tbody');
+                        tbody.empty();
+                        (response.items || []).forEach(function(item, index) {
+                            const price = item.selling_price || 0;
+                            const stock = item.available_quantity ?? item.current_stock ?? 0;
+                            tbody.append(`
+                                <tr>
+                                    <td>${index + 1}</td>
+                                    <td>${item.code}</td>
+                                    <td>${item.name}</td>
+                                    <td>${item.category ? item.category.name : '-'}</td>
+                                    <td>${item.item_type}</td>
+                                    <td>${item.unit_of_measure || '-'}</td>
+                                    <td>${price}</td>
+                                    <td>${price}</td>
+                                    <td>${stock}</td>
+                                    <td>
+                                        <button type="button" class="btn btn-xs btn-primary select-item-btn"
+                                            data-item-id="${item.id}"
+                                            data-item-code="${item.code}"
+                                            data-item-name="${item.name}"
+                                            data-item-price="${price}">
+                                            Select
+                                        </button>
+                                    </td>
+                                </tr>
+                            `);
+                        });
+                    }
+                });
+            }
+
+            $('#searchItems').on('click', function() { loadDirectSaleItems(1); });
+            $('#clearSearch').on('click', function() {
+                $('#searchCode, #searchName').val('');
+                $('#searchCategory, #searchType').val('');
+                loadDirectSaleItems(1);
+            });
+
+            $(document).on('click', '.select-item-btn', function() {
+                const lineIdx = window.currentLineIdx;
+                const itemId = $(this).data('item-id');
+                const itemCode = $(this).data('item-code');
+                const itemName = $(this).data('item-name');
+                const itemPrice = $(this).data('item-price');
+                const row = $(`input[name="lines[${lineIdx}][inventory_item_id]"]`).closest('tr');
+
+                row.find(`input[name="lines[${lineIdx}][inventory_item_id]"]`).val(itemId);
+                row.find(`input[name="lines[${lineIdx}][item_code]"]`).val(itemCode);
+                row.find(`input[name="lines[${lineIdx}][item_name]"]`).val(itemName);
+                row.find(`input[name="lines[${lineIdx}][description]"]`).val(itemName);
+                row.find('.direct-sale-item-display').val(`${itemCode} - ${itemName}`);
+                row.find(`input[name="lines[${lineIdx}][item_code_display]"]`).val(itemCode);
+                row.find(`input[name="lines[${lineIdx}][item_name_display]"]`).val(itemName);
+                row.find('.price-input').val(itemPrice);
+                updateTotalAmount();
+                $('#itemSelectionModal').modal('hide');
+            });
+
             // Initialize Select2BS4 for all select elements
             $('.select2bs4').select2({
                 theme: 'bootstrap4',
@@ -783,21 +958,37 @@
             updateTotalAmount();
         });
 
+        function directSaleItemCellHtml(lineIdx) {
+            return `
+                <td class="direct-sale-item-cell" style="${isDirectSaleMode ? '' : 'display:none;'}">
+                    <input type="hidden" name="lines[${lineIdx}][inventory_item_id]" value="">
+                    <div class="input-group input-group-sm">
+                        <input type="text" class="form-control form-control-sm direct-sale-item-display" readonly placeholder="Select item">
+                        <div class="input-group-append">
+                            <button type="button" class="btn btn-outline-secondary btn-sm item-search-btn" data-line-idx="${lineIdx}">
+                                <i class="fas fa-search"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <input type="hidden" name="lines[${lineIdx}][account_id]" value="{{ $accounts->first()->id ?? '' }}">
+                </td>
+                <td class="normal-revenue-cell" style="${isDirectSaleMode ? 'display:none;' : ''}">
+                    <input type="hidden" name="lines[${lineIdx}][description]" value="">
+                    <input type="hidden" name="lines[${lineIdx}][item_code]" value="">
+                    <input type="hidden" name="lines[${lineIdx}][item_name]" value="">
+                    <select name="lines[${lineIdx}][account_id]" class="form-control form-control-sm select2bs4" required>
+                        ${revenueAccountOptions}
+                    </select>
+                </td>
+            `;
+        }
+
         function addLine() {
             const container = document.getElementById('lines');
             const row = document.createElement('tr');
             row.className = 'line-item';
             row.innerHTML = `
-                <td>
-                    <input type="hidden" name="lines[${idx}][description]" value="">
-                    <input type="hidden" name="lines[${idx}][item_code]" value="">
-                    <input type="hidden" name="lines[${idx}][item_name]" value="">
-                    <select name="lines[${idx}][account_id]" class="form-control form-control-sm select2bs4" required>
-                        @foreach ($accounts as $a)
-                            <option value="{{ $a->id }}">{{ $a->code }} - {{ $a->name }}</option>
-                        @endforeach
-                    </select>
-                </td>
+                ${directSaleItemCellHtml(idx)}
                 <td>
                     <input type="text" name="lines[${idx}][item_code_display]" class="form-control form-control-sm" placeholder="Item Code" readonly style="background-color: #e9ecef;">
                 </td>

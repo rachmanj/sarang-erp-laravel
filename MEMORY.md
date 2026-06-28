@@ -1,5 +1,5 @@
 **Purpose**: AI's persistent knowledge base for project context and learnings
-**Last Updated**: 2026-06-25 (FIFO Layer Repair UI; PI #175 repair completed; HELP/Menu Search sync)
+**Last Updated**: 2026-06-28 (Direct Sales SI mode)
 
 ## Memory Maintenance Guidelines
 
@@ -26,6 +26,22 @@
 ---
 
 ## Project Memory Entries
+
+### [127] Default company entity PT CSJ (2026-06-28) ✅ COMPLETE
+
+**Challenge**: `CompanyEntityService::getDefaultEntity()` picked the first active entity alphabetically (CV Cahaya Saranghae), so new Sales/Purchase documents defaulted to CV instead of PT Cahaya Sarange Jaya (71).
+
+**Solution**: Default resolution now targets code `71` (`CompanyEntity::DEFAULT_CODE`) with fallback to lowest active code; all create forms and services already consume `getDefaultEntity()`.
+
+**Key Learning**: Multi-entity defaults belong in one service constant, not per-view overrides.
+
+### [126] Direct Sales as Sales Invoice mode (2026-06-28) ✅ COMPLETE
+
+**Challenge**: Standalone SI posting assumed prior DO revenue/COGS; no stock movement on post.
+
+**Solution**: `is_direct_sale` flag + `DirectSalesPostingService` (inventory sale + full GL journal); credit leaves AR; cash auto-posts Sales Receipt. Header discount scaled via `HeaderDiscountAllocation::salesInvoiceLineScaled`.
+
+**Key Learning**: Reuse SI document + purchase direct-cash pattern instead of a new doc type; deletion must restore stock via `reverseInventory`.
 
 ### [125] FIFO Layer Repair self-service UI (2026-06-25) ✅ COMPLETE
 

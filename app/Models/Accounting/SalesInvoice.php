@@ -31,6 +31,9 @@ class SalesInvoice extends Model
         'sales_order_id',
         'reference_no',
         'is_opening_balance',
+        'is_direct_sale',
+        'payment_method',
+        'cash_account_id',
         'description',
         'total_amount',
         'discount_amount',
@@ -48,6 +51,7 @@ class SalesInvoice extends Model
         'discount_amount' => 'decimal:2',
         'discount_percentage' => 'decimal:2',
         'is_opening_balance' => 'boolean',
+        'is_direct_sale' => 'boolean',
         'is_pkp' => 'boolean',
         'dpp_nilai_lain' => 'decimal:2',
         'ppnbm_amount' => 'decimal:2',
@@ -111,5 +115,10 @@ class SalesInvoice extends Model
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function cashAccount(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Accounting\Account::class, 'cash_account_id');
     }
 }

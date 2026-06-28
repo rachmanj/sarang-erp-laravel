@@ -55,13 +55,15 @@ class CompanyEntityService
     }
 
     /**
-     * Grab the default active entity (first active one in alphabetical order).
+     * Grab the default active entity (PT Cahaya Sarange Jaya, code 71).
      */
     public function getDefaultEntity(): CompanyEntity
     {
         return CompanyEntity::where('is_active', true)
-            ->orderBy('name')
-            ->firstOrFail();
+            ->where('code', CompanyEntity::DEFAULT_CODE)
+            ->first()
+            ?? CompanyEntity::where('is_active', true)
+                ->orderBy('code')
+                ->firstOrFail();
     }
 }
-

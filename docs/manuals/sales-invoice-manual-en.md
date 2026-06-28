@@ -13,6 +13,7 @@ A **Sales Invoice (SI)** is the customer billing document that records **account
 | **From Delivery Order** | Main flow: goods shipped first (DO **delivered** / **completed**), then invoice. |
 | **From Sales Quotation** | Create screen opened with `quotation_id` — lines prefilled from the quotation. |
 | **Manual** | **Sales** → **Sales Invoices** → **Create** without a DO — enter customer and lines (e.g. services). |
+| **Direct Sales** | **Sales** → **New Direct Sale**, or SI **Create** with **Direct Sale** enabled — sell and issue stock on **Post** (credit or cash). See `direct-sales-manual-en.md`. |
 
 ---
 

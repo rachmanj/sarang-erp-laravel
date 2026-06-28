@@ -34,6 +34,7 @@
 | **Dari Delivery Order** | Alur utama: barang sudah dikirim (DO **delivered** / **completed**), lalu dibuat faktur. |
 | **Dari Sales Quotation** | Mengisi form create dengan parameter quotation (baris diisi dari penawaran). |
 | **Manual** | Create dari menu tanpa DO — isi pelanggan dan baris faktur sendiri (misalnya jasa atau kasus khusus). |
+| **Direct Sales** | **Sales** → **New Direct Sale**, atau create SI dengan centang **Direct Sale** — stok keluar saat **Post** (tunai atau kredit). Lihat `direct-sales-manual-id.md`. |
 
 ### Istilah yang dipakai pengguna
 

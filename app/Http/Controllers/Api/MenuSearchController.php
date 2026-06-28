@@ -12,7 +12,7 @@ class MenuSearchController extends Controller
     /**
      * Bump when menu structure / searchable items change so cached lists refresh.
      */
-    private const CACHE_VERSION = 2;
+    private const CACHE_VERSION = 3;
 
     public function __construct(
         protected MenuSearchService $menuSearchService,

@@ -2907,3 +2907,23 @@ Decision: [Title] - [YYYY-MM-DD]
 -   **Search Features**: Case-insensitive search, searches both code and name fields, highlights matching text in results, shows up to 50 results, proper error messages, loading states.
 
 **Review Date**: 2026-08-03 (6 months from implementation).
+
+---
+
+### Decision: Direct Sales as Sales Invoice mode (2026-06-28)
+
+**Context**: Standalone Sales Invoices without a prior Delivery Order post only AR UnInvoice → AR conversion, leaving revenue/COGS/inventory unbooked. Users need counter/cash sales and credit direct sales that issue stock in one step.
+
+**Options Considered**:
+
+1. **New document type** (Direct Sales with own table/numbering).
+2. **SI mode flag** (`is_direct_sale`) reusing `sales_invoices` + code 08, with a dedicated posting path.
+
+**Decision**: Option 2 — flag on Sales Invoice with **`DirectSalesPostingService`** / **`DirectSalesInvoiceJournalBuilder`**.
+
+**Rationale**: Mirrors purchase-side direct cash purchase; reuses SI permissions, numbering, tax sync, and receipt allocation. Credit vs cash chosen at create; cash auto-posts Sales Receipt.
+
+**Implementation**: Migration `is_direct_sale`, `payment_method`, `cash_account_id`; create UI toggle + item picker; post branches in `SalesInvoiceController`; stock restore on delete in `SalesInvoiceDeletionHandler`; tests `DirectSalesTest`.
+
+**Review Date**: 2026-12-28 (6 months).
+

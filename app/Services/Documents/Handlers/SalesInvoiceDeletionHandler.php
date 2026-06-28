@@ -5,12 +5,20 @@ namespace App\Services\Documents\Handlers;
 use App\Models\Accounting\SalesCreditMemo;
 use App\Models\Accounting\SalesInvoice;
 use App\Models\DeliveryOrder;
+use App\Services\Accounting\DirectSalesPostingService;
 use App\Services\Documents\DocumentType;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
 class SalesInvoiceDeletionHandler extends AbstractDocumentDeletionHandler
 {
+    public function __construct(
+        DocumentDeletionSupport $support,
+        private DirectSalesPostingService $directSalesPostingService,
+    ) {
+        parent::__construct($support);
+    }
+
     public function type(): string
     {
         return DocumentType::SALES_INVOICE;
@@ -42,6 +50,10 @@ class SalesInvoiceDeletionHandler extends AbstractDocumentDeletionHandler
     {
         /** @var SalesInvoice $document */
         if ($document->status === 'posted') {
+            if ($document->is_direct_sale) {
+                $this->directSalesPostingService->reverseInventory($document);
+            }
+
             $this->support->reverseJournalsFor(['sales_invoice'], (int) $document->id);
             $this->support->deleteTaxTransactions('sales_invoice', (int) $document->id);
         }

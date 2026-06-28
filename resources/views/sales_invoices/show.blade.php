@@ -41,6 +41,14 @@
                         @if ($invoice->is_opening_balance)
                             <span class="badge badge-warning ml-1">Opening Balance</span>
                         @endif
+                        @if ($invoice->is_direct_sale)
+                            <span class="badge badge-info ml-1">Direct Sale</span>
+                            @if ($invoice->payment_method === 'cash')
+                                <span class="badge badge-success ml-1">Cash (Paid)</span>
+                            @else
+                                <span class="badge badge-secondary ml-1">Credit</span>
+                            @endif
+                        @endif
                     </h3>
                     <div class="d-flex flex-wrap gap-1">
                         <button type="button" class="btn btn-sm btn-info"

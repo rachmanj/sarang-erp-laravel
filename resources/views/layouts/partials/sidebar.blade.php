@@ -249,6 +249,15 @@
                                     <p>Delivery Orders</p>
                                 </a>
                             </li>
+                            @can('ar.invoices.create')
+                                <li class="nav-item">
+                                    <a href="{{ route('sales-invoices.create', ['direct' => 1]) }}"
+                                        class="nav-link {{ request()->routeIs('sales-invoices.create') && request()->boolean('direct') ? 'active' : '' }}">
+                                        <i class="far fa-circle nav-icon"></i>
+                                        <p>New Direct Sale</p>
+                                    </a>
+                                </li>
+                            @endcan
                             @can('ar.invoices.view')
                                 <li class="nav-item">
                                     <a href="{{ route('sales-invoices.index') }}"

@@ -81,4 +81,23 @@ class MenuSearchServiceTest extends TestCase
 
         $this->assertContains('Bank Reconciliation', $titles);
     }
+
+    public function test_menu_search_includes_direct_sales_for_invoice_creators(): void
+    {
+        $user = User::factory()->create();
+        $user->givePermissionTo(['ar.invoices.create']);
+        $this->actingAs($user);
+
+        $items = collect(app(MenuSearchService::class)->getSearchableMenuItems());
+
+        $directSale = $items->firstWhere('title', 'Direct Sales');
+        $this->assertNotNull($directSale);
+        $this->assertStringContainsString('direct=1', $directSale['route']);
+
+        $response = $this->getJson('/api/menu/search?q=direct+sales');
+        $response->assertOk();
+
+        $titles = collect($response->json('items'))->pluck('title')->all();
+        $this->assertContains('Direct Sales', $titles);
+    }
 }

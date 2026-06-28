@@ -1,5 +1,5 @@
 **Purpose**: Track current work and immediate priorities
-**Last Updated**: 2026-06-25 (FIFO Layer Repair shipped; PI #175 repaired; HELP + Menu Search docs)
+**Last Updated**: 2026-06-28 (Direct Sales SI mode shipped)
 
 ## Task Management Guidelines
 
@@ -46,6 +46,7 @@ Include relevant context in brackets to help with future AI-assisted coding:
 
 ## Recently Completed
 
+-   `[done] P1: Direct Sales (Sales Invoice mode) [is_direct_sale + payment_method + cash_account_id; DirectSalesPostingService; DirectSalesInvoiceJournalBuilder; SI create UI + sidebar shortcut; auto Sales Receipt for cash; DirectSalesTest; docs architecture/decisions/MEMORY/todo] (completed: 2026-06-28)`
 -   `[done] P1: FIFO Layer Repair self-service + legacy inventory docs [InventoryFifoRepairService/Controller; inventory/fifo-repair routes; sidebar + item warning banner; GR/GI tolerant valuation; fix-duplicate --invoice; manuals inventory-fifo-repair-*; help-navigation.json; MenuSearchService; InventoryFifoRepairTest; docs architecture/decisions/MEMORY/action-plan/todo] (completed: 2026-06-25)`
 -   `[done] P1: Legacy PI duplicate inventory repair PI #175 [inventory:fix-duplicate-transaction --invoice=175 --force; 78 duplicate rows removed; tolerant valuation; follow-up FIFO repair for affected items; MEMORY [124]] (completed: 2026-06-25)`
 -   `[done] P2: Sales Receipt legacy bank posting repair command + inventory item date format [RepairSalesReceiptBankJournalsCommand (reverse wrong journal + repost via SalesReceiptJournalBuilder); registered in Kernel; RepairSalesReceiptBankJournalsCommandTest; inventory/show transaction_date `d M Y` aligned with accounts.show; docs architecture/decisions/MEMORY/todo] (completed: 2026-06-25)`

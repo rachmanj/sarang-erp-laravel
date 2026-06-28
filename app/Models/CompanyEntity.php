@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class CompanyEntity extends Model
 {
+    public const DEFAULT_CODE = '71';
+
     protected $fillable = [
         'code',
         'name',

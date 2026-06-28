@@ -20,6 +20,7 @@ class HelpNavigationEntriesTest extends TestCase
             'document-workflow-features',
             'accounting-reports-enhanced',
             'periods-year-end',
+            'direct-sales',
         ] as $id) {
             $this->assertContains($id, $ids, "Missing help-navigation entry: {$id}");
         }

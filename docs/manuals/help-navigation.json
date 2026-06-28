@@ -143,7 +143,17 @@
             "menu_path_id": "Menu samping → Sales → Sales Invoices. Buat dari DO setelah delivered/completed.",
             "keywords_en": ["sales invoice", "SINV", "invoice", "AR invoice", "line discount", "header discount", "invoice discount", "export excel", "export sales invoice", "filter sales invoice list"],
             "keywords_id": ["faktur penjualan", "SI", "invoice", "faktur", "diskon baris", "diskon header", "diskon faktur", "export excel", "unduh daftar faktur"],
-            "notes": "Manuals: sales-invoice-manual-en.md, sales-invoice-manual-id.md. Reindex: php artisan help:reindex"
+            "notes": "Manuals: sales-invoice-manual-en.md, sales-invoice-manual-id.md. Direct Sales: direct-sales-manual-*.md. Reindex: php artisan help:reindex"
+        },
+        {
+            "id": "direct-sales",
+            "title_en": "Direct Sales (counter / cash sale)",
+            "title_id": "Direct Sales / penjualan langsung",
+            "menu_path_en": "Sidebar → Sales → New Direct Sale; or Sales Invoices → Create → Direct Sale checkbox; or navbar Menu Search → direct sales.",
+            "menu_path_id": "Menu samping → Sales → New Direct Sale; atau Sales Invoices → Create → centang Direct Sale; atau Pencarian menu → direct sales.",
+            "keywords_en": ["direct sales", "direct sale", "counter sale", "cash sale", "walk-in", "POS", "paid now", "credit sale", "bypass delivery order", "issue stock on post", "new direct sale"],
+            "keywords_id": ["direct sales", "penjualan langsung", "jual tunai", "counter", "walk-in", "bayar cash", "kredit", "tanpa DO", "tanpa SO", "stok keluar saat post", "new direct sale"],
+            "notes": "Manuals: direct-sales-manual-en.md / direct-sales-manual-id.md. Same SI permissions (ar.invoices.create/post). Cash mode auto-posts Sales Receipt. MenuSearchService title: Direct Sales. Reindex: php artisan help:reindex"
         },
         {
             "id": "sales-receipts",

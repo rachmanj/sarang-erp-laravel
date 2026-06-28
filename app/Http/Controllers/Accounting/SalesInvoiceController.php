@@ -10,10 +10,12 @@ use App\Models\Accounting\SalesInvoiceLine;
 use App\Models\CompanyEntity;
 use App\Models\DeliveryOrder;
 use App\Models\DeliveryOrderLine;
+use App\Models\InventoryItem;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderLine;
 use App\Models\SalesQuotation;
 use App\Models\User;
+use App\Services\Accounting\DirectSalesPostingService;
 use App\Services\Accounting\JournalBuilders\SalesInvoiceJournalBuilder;
 use App\Services\Accounting\PostingService;
 use App\Services\Accounting\SalesInvoicePostingMath;
@@ -44,6 +46,7 @@ class SalesInvoiceController extends Controller
         private DocumentRelationshipService $documentRelationshipService,
         private CompanyEntityService $companyEntityService,
         private SalesInvoiceJournalBuilder $salesInvoiceJournalBuilder,
+        private DirectSalesPostingService $directSalesPostingService,
     ) {
         $this->middleware(['auth']);
         $this->middleware('permission:ar.invoices.view')->only(['index', 'show']);
@@ -190,8 +193,15 @@ class SalesInvoiceController extends Controller
         }
 
         $vatTaxCodes = DB::table('tax_codes')->where('type', 'ppn_output')->whereIn('rate', [11, 12])->orderBy('rate')->get(['id', 'code', 'rate']);
+        $cashAccounts = DB::table('accounts')
+            ->where('code', 'LIKE', '1.1.1%')
+            ->where('code', '!=', '1.1.1')
+            ->where('is_postable', 1)
+            ->orderBy('code')
+            ->get(['id', 'code', 'name']);
+        $directSale = $request->boolean('direct', false) || old('is_direct_sale', false);
 
-        return view('sales_invoices.create', compact('accounts', 'customers', 'taxCodes', 'vatTaxCodes', 'projects', 'departments', 'entities', 'defaultEntity', 'prefill', 'salesQuotation', 'deliveryOrder', 'invoicableDeliveryOrders', 'fromDo'));
+        return view('sales_invoices.create', compact('accounts', 'customers', 'taxCodes', 'vatTaxCodes', 'projects', 'departments', 'entities', 'defaultEntity', 'prefill', 'salesQuotation', 'deliveryOrder', 'invoicableDeliveryOrders', 'fromDo', 'cashAccounts', 'directSale'));
     }
 
     public function getDocumentNumber(Request $request)
@@ -534,7 +544,21 @@ class SalesInvoiceController extends Controller
             'lines.*.project_id' => ['nullable', 'integer'],
             'lines.*.dept_id' => ['nullable', 'integer'],
             'lines.*.delivery_order_line_id' => ['nullable', 'integer', 'exists:delivery_order_lines,id'],
+            'lines.*.inventory_item_id' => ['nullable', 'integer', 'exists:inventory_items,id'],
+            'is_direct_sale' => ['nullable', 'boolean'],
+            'payment_method' => ['nullable', 'string', 'in:credit,cash'],
+            'cash_account_id' => ['nullable', 'integer', 'exists:accounts,id'],
         ]);
+
+        $isDirectSale = $request->boolean('is_direct_sale', false);
+        if ($isDirectSale) {
+            $directSaleError = $this->validateDirectSaleRequest($request, $data);
+            if ($directSaleError !== null) {
+                return redirect()->route('sales-invoices.create', $request->boolean('direct') ? ['direct' => 1] : [])
+                    ->withInput()
+                    ->with('error', $directSaleError);
+            }
+        }
 
         $deliveryOrderIds = array_filter(array_map('intval', $data['delivery_order_ids'] ?? []));
         if (empty($deliveryOrderIds) && $request->filled('delivery_order_id')) {
@@ -571,7 +595,7 @@ class SalesInvoiceController extends Controller
             $deliveryOrders->first() ?? $salesOrder ?? $salesQuotation
         );
 
-        return DB::transaction(function () use ($data, $request, $salesOrder, $deliveryOrders, $salesQuotation, $entity) {
+        return DB::transaction(function () use ($data, $request, $salesOrder, $deliveryOrders, $salesQuotation, $entity, $isDirectSale) {
             $baseCurrencyId = (int) (DB::table('currencies')->where('code', 'IDR')->value('id')
                 ?: DB::table('currencies')->where('is_base_currency', 1)->value('id'));
             if ($baseCurrencyId < 1) {
@@ -585,6 +609,11 @@ class SalesInvoiceController extends Controller
                 'business_partner_project_id' => $data['business_partner_project_id'] ?? $deliveryOrders->first()?->business_partner_project_id,
                 'sales_order_id' => $request->input('sales_order_id'),
                 'is_opening_balance' => $request->boolean('is_opening_balance', false),
+                'is_direct_sale' => $isDirectSale,
+                'payment_method' => $isDirectSale ? ($request->input('payment_method', 'credit')) : null,
+                'cash_account_id' => $isDirectSale && $request->input('payment_method') === 'cash'
+                    ? (int) $request->input('cash_account_id')
+                    : null,
                 'description' => $data['description'] ?? null,
                 'reference_no' => $data['reference_no'] ?? null,
                 'status' => 'draft',
@@ -630,6 +659,10 @@ class SalesInvoiceController extends Controller
 
             $total = 0;
             foreach ($data['lines'] as $idx => $l) {
+                if ($isDirectSale) {
+                    $l = $this->resolveDirectSaleLineData($l);
+                }
+
                 [$dppDisc, $lineDiscPct] = SalesOrderLine::resolveLineDppDiscount(
                     (float) $l['qty'],
                     (float) $l['unit_price'],
@@ -744,6 +777,7 @@ class SalesInvoiceController extends Controller
             && $user->can('ar.receipts.create')
             && $invoice->status === 'posted'
             && ! $invoice->is_opening_balance
+            && ! ($invoice->is_direct_sale && $invoice->payment_method === 'cash')
             && $remainingBalance > 0.01;
 
         return view('sales_invoices.show', compact(
@@ -826,28 +860,95 @@ class SalesInvoiceController extends Controller
 
     public function post(int $id)
     {
-        $invoice = SalesInvoice::with('lines')->findOrFail($id);
+        $invoice = SalesInvoice::with('lines.inventoryItem')->findOrFail($id);
         if ($invoice->status === 'posted') {
             return back()->with('success', 'Already posted');
         }
 
-        $draft = $this->salesInvoiceJournalBuilder->build($invoice);
+        try {
+            DB::transaction(function () use ($invoice) {
+                if ($invoice->is_direct_sale) {
+                    $this->directSalesPostingService->post($invoice);
+                } else {
+                    $draft = $this->salesInvoiceJournalBuilder->build($invoice);
+                    $this->posting->postJournal([
+                        'date' => $draft->date ?? $invoice->date->toDateString(),
+                        'description' => $draft->description,
+                        'source_type' => 'sales_invoice',
+                        'source_id' => $invoice->id,
+                        'lines' => $draft->lines,
+                    ]);
+                }
 
-        DB::transaction(function () use ($invoice, $draft) {
-            $this->posting->postJournal([
-                'date' => $draft->date ?? $invoice->date->toDateString(),
-                'description' => $draft->description,
-                'source_type' => 'sales_invoice',
-                'source_id' => $invoice->id,
-                'lines' => $draft->lines,
+                $invoice->update(['status' => 'posted', 'posted_at' => now()]);
+
+                app(\App\Services\TaxService::class)->syncPostedSalesInvoice($invoice->fresh(['lines', 'businessPartner']));
+            });
+        } catch (\Exception $e) {
+            Log::error('Failed to post Sales Invoice', [
+                'invoice_id' => $id,
+                'error' => $e->getMessage(),
             ]);
 
-            $invoice->update(['status' => 'posted', 'posted_at' => now()]);
-
-            app(\App\Services\TaxService::class)->syncPostedSalesInvoice($invoice->fresh(['lines', 'businessPartner']));
-        });
+            return back()->with('error', 'Failed to post invoice: '.$e->getMessage());
+        }
 
         return back()->with('success', 'Invoice posted');
+    }
+
+    private function validateDirectSaleRequest(Request $request, array $data): ?string
+    {
+        if ($request->filled('sales_order_id')) {
+            return 'Direct sales cannot be linked to a sales order.';
+        }
+
+        $deliveryOrderIds = array_filter(array_map('intval', $data['delivery_order_ids'] ?? []));
+        if (empty($deliveryOrderIds) && $request->filled('delivery_order_id')) {
+            $deliveryOrderIds = [(int) $request->input('delivery_order_id')];
+        }
+        if ($deliveryOrderIds !== []) {
+            return 'Direct sales cannot be linked to delivery orders.';
+        }
+
+        $paymentMethod = $request->input('payment_method', 'credit');
+        if (! in_array($paymentMethod, ['credit', 'cash'], true)) {
+            return 'Direct sale payment method must be credit or cash.';
+        }
+
+        if ($paymentMethod === 'cash' && ! $request->filled('cash_account_id')) {
+            return 'Cash/Bank account is required for direct cash sales.';
+        }
+
+        foreach ($data['lines'] as $index => $line) {
+            if (empty($line['inventory_item_id'])) {
+                return 'Each direct sale line must have an inventory item (line '.($index + 1).').';
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $lineData
+     * @return array<string, mixed>
+     */
+    private function resolveDirectSaleLineData(array $lineData): array
+    {
+        $item = InventoryItem::query()->find($lineData['inventory_item_id'] ?? null);
+        if (! $item) {
+            return $lineData;
+        }
+
+        $lineData['item_code'] = $lineData['item_code'] ?? $item->code;
+        $lineData['item_name'] = $lineData['item_name'] ?? $item->name;
+        $lineData['description'] = $lineData['description'] ?? $item->name;
+
+        $salesAccount = $item->getAccountByType('sales');
+        if ($salesAccount) {
+            $lineData['account_id'] = $salesAccount->id;
+        }
+
+        return $lineData;
     }
 
     public function data(Request $request)
