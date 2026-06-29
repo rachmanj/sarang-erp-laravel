@@ -12,6 +12,8 @@ return [
     |
     */
     'account_prefixes' => [
+        // Physical petty cash only (dashboard KPI); banks live under sibling codes under 1.1.1.*
+        'petty_cash' => ['1.1.1.01'],
         'cash_and_bank' => ['1.1.1'],
         'receivables' => ['1.1.2'],
         'inventory' => ['1.1.3'],

@@ -140,13 +140,13 @@ class ReportAccuracyTest extends TestCase
         $this->assertEqualsWithDelta($expectedNi, (float) $pl['subtotals']['net_income'], 0.05);
     }
 
-    public function test_dashboard_cash_on_hand_matches_configured_cash_and_bank_prefixes(): void
+    public function test_dashboard_cash_on_hand_matches_configured_petty_cash_account(): void
     {
-        Cache::forget('dashboard:data:global:v4');
+        Cache::forget('dashboard:data:global:v5');
         $date = now()->toDateString();
         $expected = $this->reports->balanceSheetDisplayTotalForPrefixes(
             $date,
-            config('cash_flow.account_prefixes.cash_and_bank', ['1.1.1']),
+            config('cash_flow.account_prefixes.petty_cash', ['1.1.1.01']),
             true
         );
 

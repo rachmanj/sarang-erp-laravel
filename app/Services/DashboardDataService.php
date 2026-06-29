@@ -27,7 +27,7 @@ use Illuminate\Support\Facades\Schema;
 
 class DashboardDataService
 {
-    private const CACHE_KEY = 'dashboard:data:global:v4';
+    private const CACHE_KEY = 'dashboard:data:global:v5';
 
     private const CACHE_TTL = 300;
 
@@ -62,10 +62,10 @@ class DashboardDataService
         $salesMtd = SalesInvoice::whereBetween('date', [$monthStart, $today])->sum('total_amount');
         $purchasesMtd = PurchaseInvoice::whereBetween('date', [$monthStart, $today])->sum('total_amount');
 
-        $cashPrefixes = config('cash_flow.account_prefixes.cash_and_bank', ['1.1.1']);
+        $pettyCashPrefixes = config('cash_flow.account_prefixes.petty_cash', ['1.1.1.01']);
         $cashOnHand = app(ReportService::class)->balanceSheetDisplayTotalForPrefixes(
             $today->toDateString(),
-            $cashPrefixes,
+            $pettyCashPrefixes,
             true
         );
 

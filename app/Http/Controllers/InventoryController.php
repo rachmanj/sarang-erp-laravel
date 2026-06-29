@@ -720,7 +720,7 @@ class InventoryController extends Controller
 
     public function transferStock(Request $request, int $id)
     {
-        $item = InventoryItem::findOrFail($id);
+        InventoryItem::findOrFail($id);
 
         $data = $request->validate([
             'to_item_id' => ['required', 'integer', 'exists:inventory_items,id', 'different:'.$id],
@@ -729,45 +729,30 @@ class InventoryController extends Controller
             'notes' => ['nullable', 'string', 'max:500'],
         ]);
 
-        return DB::transaction(function () use ($data, $item) {
-            app(InventoryService::class)->assertCanConsumeFifoLayers($item, (float) $data['quantity']);
+        try {
+            app(InventoryService::class)->processTransferTransaction(
+                $id,
+                (int) $data['to_item_id'],
+                (int) $data['quantity'],
+                (float) $data['unit_cost'],
+                $data['notes'] ?? null
+            );
+        } catch (\Throwable $exception) {
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['message' => $exception->getMessage()], 422);
+            }
 
-            $totalCost = $data['quantity'] * $data['unit_cost'];
+            return back()->with('error', $exception->getMessage());
+        }
 
-            // Create outgoing transaction
-            InventoryTransaction::create([
-                'item_id' => $item->id,
-                'transaction_type' => 'transfer',
-                'quantity' => -$data['quantity'],
-                'unit_cost' => $data['unit_cost'],
-                'total_cost' => -$totalCost,
-                'reference_type' => 'stock_transfer',
-                'reference_id' => $data['to_item_id'],
-                'transaction_date' => now()->toDateString(),
-                'notes' => 'Transfer to '.($data['notes'] ?? 'another item'),
-                'created_by' => Auth::id(),
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Stock transfer completed successfully',
             ]);
+        }
 
-            // Create incoming transaction
-            InventoryTransaction::create([
-                'item_id' => $data['to_item_id'],
-                'transaction_type' => 'transfer',
-                'quantity' => $data['quantity'],
-                'unit_cost' => $data['unit_cost'],
-                'total_cost' => $totalCost,
-                'reference_type' => 'stock_transfer',
-                'reference_id' => $item->id,
-                'transaction_date' => now()->toDateString(),
-                'notes' => 'Transfer from '.$item->name,
-                'created_by' => Auth::id(),
-            ]);
-
-            // Update valuations for both items
-            $this->updateValuation($item);
-            $this->updateValuation(InventoryItem::find($data['to_item_id']));
-
-            return back()->with('success', 'Stock transfer completed successfully');
-        });
+        return back()->with('success', 'Stock transfer completed successfully');
     }
 
     public function lowStock()

@@ -176,8 +176,8 @@ class InventoryService
             ]);
 
             // Update valuations for both items
-            $this->updateItemValuation($fromItem);
-            $this->updateItemValuation($toItem);
+            $this->updateItemValuationSafely($fromItem);
+            $this->updateItemValuationSafely($toItem);
 
             return true;
         });
@@ -186,6 +186,15 @@ class InventoryService
     public function updateItemValuation(InventoryItem $item)
     {
         return $this->persistItemValuation($item, $this->calculateUnitCost($item));
+    }
+
+    public function updateItemValuationSafely(InventoryItem $item): InventoryValuation
+    {
+        try {
+            return $this->updateItemValuation($item->fresh());
+        } catch (\Throwable) {
+            return $this->updateItemValuationAfterDataRepair($item->fresh());
+        }
     }
 
     /**

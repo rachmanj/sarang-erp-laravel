@@ -526,7 +526,8 @@
                             value="{{ $item->id }}">
                         <div class="form-group">
                             <label>Transfer To</label>
-                            <select class="form-control" name="to_item_id" required>
+                            <select class="form-control select2bs4" id="transfer_to_item_id" name="to_item_id" required
+                                style="width: 100%;">
                                 <option value="">Select Item</option>
                             </select>
                         </div>
@@ -615,23 +616,59 @@
                         location.reload();
                     },
                     error: function(xhr) {
-                        toastr.error('Error transferring stock: ' + xhr.responseJSON.message);
+                        const message = xhr.responseJSON?.message
+                            ?? xhr.responseJSON?.error
+                            ?? 'Unable to transfer stock. Please try again.';
+                        toastr.error('Error transferring stock: ' + message);
                     }
                 });
             });
 
+            function initTransferToItemSelect() {
+                const $select = $('#transfer_to_item_id');
+
+                if ($select.hasClass('select2-hidden-accessible')) {
+                    $select.select2('destroy');
+                }
+
+                $select.select2({
+                    theme: 'bootstrap4',
+                    placeholder: 'Select Item',
+                    allowClear: true,
+                    dropdownParent: $('#transferStockModal'),
+                    width: '100%'
+                });
+            }
+
             // Load available items for transfer
             $('#transferStockModal').on('show.bs.modal', function() {
                 $.get('{{ route('inventory.get-items') }}', function(items) {
-                    const select = $('#transferStockModal select[name="to_item_id"]');
-                    select.empty().append('<option value="">Select Item</option>');
+                    const $select = $('#transfer_to_item_id');
+
+                    if ($select.hasClass('select2-hidden-accessible')) {
+                        $select.select2('destroy');
+                    }
+
+                    $select.empty().append('<option value="">Select Item</option>');
                     items.forEach(function(item) {
                         if (item.id != {{ $item->id }}) {
-                            select.append('<option value="' + item.id + '">' + item.name +
+                            $select.append('<option value="' + item.id + '">' + item.name +
                                 ' (' + item.code + ')</option>');
                         }
                     });
+
+                    initTransferToItemSelect();
                 });
+            });
+
+            $('#transferStockModal').on('hidden.bs.modal', function() {
+                const $select = $('#transfer_to_item_id');
+
+                if ($select.hasClass('select2-hidden-accessible')) {
+                    $select.select2('destroy');
+                }
+
+                $select.val('').trigger('change');
             });
         });
     </script>
