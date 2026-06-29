@@ -966,3 +966,11 @@ Scope tiers and living-doc pointers remain in **`docs/action-plans/relationship-
 **Solution**: (1) Block SI creation when any SI already exists for the DO: check in `SalesInvoiceController::create()` and `store()`, redirect with error or to existing SI. (2) `DeliveryOrderController::createInvoice()`: when DO already has SI, redirect to that SI with info message instead of create form. (3) Exclude DOs with existing SIs from `invoicableDeliveryOrders` via `whereNotExists` subquery on `sales_invoices.delivery_order_id`. (4) Fix `DocumentClosureService::canCloseDeliveryOrder()`: use `lines->sum('delivered_qty')` for DO and `lines->sum('qty')` for SI. (5) Add `closure_status`, `closed_by_*` to `DeliveryOrder::$fillable` so closure update persists.
 
 **Key Learning**: Prevent duplicates at multiple layers: create view check, store validation, and dropdown exclusion. Fix closure bugs so first SI properly closes the DO for future flows.
+
+### [086] DO Delete Preview 500 – Missing DocumentDeletionSupport Import (2026-06-29) ✅ COMPLETE
+
+**Challenge**: Delete confirmation modal showed "Unable to load delete preview" for Delivery Orders (e.g. DO #759). Laravel log: `Target class [App\Services\Documents\Handlers\DocumentDeletionSupport] does not exist`.
+
+**Solution**: Added missing `use App\Services\Documents\Support\DocumentDeletionSupport;` in `SalesInvoiceDeletionHandler`. Without it, PHP resolved the constructor type hint to the Handlers namespace, breaking `DocumentDeletionService` container resolution for all delete-preview endpoints.
+
+**Key Learning**: Handlers that override `__construct` and type-hint `DocumentDeletionSupport` must import the Support namespace explicitly; unqualified names resolve under `Handlers`.
