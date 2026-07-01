@@ -75,7 +75,7 @@
             <td class="label">Expected:</td>
             <td>{{ $order->expected_delivery_date ? $order->expected_delivery_date->format('d M Y') : '-' }}</td>
             <td class="label">Total:</td>
-            <td>Rp {{ number_format($order->total_amount, 2) }}</td>
+            <td>Rp {{ number_format($orderFooter['amount_due'], 2) }}</td>
         </tr>
     </table>
 
@@ -100,16 +100,14 @@
                 <td>{{ $line->inventoryItem->name ?? $line->item_name ?? $line->description ?? '-' }}</td>
                 <td class="text-right">{{ number_format($line->qty, 2) }}</td>
                 <td class="text-right">{{ number_format($line->unit_price, 2) }}</td>
-                <td class="text-right">{{ number_format($line->amount, 2) }}</td>
+                <td class="text-right">{{ number_format(\App\Services\Accounting\PurchaseOrderFooterMath::lineDpp($line), 2) }}</td>
             </tr>
             @endforeach
         </tbody>
-        <tfoot>
-            <tr>
-                <th colspan="6" class="text-right">Total</th>
-                <th class="text-right">Rp {{ number_format($order->total_amount, 2) }}</th>
-            </tr>
-        </tfoot>
+        @include('purchase_orders.partials.print-items-tax-tfoot', [
+            'labelColspan' => 6,
+            'withRpPrefix' => true,
+        ])
     </table>
 
     <div style="margin-top: 12px; font-size: 10px;">

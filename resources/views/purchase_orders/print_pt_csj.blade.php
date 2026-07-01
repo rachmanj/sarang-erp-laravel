@@ -235,11 +235,6 @@
         $vendorAddress =
             optional($order->businessPartner)->primaryAddress?->full_address ??
             (optional($order->businessPartner)->addresses->first()?->full_address ?? '-');
-        $subtotalBeforeHeader = $order->lines->sum('amount');
-        $totalLineDiscount = $order->lines->sum('discount_amount');
-        $headerDiscount = $order->discount_amount ?? 0;
-        $vatAmount = $order->lines->sum(fn($l) => ($l->net_amount ?? 0) * (($l->vat_rate ?? 0) / 100));
-        $dpp = $order->lines->sum('net_amount') - $headerDiscount;
     @endphp
 
     <div class="company-header">
@@ -326,7 +321,7 @@
                 <th class="text-center" style="width:8%">UOM</th>
                 <th class="text-right" style="width:10%">QTY</th>
                 <th class="text-right" style="width:12%">UNIT PRICE</th>
-                <th class="text-right" style="width:15%">TOTAL PRICE</th>
+                <th class="text-right" style="width:15%">AMOUNT</th>
             </tr>
         </thead>
         <tbody>
@@ -342,7 +337,7 @@
                     <td class="text-center">{{ $uom }}</td>
                     <td class="text-right">{{ number_format($line->qty, 2, ',', '.') }}</td>
                     <td class="text-right">{{ number_format($line->unit_price, 2, ',', '.') }}</td>
-                    <td class="text-right">{{ number_format($line->amount, 2, ',', '.') }}</td>
+                    <td class="text-right">{{ number_format(\App\Services\Accounting\PurchaseOrderFooterMath::lineDpp($line), 2, ',', '.') }}</td>
                 </tr>
             @endforeach
         </tbody>
@@ -367,37 +362,10 @@
         </div>
         <div class="footer-right">
             <table class="totals">
-                <tr>
-                    <td class="label">Total</td>
-                    <td class="text-right">Rp {{ number_format($subtotalBeforeHeader, 2, ',', '.') }}</td>
-                </tr>
-                @if ($totalLineDiscount > 0 || $headerDiscount > 0)
-                    <tr>
-                        <td class="label">Line Discounts</td>
-                        <td class="text-right">Rp {{ number_format($totalLineDiscount, 2, ',', '.') }}</td>
-                    </tr>
-                    <tr>
-                        <td class="label">Header Discount</td>
-                        <td class="text-right">Rp {{ number_format($headerDiscount, 2, ',', '.') }}</td>
-                    </tr>
-                @endif
-                <tr>
-                    <td class="label">DPP (11/12)</td>
-                    <td class="text-right">Rp {{ number_format($dpp, 2, ',', '.') }}</td>
-                </tr>
-                <tr>
-                    <td class="label">Tax 12%</td>
-                    <td class="text-right">Rp {{ number_format($vatAmount, 2, ',', '.') }}</td>
-                </tr>
-                <tr>
-                    <td class="label">Total After Tax</td>
-                    <td class="text-right">Rp {{ number_format($order->total_amount, 2, ',', '.') }}</td>
-                </tr>
-                <tr>
-                    <td class="label"><strong>Grand Total</strong></td>
-                    <td class="text-right"><strong>Rp {{ number_format($order->total_amount, 2, ',', '.') }}</strong>
-                    </td>
-                </tr>
+                @include('purchase_orders.partials.print-tax-summary-rows', [
+                    'decSep' => ',',
+                    'thSep' => '.',
+                ])
             </table>
             <div class="signature-row">
                 <div class="signature-box">

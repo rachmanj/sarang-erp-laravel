@@ -246,13 +246,20 @@
                                     <th class="text-right">WTax</th>
                                     @if ($hasLineDiscount)
                                         <th class="text-right">Discount</th>
-                                        <th class="text-right">Net Amount</th>
+                                        <th class="text-right">DPP</th>
+                                    @else
+                                        <th class="text-right">DPP</th>
                                     @endif
                                     <th class="text-right">Amount</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach ($order->lines as $l)
+                                    @php
+                                        $lineDpp = (float) ($l->net_amount > 0
+                                            ? $l->net_amount
+                                            : max(0, ($l->qty * $l->unit_price) - (float) ($l->discount_amount ?? 0)));
+                                    @endphp
                                     <tr>
                                         <td>
                                             @if ($l->inventory_item_id && $l->inventoryItem)
@@ -279,12 +286,41 @@
                                                     -
                                                 @endif
                                             </td>
-                                            <td class="text-right">{{ number_format($l->net_amount > 0 ? $l->net_amount : ($l->qty * $l->unit_price), 2) }}</td>
                                         @endif
+                                        <td class="text-right">{{ number_format($lineDpp, 2) }}</td>
                                         <td class="text-right">{{ number_format($l->amount, 2) }}</td>
                                     </tr>
                                 @endforeach
                             </tbody>
+                            @php
+                                $footerLabelColspan = $hasLineDiscount ? 7 : 6;
+                                $orderFooter = \App\Services\Accounting\PurchaseOrderFooterMath::orderFooterTotals($order);
+                            @endphp
+                            <tfoot>
+                                <tr>
+                                    <th colspan="{{ $footerLabelColspan }}" class="text-right">Total Amount (DPP)</th>
+                                    <th class="text-right">{{ number_format($orderFooter['exclusive_subtotal'], 2) }}</th>
+                                    <th></th>
+                                </tr>
+                                <tr>
+                                    <th colspan="{{ $footerLabelColspan + 1 }}" class="text-right">Total VAT</th>
+                                    <th class="text-right">{{ number_format($orderFooter['total_vat'], 2) }}</th>
+                                </tr>
+                                <tr>
+                                    <th colspan="{{ $footerLabelColspan + 1 }}" class="text-right">Total WTax</th>
+                                    <th class="text-right">
+                                        @if ($orderFooter['total_wtax'] != 0)
+                                            ({{ number_format($orderFooter['total_wtax'], 2) }})
+                                        @else
+                                            {{ number_format($orderFooter['total_wtax'], 2) }}
+                                        @endif
+                                    </th>
+                                </tr>
+                                <tr>
+                                    <th colspan="{{ $footerLabelColspan + 1 }}" class="text-right"><strong>Total Due</strong></th>
+                                    <th class="text-right"><strong>{{ number_format($orderFooter['amount_due'], 2) }}</strong></th>
+                                </tr>
+                            </tfoot>
                         </table>
                     </div>
                 </div>

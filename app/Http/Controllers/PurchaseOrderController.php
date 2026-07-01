@@ -8,6 +8,7 @@ use App\Models\AssetCategory;
 use App\Models\CompanyEntity;
 use App\Models\InventoryItem;
 use App\Models\PurchaseOrder;
+use App\Services\Accounting\PurchaseOrderFooterMath;
 use App\Services\CompanyEntityService;
 use App\Services\CurrencyService;
 use App\Services\DocumentClosureService;
@@ -334,8 +335,9 @@ class PurchaseOrderController extends Controller
         }
 
         $terbilang = $entity ? $this->convertToWords((float) $order->total_amount) : null;
+        $orderFooter = PurchaseOrderFooterMath::orderFooterTotals($order);
 
-        return view($view, compact('order', 'entity', 'terbilang'));
+        return view($view, compact('order', 'entity', 'terbilang', 'orderFooter'));
     }
 
     private function convertToWords(float $number): string
