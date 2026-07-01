@@ -286,6 +286,8 @@ class InventoryController extends Controller
                     "Inventory item '{$item->name}' created"
                 );
 
+                $this->syncPartNumbers($item, $request->input('part_numbers', []));
+
                 // Create initial stock transaction if initial stock is provided
                 if ($request->has('initial_stock') && $request->initial_stock > 0) {
                     $initialStock = $request->initial_stock;
@@ -551,7 +553,17 @@ class InventoryController extends Controller
 
         $item->update($data);
 
-        $partNumbers = $request->input('part_numbers', []);
+        $this->syncPartNumbers($item, $request->input('part_numbers', []));
+
+        return redirect()->route('inventory.show', $item->id)
+            ->with('success', 'Inventory item updated successfully');
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $partNumbers
+     */
+    protected function syncPartNumbers(InventoryItem $item, array $partNumbers): void
+    {
         $existingIds = [];
         foreach ($partNumbers as $pn) {
             if (empty(trim($pn['part_number'] ?? ''))) {
@@ -574,9 +586,6 @@ class InventoryController extends Controller
             }
         }
         $item->partNumbers()->whereNotIn('id', $existingIds)->delete();
-
-        return redirect()->route('inventory.show', $item->id)
-            ->with('success', 'Inventory item updated successfully');
     }
 
     public function destroy(int $id)

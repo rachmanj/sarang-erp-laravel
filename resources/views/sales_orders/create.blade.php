@@ -135,7 +135,7 @@
                                                     @foreach ($customers as $c)
                                                         <option value="{{ $c->id }}"
                                                             {{ old('business_partner_id') == $c->id ? 'selected' : '' }}
-                                                            data-address="{{ e($c->default_shipping_address ?? '') }}"
+                                                            data-address="{{ e($c->default_warehouse_address ?? '') }}"
                                                             data-contact="{{ e($c->primary_contact_name ?? '') }}"
                                                             data-phone="{{ e($c->primary_contact_phone ?? '') }}">
                                                             {{ $c->name }}

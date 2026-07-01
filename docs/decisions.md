@@ -1,7 +1,17 @@
 **Purpose**: Record technical decisions and rationale for future reference
-**Last Updated**: 2026-06-25 (FIFO Layer Repair UI; PI duplicate --invoice; GR/GI tolerant valuation)
+**Last Updated**: 2026-07-01 (Customer office/warehouse address resolution for SI/DO)
 
 # Technical Decision Records
+
+## Decision: Customer office (SI) and warehouse (DO) address resolution - 2026-07-01
+
+**Context**: Customers already support multiple typed addresses (`business_partner_addresses.address_type`: billing, shipping, registered, warehouse, office) via the Business Partner Addresses tab, but no document preferred `office`/`warehouse` types — Sales Invoice print used `primaryAddress`, and Sales Order/Delivery Order defaulted from `default_shipping_address` (shipping → billing → primary).
+
+**Decision**: Add `BusinessPartner::officeAddress`/`default_office_address` (`office → registered → billing → primary`) and `warehouseAddress`/`default_warehouse_address` (`warehouse → shipping → primary`) accessors. Sales Invoice print/PDF "Bill To" resolves the office address live at render time (no new `sales_invoices` columns — kept as a live master-data lookup, not a snapshot). Sales Order and Delivery Order create forms auto-fill `delivery_address` from the warehouse address instead of shipping; the field stays plain editable text and the Sales Order's own saved `delivery_address` still wins over the customer default when a DO is created from an SO. No migration needed since `office`/`warehouse` were already valid `address_type` values with no consumer.
+
+**Implementation**: `app/Models/BusinessPartner.php` accessors; `resources/views/sales_invoices/print*.blade.php` Bill To blocks; `resources/views/delivery_orders/create.blade.php` and `resources/views/sales_orders/create.blade.php` default `data-address`; `App\Services\DeliveryService::createDeliveryOrderFromSalesOrder()` fallback; `tests/Feature/BusinessPartnerAddressResolutionTest.php`.
+
+**Review Date**: 2027-07-01
 
 ## Decision: FIFO Layer Repair self-service UI - 2026-06-25
 

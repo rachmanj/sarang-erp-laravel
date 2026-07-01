@@ -85,8 +85,8 @@
                     <strong>{{ optional($invoice->businessPartner)->name ?? '—' }}</strong><br>
                     @if ($invoice->businessPartner && $invoice->businessPartner->code)<span style="color:#666;">Code: {{ $invoice->businessPartner->code }}</span><br>@endif
                     @if ($invoice->businessPartner && $invoice->businessPartner->tax_id)<span style="color:#666;">Tax ID: {{ $invoice->businessPartner->tax_id }}</span><br>@endif
-                    @if ($invoice->businessPartner && $invoice->businessPartner->primaryAddress)
-                        @php $addr = $invoice->businessPartner->primaryAddress; @endphp
+                    @if ($invoice->businessPartner && $invoice->businessPartner->officeAddress)
+                        @php $addr = $invoice->businessPartner->officeAddress; @endphp
                         @if ($addr->address_line_1){{ $addr->address_line_1 }}<br>@endif
                         @if ($addr->address_line_2){{ $addr->address_line_2 }}<br>@endif
                         @if ($addr->city || $addr->state_province || $addr->postal_code){{ trim(implode(', ', array_filter([$addr->city, $addr->state_province, $addr->postal_code]))) }}<br>@endif

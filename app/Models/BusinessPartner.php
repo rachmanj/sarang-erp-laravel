@@ -173,6 +173,30 @@ class BusinessPartner extends Model
         return $addr ? $addr->full_address : null;
     }
 
+    public function getOfficeAddressAttribute()
+    {
+        return $this->getAddressByType('office') ?? $this->getAddressByType('registered') ?? $this->getAddressByType('billing') ?? $this->primaryAddress;
+    }
+
+    public function getDefaultOfficeAddressAttribute()
+    {
+        $addr = $this->officeAddress;
+
+        return $addr ? $addr->full_address : null;
+    }
+
+    public function getWarehouseAddressAttribute()
+    {
+        return $this->getAddressByType('warehouse') ?? $this->getAddressByType('shipping') ?? $this->primaryAddress;
+    }
+
+    public function getDefaultWarehouseAddressAttribute()
+    {
+        $addr = $this->warehouseAddress;
+
+        return $addr ? $addr->full_address : null;
+    }
+
     public function getPrimaryContactNameAttribute()
     {
         $contact = $this->primaryContact ?? $this->contacts()->first();

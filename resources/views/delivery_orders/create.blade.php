@@ -61,7 +61,7 @@
                                                         @foreach ($salesOrders as $so)
                                                             @php
                                                                 $customer = $so->customer ?? $so->businessPartner ?? null;
-                                                                $deliveryAddr = $so->delivery_address ?? ($customer?->default_shipping_address ?? '');
+                                                                $deliveryAddr = $so->delivery_address ?? ($customer?->default_warehouse_address ?? '');
                                                                 $deliveryContact = $so->delivery_contact_person ?? ($customer?->primary_contact_name ?? '');
                                                                 $deliveryPhone = $so->delivery_phone ?? ($customer?->primary_contact_phone ?? '');
                                                             @endphp
@@ -119,7 +119,7 @@
                                                     @foreach ($customers as $c)
                                                         <option value="{{ $c->id }}"
                                                             {{ old('business_partner_id', $salesOrder ? $salesOrder->business_partner_id : '') == $c->id ? 'selected' : '' }}
-                                                            data-address="{{ e($c->default_shipping_address ?? '') }}"
+                                                            data-address="{{ e($c->default_warehouse_address ?? '') }}"
                                                             data-contact="{{ e($c->primary_contact_name ?? '') }}"
                                                             data-phone="{{ e($c->primary_contact_phone ?? '') }}">
                                                             {{ $c->name }}
@@ -174,7 +174,7 @@
                                             <label class="col-sm-3 col-form-label">Delivery Address <span
                                                     class="text-danger">*</span></label>
                                             <div class="col-sm-9">
-                                                <textarea name="delivery_address" class="form-control form-control-sm" rows="3" required>{{ old('delivery_address', $salesOrder ? ($salesOrder->delivery_address ?? $salesOrder->customer?->default_shipping_address) : '') }}</textarea>
+                                                <textarea name="delivery_address" class="form-control form-control-sm" rows="3" required>{{ old('delivery_address', $salesOrder ? ($salesOrder->delivery_address ?? $salesOrder->customer?->default_warehouse_address) : '') }}</textarea>
                                             </div>
                                         </div>
                                     </div>

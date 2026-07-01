@@ -76,7 +76,7 @@ class DeliveryService
             $docDate = isset($data['planned_delivery_date']) ? $data['planned_delivery_date'] : now()->toDateString();
 
             $customer = $salesOrder->businessPartner;
-            $customerAddress = $salesOrder->delivery_address ?? ($customer?->default_shipping_address);
+            $customerAddress = $salesOrder->delivery_address ?? ($customer?->default_warehouse_address);
             $customerContact = $salesOrder->delivery_contact_person ?? ($customer?->primary_contact_name);
             $customerPhone = $salesOrder->delivery_phone ?? ($customer?->primary_contact_phone);
 

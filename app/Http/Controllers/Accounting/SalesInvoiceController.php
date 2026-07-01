@@ -745,6 +745,7 @@ class SalesInvoiceController extends Controller
     {
         $invoice = SalesInvoice::with([
             'businessPartner.primaryAddress',
+            'businessPartner.addresses',
             'businessPartnerProject',
             'companyEntity',
             'salesOrder',
@@ -800,6 +801,7 @@ class SalesInvoiceController extends Controller
             'lines.partNumber',
             'lines.deliveryOrderLine.partNumber',
             'businessPartner.primaryAddress',
+            'businessPartner.addresses',
             'businessPartnerProject',
             'companyEntity',
             'deliveryOrders',
@@ -831,7 +833,7 @@ class SalesInvoiceController extends Controller
 
     public function pdf(int $id)
     {
-        $invoice = SalesInvoice::with(['lines', 'lines.account', 'lines.taxCode', 'lines.inventoryItem', 'businessPartner', 'businessPartner.primaryAddress', 'businessPartnerProject', 'companyEntity', 'deliveryOrders'])->findOrFail($id);
+        $invoice = SalesInvoice::with(['lines', 'lines.account', 'lines.taxCode', 'lines.inventoryItem', 'businessPartner', 'businessPartner.primaryAddress', 'businessPartner.addresses', 'businessPartnerProject', 'companyEntity', 'deliveryOrders'])->findOrFail($id);
         $invoiceFooter = SalesInvoicePostingMath::invoiceFooterTotals($invoice);
         $pdf = app(\App\Services\PdfService::class)->renderViewToString('sales_invoices.print', [
             'invoice' => $invoice,
@@ -846,7 +848,7 @@ class SalesInvoiceController extends Controller
 
     public function queuePdf(int $id)
     {
-        $invoice = SalesInvoice::with(['lines', 'lines.account', 'lines.taxCode', 'lines.inventoryItem', 'businessPartner', 'businessPartner.primaryAddress', 'businessPartnerProject', 'companyEntity', 'deliveryOrders'])->findOrFail($id);
+        $invoice = SalesInvoice::with(['lines', 'lines.account', 'lines.taxCode', 'lines.inventoryItem', 'businessPartner', 'businessPartner.primaryAddress', 'businessPartner.addresses', 'businessPartnerProject', 'companyEntity', 'deliveryOrders'])->findOrFail($id);
         $invoiceFooter = SalesInvoicePostingMath::invoiceFooterTotals($invoice);
         $path = 'public/pdfs/invoice-'.$invoice->id.'.pdf';
         \App\Jobs\GeneratePdfJob::dispatch('sales_invoices.print', [

@@ -1,5 +1,5 @@
 **Purpose**: AI's persistent knowledge base for project context and learnings
-**Last Updated**: 2026-06-28 (Direct Sales SI mode)
+**Last Updated**: 2026-07-01 (Customer office/warehouse address resolution)
 
 ## Memory Maintenance Guidelines
 
@@ -26,6 +26,14 @@
 ---
 
 ## Project Memory Entries
+
+### [128] Customer office/warehouse address resolution for SI/DO (2026-07-01) ✅ COMPLETE
+
+**Challenge**: Requirement was "SI sends to customer's office, goods deliver to customer's warehouse" — but customer addresses already had `office`/`warehouse` types on `business_partner_addresses` that no document actually preferred (SI print used `primaryAddress`; SO/DO defaulted from `default_shipping_address`).
+
+**Solution**: Added `BusinessPartner::officeAddress`/`default_office_address` and `warehouseAddress`/`default_warehouse_address` accessors with fallback chains. SI print/PDF Bill To resolves office address live (no schema change). SO/DO create forms default `delivery_address` from warehouse address; `DeliveryService` fallback updated too.
+
+**Key Learning**: Before adding new address/customer fields, check `business_partner_addresses.address_type` enum first — several "future" address types (office, warehouse, registered) already existed unused; the gap was in document-side resolution logic, not data modeling.
 
 ### [127] Default company entity PT CSJ (2026-06-28) ✅ COMPLETE
 
