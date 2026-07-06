@@ -656,11 +656,13 @@
                 });
             }
 
+            const contactTemplateHtml = document.getElementById('contact-template').innerHTML;
+            const addressTemplateHtml = document.getElementById('address-template').innerHTML;
+
             // Load existing contacts
             @foreach ($businessPartner->contacts as $index => $contact)
-                // Create contact card
-                const contactTemplate = document.getElementById('contact-template').innerHTML;
-                const contactHtml = contactTemplate
+            {
+                const contactHtml = contactTemplateHtml
                     .replace(/__INDEX__/g, {{ $index }})
                     .replace(/___INDEX__/g, {{ $index }});
 
@@ -679,13 +681,13 @@
                 @if ($contact->is_primary)
                     $('input[name="contacts[{{ $index }}][is_primary]"]').prop('checked', true);
                 @endif
+            }
             @endforeach
 
             // Load existing addresses
             @foreach ($businessPartner->addresses as $index => $address)
-                // Create address card
-                const addressTemplate = document.getElementById('address-template').innerHTML;
-                const addressHtml = addressTemplate
+            {
+                const addressHtml = addressTemplateHtml
                     .replace(/__INDEX__/g, {{ $index }})
                     .replace(/___INDEX__/g, {{ $index }});
 
@@ -708,6 +710,7 @@
                 @if ($address->is_primary)
                     $('input[name="addresses[{{ $index }}][is_primary]"]').prop('checked', true);
                 @endif
+            }
             @endforeach
 
             // Initialize events for existing items
