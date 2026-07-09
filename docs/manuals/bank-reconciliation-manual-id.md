@@ -9,30 +9,29 @@
 ## Lokasi menu
 
 1. Menu samping **Accounting** → **Bank Accounts** — master rekening bank terhubung COA.
-2. Menu samping **Accounting** → **Bank Reconciliation** — sesi rekonsiliasi dan impor.
-
-Izin: `bank_accounts.view`, `bank_reconciliation.view`, `bank_reconciliation.import` (unggah statement).
+2. Menu samping **Accounting** → **Rekening Koran** — grid bulan (entri utama); **All Sessions** untuk daftar lengkap.
 
 ---
 
-## Setup Bank Accounts
+## Grid Rekening Koran
 
-Sebelum rekonsiliasi, setiap rekening bank harus ada di **Bank Accounts** dan dihubungkan ke akun **postable** di COA (biasanya `1.1.1.x`).
+Halaman **Rekening Koran** menampilkan matriks **rekening bank × bulan** untuk tahun yang dipilih.
 
-- **Buat** — Accounting → Bank Accounts → Add; isi nama bank, nomor rekening, dan akun GL.
-- Sales Receipt dan Purchase Payment memposting sisi kas ke **COA rekening bank** yang dipilih di baris pembayaran.
+- **Sel kosong** — klik untuk unggah PDF atau buat sesi manual.
+- **Badge berwarna** — sesi ada; klik untuk buka workbench atau laporan.
+- Gunakan **All Sessions** untuk daftar pencarian; panah tahun untuk ganti tahun.
 
 ---
 
-## Impor rekening koran
+## Buat sesi rekonsiliasi
 
-1. **Bank Reconciliation** → **Import Statement**.
-2. Pilih **Bank Account** dan periode statement.
-3. Unggah **PDF** rekening koran.
-4. Sistem mengekstrak baris (teks PDF + AI OpenRouter opsional). Periksa nominal dan tanggal.
-5. Simpan untuk membuat **Bank Statement** dan baris-barisnya.
+Dari grid (klik sel kosong) atau **New Session**:
 
-**Credit** di statement (uang masuk) = **debit** di buku pada akun bank.
+1. Pilih **Bank Account** dan **Periode** (bulan).
+2. Pilih **AI** (unggah PDF) atau **Manual**.
+3. Submit — parsing AI berjalan di background (perlu queue worker).
+
+Satu sesi per rekening bank per bulan.
 
 ---
 

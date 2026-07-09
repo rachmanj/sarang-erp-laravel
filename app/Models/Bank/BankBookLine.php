@@ -2,11 +2,12 @@
 
 namespace App\Models\Bank;
 
+use App\Models\Accounting\JournalLine;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
-class BankStatementLine extends Model
+class BankBookLine extends Model
 {
     public const MATCH_UNMATCHED = 'unmatched';
 
@@ -18,37 +19,28 @@ class BankStatementLine extends Model
 
     protected $fillable = [
         'bank_reconciliation_id',
-        'bank_statement_id',
+        'journal_line_id',
+        'doc_date',
         'posting_date',
-        'value_date',
+        'doc_num',
+        'ref_doc_num',
+        'transaction_id',
         'description',
-        'reference_no',
-        'amount',
-        'direction',
+        'project_code',
         'debit',
         'credit',
-        'running_balance',
         'match_status',
         'exclude_reason',
         'line_notes',
-        'line_order',
-        'is_ai_extracted',
-        'ai_confidence',
-        'line_hash',
-        'ai_meta',
     ];
 
     protected function casts(): array
     {
         return [
+            'doc_date' => 'date',
             'posting_date' => 'date',
-            'value_date' => 'date',
-            'amount' => 'decimal:2',
             'debit' => 'decimal:2',
             'credit' => 'decimal:2',
-            'running_balance' => 'decimal:2',
-            'is_ai_extracted' => 'boolean',
-            'ai_meta' => 'array',
         ];
     }
 
@@ -57,24 +49,19 @@ class BankStatementLine extends Model
         return $this->belongsTo(BankReconciliation::class, 'bank_reconciliation_id');
     }
 
-    public function statement(): BelongsTo
+    public function journalLine(): BelongsTo
     {
-        return $this->belongsTo(BankStatement::class, 'bank_statement_id');
+        return $this->belongsTo(JournalLine::class);
     }
 
     public function matchGroupLink(): HasOne
     {
-        return $this->hasOne(MatchGroupBankLine::class);
+        return $this->hasOne(MatchGroupBookLine::class);
     }
 
     public function netAmount(): float
     {
         return round((float) $this->debit - (float) $this->credit, 2);
-    }
-
-    public function signedAmount(): float
-    {
-        return $this->netAmount();
     }
 
     public function isAvailableForMatching(): bool

@@ -52,14 +52,10 @@ class DocumentDeletionSupport
 
             $lineIds = DB::table('journal_lines')->where('journal_id', $journal->id)->pluck('id');
             if ($lineIds->isNotEmpty()) {
-                DB::table('bank_reconciliation_matches')
+                DB::table('bank_book_lines')
                     ->whereIn('journal_line_id', $lineIds)
                     ->update(['journal_line_id' => null]);
             }
-
-            DB::table('bank_reconciliation_matches')
-                ->where('journal_id', $journal->id)
-                ->update(['journal_id' => null]);
 
             $this->postingService->reverseJournal(
                 (int) $journal->id,

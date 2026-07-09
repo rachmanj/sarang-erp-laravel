@@ -37,7 +37,7 @@ class MenuSearchServiceTest extends TestCase
 
         $expected = [
             'Bank Accounts',
-            'Bank Reconciliation',
+            'Rekening Koran',
             'Tax Compliance',
             'Statement of Changes in Equity',
             'Subledger Reconciliation',
@@ -79,7 +79,7 @@ class MenuSearchServiceTest extends TestCase
 
         $titles = collect($response->json('items'))->pluck('title')->all();
 
-        $this->assertContains('Bank Reconciliation', $titles);
+        $this->assertContains('Rekening Koran', $titles);
     }
 
     public function test_menu_search_includes_direct_sales_for_invoice_creators(): void

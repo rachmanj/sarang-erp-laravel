@@ -223,6 +223,7 @@ class RolePermissionSeeder extends Seeder
                 'ar.quotations.view',
                 'ar.quotations.approve',
                 'ap.payments.post',
+                'bank_reconciliation.view',
                 'bank_reconciliation.finalize',
                 'delivery-orders.reverse',
                 // Fixed Assets posting

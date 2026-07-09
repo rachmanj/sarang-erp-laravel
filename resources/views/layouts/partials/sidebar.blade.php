@@ -514,15 +514,15 @@
                                     </a>
                                 </li>
                             @endcan
-                            @can('bank_reconciliation.view')
+                            @canany(['bank_reconciliation.view', 'bank_reconciliation.import', 'bank_reconciliation.reconcile', 'bank_reconciliation.finalize', 'bank_accounts.view'])
                                 <li class="nav-item">
                                     <a href="{{ route('bank-reconciliation.index') }}"
                                         class="nav-link {{ request()->routeIs('bank-reconciliation.*') ? 'active' : '' }}">
                                         <i class="far fa-circle nav-icon"></i>
-                                        <p>Bank Reconciliation</p>
+                                        <p>Rekening Koran</p>
                                     </a>
                                 </li>
-                            @endcan
+                            @endcanany
                             @can('tax.view')
                                 <li class="nav-item">
                                     <a href="{{ route('tax.index') }}"

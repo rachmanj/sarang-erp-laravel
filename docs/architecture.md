@@ -559,10 +559,12 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 -   `business_partner_details`: Flexible custom field storage for partner-specific data
 -   `tax_codes`: Tax configuration
 -   `bank_accounts`: Operational bank master linked to COA via `account_id` (account number used for PDF auto-detect). Routes: `/bank-accounts`.
--   `bank_statements` / `bank_statement_lines`: Imported statement headers + normalized lines (`direction` debit|credit, `line_hash` dedupe, `match_status`).
--   `bank_reconciliations` / `bank_reconciliation_matches`: Reconciliation sessions and matches to `journal_lines` (or adjustment journals via `PostingService`, `source_type` `bank_reconciliation`).
+-   `bank_statements` / `bank_statement_lines`: Imported statement headers + normalized lines (`debit`/`credit` columns, `line_hash` dedupe, `match_status`, optional `bank_reconciliation_id` for manual lines).
+-   `bank_book_lines`: Snapshot of posted `journal_lines` for the reconciliation period (replaces live-only book query).
+-   `bank_reconciliations`: Session per `bank_account_id` + `periode` (month); `source_mode` `ai`|`manual`; status `processing`|`in_review`|`completed`|`failed`.
+-   `reconciliation_match_groups` + `match_group_bank_lines` / `match_group_book_lines`: N:M matching with `bank_total + book_total ≈ 0` balance rule.
 -   `bank_transactions`: Legacy stub (unused by reconciliation module).
--   **Bank Reconciliation flow**: Upload PDF → `smalot/pdfparser` text extract → OpenRouter LLM JSON normalize → deterministic + AI matching → optional adjustment journals → finalize when statement closing equals reconciled book balance. UI: `/bank-reconciliation` workbench. Permissions: `bank_accounts.*`, `bank_reconciliation.*`.
+-   **Bank Reconciliation flow**: **Rekening Koran** month grid at `/bank-reconciliation` (bank × month cells) → create session (AI PDF or manual from cell modal) → queue jobs → workbench → finalize when balanced. Session list at `/bank-reconciliation/sessions`. Purge all sessions: `php artisan bank-reconciliation:purge-sessions`. Permissions: `bank_accounts.*`, `bank_reconciliation.*`.
 
 #### Company Entity Tables
 

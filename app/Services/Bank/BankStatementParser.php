@@ -4,6 +4,7 @@ namespace App\Services\Bank;
 
 use App\Models\Accounting\Account;
 use App\Models\Bank\BankAccount;
+use App\Models\Bank\BankReconciliation;
 use App\Models\Bank\BankStatement;
 use App\Models\Bank\BankStatementLine;
 use Illuminate\Http\UploadedFile;
@@ -18,6 +19,93 @@ class BankStatementParser
     public function __construct(
         private BankReconciliationOpenRouterClient $client,
     ) {}
+
+    /**
+     * @return array{opening_balance: float, closing_balance: float, lines_count: int}
+     */
+    public function parseForReconciliation(BankReconciliation $reconciliation): array
+    {
+        $statement = $reconciliation->statement;
+        if (! $statement || ! $statement->file_path) {
+            throw new \RuntimeException('No PDF statement attached to this reconciliation.');
+        }
+
+        $absolutePath = Storage::path($statement->file_path);
+        $rawText = $this->extractText($absolutePath);
+
+        if ($rawText !== null) {
+            $parsed = $this->parseWithAiFromText($rawText);
+        } else {
+            $parsed = $this->parseWithAiFromPdf($absolutePath, $statement->original_filename ?? 'statement.pdf');
+            $rawText = '[Parsed via OpenRouter PDF: '.($statement->original_filename ?? 'statement.pdf').']';
+        }
+
+        return DB::transaction(function () use ($reconciliation, $statement, $parsed, $rawText) {
+            $statement->update([
+                'period_start' => $parsed['period_start'],
+                'period_end' => $parsed['period_end'],
+                'opening_balance' => $parsed['opening_balance'],
+                'closing_balance' => $parsed['closing_balance'],
+                'currency' => $parsed['currency'] ?? 'IDR',
+                'raw_text' => $rawText,
+                'status' => 'reconciling',
+            ]);
+
+            $reconciliation->bankLines()->delete();
+
+            $linesCount = 0;
+            $order = 0;
+
+            foreach ($parsed['lines'] as $line) {
+                $amount = round((float) ($line['amount'] ?? 0), 2);
+                if ($amount <= 0) {
+                    continue;
+                }
+
+                $direction = strtolower((string) ($line['direction'] ?? ''));
+                if (! in_array($direction, ['debit', 'credit'], true)) {
+                    continue;
+                }
+
+                $debit = $direction === 'debit' ? $amount : 0;
+                $credit = $direction === 'credit' ? $amount : 0;
+
+                BankStatementLine::create([
+                    'bank_reconciliation_id' => $reconciliation->id,
+                    'bank_statement_id' => $statement->id,
+                    'posting_date' => $line['posting_date'],
+                    'value_date' => $line['value_date'] ?? null,
+                    'description' => $line['description'] ?? null,
+                    'reference_no' => $line['reference_no'] ?? null,
+                    'amount' => $amount,
+                    'direction' => $direction,
+                    'debit' => $debit,
+                    'credit' => $credit,
+                    'running_balance' => isset($line['running_balance']) ? round((float) $line['running_balance'], 2) : null,
+                    'match_status' => BankStatementLine::MATCH_UNMATCHED,
+                    'line_hash' => BankReconciliationSupport::lineHash(
+                        $line['posting_date'],
+                        $direction,
+                        $amount,
+                        $line['reference_no'] ?? null,
+                        $line['description'] ?? null,
+                    ),
+                    'is_ai_extracted' => true,
+                    'ai_confidence' => isset($line['confidence']) ? (float) $line['confidence'] : null,
+                    'line_order' => ++$order,
+                    'ai_meta' => $line['meta'] ?? null,
+                ]);
+
+                $linesCount++;
+            }
+
+            return [
+                'opening_balance' => round((float) $parsed['opening_balance'], 2),
+                'closing_balance' => round((float) $parsed['closing_balance'], 2),
+                'lines_count' => $linesCount,
+            ];
+        });
+    }
 
     public function importFromUpload(UploadedFile $file, ?int $bankAccountId = null): BankStatement
     {

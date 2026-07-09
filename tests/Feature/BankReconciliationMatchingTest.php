@@ -3,10 +3,13 @@
 namespace Tests\Feature;
 
 use App\Models\Bank\BankAccount;
-use App\Models\Bank\BankStatement;
+use App\Models\Bank\BankBookLine;
+use App\Models\Bank\BankReconciliation;
 use App\Models\Bank\BankStatementLine;
 use App\Services\Accounting\PostingService;
+use App\Services\Bank\BankBookLineFetcher;
 use App\Services\Bank\BankReconciliationService;
+use App\Services\Bank\ReconciliationMatchingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -19,24 +22,15 @@ class BankReconciliationMatchingTest extends TestCase
 
     private BankAccount $bankAccount;
 
+    private BankReconciliation $reconciliation;
+
     protected function setUp(): void
     {
         parent::setUp();
         $this->artisan('migrate');
         $this->seed();
 
-        $this->bankCoaId = (int) DB::table('accounts')->where('code', '1.1.1.02')->value('id');
-        if (! $this->bankCoaId) {
-            $this->bankCoaId = DB::table('accounts')->insertGetId([
-                'code' => '1.1.1.02',
-                'name' => 'Kas di Bank - Operasional',
-                'type' => 'asset',
-                'is_postable' => 1,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-        }
-
+        $this->bankCoaId = $this->ensureBankCoa();
         $this->bankAccount = BankAccount::create([
             'code' => 'BNK-MANDIRI',
             'name' => 'Mandiri Operasional',
@@ -46,22 +40,25 @@ class BankReconciliationMatchingTest extends TestCase
             'account_id' => $this->bankCoaId,
             'is_active' => true,
         ]);
+
+        $this->reconciliation = app(BankReconciliationService::class)->createManualSession($this->bankAccount, '2026-01-01');
     }
 
     public function test_auto_match_links_statement_credit_to_book_debit(): void
     {
-        $statement = $this->createStatement();
-        $bankLine = BankStatementLine::create([
-            'bank_statement_id' => $statement->id,
+        BankStatementLine::create([
+            'bank_reconciliation_id' => $this->reconciliation->id,
             'posting_date' => '2026-01-06',
             'description' => 'Incoming transfer',
             'amount' => 482850.00,
             'direction' => 'credit',
+            'debit' => 0,
+            'credit' => 482850,
             'match_status' => 'unmatched',
             'line_hash' => hash('sha256', 'line-1'),
         ]);
 
-        $journalId = app(PostingService::class)->postJournal([
+        app(PostingService::class)->postJournal([
             'date' => '2026-01-06',
             'description' => 'Receipt in bank',
             'source_type' => 'manual_journal',
@@ -72,56 +69,92 @@ class BankReconciliationMatchingTest extends TestCase
             ],
         ]);
 
-        $journalLineId = (int) DB::table('journal_lines')
-            ->where('journal_id', $journalId)
-            ->where('account_id', $this->bankCoaId)
-            ->value('id');
-
-        $reconciliation = app(BankReconciliationService::class)->createSessionFromStatement($statement);
-        $matched = app(BankReconciliationService::class)->autoMatch($reconciliation);
+        app(BankBookLineFetcher::class)->fetchAndReplace($this->reconciliation);
+        $matched = app(ReconciliationMatchingService::class)->autoMatch($this->reconciliation->fresh());
 
         $this->assertSame(1, $matched);
-        $this->assertDatabaseHas('bank_reconciliation_matches', [
-            'bank_reconciliation_id' => $reconciliation->id,
-            'bank_statement_line_id' => $bankLine->id,
-            'journal_line_id' => $journalLineId,
-            'match_type' => 'auto',
+        $this->assertDatabaseHas('reconciliation_match_groups', [
+            'bank_reconciliation_id' => $this->reconciliation->id,
+            'match_type' => 'auto_exact',
         ]);
         $this->assertDatabaseHas('bank_statement_lines', [
-            'id' => $bankLine->id,
+            'bank_reconciliation_id' => $this->reconciliation->id,
             'match_status' => 'matched',
         ]);
     }
 
-    public function test_finalize_requires_zero_unmatched_lines_and_balanced_closing(): void
+    public function test_nm_manual_match_creates_group_with_multiple_lines(): void
     {
-        $statement = $this->createStatement(closing: 100000);
-        BankStatementLine::create([
-            'bank_statement_id' => $statement->id,
+        $bank1 = BankStatementLine::create([
+            'bank_reconciliation_id' => $this->reconciliation->id,
             'posting_date' => '2026-01-06',
-            'description' => 'Ignored fee',
-            'amount' => 12500,
-            'direction' => 'debit',
-            'match_status' => 'ignored',
-            'line_hash' => hash('sha256', 'line-ignored'),
+            'amount' => 500,
+            'direction' => 'credit',
+            'debit' => 0,
+            'credit' => 500,
+            'match_status' => 'unmatched',
+            'line_hash' => hash('sha256', 'b1'),
+        ]);
+        $bank2 = BankStatementLine::create([
+            'bank_reconciliation_id' => $this->reconciliation->id,
+            'posting_date' => '2026-01-06',
+            'amount' => 500,
+            'direction' => 'credit',
+            'debit' => 0,
+            'credit' => 500,
+            'match_status' => 'unmatched',
+            'line_hash' => hash('sha256', 'b2'),
         ]);
 
-        $reconciliation = app(BankReconciliationService::class)->createSessionFromStatement($statement);
+        $book = BankBookLine::create([
+            'bank_reconciliation_id' => $this->reconciliation->id,
+            'posting_date' => '2026-01-06',
+            'debit' => 1000,
+            'credit' => 0,
+            'match_status' => 'unmatched',
+        ]);
 
-        $this->expectException(\RuntimeException::class);
-        app(BankReconciliationService::class)->finalize($reconciliation);
+        app(ReconciliationMatchingService::class)->manualMatch(
+            $this->reconciliation,
+            [$bank1->id, $bank2->id],
+            [$book->id],
+        );
+
+        $this->assertSame(1, $this->reconciliation->matchGroups()->count());
+        $this->assertSame(2, DB::table('match_group_bank_lines')->count());
     }
 
-    private function createStatement(float $opening = 0, float $closing = 0): BankStatement
+    public function test_finalize_requires_balanced_nets(): void
     {
-        return BankStatement::create([
-            'bank_account_id' => $this->bankAccount->id,
-            'period_start' => '2026-01-01',
-            'period_end' => '2026-01-31',
-            'opening_balance' => $opening,
-            'closing_balance' => $closing,
-            'currency' => 'IDR',
-            'status' => 'imported',
+        BankStatementLine::create([
+            'bank_reconciliation_id' => $this->reconciliation->id,
+            'posting_date' => '2026-01-06',
+            'amount' => 1000,
+            'direction' => 'debit',
+            'debit' => 1000,
+            'credit' => 0,
+            'match_status' => 'unmatched',
+            'line_hash' => hash('sha256', 'unbalanced'),
+        ]);
+
+        $this->expectException(\RuntimeException::class);
+        app(BankReconciliationService::class)->finalize($this->reconciliation);
+    }
+
+    private function ensureBankCoa(): int
+    {
+        $id = (int) DB::table('accounts')->where('code', '1.1.1.02')->value('id');
+        if ($id) {
+            return $id;
+        }
+
+        return DB::table('accounts')->insertGetId([
+            'code' => '1.1.1.02',
+            'name' => 'Kas di Bank - Operasional',
+            'type' => 'asset',
+            'is_postable' => 1,
+            'created_at' => now(),
+            'updated_at' => now(),
         ]);
     }
 }

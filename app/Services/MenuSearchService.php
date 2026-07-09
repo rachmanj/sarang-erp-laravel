@@ -455,14 +455,20 @@ class MenuSearchService
                     ['bank accounts', 'bank', 'COA', 'cash account', 'reconciliation']
                 );
             }
-            if ($user->can('bank_reconciliation.view')) {
+            if ($user->hasAnyPermission([
+                'bank_reconciliation.view',
+                'bank_reconciliation.import',
+                'bank_reconciliation.reconcile',
+                'bank_reconciliation.finalize',
+                'bank_accounts.view',
+            ])) {
                 $items[] = $this->buildMenuItem(
-                    'Bank Reconciliation',
+                    'Rekening Koran',
                     route('bank-reconciliation.index'),
-                    'fas fa-balance-scale',
+                    'fas fa-th',
                     'Accounting',
-                    'MAIN > Accounting > Bank Reconciliation',
-                    ['bank reconciliation', 'statement', 'match', 'import PDF', 'reconcile']
+                    'MAIN > Accounting > Rekening Koran',
+                    ['rekening koran', 'koran grid', 'month matrix', 'bank reconciliation', 'statement', 'match', 'import PDF', 'reconcile']
                 );
             }
             if ($user->can('tax.view')) {

@@ -2,53 +2,75 @@
 
 ## Overview
 
-**Bank Reconciliation** matches your **bank statement** lines against **posted journal lines** on the linked GL cash/bank account. It supports PDF statement import (with optional AI parsing), automatic matching, manual matching, and adjustment journals.
+**Bank Reconciliation** matches **bank statement lines** against **book (GL) lines** for a bank account and calendar month. It supports:
+
+- **AI mode** — upload a PDF Rekening Koran; lines are parsed via OpenRouter (queued job).
+- **Manual mode** — enter bank lines without a PDF.
+- **N:M matching** — group one or many bank lines with one or many book lines when totals net to zero.
+- **Exclude lines** — remove timing differences from the balance calculation.
+- **Finalize** — complete when `bank_net + book_net ≈ 0` (excluding excluded lines).
 
 ---
 
 ## Where to find it
 
 1. Sidebar **Accounting** → **Bank Accounts** — maintain bank master records linked to Chart of Accounts.
-2. Sidebar **Accounting** → **Bank Reconciliation** — reconciliation sessions and import.
+2. Sidebar **Accounting** → **Rekening Koran** — month grid (primary entry); **All Sessions** for the full list.
 
-Permissions: `bank_accounts.view`, `bank_reconciliation.view`, `bank_reconciliation.import` (for statement upload).
-
----
-
-## Bank Accounts setup
-
-Before reconciling, each physical bank account must exist in **Bank Accounts** and be linked to a **postable COA** code (typically under `1.1.1.x` cash/bank).
-
-- **Create** — Accounting → Bank Accounts → Add; select bank name, account number, and GL account.
-- Sales Receipts and Purchase Payments post the cash leg to the **bank account COA** selected on the payment line (not a hardcoded default).
+Permissions: `bank_accounts.view`, `bank_reconciliation.view`, `bank_reconciliation.import` (create sessions), `bank_reconciliation.reconcile` (match/exclude), `bank_reconciliation.finalize` (complete).
 
 ---
 
-## Import bank statement
+## Rekening Koran grid
 
-1. Go to **Bank Reconciliation** → **Import Statement**.
-2. Select the **Bank Account** and statement period.
-3. Upload a **PDF** bank statement.
-4. The system extracts lines (PDF text + optional OpenRouter AI). Review parsed amounts and dates.
-5. Save to create a **Bank Statement** with **statement lines**.
+The **Rekening Koran** page shows a matrix of **bank accounts × months** for the selected year.
 
-Statement **credit** (money in) corresponds to book **debit** on the bank GL account.
+- **Empty cell** — click to upload PDF or create a manual session for that month.
+- **Colored badge** — session exists (`Processing`, `In Review`, `Completed`, `Failed`); click to open the workbench or report.
+- Use **All Sessions** for a searchable list; use year arrows to change the calendar year.
 
 ---
 
-## Reconcile a session
+## Create a reconciliation session
 
-1. Open a reconciliation session from the list (or start from an imported statement).
-2. Review **unmatched statement lines** and **unmatched book lines** (from journals on that COA).
-3. Use **Auto Match** (deterministic rules) or **AI Match** (optional) to propose pairs.
-4. **Manual match** — link a statement line to a journal line.
-5. Create **adjustment** entries for bank charges or timing differences (posts via standard journal posting).
-6. **Complete** the reconciliation when the book balance ties to the statement closing balance.
+From the Koran grid (click an empty cell) or **New Session**:
+
+1. Select **Bank Account** and **Period** (month).
+2. Choose **AI** (PDF upload) or **Manual**.
+3. Submit — AI parsing runs in the background (requires queue worker).
+
+Only one session per bank account per month is allowed.
+
+---
+
+## Workbench
+
+Open a session to see:
+
+- **Sticky balance bar** — Bank Net, Book Net, Difference (must be ≈ 0 to finalize).
+- **Bank lines** (left) and **Book lines** (right) — book lines are fetched from posted journals on the linked COA.
+- **Match groups** — created by auto-match or manual multi-select.
+
+### Actions
+
+| Action | Description |
+|--------|-------------|
+| **Fetch Book Lines** | Re-load GL snapshot for the period (queued). |
+| **Auto Match** | Run exact, fuzzy, and split matching (queued). |
+| **Match Selected** | Select checkboxes on both sides; totals must net to zero. |
+| **Exclude (X)** | Remove a line from balance (reason required). |
+| **Unmatch** | Remove a match group and reset lines to unmatched. |
+| **Finalize** | Mark session completed when balanced; opens printable report. |
+
+### Sign convention
+
+Statement **credit** (money in) is stored as bank `credit`; the matching book line is typically a **debit** on the bank GL account. Match validation uses `bank_total + book_total ≈ 0`.
 
 ---
 
 ## Tips
 
-- Reconcile one bank account and period at a time.
+- Run `php artisan queue:work` in production so PDF parse and book fetch do not block the browser.
+- Requires `OPENROUTER_API_KEY` for AI PDF parsing.
 - Ensure Sales Receipts / Purchase Payments are **posted** before expecting them on the book side.
-- Requires `OPENROUTER_API_KEY` for AI import/matching features (server configuration).
+- Use **Exclude** for known timing differences instead of forcing a match.

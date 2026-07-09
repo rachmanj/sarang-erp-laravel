@@ -161,7 +161,25 @@
 
 **Learning**: Enforcing `is_postable` surfaced legacy header-account usage (`4.1.1`, `2.1.2`)—posting must target leaf COA codes. Tax ledger sync should run after invoice post, not via unused `processSalesTax` on orders.
 
-### [111] Bank Reconciliation — AI PDF import + COA-linked bank master (2026-06-19) ✅ COMPLETE
+### [126] Rekening Koran grid + session purge (2026-07-09) ✅ COMPLETE
+
+**Koran grid**: `KoranDashboardService` builds bank_account × 12-month matrix; `/bank-reconciliation` shows grid (replaces session list index); `/bank-reconciliation/sessions` for DataTable list; cell modal for PDF upload / manual create / open workbench.
+
+**Purge**: `php artisan bank-reconciliation:purge-sessions [--force]` deletes all `bank_reconciliations` (cascades match groups, book lines, statement lines); keeps `bank_accounts`, `bank_statements`, PDF files.
+
+**Nav**: Sidebar label **Rekening Koran**; MenuSearchService updated.
+
+### [125] Bank Reconciliation — N:M match groups replace (2026-07-09) ✅ COMPLETE
+
+**Problem**: Original module used 1:1 matches and synchronous import; no manual mode, N:M grouping, exclude netting, or async jobs.
+
+**Solution**: Evolved schema (`bank_book_lines`, `reconciliation_match_groups` + pivots); `ReconciliationBalanceService` (`bank_net + book_net ≈ 0`); `ReconciliationMatchingService` (exact/fuzzy/split + manual N:M); queue jobs for PDF parse, GL fetch, auto-match; create flow with `source_mode` ai|manual; workbench dual-grid UI; printable report; `bank-reconciliation:migrate-legacy` for 4 live sessions.
+
+**Sign convention**: Bank credit (money in) → `debit=0, credit=amount` on bank side; book side uses opposite debit/credit. Auto-match: `bank.debit ≈ book.credit` AND `bank.credit ≈ book.debit`.
+
+**Key files**: `app/Services/Bank/ReconciliationBalanceService.php`, `ReconciliationMatchingService.php`, `BankBookLineFetcher.php`; `app/Jobs/Bank/*`; `BankReconciliationController`; views `bank-reconciliation/create`, `show`, `report`.
+
+### [111] Bank Reconciliation — AI PDF import + COA-linked bank master (2026-06-19) ✅ SUPERSEDED by [125]
 
 **Challenge**: No bank statement import or matching; stub `bank_accounts` disconnected from GL; Sales Receipt / Purchase Payment posted cash leg to hardcoded `1.1.1.01` ignoring line `account_id`.
 

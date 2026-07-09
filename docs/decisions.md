@@ -2937,3 +2937,22 @@ Decision: [Title] - [YYYY-MM-DD]
 
 **Review Date**: 2026-12-28 (6 months).
 
+---
+
+### Decision: Bank Reconciliation N:M match groups (2026-07-09)
+
+**Context**: The original module used 1:1 `bank_reconciliation_matches` and live `journal_lines` queries. The portable spec from `accounting-one-sidebar` uses N:M groups, book line snapshots, exclude-based balance netting, and async jobs.
+
+**Options Considered**:
+
+1. **Keep 1:1 module** — minimal change, no N:M or manual mode.
+2. **Replace with spec-aligned architecture** — evolve schema, migrate live data, adapt to native GL (`bank_book_lines` from `journal_lines`).
+
+**Decision**: Option 2 — replace matching layer; keep `bank_accounts`, COA integration, and Accounting routes.
+
+**Rationale**: Supports many-to-many matching (split transactions), manual sessions without PDF, exclude lines for timing differences, and non-blocking PDF/GL fetch via queue jobs. Sign convention: `bank_net + book_net ≈ 0` (tolerance 0.005); bank credit pairs with book debit.
+
+**Implementation**: Migrations evolve `bank_reconciliations`/`bank_statement_lines`; new `bank_book_lines`, `reconciliation_match_groups`, pivots; services `ReconciliationBalanceService`, `ReconciliationMatchingService`, `BankBookLineFetcher`; jobs `ParseBankStatementJob`, `FetchBookGlLinesJob`, `AutoMatchReconciliationJob`; workbench UI with dual-grid multi-select; `bank-reconciliation:migrate-legacy` command.
+
+**Review Date**: 2027-01-09 (6 months).
+

@@ -17,25 +17,39 @@ Route::prefix('bank-accounts')->middleware(['permission:bank_accounts.view'])->g
         ->middleware('permission:bank_accounts.manage')->name('bank-accounts.update');
 });
 
-Route::prefix('bank-reconciliation')->middleware(['permission:bank_reconciliation.view'])->group(function () {
+Route::prefix('bank-reconciliation')->middleware(['permission:bank_reconciliation.view|bank_accounts.view'])->group(function () {
     Route::get('/', [BankReconciliationController::class, 'index'])->name('bank-reconciliation.index');
+    Route::get('/sessions', [BankReconciliationController::class, 'sessions'])->name('bank-reconciliation.sessions');
     Route::get('/data', [BankReconciliationController::class, 'data'])->name('bank-reconciliation.data');
-    Route::get('/import', [BankReconciliationController::class, 'importForm'])
-        ->middleware('permission:bank_reconciliation.import')->name('bank-reconciliation.import');
-    Route::post('/import', [BankReconciliationController::class, 'import'])
-        ->middleware('permission:bank_reconciliation.import')->name('bank-reconciliation.import.store');
+    Route::get('/koran/cell', [BankReconciliationController::class, 'koranCell'])->name('bank-reconciliation.koran.cell');
+    Route::get('/create', [BankReconciliationController::class, 'create'])
+        ->middleware('permission:bank_reconciliation.import')->name('bank-reconciliation.create');
+    Route::post('/', [BankReconciliationController::class, 'store'])
+        ->middleware('permission:bank_reconciliation.import')->name('bank-reconciliation.store');
     Route::get('/{bankReconciliation}', [BankReconciliationController::class, 'show'])->name('bank-reconciliation.show');
-    Route::get('/{bankReconciliation}/book-data', [BankReconciliationController::class, 'bookData'])->name('bank-reconciliation.book-data');
+    Route::get('/{bankReconciliation}/status', [BankReconciliationController::class, 'status'])->name('bank-reconciliation.status');
+    Route::get('/{bankReconciliation}/report', [BankReconciliationController::class, 'report'])->name('bank-reconciliation.report');
+    Route::get('/{bankReconciliation}/statement-pdf', [BankReconciliationController::class, 'statementPdf'])->name('bank-reconciliation.statement-pdf');
+    Route::post('/{bankReconciliation}/parse', [BankReconciliationController::class, 'parse'])
+        ->middleware('permission:bank_reconciliation.reconcile')->name('bank-reconciliation.parse');
+    Route::post('/{bankReconciliation}/fetch-book', [BankReconciliationController::class, 'fetchBook'])
+        ->middleware('permission:bank_reconciliation.reconcile')->name('bank-reconciliation.fetch-book');
     Route::post('/{bankReconciliation}/auto-match', [BankReconciliationController::class, 'autoMatch'])
         ->middleware('permission:bank_reconciliation.reconcile')->name('bank-reconciliation.auto-match');
-    Route::post('/{bankReconciliation}/ai-match', [BankReconciliationController::class, 'aiMatch'])
-        ->middleware('permission:bank_reconciliation.reconcile')->name('bank-reconciliation.ai-match');
-    Route::post('/{bankReconciliation}/manual-match', [BankReconciliationController::class, 'manualMatch'])
-        ->middleware('permission:bank_reconciliation.reconcile')->name('bank-reconciliation.manual-match');
-    Route::post('/{bankReconciliation}/adjustment', [BankReconciliationController::class, 'adjustment'])
-        ->middleware('permission:bank_reconciliation.reconcile')->name('bank-reconciliation.adjustment');
-    Route::post('/{bankReconciliation}/ignore-line', [BankReconciliationController::class, 'ignoreLine'])
-        ->middleware('permission:bank_reconciliation.reconcile')->name('bank-reconciliation.ignore-line');
+    Route::post('/{bankReconciliation}/match', [BankReconciliationController::class, 'match'])
+        ->middleware('permission:bank_reconciliation.reconcile')->name('bank-reconciliation.match');
+    Route::post('/{bankReconciliation}/unmatch/{group}', [BankReconciliationController::class, 'unmatch'])
+        ->middleware('permission:bank_reconciliation.reconcile')->name('bank-reconciliation.unmatch');
+    Route::post('/{bankReconciliation}/lines', [BankReconciliationController::class, 'storeLine'])
+        ->middleware('permission:bank_reconciliation.reconcile')->name('bank-reconciliation.lines.store');
+    Route::put('/{bankReconciliation}/lines/{line}', [BankReconciliationController::class, 'updateLine'])
+        ->middleware('permission:bank_reconciliation.reconcile')->name('bank-reconciliation.lines.update');
+    Route::delete('/{bankReconciliation}/lines/{line}', [BankReconciliationController::class, 'destroyLine'])
+        ->middleware('permission:bank_reconciliation.reconcile')->name('bank-reconciliation.lines.destroy');
+    Route::post('/{bankReconciliation}/lines/{line}/exclude', [BankReconciliationController::class, 'excludeBankLine'])
+        ->middleware('permission:bank_reconciliation.reconcile')->name('bank-reconciliation.lines.exclude');
+    Route::post('/{bankReconciliation}/book-lines/{bookLine}/exclude', [BankReconciliationController::class, 'excludeBookLine'])
+        ->middleware('permission:bank_reconciliation.reconcile')->name('bank-reconciliation.book-lines.exclude');
     Route::post('/{bankReconciliation}/finalize', [BankReconciliationController::class, 'finalize'])
         ->middleware('permission:bank_reconciliation.finalize')->name('bank-reconciliation.finalize');
 });

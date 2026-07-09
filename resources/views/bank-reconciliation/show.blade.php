@@ -12,115 +12,98 @@
 
 @section('content')
     @php
-        $statement = $bankReconciliation->statement;
         $bankAccount = $bankReconciliation->bankAccount;
-        $unmatchedCount = $statement->lines->where('match_status', 'unmatched')->count();
-        $matchedCount = $statement->lines->whereIn('match_status', ['matched', 'adjustment'])->count();
-        $computedClosing = app(\App\Services\Bank\BankReconciliationService::class)->calculateReconciledClosingBalance($bankReconciliation);
+        $isEditable = ! $bankReconciliation->isLockedForEditing() && $bankReconciliation->status !== \App\Models\Bank\BankReconciliation::STATUS_PROCESSING;
     @endphp
 
-    <div class="row">
-        <div class="col-12">
-            @if (session('success'))
-                <script>
-                    toastr.success(@json(session('success')));
-                </script>
-            @endif
-            @if ($errors->any())
-                <div class="alert alert-danger">
-                    <ul class="mb-0">
-                        @foreach ($errors->all() as $error)
-                            <li>{{ $error }}</li>
-                        @endforeach
-                    </ul>
-                </div>
-            @endif
+    @if (session('success'))
+        <script>toastr.success(@json(session('success')));</script>
+    @endif
 
-            <div class="card card-outline card-primary">
-                <div class="card-header d-flex justify-content-between align-items-center flex-wrap">
-                    <div>
-                        <h4 class="card-title mb-0">{{ $bankAccount->name }} ({{ $bankAccount->account_number }})</h4>
-                        <small class="text-muted">
-                            Period: {{ $statement->period_start->format('d M Y') }} - {{ $statement->period_end->format('d M Y') }}
-                            | COA: {{ $bankAccount->account?->code }} - {{ $bankAccount->account?->name }}
-                        </small>
-                    </div>
-                    <div class="d-flex flex-wrap" style="gap: 0.35rem;">
-                        @if ($bankReconciliation->status === 'open')
-                            @can('bank_reconciliation.reconcile')
-                                <form method="POST" action="{{ route('bank-reconciliation.auto-match', $bankReconciliation) }}">
-                                    @csrf
-                                    <button class="btn btn-sm btn-info">Auto Match</button>
-                                </form>
-                                <form method="POST" action="{{ route('bank-reconciliation.ai-match', $bankReconciliation) }}">
-                                    @csrf
-                                    <button class="btn btn-sm btn-purple" style="background:#6f42c1;color:#fff;">AI Suggest</button>
-                                </form>
-                            @endcan
-                            @can('bank_reconciliation.finalize')
-                                <form method="POST" action="{{ route('bank-reconciliation.finalize', $bankReconciliation) }}">
-                                    @csrf
-                                    <button class="btn btn-sm btn-success" @disabled($unmatchedCount > 0)>Finalize</button>
-                                </form>
-                            @endcan
+    @if ($errors->any())
+        <div class="alert alert-danger">
+            <ul class="mb-0">
+                @foreach ($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+
+    @if ($bankReconciliation->status === \App\Models\Bank\BankReconciliation::STATUS_PROCESSING)
+        <div class="alert alert-info" id="processing-alert">
+            <i class="fas fa-spinner fa-spin"></i> Processing statement and fetching book lines…
+        </div>
+    @endif
+
+    @if ($bankReconciliation->status === \App\Models\Bank\BankReconciliation::STATUS_FAILED)
+        <div class="alert alert-danger">
+            <strong>Failed:</strong> {{ $bankReconciliation->notes }}
+        </div>
+    @endif
+
+    <div class="card card-outline card-primary mb-3">
+        <div class="card-header d-flex justify-content-between align-items-center flex-wrap">
+            <div>
+                <h4 class="card-title mb-0">{{ $bankAccount->name }} ({{ $bankAccount->account_number }})</h4>
+                <small class="text-muted">
+                    Period: {{ $bankReconciliation->periode->format('F Y') }}
+                    | COA: {{ $bankAccount->account?->code }} - {{ $bankAccount->account?->name }}
+                    | Mode: {{ strtoupper($bankReconciliation->source_mode) }}
+                </small>
+            </div>
+            <div class="d-flex flex-wrap" style="gap: 0.35rem;">
+                @if ($isEditable)
+                    @can('bank_reconciliation.reconcile')
+                        @if ($bankReconciliation->source_mode === 'ai')
+                            <form method="POST" action="{{ route('bank-reconciliation.parse', $bankReconciliation) }}">@csrf<button class="btn btn-sm btn-outline-info">Re-parse PDF</button></form>
                         @endif
-                        <a href="{{ route('bank-reconciliation.index') }}" class="btn btn-sm btn-secondary">Back</a>
-                    </div>
-                </div>
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-3">
-                            <div class="info-box bg-light">
-                                <span class="info-box-icon"><i class="fas fa-door-open"></i></span>
-                                <div class="info-box-content">
-                                    <span class="info-box-text">Opening</span>
-                                    <span class="info-box-number">{{ number_format((float) $statement->opening_balance, 2) }}</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="info-box bg-light">
-                                <span class="info-box-icon"><i class="fas fa-door-closed"></i></span>
-                                <div class="info-box-content">
-                                    <span class="info-box-text">Statement Closing</span>
-                                    <span class="info-box-number">{{ number_format((float) $statement->closing_balance, 2) }}</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="info-box bg-light">
-                                <span class="info-box-icon"><i class="fas fa-book"></i></span>
-                                <div class="info-box-content">
-                                    <span class="info-box-text">Book Balance</span>
-                                    <span class="info-box-number">{{ number_format($computedClosing, 2) }}</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="info-box bg-light">
-                                <span class="info-box-icon"><i class="fas fa-check-double"></i></span>
-                                <div class="info-box-content">
-                                    <span class="info-box-text">Matched / Unmatched</span>
-                                    <span class="info-box-number">{{ $matchedCount }} / {{ $unmatchedCount }}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                        <form method="POST" action="{{ route('bank-reconciliation.fetch-book', $bankReconciliation) }}">@csrf<button class="btn btn-sm btn-outline-secondary">Fetch Book Lines</button></form>
+                        <form method="POST" action="{{ route('bank-reconciliation.auto-match', $bankReconciliation) }}">@csrf<button class="btn btn-sm btn-info">Auto Match</button></form>
+                    @endcan
+                    @can('bank_reconciliation.finalize')
+                        <form method="POST" action="{{ route('bank-reconciliation.finalize', $bankReconciliation) }}">@csrf<button class="btn btn-sm btn-success" id="finalize-btn" @disabled(! ($balance['is_balanced'] ?? false))>Finalize</button></form>
+                    @endcan
+                @endif
+                @if ($bankReconciliation->status === \App\Models\Bank\BankReconciliation::STATUS_COMPLETED)
+                    <a href="{{ route('bank-reconciliation.report', $bankReconciliation) }}" class="btn btn-sm btn-secondary">Report</a>
+                @endif
+                <a href="{{ route('bank-reconciliation.index') }}" class="btn btn-sm btn-secondary">Back</a>
+            </div>
+        </div>
+        <div class="card-body py-2">
+            <div class="row text-center">
+                <div class="col-md-3"><strong>Bank Net</strong><br><span id="bank-net">{{ number_format($balance['bank_net'], 2) }}</span></div>
+                <div class="col-md-3"><strong>Book Net</strong><br><span id="book-net">{{ number_format($balance['book_net'], 2) }}</span></div>
+                <div class="col-md-3"><strong>Difference</strong><br><span id="difference" class="{{ ($balance['is_balanced'] ?? false) ? 'text-success' : 'text-danger' }}">{{ number_format($balance['difference'], 2) }}</span></div>
+                <div class="col-md-3"><strong>Match Groups</strong><br><span id="match-groups-count">{{ $balance['match_groups_count'] ?? 0 }}</span></div>
             </div>
         </div>
     </div>
 
+    @if ($isEditable)
+        @can('bank_reconciliation.reconcile')
+            <form method="POST" action="{{ route('bank-reconciliation.match', $bankReconciliation) }}" id="manual-match-form" class="mb-3">
+                @csrf
+                <div class="d-flex flex-wrap align-items-center" style="gap: 0.5rem;">
+                    <button type="submit" class="btn btn-primary btn-sm" id="match-selected-btn" disabled>Match Selected</button>
+                    <small class="text-muted">Select bank line(s) and book line(s); totals must net to zero.</small>
+                </div>
+            </form>
+        @endcan
+    @endif
+
     <div class="row">
         <div class="col-lg-6">
             <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">Bank Statement Lines</h3>
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h3 class="card-title mb-0">Bank Lines ({{ $balance['bank_lines_count'] ?? 0 }})</h3>
                 </div>
-                <div class="card-body table-responsive p-0">
+                <div class="card-body table-responsive p-0" style="max-height: 420px; overflow-y: auto;">
                     <table class="table table-sm table-striped mb-0">
-                        <thead>
+                        <thead class="thead-light" style="position: sticky; top: 0;">
                             <tr>
+                                @if ($isEditable) @can('bank_reconciliation.reconcile')<th></th>@endcan @endif
                                 <th>Date</th>
                                 <th>Description</th>
                                 <th class="text-right">Debit</th>
@@ -130,79 +113,120 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @forelse ($statement->lines as $line)
-                                <tr class="{{ $line->match_status === 'unmatched' ? 'table-warning' : '' }}">
+                            @forelse ($bankReconciliation->bankLines as $line)
+                                <tr class="{{ $line->match_status === 'unmatched' ? 'table-warning' : ($line->match_status === 'excluded' ? 'table-secondary' : '') }}">
+                                    @if ($isEditable) @can('bank_reconciliation.reconcile')
+                                        <td>
+                                            @if ($line->match_status === 'unmatched')
+                                                <input type="checkbox" class="bank-line-check" value="{{ $line->id }}" form="manual-match-form" name="bank_line_ids[]">
+                                            @endif
+                                        </td>
+                                    @endcan @endif
                                     <td>{{ $line->posting_date->format('d/m/Y') }}</td>
                                     <td>
-                                        <div>{{ \Illuminate\Support\Str::limit($line->description, 60) }}</div>
-                                        @if ($line->reference_no)
-                                            <small class="text-muted">{{ $line->reference_no }}</small>
-                                        @endif
+                                        <div>{{ \Illuminate\Support\Str::limit($line->description, 50) }}</div>
+                                        @if ($line->reference_no)<small class="text-muted">{{ $line->reference_no }}</small>@endif
                                     </td>
-                                    <td class="text-right">{{ $line->direction === 'debit' ? number_format((float) $line->amount, 2) : '-' }}</td>
-                                    <td class="text-right">{{ $line->direction === 'credit' ? number_format((float) $line->amount, 2) : '-' }}</td>
+                                    <td class="text-right">{{ $line->debit > 0 ? number_format((float) $line->debit, 2) : '-' }}</td>
+                                    <td class="text-right">{{ $line->credit > 0 ? number_format((float) $line->credit, 2) : '-' }}</td>
                                     <td><span class="badge badge-secondary">{{ strtoupper($line->match_status) }}</span></td>
                                     <td class="text-nowrap">
-                                        @if ($bankReconciliation->status === 'open' && $line->match_status === 'unmatched')
+                                        @if ($isEditable && in_array($line->match_status, ['unmatched', 'excluded']))
                                             @can('bank_reconciliation.reconcile')
-                                                <button type="button" class="btn btn-xs btn-primary match-btn"
-                                                    data-line-id="{{ $line->id }}"
-                                                    data-description="{{ $line->description }}"
-                                                    data-suggested-account="{{ \App\Services\Bank\BankReconciliationSupport::suggestCounterAccountCode($line->description ?? '') }}">
-                                                    Match
-                                                </button>
-                                                <form method="POST" action="{{ route('bank-reconciliation.ignore-line', $bankReconciliation) }}" class="d-inline">
-                                                    @csrf
-                                                    <input type="hidden" name="bank_statement_line_id" value="{{ $line->id }}">
-                                                    <button class="btn btn-xs btn-secondary">Ignore</button>
-                                                </form>
+                                                @if ($line->match_status === 'unmatched')
+                                                    <form method="POST" action="{{ route('bank-reconciliation.lines.exclude', [$bankReconciliation, $line]) }}" class="d-inline exclude-form">
+                                                        @csrf
+                                                        <input type="hidden" name="exclude" value="1">
+                                                        <input type="hidden" name="exclude_reason" value="Excluded by user">
+                                                        <button class="btn btn-xs btn-secondary" title="Exclude">X</button>
+                                                    </form>
+                                                @else
+                                                    <form method="POST" action="{{ route('bank-reconciliation.lines.exclude', [$bankReconciliation, $line]) }}" class="d-inline">
+                                                        @csrf
+                                                        <input type="hidden" name="exclude" value="0">
+                                                        <button class="btn btn-xs btn-outline-primary" title="Include">+</button>
+                                                    </form>
+                                                @endif
                                             @endcan
                                         @endif
                                     </td>
                                 </tr>
                             @empty
-                                <tr>
-                                    <td colspan="6" class="text-center text-muted">No statement lines imported.</td>
-                                </tr>
+                                <tr><td colspan="7" class="text-center text-muted">No bank lines.</td></tr>
                             @endforelse
                         </tbody>
                     </table>
                 </div>
             </div>
+
+            @if ($isEditable && $bankReconciliation->source_mode === 'manual')
+                @can('bank_reconciliation.reconcile')
+                    <div class="card mt-2">
+                        <div class="card-header"><h3 class="card-title mb-0">Add Bank Line</h3></div>
+                        <form method="POST" action="{{ route('bank-reconciliation.lines.store', $bankReconciliation) }}">
+                            @csrf
+                            <div class="card-body">@include('bank-reconciliation.partials.bank-line-fields')</div>
+                            <div class="card-footer"><button class="btn btn-sm btn-primary">Add Line</button></div>
+                        </form>
+                    </div>
+                @endcan
+            @endif
         </div>
 
         <div class="col-lg-6">
             <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h3 class="card-title mb-0">Unmatched Book Lines</h3>
-                    <button type="button" class="btn btn-sm btn-outline-secondary" id="refresh-book-lines-btn" title="Refresh book lines">
-                        <i class="fas fa-sync-alt"></i> Refresh
-                    </button>
-                </div>
-                <div class="card-body table-responsive p-0">
+                <div class="card-header"><h3 class="card-title mb-0">Book Lines ({{ $balance['book_lines_count'] ?? 0 }})</h3></div>
+                <div class="card-body table-responsive p-0" style="max-height: 420px; overflow-y: auto;">
                     <table class="table table-sm table-striped mb-0">
-                        <thead>
+                        <thead class="thead-light" style="position: sticky; top: 0;">
                             <tr>
+                                @if ($isEditable) @can('bank_reconciliation.reconcile')<th></th>@endcan @endif
                                 <th>Date</th>
                                 <th>Description</th>
                                 <th class="text-right">Debit</th>
                                 <th class="text-right">Credit</th>
-                                <th>Source</th>
+                                <th>Status</th>
+                                <th></th>
                             </tr>
                         </thead>
-                        <tbody id="book-lines-tbody">
-                            @forelse ($bookLines as $bookLine)
-                                <tr>
-                                    <td>{{ \Illuminate\Support\Carbon::parse($bookLine->date)->format('d/m/Y') }}</td>
-                                    <td>{{ \Illuminate\Support\Str::limit(trim(($bookLine->description ?? '') . ' ' . ($bookLine->memo ?? '')), 70) }}</td>
-                                    <td class="text-right">{{ number_format((float) $bookLine->debit, 2) }}</td>
-                                    <td class="text-right">{{ number_format((float) $bookLine->credit, 2) }}</td>
-                                    <td><small>{{ $bookLine->source_type }}</small></td>
+                        <tbody>
+                            @forelse ($bankReconciliation->bookLines as $line)
+                                <tr class="{{ $line->match_status === 'unmatched' ? 'table-warning' : ($line->match_status === 'excluded' ? 'table-secondary' : '') }}">
+                                    @if ($isEditable) @can('bank_reconciliation.reconcile')
+                                        <td>
+                                            @if ($line->match_status === 'unmatched')
+                                                <input type="checkbox" class="book-line-check" value="{{ $line->id }}" form="manual-match-form" name="book_line_ids[]">
+                                            @endif
+                                        </td>
+                                    @endcan @endif
+                                    <td>{{ ($line->posting_date ?? $line->doc_date)?->format('d/m/Y') }}</td>
+                                    <td>{{ \Illuminate\Support\Str::limit($line->description, 60) }}</td>
+                                    <td class="text-right">{{ number_format((float) $line->debit, 2) }}</td>
+                                    <td class="text-right">{{ number_format((float) $line->credit, 2) }}</td>
+                                    <td><span class="badge badge-secondary">{{ strtoupper($line->match_status) }}</span></td>
+                                    <td>
+                                        @if ($isEditable && in_array($line->match_status, ['unmatched', 'excluded']))
+                                            @can('bank_reconciliation.reconcile')
+                                                @if ($line->match_status === 'unmatched')
+                                                    <form method="POST" action="{{ route('bank-reconciliation.book-lines.exclude', [$bankReconciliation, $line]) }}" class="d-inline">
+                                                        @csrf
+                                                        <input type="hidden" name="exclude" value="1">
+                                                        <input type="hidden" name="exclude_reason" value="Excluded by user">
+                                                        <button class="btn btn-xs btn-secondary">X</button>
+                                                    </form>
+                                                @else
+                                                    <form method="POST" action="{{ route('bank-reconciliation.book-lines.exclude', [$bankReconciliation, $line]) }}" class="d-inline">
+                                                        @csrf
+                                                        <input type="hidden" name="exclude" value="0">
+                                                        <button class="btn btn-xs btn-outline-primary">+</button>
+                                                    </form>
+                                                @endif
+                                            @endcan
+                                        @endif
+                                    </td>
                                 </tr>
                             @empty
-                                <tr>
-                                    <td colspan="5" class="text-center text-muted">No unmatched book lines.</td>
-                                </tr>
+                                <tr><td colspan="7" class="text-center text-muted">No book lines. Click Fetch Book Lines.</td></tr>
                             @endforelse
                         </tbody>
                     </table>
@@ -211,170 +235,86 @@
         </div>
     </div>
 
-    @can('bank_reconciliation.reconcile')
-        <div class="modal fade" id="matchModal" tabindex="-1" role="dialog">
-            <div class="modal-dialog modal-lg" role="document">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title">Match Statement Line</h5>
-                        <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
-                    </div>
-                    <div class="modal-body">
-                        <p id="match-line-description" class="text-muted"></p>
-                        <form method="POST" action="{{ route('bank-reconciliation.manual-match', $bankReconciliation) }}" id="manual-match-form">
-                            @csrf
-                            <input type="hidden" name="bank_statement_line_id" id="manual-bank-line-id">
-                            <div class="form-group">
-                                <label>Book Journal Line</label>
-                                <select name="journal_line_id" id="manual-journal-line-id" class="form-control" required>
-                                    <option value="">Select book line</option>
-                                    @foreach ($bookLines as $bookLine)
-                                        <option value="{{ $bookLine->journal_line_id }}">
-                                            {{ \Illuminate\Support\Carbon::parse($bookLine->date)->format('d/m/Y') }}
-                                            | D {{ number_format((float) $bookLine->debit, 2) }}
-                                            | C {{ number_format((float) $bookLine->credit, 2) }}
-                                            | {{ \Illuminate\Support\Str::limit(trim(($bookLine->description ?? '') . ' ' . ($bookLine->memo ?? '')), 40) }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            <button class="btn btn-primary">Save Manual Match</button>
-                        </form>
-
-                        <hr>
-
-                        <form method="POST" action="{{ route('bank-reconciliation.adjustment', $bankReconciliation) }}" id="adjustment-form">
-                            @csrf
-                            <input type="hidden" name="bank_statement_line_id" id="adjustment-bank-line-id">
-                            <div class="form-group">
-                                <label>Counter Account (for bank-only item)</label>
-                                <select name="counter_account_id" id="adjustment-counter-account-id" class="form-control" required>
-                                    <option value="">Select counter account</option>
-                                    @foreach ($expenseAccounts as $account)
-                                        <option value="{{ $account->id }}" data-code="{{ $account->code }}">
-                                            {{ $account->code }} - {{ $account->name }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label>Memo</label>
-                                <input type="text" name="memo" class="form-control">
-                            </div>
-                            <button class="btn btn-warning">Post Adjustment &amp; Match</button>
-                        </form>
-                    </div>
-                </div>
-            </div>
+    <div class="card mt-3">
+        <div class="card-header"><h3 class="card-title mb-0">Match Groups</h3></div>
+        <div class="card-body table-responsive p-0">
+            <table class="table table-sm mb-0">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Type</th>
+                        <th class="text-right">Bank Total</th>
+                        <th class="text-right">Book Total</th>
+                        <th class="text-right">Diff</th>
+                        <th>Lines</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse ($bankReconciliation->matchGroups as $group)
+                        <tr>
+                            <td>{{ $group->id }}</td>
+                            <td>{{ strtoupper(str_replace('_', ' ', $group->match_type)) }}</td>
+                            <td class="text-right">{{ number_format((float) $group->bank_total, 2) }}</td>
+                            <td class="text-right">{{ number_format((float) $group->book_total, 2) }}</td>
+                            <td class="text-right">{{ number_format((float) $group->difference, 2) }}</td>
+                            <td>{{ $group->bankLines->count() }} bank / {{ $group->bookLines->count() }} book</td>
+                            <td>
+                                @if ($isEditable)
+                                    @can('bank_reconciliation.reconcile')
+                                        <form method="POST" action="{{ route('bank-reconciliation.unmatch', [$bankReconciliation, $group]) }}" class="d-inline">
+                                            @csrf
+                                            <button class="btn btn-xs btn-danger" onclick="return confirm('Remove this match group?')">Unmatch</button>
+                                        </form>
+                                    @endcan
+                                @endif
+                            </td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="7" class="text-center text-muted">No match groups yet.</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
         </div>
-    @endcan
+    </div>
 @endsection
 
 @push('scripts')
     <script>
         $(function() {
-            const bookLinesUrl = @json(route('bank-reconciliation.book-data', $bankReconciliation));
+            const statusUrl = @json(route('bank-reconciliation.status', $bankReconciliation));
+            const isProcessing = @json($bankReconciliation->status === \App\Models\Bank\BankReconciliation::STATUS_PROCESSING);
 
-            function truncateText(text, maxLength) {
-                if (!text || text.length <= maxLength) {
-                    return text || '';
-                }
-
-                return text.substring(0, maxLength) + '...';
+            function updateMatchButton() {
+                const bankCount = $('.bank-line-check:checked').length;
+                const bookCount = $('.book-line-check:checked').length;
+                $('#match-selected-btn').prop('disabled', bankCount === 0 || bookCount === 0);
             }
 
-            function buildBookLineRow(row) {
-                return $('<tr>').append(
-                    $('<td>').text(row.date_display),
-                    $('<td>').text(truncateText(row.description, 70)),
-                    $('<td>').addClass('text-right').text(row.debit),
-                    $('<td>').addClass('text-right').text(row.credit),
-                    $('<td>').append($('<small>').text(row.source_type))
-                );
-            }
+            $(document).on('change', '.bank-line-check, .book-line-check', updateMatchButton);
 
-            function refreshManualMatchOptions(rows) {
-                const $select = $('#manual-journal-line-id');
-                const currentValue = $select.val();
+            function pollStatus() {
+                $.get(statusUrl).done(function(data) {
+                    $('#bank-net').text(Number(data.bank_net).toLocaleString(undefined, {minimumFractionDigits: 2}));
+                    $('#book-net').text(Number(data.book_net).toLocaleString(undefined, {minimumFractionDigits: 2}));
+                    $('#difference').text(Number(data.difference).toLocaleString(undefined, {minimumFractionDigits: 2}))
+                        .toggleClass('text-success', data.is_balanced)
+                        .toggleClass('text-danger', !data.is_balanced);
+                    $('#match-groups-count').text(data.match_groups_count);
+                    $('#finalize-btn').prop('disabled', !data.is_balanced);
 
-                $select.find('option:not(:first)').remove();
-
-                rows.forEach(function(row) {
-                    const label = row.date_display
-                        + ' | D ' + row.debit
-                        + ' | C ' + row.credit
-                        + ' | ' + truncateText(row.description, 40);
-
-                    $select.append($('<option>', {
-                        value: row.journal_line_id,
-                        text: label,
-                    }));
+                    if (data.status !== 'processing') {
+                        $('#processing-alert').remove();
+                        if (isProcessing) {
+                            window.location.reload();
+                        }
+                    }
                 });
-
-                if (currentValue) {
-                    $select.val(currentValue);
-                }
             }
 
-            function refreshBookLines() {
-                const $btn = $('#refresh-book-lines-btn');
-                const $tbody = $('#book-lines-tbody');
-
-                $btn.prop('disabled', true);
-                $btn.find('i').addClass('fa-spin');
-
-                $.get(bookLinesUrl)
-                    .done(function(response) {
-                        const rows = response.data || [];
-
-                        $tbody.empty();
-
-                        if (rows.length === 0) {
-                            $tbody.append(
-                                $('<tr>').append(
-                                    $('<td>').attr('colspan', 5).addClass('text-center text-muted').text('No unmatched book lines.')
-                                )
-                            );
-                        } else {
-                            rows.forEach(function(row) {
-                                $tbody.append(buildBookLineRow(row));
-                            });
-                        }
-
-                        refreshManualMatchOptions(rows);
-                        toastr.success('Book lines refreshed.');
-                    })
-                    .fail(function() {
-                        toastr.error('Failed to refresh book lines.');
-                    })
-                    .always(function() {
-                        $btn.prop('disabled', false);
-                        $btn.find('i').removeClass('fa-spin');
-                    });
+            if (isProcessing) {
+                setInterval(pollStatus, 3000);
             }
-
-            $('#refresh-book-lines-btn').on('click', refreshBookLines);
-
-            $('.match-btn').on('click', function() {
-                const lineId = $(this).data('line-id');
-                const description = $(this).data('description') || '';
-                const suggestedCode = $(this).data('suggested-account');
-
-                $('#manual-bank-line-id').val(lineId);
-                $('#adjustment-bank-line-id').val(lineId);
-                $('#match-line-description').text(description);
-                $('#manual-journal-line-id').val('');
-
-                if (suggestedCode) {
-                    $('#adjustment-counter-account-id option').each(function() {
-                        if ($(this).data('code') === suggestedCode) {
-                            $('#adjustment-counter-account-id').val($(this).val());
-                        }
-                    });
-                }
-
-                $('#matchModal').modal('show');
-            });
         });
     </script>
 @endpush
