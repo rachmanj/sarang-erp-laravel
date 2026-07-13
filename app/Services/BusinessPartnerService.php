@@ -3,12 +3,11 @@
 namespace App\Services;
 
 use App\Models\BusinessPartner;
-use App\Models\BusinessPartnerContact;
 use App\Models\BusinessPartnerAddress;
+use App\Models\BusinessPartnerContact;
 use App\Models\BusinessPartnerDetail;
 use App\Models\Currency;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Auth;
 
 class BusinessPartnerService
 {
@@ -17,11 +16,11 @@ class BusinessPartnerService
         return DB::transaction(function () use ($data) {
             // Get base currency as default if not provided
             $defaultCurrencyId = $data['default_currency_id'] ?? null;
-            if (!$defaultCurrencyId) {
+            if (! $defaultCurrencyId) {
                 $baseCurrency = Currency::getBaseCurrency();
                 $defaultCurrencyId = $baseCurrency ? $baseCurrency->id : null;
             }
-            
+
             // Create main business partner record
             $businessPartner = BusinessPartner::create([
                 'code' => $data['code'],
@@ -68,15 +67,15 @@ class BusinessPartnerService
                 'website' => $data['website'] ?? $businessPartner->website,
                 'notes' => $data['notes'] ?? $businessPartner->notes,
             ];
-            
+
             // Update default_currency_id if provided, otherwise keep existing or set to base currency
             if (isset($data['default_currency_id'])) {
                 $updateData['default_currency_id'] = $data['default_currency_id'];
-            } elseif (!$businessPartner->default_currency_id) {
+            } elseif (! $businessPartner->default_currency_id) {
                 $baseCurrency = Currency::getBaseCurrency();
                 $updateData['default_currency_id'] = $baseCurrency ? $baseCurrency->id : null;
             }
-            
+
             $businessPartner->update($updateData);
 
             // Update contacts if provided
@@ -107,10 +106,12 @@ class BusinessPartnerService
             if ($hasTransactions) {
                 // Soft delete by changing status to inactive
                 $businessPartner->update(['status' => 'inactive']);
+
                 return false; // Indicates soft delete
             } else {
                 // Hard delete
                 $businessPartner->delete();
+
                 return true; // Indicates hard delete
             }
         });
@@ -154,26 +155,26 @@ class BusinessPartnerService
             'details',
             'projects',
         ];
-        
+
         // Only load relationships if tables exist
         if (\Illuminate\Support\Facades\Schema::hasTable('purchase_orders')) {
             $with['purchaseOrders'] = function ($query) {
                 $query->latest()->limit(5);
             };
         }
-        
+
         if (\Illuminate\Support\Facades\Schema::hasTable('sales_orders')) {
             $with['salesOrders'] = function ($query) {
                 $query->latest()->limit(5);
             };
         }
-        
+
         return BusinessPartner::with($with)->findOrFail($id);
     }
 
-    protected function createContacts(BusinessPartner $businessPartner, $contacts)
+    protected function createContacts(BusinessPartner $businessPartner, $contacts): void
     {
-        foreach ($contacts as $contactData) {
+        foreach ($this->prepareContactsForSave($contacts) as $contactData) {
             BusinessPartnerContact::create([
                 'business_partner_id' => $businessPartner->id,
                 'contact_type' => $contactData['contact_type'],
@@ -188,6 +189,38 @@ class BusinessPartnerService
         }
     }
 
+    /**
+     * @param  array<int, array<string, mixed>>  $contacts
+     * @return array<int, array<string, mixed>>
+     */
+    protected function prepareContactsForSave(array $contacts): array
+    {
+        $contacts = array_values(array_filter($contacts, function (array $contact): bool {
+            return trim((string) ($contact['name'] ?? '')) !== '';
+        }));
+
+        $hasPrimary = false;
+
+        foreach ($contacts as &$contact) {
+            $contact['is_primary'] = filter_var($contact['is_primary'] ?? false, FILTER_VALIDATE_BOOLEAN);
+
+            if ($contact['is_primary']) {
+                if ($hasPrimary) {
+                    $contact['is_primary'] = false;
+                } else {
+                    $hasPrimary = true;
+                }
+            }
+        }
+        unset($contact);
+
+        if ($contacts !== [] && ! $hasPrimary) {
+            $contacts[0]['is_primary'] = true;
+        }
+
+        return $contacts;
+    }
+
     protected function createAddresses(BusinessPartner $businessPartner, $addresses)
     {
         foreach ($addresses as $addressData) {
@@ -200,6 +233,7 @@ class BusinessPartnerService
                 'state_province' => $addressData['state_province'] ?? null,
                 'postal_code' => $addressData['postal_code'] ?? null,
                 'country' => $addressData['country'] ?? 'Indonesia',
+                'phone' => $addressData['phone'] ?? null,
                 'is_primary' => $addressData['is_primary'] ?? false,
                 'notes' => $addressData['notes'] ?? null,
             ]);
@@ -221,7 +255,7 @@ class BusinessPartnerService
         }
     }
 
-    protected function updateContacts(BusinessPartner $businessPartner, $contacts)
+    protected function updateContacts(BusinessPartner $businessPartner, $contacts): void
     {
         // Delete existing contacts
         $businessPartner->contacts()->delete();

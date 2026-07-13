@@ -16,6 +16,7 @@ class BusinessPartnerAddress extends Model
         'state_province',
         'postal_code',
         'country',
+        'phone',
         'is_primary',
         'notes',
     ];
@@ -45,12 +46,24 @@ class BusinessPartnerAddress extends Model
     public function getFullAddressAttribute()
     {
         $parts = [];
-        if ($this->address_line_1) $parts[] = $this->address_line_1;
-        if ($this->address_line_2) $parts[] = $this->address_line_2;
-        if ($this->city) $parts[] = $this->city;
-        if ($this->state_province) $parts[] = $this->state_province;
-        if ($this->postal_code) $parts[] = $this->postal_code;
-        if ($this->country) $parts[] = $this->country;
+        if ($this->address_line_1) {
+            $parts[] = $this->address_line_1;
+        }
+        if ($this->address_line_2) {
+            $parts[] = $this->address_line_2;
+        }
+        if ($this->city) {
+            $parts[] = $this->city;
+        }
+        if ($this->state_province) {
+            $parts[] = $this->state_province;
+        }
+        if ($this->postal_code) {
+            $parts[] = $this->postal_code;
+        }
+        if ($this->country) {
+            $parts[] = $this->country;
+        }
 
         return implode(', ', $parts);
     }
@@ -58,9 +71,15 @@ class BusinessPartnerAddress extends Model
     public function getShortAddressAttribute()
     {
         $parts = [];
-        if ($this->address_line_1) $parts[] = $this->address_line_1;
-        if ($this->city) $parts[] = $this->city;
-        if ($this->country) $parts[] = $this->country;
+        if ($this->address_line_1) {
+            $parts[] = $this->address_line_1;
+        }
+        if ($this->city) {
+            $parts[] = $this->city;
+        }
+        if ($this->country) {
+            $parts[] = $this->country;
+        }
 
         return implode(', ', $parts);
     }

@@ -555,6 +555,14 @@
                         </div>
                     </div>
                 </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label>Phone</label>
+                            <input type="text" class="form-control" name="addresses[__INDEX__][phone]">
+                        </div>
+                    </div>
+                </div>
                 <div class="form-group">
                     <label>Notes</label>
                     <textarea class="form-control" name="addresses[__INDEX__][notes]" rows="2"></textarea>
@@ -658,60 +666,52 @@
 
             const contactTemplateHtml = document.getElementById('contact-template').innerHTML;
             const addressTemplateHtml = document.getElementById('address-template').innerHTML;
+            const existingContacts = @json($businessPartner->contacts->values());
+            const existingAddresses = @json($businessPartner->addresses->values());
 
             // Load existing contacts
-            @foreach ($businessPartner->contacts as $index => $contact)
-            {
+            existingContacts.forEach(function(contact, index) {
                 const contactHtml = contactTemplateHtml
-                    .replace(/__INDEX__/g, {{ $index }})
-                    .replace(/___INDEX__/g, {{ $index }});
+                    .replace(/__INDEX__/g, index)
+                    .replace(/___INDEX__/g, index);
 
                 $('#contacts-container').append(contactHtml);
 
-                // Set values
-                $('select[name="contacts[{{ $index }}][contact_type]"]').val(
-                    '{{ $contact->contact_type }}');
-                $('input[name="contacts[{{ $index }}][name]"]').val('{{ $contact->name }}');
-                $('input[name="contacts[{{ $index }}][position]"]').val('{{ $contact->position }}');
-                $('input[name="contacts[{{ $index }}][email]"]').val('{{ $contact->email }}');
-                $('input[name="contacts[{{ $index }}][phone]"]').val('{{ $contact->phone }}');
-                $('input[name="contacts[{{ $index }}][mobile]"]').val('{{ $contact->mobile }}');
-                $('textarea[name="contacts[{{ $index }}][notes]"]').val('{{ $contact->notes }}');
+                $('select[name="contacts[' + index + '][contact_type]"]').val(contact.contact_type);
+                $('input[name="contacts[' + index + '][name]"]').val(contact.name);
+                $('input[name="contacts[' + index + '][position]"]').val(contact.position || '');
+                $('input[name="contacts[' + index + '][email]"]').val(contact.email || '');
+                $('input[name="contacts[' + index + '][phone]"]').val(contact.phone || '');
+                $('input[name="contacts[' + index + '][mobile]"]').val(contact.mobile || '');
+                $('textarea[name="contacts[' + index + '][notes]"]').val(contact.notes || '');
 
-                @if ($contact->is_primary)
-                    $('input[name="contacts[{{ $index }}][is_primary]"]').prop('checked', true);
-                @endif
-            }
-            @endforeach
+                if (contact.is_primary) {
+                    $('input[name="contacts[' + index + '][is_primary]"]').prop('checked', true);
+                }
+            });
 
             // Load existing addresses
-            @foreach ($businessPartner->addresses as $index => $address)
-            {
+            existingAddresses.forEach(function(address, index) {
                 const addressHtml = addressTemplateHtml
-                    .replace(/__INDEX__/g, {{ $index }})
-                    .replace(/___INDEX__/g, {{ $index }});
+                    .replace(/__INDEX__/g, index)
+                    .replace(/___INDEX__/g, index);
 
                 $('#addresses-container').append(addressHtml);
 
-                // Set values
-                $('select[name="addresses[{{ $index }}][address_type]"]').val(
-                    '{{ $address->address_type }}');
-                $('input[name="addresses[{{ $index }}][address_line_1]"]').val(
-                    '{{ $address->address_line_1 }}');
-                $('input[name="addresses[{{ $index }}][address_line_2]"]').val(
-                    '{{ $address->address_line_2 }}');
-                $('input[name="addresses[{{ $index }}][city]"]').val('{{ $address->city }}');
-                $('input[name="addresses[{{ $index }}][state_province]"]').val(
-                    '{{ $address->state_province }}');
-                $('input[name="addresses[{{ $index }}][postal_code]"]').val('{{ $address->postal_code }}');
-                $('input[name="addresses[{{ $index }}][country]"]').val('{{ $address->country }}');
-                $('textarea[name="addresses[{{ $index }}][notes]"]').val('{{ $address->notes }}');
+                $('select[name="addresses[' + index + '][address_type]"]').val(address.address_type);
+                $('input[name="addresses[' + index + '][address_line_1]"]').val(address.address_line_1);
+                $('input[name="addresses[' + index + '][address_line_2]"]').val(address.address_line_2 || '');
+                $('input[name="addresses[' + index + '][city]"]').val(address.city);
+                $('input[name="addresses[' + index + '][state_province]"]').val(address.state_province || '');
+                $('input[name="addresses[' + index + '][postal_code]"]').val(address.postal_code || '');
+                $('input[name="addresses[' + index + '][country]"]').val(address.country || 'Indonesia');
+                $('input[name="addresses[' + index + '][phone]"]').val(address.phone || '');
+                $('textarea[name="addresses[' + index + '][notes]"]').val(address.notes || '');
 
-                @if ($address->is_primary)
-                    $('input[name="addresses[{{ $index }}][is_primary]"]').prop('checked', true);
-                @endif
-            }
-            @endforeach
+                if (address.is_primary) {
+                    $('input[name="addresses[' + index + '][is_primary]"]').prop('checked', true);
+                }
+            });
 
             // Initialize events for existing items
             initContactEvents();

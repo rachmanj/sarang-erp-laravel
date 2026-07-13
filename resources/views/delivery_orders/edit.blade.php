@@ -85,7 +85,12 @@
                                             <label class="col-sm-3 col-form-label">Delivery Address <span
                                                     class="text-danger">*</span></label>
                                             <div class="col-sm-9">
-                                                <textarea name="delivery_address" class="form-control form-control-sm" rows="3" required>{{ old('delivery_address', $deliveryOrder->delivery_address) }}</textarea>
+                                                <select name="business_partner_address_id" id="delivery_address_select"
+                                                    class="form-control form-control-sm mb-1">
+                                                    <option value="">— Custom address —</option>
+                                                </select>
+                                                <textarea name="delivery_address" id="delivery_address" class="form-control form-control-sm" rows="3" required>{{ old('delivery_address', $deliveryOrder->delivery_address) }}</textarea>
+                                                <small class="form-text text-muted">Select a saved customer address or edit the custom delivery address below.</small>
                                             </div>
                                         </div>
                                     </div>
@@ -253,6 +258,86 @@
 @push('scripts')
     <script>
         $(document).ready(function() {
+            const partnerAddressesUrl = @json(url('business-partners'));
+            const businessPartnerId = @json($deliveryOrder->business_partner_id);
+            const selectedAddressId = @json(old('business_partner_address_id', $deliveryOrder->business_partner_address_id));
+            const currentAddressText = @json(old('delivery_address', $deliveryOrder->delivery_address));
+
+            function applySelectedAddressOption() {
+                const opt = $('#delivery_address_select').find('option:selected');
+                if (!opt.val()) {
+                    return;
+                }
+
+                $('#delivery_address').val(opt.data('address') || '');
+                const phone = opt.data('phone');
+                if (phone) {
+                    $('input[name="delivery_phone"]').val(phone);
+                }
+            }
+
+            function matchAddressSelectionByText(addressText) {
+                let matched = false;
+                $('#delivery_address_select option').each(function() {
+                    if ($(this).data('address') === addressText) {
+                        $('#delivery_address_select').val($(this).val());
+                        matched = true;
+                        return false;
+                    }
+                });
+
+                if (!matched) {
+                    $('#delivery_address_select').val('');
+                }
+            }
+
+            function loadPartnerAddresses(bpId, addressId, addressTextToMatch) {
+                const $select = $('#delivery_address_select');
+                $select.find('option:not(:first)').remove();
+
+                if (!bpId) {
+                    return;
+                }
+
+                $.get(partnerAddressesUrl + '/' + bpId + '/addresses', function(addresses) {
+                    addresses.forEach(function(address) {
+                        $select.append($('<option>', {
+                            value: address.id,
+                            text: address.label,
+                            'data-address': address.full_address,
+                            'data-phone': address.phone || ''
+                        }));
+                    });
+
+                    if (addressId) {
+                        $select.val(String(addressId));
+                    } else if (addressTextToMatch) {
+                        matchAddressSelectionByText(addressTextToMatch);
+                    }
+
+                    if ($select.val()) {
+                        applySelectedAddressOption();
+                    } else {
+                        $('#delivery_address').val(currentAddressText);
+                    }
+                });
+            }
+
+            $('#delivery_address_select').on('change', function() {
+                if ($(this).val()) {
+                    applySelectedAddressOption();
+                }
+            });
+
+            $('#delivery_address').on('input', function() {
+                const opt = $('#delivery_address_select').find('option:selected');
+                if (opt.val() && $(this).val() !== (opt.data('address') || '')) {
+                    $('#delivery_address_select').val('');
+                }
+            });
+
+            loadPartnerAddresses(businessPartnerId, selectedAddressId, currentAddressText);
+
             $(document).on('input', '.qty-input', function() {
                 var $input = $(this);
                 var max = parseFloat($input.data('max')) || 999999;

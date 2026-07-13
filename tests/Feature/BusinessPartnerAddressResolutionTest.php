@@ -159,4 +159,25 @@ class BusinessPartnerAddressResolutionTest extends TestCase
         $this->assertStringContainsString('Distribution Warehouse Address', $partner->default_warehouse_address);
         $this->assertNotSame($partner->default_office_address, $partner->default_warehouse_address);
     }
+
+    public function test_business_partner_address_can_store_phone_number(): void
+    {
+        $partner = BusinessPartner::create([
+            'code' => 'CUST-ADDR-PHONE',
+            'name' => 'Address Phone Customer',
+            'partner_type' => 'customer',
+        ]);
+
+        $address = BusinessPartnerAddress::create([
+            'business_partner_id' => $partner->id,
+            'address_type' => 'office',
+            'address_line_1' => 'Jl. Phone Test 1',
+            'city' => 'Jakarta',
+            'country' => 'Indonesia',
+            'phone' => '021-5559999',
+            'is_primary' => true,
+        ]);
+
+        $this->assertSame('021-5559999', $address->refresh()->phone);
+    }
 }

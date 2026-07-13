@@ -17,6 +17,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\Rule;
 
 class DeliveryOrderController extends Controller
 {
@@ -144,6 +145,13 @@ class DeliveryOrderController extends Controller
         $data = $request->validate([
             'sales_order_id' => ['required', 'integer', 'exists:sales_orders,id'],
             'business_partner_id' => ['required', 'integer', 'exists:business_partners,id'],
+            'business_partner_address_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('business_partner_addresses', 'id')->where(
+                    fn ($query) => $query->where('business_partner_id', $request->input('business_partner_id'))
+                ),
+            ],
             'warehouse_id' => ['required', 'integer', 'exists:warehouses,id'],
             'delivery_address' => ['required', 'string', 'max:500'],
             'delivery_contact_person' => ['nullable', 'string', 'max:100'],
@@ -234,6 +242,7 @@ class DeliveryOrderController extends Controller
     {
         $deliveryOrder->load([
             'customer',
+            'businessPartnerAddress',
             'businessPartnerProject',
             'salesOrder',
             'warehouse',
@@ -294,6 +303,13 @@ class DeliveryOrderController extends Controller
         }
 
         $data = $request->validate([
+            'business_partner_address_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('business_partner_addresses', 'id')->where(
+                    fn ($query) => $query->where('business_partner_id', $deliveryOrder->business_partner_id)
+                ),
+            ],
             'delivery_address' => ['required', 'string', 'max:500'],
             'delivery_contact_person' => ['nullable', 'string', 'max:100'],
             'delivery_phone' => ['nullable', 'string', 'max:20'],
@@ -320,6 +336,7 @@ class DeliveryOrderController extends Controller
                 }
             }
             $deliveryOrder->update([
+                'business_partner_address_id' => $data['business_partner_address_id'] ?? null,
                 'delivery_address' => $data['delivery_address'],
                 'delivery_contact_person' => $data['delivery_contact_person'] ?? null,
                 'delivery_phone' => $data['delivery_phone'] ?? null,

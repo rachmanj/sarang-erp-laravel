@@ -266,6 +266,9 @@
                                                 <div class="form-group row mb-2">
                                                     <label class="col-sm-4 col-form-label">Contact Person</label>
                                                     <div class="col-sm-8">
+                                                        <select id="delivery_contact_select" class="form-control form-control-sm mb-1">
+                                                            <option value="">-- select contact (optional) --</option>
+                                                        </select>
                                                         <input type="text" name="delivery_contact_person" id="delivery_contact_person" value="{{ old('delivery_contact_person') }}" class="form-control form-control-sm" placeholder="Contact name">
                                                     </div>
                                                 </div>
@@ -504,8 +507,41 @@
                     $select.val("{{ old('business_partner_project_id') }}").trigger('change');
                 });
             }
+
+            function loadCustomerContacts(bpId) {
+                const $select = $('#delivery_contact_select');
+                $select.empty().append('<option value="">-- select contact (optional) --</option>');
+                if (!bpId) {
+                    return;
+                }
+
+                $.get("{{ url('business-partners') }}/" + bpId + "/contacts", function(contacts) {
+                    contacts.forEach(function(contact) {
+                        const label = contact.name + (contact.position ? ' (' + contact.position + ')' : '');
+                        $select.append($('<option>', {
+                            value: contact.id,
+                            text: label,
+                            'data-name': contact.name,
+                            'data-phone': contact.display_phone || ''
+                        }));
+                    });
+                });
+            }
+
+            $('#delivery_contact_select').on('change', function() {
+                const opt = $(this).find('option:selected');
+                if (!opt.val()) {
+                    return;
+                }
+
+                $('#delivery_contact_person').val(opt.data('name') || '');
+                $('#delivery_phone').val(opt.data('phone') || '');
+            });
+
             $('#business_partner_id').on('change', function() {
-                loadCustomerProjects($(this).val());
+                const bpId = $(this).val();
+                loadCustomerProjects(bpId);
+                loadCustomerContacts(bpId);
                 const opt = $(this).find('option:selected');
                 if (opt.val()) {
                     $('#delivery_address').val(opt.data('address') || '');
@@ -515,6 +551,7 @@
             });
             @if (old('business_partner_id'))
             loadCustomerProjects("{{ old('business_partner_id') }}");
+            loadCustomerContacts("{{ old('business_partner_id') }}");
             @endif
 
             // Currency handling

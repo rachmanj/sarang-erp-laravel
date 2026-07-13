@@ -100,6 +100,7 @@ class DeliveryService
                     'do_number' => $doNumber,
                     'sales_order_id' => $salesOrder->id,
                     'business_partner_id' => $salesOrder->business_partner_id,
+                    'business_partner_address_id' => $data['business_partner_address_id'] ?? null,
                     'business_partner_project_id' => $salesOrder->business_partner_project_id,
                     'company_entity_id' => $entityId,
                     'warehouse_id' => $data['warehouse_id'] ?? $salesOrder->warehouse_id,

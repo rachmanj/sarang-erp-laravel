@@ -177,6 +177,11 @@
                                     </table>
                                 </div>
                                 <div class="col-md-6">
+                                    @if ($deliveryOrder->businessPartnerAddress)
+                                        <p class="mb-1">
+                                            <span class="badge badge-info">{{ ucfirst($deliveryOrder->businessPartnerAddress->address_type) }} address</span>
+                                        </p>
+                                    @endif
                                     <address>
                                         {{ $deliveryOrder->delivery_address }}<br>
                                         @if ($deliveryOrder->delivery_contact_person)

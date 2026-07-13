@@ -508,6 +508,14 @@
                         </div>
                     </div>
                 </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label>Phone</label>
+                            <input type="text" class="form-control" name="addresses[__INDEX__][phone]">
+                        </div>
+                    </div>
+                </div>
                 <div class="form-group">
                     <label>Notes</label>
                     <textarea class="form-control" name="addresses[__INDEX__][notes]" rows="2"></textarea>

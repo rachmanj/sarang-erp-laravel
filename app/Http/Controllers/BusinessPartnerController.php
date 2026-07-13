@@ -67,6 +67,7 @@ class BusinessPartnerController extends Controller
             'addresses.*.state_province' => ['nullable', 'string', 'max:100'],
             'addresses.*.postal_code' => ['nullable', 'string', 'max:20'],
             'addresses.*.country' => ['nullable', 'string', 'max:100'],
+            'addresses.*.phone' => ['nullable', 'string', 'max:50'],
             'addresses.*.is_primary' => ['nullable', 'boolean'],
             'addresses.*.notes' => ['nullable', 'string'],
 
@@ -153,6 +154,7 @@ class BusinessPartnerController extends Controller
             'addresses.*.state_province' => ['nullable', 'string', 'max:100'],
             'addresses.*.postal_code' => ['nullable', 'string', 'max:20'],
             'addresses.*.country' => ['nullable', 'string', 'max:100'],
+            'addresses.*.phone' => ['nullable', 'string', 'max:50'],
             'addresses.*.is_primary' => ['nullable', 'boolean'],
             'addresses.*.notes' => ['nullable', 'string'],
 
@@ -425,5 +427,45 @@ class BusinessPartnerController extends Controller
             'success' => true,
             'payment_terms_days' => $paymentTermsDays,
         ]);
+    }
+
+    public function getContacts(BusinessPartner $businessPartner)
+    {
+        $contacts = $businessPartner->contacts()
+            ->orderByDesc('is_primary')
+            ->orderBy('name')
+            ->get()
+            ->map(fn ($contact) => [
+                'id' => $contact->id,
+                'contact_type' => $contact->contact_type,
+                'name' => $contact->name,
+                'position' => $contact->position,
+                'email' => $contact->email,
+                'phone' => $contact->phone,
+                'mobile' => $contact->mobile,
+                'is_primary' => $contact->is_primary,
+                'display_phone' => $contact->display_phone,
+                'label' => $contact->full_contact,
+            ]);
+
+        return response()->json($contacts);
+    }
+
+    public function getAddresses(BusinessPartner $businessPartner)
+    {
+        $addresses = $businessPartner->addresses()
+            ->orderByDesc('is_primary')
+            ->orderBy('address_type')
+            ->get()
+            ->map(fn ($address) => [
+                'id' => $address->id,
+                'address_type' => $address->address_type,
+                'full_address' => $address->full_address,
+                'phone' => $address->phone,
+                'is_primary' => $address->is_primary,
+                'label' => ucfirst($address->address_type).' — '.$address->short_address,
+            ]);
+
+        return response()->json($addresses);
     }
 }

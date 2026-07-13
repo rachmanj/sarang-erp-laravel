@@ -77,6 +77,9 @@
                             <a class="nav-link" id="contacts-tab" data-toggle="tab" href="#contacts" role="tab"
                                 aria-controls="contacts" aria-selected="false">
                                 <i class="fas fa-address-book"></i> Contact Details
+                                @if ($businessPartner->contacts->count() > 0)
+                                    <span class="badge badge-info">{{ $businessPartner->contacts->count() }}</span>
+                                @endif
                             </a>
                         </li>
                         <li class="nav-item">
@@ -235,6 +238,47 @@
                         <!-- Contacts Tab -->
                         <div class="tab-pane fade" id="contacts" role="tabpanel" aria-labelledby="contacts-tab">
                             @if ($businessPartner->contacts->count() > 0)
+                                <div class="table-responsive mb-4">
+                                    <table class="table table-bordered table-striped">
+                                        <thead>
+                                            <tr>
+                                                <th>Name</th>
+                                                <th>Type</th>
+                                                <th>Position</th>
+                                                <th>Email</th>
+                                                <th>Phone</th>
+                                                <th>Mobile</th>
+                                                <th>Primary</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach ($businessPartner->contacts as $contact)
+                                                <tr>
+                                                    <td>{{ $contact->name }}</td>
+                                                    <td>{{ ucfirst($contact->contact_type) }}</td>
+                                                    <td>{{ $contact->position ?? '-' }}</td>
+                                                    <td>
+                                                        @if ($contact->email)
+                                                            <a href="mailto:{{ $contact->email }}">{{ $contact->email }}</a>
+                                                        @else
+                                                            -
+                                                        @endif
+                                                    </td>
+                                                    <td>{{ $contact->phone ?? '-' }}</td>
+                                                    <td>{{ $contact->mobile ?? '-' }}</td>
+                                                    <td>
+                                                        @if ($contact->is_primary)
+                                                            <span class="badge badge-primary">Yes</span>
+                                                        @else
+                                                            -
+                                                        @endif
+                                                    </td>
+                                                </tr>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
+                                </div>
+
                                 <div class="row">
                                     @foreach ($businessPartner->contacts as $contact)
                                         <div class="col-md-6">
@@ -326,6 +370,12 @@
                                                         <br>
                                                         {{ $address->country ?? 'Indonesia' }}
                                                     </address>
+
+                                                    @if ($address->phone)
+                                                        <p class="mt-2 mb-0">
+                                                            <i class="fas fa-phone"></i> {{ $address->phone }}
+                                                        </p>
+                                                    @endif
 
                                                     @if ($address->notes)
                                                         <div class="mt-3">

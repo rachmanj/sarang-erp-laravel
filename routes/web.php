@@ -135,6 +135,8 @@ Route::middleware('auth')->group(function () {
             return redirect()->to($url);
         })->name('business_partners.journal_history');
         Route::get('/{businessPartner}/payment-terms', [BusinessPartnerController::class, 'getPaymentTerms'])->name('business_partners.payment_terms');
+        Route::get('/{businessPartner}/contacts', [BusinessPartnerController::class, 'getContacts'])->name('business_partners.contacts');
+        Route::get('/{businessPartner}/addresses', [BusinessPartnerController::class, 'getAddresses'])->name('business_partners.addresses');
     });
 
     // Accounts
