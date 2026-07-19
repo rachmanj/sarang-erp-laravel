@@ -1,5 +1,5 @@
 **Purpose**: AI's persistent knowledge base for project context and learnings
-**Last Updated**: 2026-07-01 (Customer office/warehouse address resolution)
+**Last Updated**: 2026-07-19 (Asset module Phase 3)
 
 ## Memory Maintenance Guidelines
 
@@ -26,6 +26,14 @@
 ---
 
 ## Project Memory Entries
+
+### [131] Asset module Phase 3 — polish & critical wiring bugs (2026-07-19) ✅ COMPLETE
+
+**Challenge**: Phase 3 audit found layout mismatch (`layouts.app` vs AdminLTE `layouts.main`), `{asset}` catching nested routes, policy-style `authorize()`/`@can` without policies (403 risk), missing DQ/history views, and `vendor_id`/wrong model namespaces in import/DQ/reports.
+
+**Solution**: Converted 3 views to `layouts.main`; reordered routes + `whereNumber`; aligned permissions to Spatie strings; added 5 missing views; fixed `business_partner_id` across DQ/import/reports; import `validateImport`; bulk `asset_ids[]`; `npm run build` + `AssetModulePhase3Test`.
+
+**Key Learning**: With Spatie permissions, never use `$this->authorize('view', Model::class)` unless a policy maps those abilities — use `'assets.view'` strings. Always register static nested paths before `/{id}` catch-alls.
 
 ### [130] Asset module — remaining fund reference purge (2026-07-19) ✅ COMPLETE
 

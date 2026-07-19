@@ -2,17 +2,16 @@
 
 namespace App\Services\Reports;
 
+use App\Exports\AssetRegisterExport;
+use App\Exports\DepreciationScheduleExport;
+use App\Exports\DisposalSummaryExport;
+use App\Exports\MovementLogExport;
 use App\Models\Asset;
 use App\Models\AssetCategory;
 use App\Models\AssetDepreciationEntry;
 use App\Models\AssetDepreciationRun;
 use App\Models\AssetDisposal;
 use App\Models\AssetMovement;
-use App\Exports\AssetRegisterExport;
-use App\Exports\DepreciationScheduleExport;
-use App\Exports\DisposalSummaryExport;
-use App\Exports\MovementLogExport;
-use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -29,12 +28,12 @@ class AssetReportService
                 'asset_categories.name as category_name',
                 'projects.name as project_name',
                 'departments.name as department_name',
-                'vendors.name as vendor_name'
+                'business_partners.name as vendor_name',
             ])
             ->join('asset_categories', 'assets.category_id', '=', 'asset_categories.id')
             ->leftJoin('projects', 'assets.project_id', '=', 'projects.id')
             ->leftJoin('departments', 'assets.department_id', '=', 'departments.id')
-            ->leftJoin('vendors', 'assets.vendor_id', '=', 'vendors.id');
+            ->leftJoin('business_partners', 'assets.business_partner_id', '=', 'business_partners.id');
 
         // Apply filters
         if (isset($filters['category_id']) && $filters['category_id']) {
@@ -54,11 +53,11 @@ class AssetReportService
         }
 
         if (isset($filters['date_from']) && $filters['date_from']) {
-            $query->where('assets.acquisition_date', '>=', $filters['date_from']);
+            $query->where('assets.placed_in_service_date', '>=', $filters['date_from']);
         }
 
         if (isset($filters['date_to']) && $filters['date_to']) {
-            $query->where('assets.acquisition_date', '<=', $filters['date_to']);
+            $query->where('assets.placed_in_service_date', '<=', $filters['date_to']);
         }
 
         return $query->orderBy('assets.code')->get();
@@ -76,7 +75,7 @@ class AssetReportService
                 'assets.name as asset_name',
                 'asset_categories.name as category_name',
                 'asset_depreciation_runs.period_start',
-                'asset_depreciation_runs.period_end'
+                'asset_depreciation_runs.period_end',
             ])
             ->join('assets', 'asset_depreciation_entries.asset_id', '=', 'assets.id')
             ->join('asset_categories', 'assets.category_id', '=', 'asset_categories.id')
@@ -118,7 +117,7 @@ class AssetReportService
                 'asset_disposals.*',
                 'assets.code as asset_code',
                 'assets.name as asset_name',
-                'asset_categories.name as category_name'
+                'asset_categories.name as category_name',
             ])
             ->join('assets', 'asset_disposals.asset_id', '=', 'assets.id')
             ->join('asset_categories', 'assets.category_id', '=', 'asset_categories.id');
@@ -157,7 +156,7 @@ class AssetReportService
                 'asset_movements.*',
                 'assets.code as asset_code',
                 'assets.name as asset_name',
-                'asset_categories.name as category_name'
+                'asset_categories.name as category_name',
             ])
             ->join('assets', 'asset_movements.asset_id', '=', 'assets.id')
             ->join('asset_categories', 'assets.category_id', '=', 'asset_categories.id');
@@ -239,7 +238,7 @@ class AssetReportService
                 'assets.*',
                 'asset_categories.name as category_name',
                 DB::raw('DATEDIFF(CURDATE(), assets.acquisition_date) as days_owned'),
-                DB::raw('ROUND(DATEDIFF(CURDATE(), assets.acquisition_date) / 365, 2) as years_owned')
+                DB::raw('ROUND(DATEDIFF(CURDATE(), assets.acquisition_date) / 365, 2) as years_owned'),
             ])
             ->join('asset_categories', 'assets.category_id', '=', 'asset_categories.id')
             ->where('assets.status', 'active')
@@ -268,7 +267,7 @@ class AssetReportService
             ->select([
                 'asset_depreciation_runs.*',
                 DB::raw('COUNT(asset_depreciation_entries.id) as entry_count'),
-                DB::raw('SUM(asset_depreciation_entries.amount) as total_depreciation')
+                DB::raw('SUM(asset_depreciation_entries.amount) as total_depreciation'),
             ])
             ->leftJoin('asset_depreciation_entries', 'asset_depreciation_runs.id', '=', 'asset_depreciation_entries.run_id')
             ->groupBy('asset_depreciation_runs.id');
@@ -296,13 +295,13 @@ class AssetReportService
     {
         $headers = [
             'Content-Type' => 'text/csv',
-            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
         ];
 
         $callback = function () use ($data) {
             $file = fopen('php://output', 'w');
 
-            if (!empty($data)) {
+            if (! empty($data)) {
                 // Write headers
                 fputcsv($file, array_keys($data[0]->toArray()));
 
@@ -323,7 +322,8 @@ class AssetReportService
      */
     public function exportAssetRegisterToExcel($filters = [])
     {
-        $filename = 'asset_register_' . date('Y-m-d_H-i-s') . '.xlsx';
+        $filename = 'asset_register_'.date('Y-m-d_H-i-s').'.xlsx';
+
         return Excel::download(new AssetRegisterExport($filters), $filename);
     }
 
@@ -332,7 +332,8 @@ class AssetReportService
      */
     public function exportDepreciationScheduleToExcel($filters = [])
     {
-        $filename = 'depreciation_schedule_' . date('Y-m-d_H-i-s') . '.xlsx';
+        $filename = 'depreciation_schedule_'.date('Y-m-d_H-i-s').'.xlsx';
+
         return Excel::download(new DepreciationScheduleExport($filters), $filename);
     }
 
@@ -341,7 +342,8 @@ class AssetReportService
      */
     public function exportDisposalSummaryToExcel($filters = [])
     {
-        $filename = 'disposal_summary_' . date('Y-m-d_H-i-s') . '.xlsx';
+        $filename = 'disposal_summary_'.date('Y-m-d_H-i-s').'.xlsx';
+
         return Excel::download(new DisposalSummaryExport($filters), $filename);
     }
 
@@ -350,7 +352,8 @@ class AssetReportService
      */
     public function exportMovementLogToExcel($filters = [])
     {
-        $filename = 'movement_log_' . date('Y-m-d_H-i-s') . '.xlsx';
+        $filename = 'movement_log_'.date('Y-m-d_H-i-s').'.xlsx';
+
         return Excel::download(new MovementLogExport($filters), $filename);
     }
 
@@ -371,7 +374,7 @@ class AssetReportService
                 'disposals' => ['draft', 'posted', 'reversed'],
                 'movements' => ['draft', 'approved', 'completed', 'cancelled'],
                 'depreciation_runs' => ['draft', 'posted', 'reversed'],
-            ]
+            ],
         ];
     }
 }

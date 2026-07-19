@@ -438,8 +438,7 @@
             });
 
             function loadFilterData() {
-                // Load categories
-                $.get('/assets/categories', function(categories) {
+                $.get(@json(route('assets.categories')), function(categories) {
                     var categoryOptions = '<option value="">All Categories</option>';
                     categories.forEach(function(category) {
                         categoryOptions +=
@@ -448,8 +447,7 @@
                     $('#categoryFilter').html(categoryOptions);
                 });
 
-                // Load projects
-                $.get('/assets/projects', function(projects) {
+                $.get(@json(route('assets.projects')), function(projects) {
                     var projectOptions = '<option value="">All Projects</option>';
                     projects.forEach(function(project) {
                         projectOptions += `<option value="${project.id}">${project.name}</option>`;
@@ -457,8 +455,7 @@
                     $('#projectFilter').html(projectOptions);
                 });
 
-                // Load departments
-                $.get('/assets/departments', function(departments) {
+                $.get(@json(route('assets.departments')), function(departments) {
                     var departmentOptions = '<option value="">All Departments</option>';
                     departments.forEach(function(department) {
                         departmentOptions +=
@@ -467,13 +464,11 @@
                     $('#departmentFilter').html(departmentOptions);
                 });
 
-                // Load data for modal dropdowns
                 loadModalData();
             }
 
             function loadModalData() {
-                // Load categories for modal
-                $.get('/assets/categories', function(categories) {
+                $.get(@json(route('assets.categories')), function(categories) {
                     var categoryOptions = '<option value="">Select Category</option>';
                     categories.forEach(function(category) {
                         categoryOptions +=
@@ -482,8 +477,7 @@
                     $('#category_id').html(categoryOptions);
                 });
 
-                // Load projects for modal
-                $.get('/assets/projects', function(projects) {
+                $.get(@json(route('assets.projects')), function(projects) {
                     var projectOptions = '<option value="">Select Project</option>';
                     projects.forEach(function(project) {
                         projectOptions += `<option value="${project.id}">${project.name}</option>`;
@@ -491,8 +485,7 @@
                     $('#project_id').html(projectOptions);
                 });
 
-                // Load departments for modal
-                $.get('/assets/departments', function(departments) {
+                $.get(@json(route('assets.departments')), function(departments) {
                     var departmentOptions = '<option value="">Select Department</option>';
                     departments.forEach(function(department) {
                         departmentOptions +=
@@ -501,8 +494,7 @@
                     $('#department_id').html(departmentOptions);
                 });
 
-                // Load vendors for modal
-                $.get('/assets/vendors', function(vendors) {
+                $.get(@json(route('assets.vendors')), function(vendors) {
                     var vendorOptions = '<option value="">Select Vendor</option>';
                     vendors.forEach(function(vendor) {
                         vendorOptions += `<option value="${vendor.id}">${vendor.name}</option>`;

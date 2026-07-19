@@ -50,6 +50,7 @@ File **`help-navigation.json`** holds short **menu path** and **keyword** entrie
 | **Accounting reports** (equity, subledger, PPN reconciliation) | `accounting-reports-manual-id.md` | `accounting-reports-manual-en.md` |
 | **Tax Compliance** (PPN/PPh, exports) | `tax-compliance-manual-id.md` | `tax-compliance-manual-en.md` |
 | Customer / project | `customer-project-manual-id.md` | — |
+| **Asset & Depreciation** (fixed assets, depreciation runs, disposals, movements, import, data quality) | `asset-module-manual-id.md` | `asset-module-manual-en.md` |
 | Warehouse stock transfer | `warehouse-stock-transfer-manual-id.md` | `warehouse-stock-transfer-manual.md` |
 | Bank/Kas saldo awal | `setup-saldo-awal-bank-kas-manual-id.md` | — |
 | Initial inventory | `initial-inventory-entry-manual-id.md` | `initial-inventory-entry-manual.md` |

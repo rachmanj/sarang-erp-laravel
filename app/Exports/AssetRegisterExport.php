@@ -4,18 +4,18 @@ namespace App\Exports;
 
 use App\Models\Asset;
 use Maatwebsite\Excel\Concerns\FromCollection;
+use Maatwebsite\Excel\Concerns\WithColumnWidths;
+use Maatwebsite\Excel\Concerns\WithEvents;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
 use Maatwebsite\Excel\Concerns\WithStyles;
-use Maatwebsite\Excel\Concerns\WithColumnWidths;
-use Maatwebsite\Excel\Concerns\WithEvents;
 use Maatwebsite\Excel\Events\AfterSheet;
-use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
-class AssetRegisterExport implements FromCollection, WithHeadings, WithMapping, WithStyles, WithColumnWidths, WithEvents
+class AssetRegisterExport implements FromCollection, WithColumnWidths, WithEvents, WithHeadings, WithMapping, WithStyles
 {
     protected $filters;
 
@@ -32,12 +32,12 @@ class AssetRegisterExport implements FromCollection, WithHeadings, WithMapping, 
                 'asset_categories.name as category_name',
                 'projects.name as project_name',
                 'departments.name as department_name',
-                'vendors.name as vendor_name'
+                'business_partners.name as vendor_name',
             ])
             ->join('asset_categories', 'assets.category_id', '=', 'asset_categories.id')
             ->leftJoin('projects', 'assets.project_id', '=', 'projects.id')
             ->leftJoin('departments', 'assets.department_id', '=', 'departments.id')
-            ->leftJoin('vendors', 'assets.vendor_id', '=', 'vendors.id');
+            ->leftJoin('business_partners', 'assets.business_partner_id', '=', 'business_partners.id');
 
         // Apply filters
         if (isset($this->filters['category_id']) && $this->filters['category_id']) {
@@ -57,11 +57,11 @@ class AssetRegisterExport implements FromCollection, WithHeadings, WithMapping, 
         }
 
         if (isset($this->filters['date_from']) && $this->filters['date_from']) {
-            $query->where('assets.acquisition_date', '>=', $this->filters['date_from']);
+            $query->where('assets.placed_in_service_date', '>=', $this->filters['date_from']);
         }
 
         if (isset($this->filters['date_to']) && $this->filters['date_to']) {
-            $query->where('assets.acquisition_date', '<=', $this->filters['date_to']);
+            $query->where('assets.placed_in_service_date', '<=', $this->filters['date_to']);
         }
 
         return $query->orderBy('assets.code')->get();
@@ -86,7 +86,7 @@ class AssetRegisterExport implements FromCollection, WithHeadings, WithMapping, 
             'Depreciation Method',
             'Placed in Service Date',
             'Disposal Date',
-            'Notes'
+            'Notes',
         ];
     }
 
@@ -99,17 +99,17 @@ class AssetRegisterExport implements FromCollection, WithHeadings, WithMapping, 
             $asset->project_name ?? '',
             $asset->department_name ?? '',
             $asset->vendor_name ?? '',
-            $asset->acquisition_date ? $asset->acquisition_date->format('d/m/Y') : '',
+            $asset->placed_in_service_date ? $asset->placed_in_service_date->format('d/m/Y') : '',
             $asset->acquisition_cost,
             $asset->accumulated_depreciation,
             $asset->current_book_value,
             ucfirst($asset->status),
-            $asset->is_depreciable ? 'Yes' : 'No',
-            $asset->useful_life_months,
-            $asset->depreciation_method ?? 'Straight Line',
+            ($asset->category && ! $asset->category->non_depreciable) ? 'Yes' : 'No',
+            $asset->life_months,
+            $asset->method ?? 'straight_line',
             $asset->placed_in_service_date ? $asset->placed_in_service_date->format('d/m/Y') : '',
             $asset->disposal_date ? $asset->disposal_date->format('d/m/Y') : '',
-            $asset->notes ?? ''
+            $asset->description ?? '',
         ];
     }
 
@@ -172,13 +172,13 @@ class AssetRegisterExport implements FromCollection, WithHeadings, WithMapping, 
                 $lastRow = $sheet->getHighestRow();
                 $totalsRow = $lastRow + 2;
 
-                $sheet->setCellValue('A' . $totalsRow, 'TOTAL:');
-                $sheet->setCellValue('H' . $totalsRow, '=SUM(H2:H' . $lastRow . ')');
-                $sheet->setCellValue('I' . $totalsRow, '=SUM(I2:I' . $lastRow . ')');
-                $sheet->setCellValue('J' . $totalsRow, '=SUM(J2:J' . $lastRow . ')');
+                $sheet->setCellValue('A'.$totalsRow, 'TOTAL:');
+                $sheet->setCellValue('H'.$totalsRow, '=SUM(H2:H'.$lastRow.')');
+                $sheet->setCellValue('I'.$totalsRow, '=SUM(I2:I'.$lastRow.')');
+                $sheet->setCellValue('J'.$totalsRow, '=SUM(J2:J'.$lastRow.')');
 
                 // Style totals row
-                $sheet->getStyle('A' . $totalsRow . ':Q' . $totalsRow)->applyFromArray([
+                $sheet->getStyle('A'.$totalsRow.':Q'.$totalsRow)->applyFromArray([
                     'font' => ['bold' => true],
                     'fill' => [
                         'fillType' => Fill::FILL_SOLID,
@@ -192,8 +192,8 @@ class AssetRegisterExport implements FromCollection, WithHeadings, WithMapping, 
                 ]);
 
                 // Format currency columns
-                $sheet->getStyle('H2:J' . $lastRow)->getNumberFormat()->setFormatCode('#,##0');
-                $sheet->getStyle('H' . $totalsRow . ':J' . $totalsRow)->getNumberFormat()->setFormatCode('#,##0');
+                $sheet->getStyle('H2:J'.$lastRow)->getNumberFormat()->setFormatCode('#,##0');
+                $sheet->getStyle('H'.$totalsRow.':J'.$totalsRow)->getNumberFormat()->setFormatCode('#,##0');
 
                 // Auto-fit columns
                 foreach (range('A', 'Q') as $column) {

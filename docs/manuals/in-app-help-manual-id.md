@@ -87,5 +87,7 @@ Lihat **`README.md`** di folder yang sama untuk indeks berkas panduan dan petunj
 
 **Perbaikan lapisan FIFO** (insufficient FIFO / error approve GR setelah cleanup legacy): **`inventory-fifo-repair-manual-id.md`** / **`inventory-fifo-repair-manual-en.md`**.
 
+**Asset & Depreciation** (aset tetap, penyusutan, pelepasan, mutasi, impor, kualitas data, izin): **`asset-module-manual-id.md`** / **`asset-module-manual-en.md`**.
+
 **Menu Search** (navigasi cepat navbar, Ctrl+K): entri `menu-search` di **`help-navigation.json`** dan **`docs/menu-search-feature-reference.md`** (reindex tidak diperlukan jika hanya `MenuSearchService` berubah).
 
