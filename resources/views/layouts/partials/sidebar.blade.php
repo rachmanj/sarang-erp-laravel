@@ -316,7 +316,7 @@
                             @can('assets.view')
                                 <li class="nav-item">
                                     <a href="{{ route('assets.index') }}"
-                                        class="nav-link {{ request()->routeIs('assets.*') && !request()->routeIs('assets.depreciation.*') ? 'active' : '' }}">
+                                        class="nav-link {{ request()->routeIs('assets.*') && !request()->routeIs('assets.depreciation.*') && !request()->routeIs('assets.disposals.*') && !request()->routeIs('assets.movements.*') && !request()->routeIs('assets.import.*') && !request()->routeIs('assets.data-quality.*') && !request()->routeIs('assets.bulk-operations.*') ? 'active' : '' }}">
                                         <i class="far fa-circle nav-icon"></i>
                                         <p>Assets</p>
                                     </a>

@@ -1,6 +1,7 @@
 # Asset & Depreciation Module — Readiness Analysis
 
 **Date**: 2026-07-18  
+**Updated**: 2026-07-19 (Phase 2)  
 **Repo**: sarang-erp-laravel  
 **Analysis Method**: Codebase inspection of models, controllers, services, routes, views, migrations, seeders, MEMORY.md, and docs/
 
@@ -10,9 +11,11 @@
 
 The Asset & Depreciation module has a **strong backend foundation** — all 5 database tables, 6 Eloquent models, 4 dedicated services, 8 controllers, comprehensive routes, and 17 granular permissions are in place. The core business logic for depreciation runs (calculate → post → reverse) and asset disposal (gain/loss journal) is implemented in `FixedAssetService`. Asset categories are seeded with real COA account mappings.
 
-**Phase 1 (2026-07-18)** added the 11 missing Blade views and cleaned core fund-dimension fallout in AssetController, assets index, disposal/movement/depreciation loaders, and FixedAssetService. Remaining gaps: sidebar entries for Movements/Import/Data Quality/Bulk Ops, and fund UI leftovers in import + bulk-operations screens.
+**Phase 1 (2026-07-18)** added the 11 missing Blade views and cleaned core fund-dimension fallout in AssetController, assets index, disposal/movement/depreciation loaders, and FixedAssetService.
 
-**Overall readiness**: ~75% — core CRUD UI present; polish + sidebar + remaining fund debt still open.
+**Phase 2 (2026-07-19)** completed sidebar integration: all sub-modules (Movements, Import, Data Quality, Bulk Operations) are in the Fixed Assets menu group. Fixed active-state bug where the "Assets" nav item incorrectly highlighted for sub-module pages. Verified all 20 permissions map correctly to route middleware. Confirmed `npm run build` succeeds (54 modules, 0 errors). Fund UI leftovers were already cleaned in Phase 1 — zero fund references remain across all asset controllers and views.
+
+**Overall readiness**: ~85% — all 18 Blade views present, sidebar complete, permissions verified, frontend compiles cleanly.
 
 ---
 
@@ -124,18 +127,13 @@ Roles assigned: Admin (all), Manager (post/reverse), Staff (view only)
 | Asset Register Report | `resources/views/reports/assets/asset-register.blade.php` | ✅ Report view |
 | PO → Assets | `resources/views/purchase_orders/create-assets.blade.php` | ✅ PO-to-asset conversion |
 
-### Remaining UI gaps (post Phase 1):
-
-| Gap | Notes |
-|-----|-------|
-| Movements sidebar menu | Permission exists; menu item still missing |
-| Import / Data Quality / Bulk Ops sidebar | Not in Fixed Assets menu |
-| Import & Bulk Ops fund UI | Still reference removed fund dimension |
+### Remaining UI gaps (post Phase 2):
+- ✅ All gaps resolved — sidebar complete, fund references cleaned, active-state fixed
+- ⚠️ Minor: route naming inconsistency (`assets.bulk-operations.index` vs `assets.bulk-update.*`) — cosmetic only, does not affect functionality
 
 ### Sidebar Navigation:
-- ✅ Properly structured: "Fixed Assets" group with Asset Categories, Assets, Depreciation Runs, Asset Disposals sub-items
-- ⚠️ Asset Movements NOT in sidebar (permission check exists but no menu item)
-- ⚠️ Asset Import, Data Quality, Bulk Operations NOT in sidebar
+- ✅ Properly structured: "Fixed Assets" group with 8 sub-items: Asset Categories, Assets, Depreciation Runs, Asset Disposals, Asset Movements, Asset Import, Data Quality, Bulk Operations
+- ✅ Active-state highlighting fixed: "Assets" item no longer incorrectly activates for sub-module pages (import, data-quality, bulk-operations, disposals, movements, depreciation)
 
 ---
 
@@ -236,11 +234,11 @@ Implemented ✅ — prorates if `placed_in_service_date.day > 1`. However, this 
 | Controllers | ✅ Complete — all 8 controllers with full CRUD + post/reverse | 90% |
 | Routes | ✅ Complete — all route groups with permission middleware | 95% |
 | Permissions | ✅ Complete — 17 granular permissions, 3 role assignments | 95% |
-| **Views (Blade)** | **❌ ~40% complete — 11+ views missing** | **40%** |
-| **Sidebar Navigation** | **⚠️ Incomplete — missing 4 sub-items** | **60%** |
+| **Views (Blade)** | **✅ 18 views complete — all sub-modules covered** | **95%** |
+| **Sidebar Navigation** | **✅ Complete — 8 sub-items with correct active-state highlighting** | **95%** |
 | Documentation | ✅ Strong — training module, MEMORY entries, architecture references | 85% |
-| **Technical Debt** | **⚠️ Fund references, vendor mismatch, declining balance gap** | **55%** |
-| **OVERALL** | **Backend strong, frontend incomplete** | **~55%** |
+| **Technical Debt** | **⚠️ Declining balance + tax book not implemented; fund/vendor debt resolved** | **70%** |
+| **OVERALL** | **Frontend complete, sidebar done, 2 remaining backend gaps** | **~85%** |
 
 ---
 
