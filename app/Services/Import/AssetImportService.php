@@ -4,7 +4,6 @@ namespace App\Services\Import;
 
 use App\Models\Asset;
 use App\Models\AssetCategory;
-use App\Models\Fund;
 use App\Models\Project;
 use App\Models\Department;
 use App\Models\Vendor;
@@ -75,7 +74,6 @@ class AssetImportService
             'method',
             'life_months',
             'placed_in_service_date',
-            'fund_code',
             'project_code',
             'department_code',
             'vendor_code',
@@ -125,7 +123,6 @@ class AssetImportService
             'method' => 'required|in:straight_line,declining_balance,double_declining_balance',
             'life_months' => 'required|integer|min:1|max:600',
             'placed_in_service_date' => 'required|date',
-            'fund_code' => 'nullable|string|exists:funds,code',
             'project_code' => 'nullable|string|exists:projects,code',
             'department_code' => 'nullable|string|exists:departments,code',
             'vendor_code' => 'nullable|string|exists:vendors,code',
@@ -149,7 +146,6 @@ class AssetImportService
             'life_months.integer' => 'Life in months must be an integer',
             'placed_in_service_date.required' => 'Placed in service date is required',
             'placed_in_service_date.date' => 'Placed in service date must be a valid date',
-            'fund_code.exists' => 'Fund code does not exist',
             'project_code.exists' => 'Project code does not exist',
             'department_code.exists' => 'Department code does not exist',
             'vendor_code.exists' => 'Vendor code does not exist',
@@ -173,7 +169,6 @@ class AssetImportService
     {
         // Resolve foreign key relationships
         $category = AssetCategory::where('code', $row['category_code'])->first();
-        $fund = $row['fund_code'] ? Fund::where('code', $row['fund_code'])->first() : null;
         $project = $row['project_code'] ? Project::where('code', $row['project_code'])->first() : null;
         $department = $row['department_code'] ? Department::where('code', $row['department_code'])->first() : null;
         $vendor = $row['vendor_code'] ? Vendor::where('code', $row['vendor_code'])->first() : null;
@@ -205,7 +200,6 @@ class AssetImportService
             'method' => $row['method'],
             'life_months' => $row['life_months'],
             'placed_in_service_date' => Carbon::parse($row['placed_in_service_date']),
-            'fund_id' => $fund?->id,
             'project_id' => $project?->id,
             'department_id' => $department?->id,
             'vendor_id' => $vendor?->id,
@@ -264,7 +258,6 @@ class AssetImportService
                 'straight_line',
                 '36',
                 '2025-01-15',
-                'GENERAL',
                 'PROJ-001',
                 'IT',
                 'VENDOR-001',
@@ -281,7 +274,6 @@ class AssetImportService
                 'straight_line',
                 '60',
                 '2025-01-20',
-                'GENERAL',
                 '',
                 'ADMIN',
                 'VENDOR-002',

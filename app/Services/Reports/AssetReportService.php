@@ -23,17 +23,15 @@ class AssetReportService
      */
     public function getAssetRegister($filters = [])
     {
-        $query = Asset::with(['category', 'fund', 'project', 'department', 'vendor'])
+        $query = Asset::with(['category', 'project', 'department', 'vendor'])
             ->select([
                 'assets.*',
                 'asset_categories.name as category_name',
-                'funds.name as fund_name',
                 'projects.name as project_name',
                 'departments.name as department_name',
                 'vendors.name as vendor_name'
             ])
             ->join('asset_categories', 'assets.category_id', '=', 'asset_categories.id')
-            ->leftJoin('funds', 'assets.fund_id', '=', 'funds.id')
             ->leftJoin('projects', 'assets.project_id', '=', 'projects.id')
             ->leftJoin('departments', 'assets.department_id', '=', 'departments.id')
             ->leftJoin('vendors', 'assets.vendor_id', '=', 'vendors.id');
@@ -41,10 +39,6 @@ class AssetReportService
         // Apply filters
         if (isset($filters['category_id']) && $filters['category_id']) {
             $query->where('assets.category_id', $filters['category_id']);
-        }
-
-        if (isset($filters['fund_id']) && $filters['fund_id']) {
-            $query->where('assets.fund_id', $filters['fund_id']);
         }
 
         if (isset($filters['project_id']) && $filters['project_id']) {
@@ -367,7 +361,6 @@ class AssetReportService
     {
         return [
             'categories' => AssetCategory::orderBy('name')->get(),
-            'funds' => collect(), // Fund table doesn't exist yet
             'projects' => \App\Models\Dimensions\Project::orderBy('name')->get(),
             'departments' => \App\Models\Dimensions\Department::orderBy('name')->get(),
             'assets' => Asset::select('id', 'code', 'name')->orderBy('code')->get(),

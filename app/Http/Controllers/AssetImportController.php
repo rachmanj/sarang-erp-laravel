@@ -79,7 +79,6 @@ class AssetImportController extends Controller
             'options' => 'nullable|array',
             'options.skip_duplicates' => 'boolean',
             'options.update_existing' => 'boolean',
-            'options.default_fund' => 'nullable|string',
             'options.default_project' => 'nullable|string',
             'options.default_department' => 'nullable|string'
         ]);
@@ -147,7 +146,6 @@ class AssetImportController extends Controller
             'asset_ids' => 'required|array',
             'asset_ids.*' => 'exists:assets,id',
             'updates' => 'required|array',
-            'updates.fund_id' => 'nullable|exists:funds,id',
             'updates.project_id' => 'nullable|exists:projects,id',
             'updates.department_id' => 'nullable|exists:departments,id',
             'updates.status' => 'nullable|in:active,retired,disposed'

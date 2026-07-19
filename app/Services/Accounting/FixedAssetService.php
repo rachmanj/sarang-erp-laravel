@@ -66,7 +66,7 @@ class FixedAssetService
             ->whereDoesntHave('depreciationEntries', function ($query) use ($period) {
                 $query->where('period', $period)->where('book', 'financial');
             })
-            ->with(['category', 'fund', 'project', 'department'])
+            ->with(['category', 'project', 'department'])
             ->get();
 
         $entries = [];
@@ -81,7 +81,6 @@ class FixedAssetService
                     'period' => $period,
                     'amount' => $depreciationAmount,
                     'book' => 'financial',
-                    'fund_id' => $asset->fund_id,
                     'project_id' => $asset->project_id,
                     'department_id' => $asset->department_id,
                 ];
@@ -197,7 +196,6 @@ class FixedAssetService
                 'account_id' => $category->depreciation_expense_account_id,
                 'debit' => $totalAmount,
                 'credit' => 0,
-                'fund_id' => $group['fund_id'],
                 'project_id' => $group['project_id'],
                 'department_id' => $group['department_id'],
                 'memo' => "Depreciation for {$category->name} - {$run->period_display}",
@@ -208,7 +206,6 @@ class FixedAssetService
                 'account_id' => $category->accumulated_depreciation_account_id,
                 'debit' => 0,
                 'credit' => $totalAmount,
-                'fund_id' => $group['fund_id'],
                 'project_id' => $group['project_id'],
                 'department_id' => $group['department_id'],
                 'memo' => "Accumulated depreciation for {$category->name} - {$run->period_display}",
@@ -253,12 +250,11 @@ class FixedAssetService
 
         foreach ($entries as $entry) {
             $category = $entry->asset->category;
-            $key = $category->id . '_' . $entry->fund_id . '_' . $entry->project_id . '_' . $entry->department_id;
+            $key = $category->id . '_' . $entry->project_id . '_' . $entry->department_id;
 
             if (!isset($grouped[$key])) {
                 $grouped[$key] = [
                     'category' => $category,
-                    'fund_id' => $entry->fund_id,
                     'project_id' => $entry->project_id,
                     'department_id' => $entry->department_id,
                     'total_amount' => 0,
@@ -394,7 +390,6 @@ class FixedAssetService
                 'account_id' => $category->accumulated_depreciation_account_id,
                 'debit' => $asset->accumulated_depreciation,
                 'credit' => 0,
-                'fund_id' => $asset->fund_id,
                 'project_id' => $asset->project_id,
                 'department_id' => $asset->department_id,
                 'memo' => "Remove accumulated depreciation for {$asset->name}",
@@ -405,7 +400,6 @@ class FixedAssetService
                 'account_id' => $category->asset_account_id,
                 'debit' => 0,
                 'credit' => $asset->acquisition_cost,
-                'fund_id' => $asset->fund_id,
                 'project_id' => $asset->project_id,
                 'department_id' => $asset->department_id,
                 'memo' => "Remove fixed asset {$asset->name}",
@@ -418,7 +412,6 @@ class FixedAssetService
                     'account_id' => 1, // Assuming cash account - should be configurable
                     'debit' => $disposal->disposal_proceeds,
                     'credit' => 0,
-                    'fund_id' => $asset->fund_id,
                     'project_id' => $asset->project_id,
                     'department_id' => $asset->department_id,
                     'memo' => "Proceeds from disposal of {$asset->name}",
@@ -432,7 +425,6 @@ class FixedAssetService
                     'account_id' => $category->gain_on_disposal_account_id,
                     'debit' => 0,
                     'credit' => $disposal->gain_loss_amount,
-                    'fund_id' => $asset->fund_id,
                     'project_id' => $asset->project_id,
                     'department_id' => $asset->department_id,
                     'memo' => "Gain on disposal of {$asset->name}",
@@ -443,7 +435,6 @@ class FixedAssetService
                     'account_id' => $category->loss_on_disposal_account_id,
                     'debit' => $disposal->gain_loss_amount,
                     'credit' => 0,
-                    'fund_id' => $asset->fund_id,
                     'project_id' => $asset->project_id,
                     'department_id' => $asset->department_id,
                     'memo' => "Loss on disposal of {$asset->name}",

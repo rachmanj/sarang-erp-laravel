@@ -38,7 +38,6 @@ class AssetReportsController extends Controller
 
         $filters = $request->only([
             'category_id',
-            'fund_id',
             'project_id',
             'department_id',
             'status',

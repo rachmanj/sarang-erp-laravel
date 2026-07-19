@@ -97,7 +97,7 @@ class AssetDisposalController extends Controller
         $asset = null;
 
         if ($assetId) {
-            $asset = Asset::with(['category', 'fund', 'project', 'department'])
+            $asset = Asset::with(['category', 'project', 'department'])
                 ->findOrFail($assetId);
 
             if (!$asset->canBeDisposed()) {
@@ -183,7 +183,7 @@ class AssetDisposalController extends Controller
     {
         $this->authorize('view', $disposal);
 
-        $disposal->load(['asset.category', 'asset.fund', 'asset.project', 'asset.department', 'creator', 'poster', 'journal']);
+        $disposal->load(['asset.category', 'asset.project', 'asset.department', 'creator', 'poster', 'journal']);
 
         return view('assets.disposals.show', compact('disposal'));
     }
@@ -200,7 +200,7 @@ class AssetDisposalController extends Controller
                 ->with('error', 'Only draft disposals can be edited.');
         }
 
-        $disposal->load(['asset.category', 'asset.fund', 'asset.project', 'asset.department']);
+        $disposal->load(['asset.category', 'asset.project', 'asset.department']);
 
         return view('assets.disposals.edit', compact('disposal'));
     }

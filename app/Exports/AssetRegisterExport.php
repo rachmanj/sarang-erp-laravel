@@ -26,17 +26,15 @@ class AssetRegisterExport implements FromCollection, WithHeadings, WithMapping, 
 
     public function collection()
     {
-        $query = Asset::with(['category', 'fund', 'project', 'department', 'vendor'])
+        $query = Asset::with(['category', 'project', 'department', 'vendor'])
             ->select([
                 'assets.*',
                 'asset_categories.name as category_name',
-                'funds.name as fund_name',
                 'projects.name as project_name',
                 'departments.name as department_name',
                 'vendors.name as vendor_name'
             ])
             ->join('asset_categories', 'assets.category_id', '=', 'asset_categories.id')
-            ->leftJoin('funds', 'assets.fund_id', '=', 'funds.id')
             ->leftJoin('projects', 'assets.project_id', '=', 'projects.id')
             ->leftJoin('departments', 'assets.department_id', '=', 'departments.id')
             ->leftJoin('vendors', 'assets.vendor_id', '=', 'vendors.id');
@@ -44,10 +42,6 @@ class AssetRegisterExport implements FromCollection, WithHeadings, WithMapping, 
         // Apply filters
         if (isset($this->filters['category_id']) && $this->filters['category_id']) {
             $query->where('assets.category_id', $this->filters['category_id']);
-        }
-
-        if (isset($this->filters['fund_id']) && $this->filters['fund_id']) {
-            $query->where('assets.fund_id', $this->filters['fund_id']);
         }
 
         if (isset($this->filters['project_id']) && $this->filters['project_id']) {
@@ -79,7 +73,6 @@ class AssetRegisterExport implements FromCollection, WithHeadings, WithMapping, 
             'Asset Code',
             'Asset Name',
             'Category',
-            'Fund',
             'Project',
             'Department',
             'Vendor',
@@ -103,7 +96,6 @@ class AssetRegisterExport implements FromCollection, WithHeadings, WithMapping, 
             $asset->code,
             $asset->name,
             $asset->category_name,
-            $asset->fund_name ?? '',
             $asset->project_name ?? '',
             $asset->department_name ?? '',
             $asset->vendor_name ?? '',
@@ -127,21 +119,20 @@ class AssetRegisterExport implements FromCollection, WithHeadings, WithMapping, 
             'A' => 15, // Asset Code
             'B' => 30, // Asset Name
             'C' => 20, // Category
-            'D' => 20, // Fund
-            'E' => 20, // Project
-            'F' => 20, // Department
-            'G' => 25, // Vendor
-            'H' => 15, // Acquisition Date
-            'I' => 18, // Acquisition Cost
-            'J' => 22, // Accumulated Depreciation
-            'K' => 15, // Book Value
-            'L' => 12, // Status
-            'M' => 12, // Depreciable
-            'N' => 18, // Useful Life
-            'O' => 20, // Depreciation Method
-            'P' => 20, // Placed in Service Date
-            'Q' => 15, // Disposal Date
-            'R' => 30, // Notes
+            'D' => 20, // Project
+            'E' => 20, // Department
+            'F' => 25, // Vendor
+            'G' => 15, // Acquisition Date
+            'H' => 18, // Acquisition Cost
+            'I' => 22, // Accumulated Depreciation
+            'J' => 15, // Book Value
+            'K' => 12, // Status
+            'L' => 12, // Depreciable
+            'M' => 18, // Useful Life
+            'N' => 20, // Depreciation Method
+            'O' => 20, // Placed in Service Date
+            'P' => 15, // Disposal Date
+            'Q' => 30, // Notes
         ];
     }
 
@@ -182,12 +173,12 @@ class AssetRegisterExport implements FromCollection, WithHeadings, WithMapping, 
                 $totalsRow = $lastRow + 2;
 
                 $sheet->setCellValue('A' . $totalsRow, 'TOTAL:');
+                $sheet->setCellValue('H' . $totalsRow, '=SUM(H2:H' . $lastRow . ')');
                 $sheet->setCellValue('I' . $totalsRow, '=SUM(I2:I' . $lastRow . ')');
                 $sheet->setCellValue('J' . $totalsRow, '=SUM(J2:J' . $lastRow . ')');
-                $sheet->setCellValue('K' . $totalsRow, '=SUM(K2:K' . $lastRow . ')');
 
                 // Style totals row
-                $sheet->getStyle('A' . $totalsRow . ':R' . $totalsRow)->applyFromArray([
+                $sheet->getStyle('A' . $totalsRow . ':Q' . $totalsRow)->applyFromArray([
                     'font' => ['bold' => true],
                     'fill' => [
                         'fillType' => Fill::FILL_SOLID,
@@ -201,11 +192,11 @@ class AssetRegisterExport implements FromCollection, WithHeadings, WithMapping, 
                 ]);
 
                 // Format currency columns
-                $sheet->getStyle('I2:K' . $lastRow)->getNumberFormat()->setFormatCode('#,##0');
-                $sheet->getStyle('I' . $totalsRow . ':K' . $totalsRow)->getNumberFormat()->setFormatCode('#,##0');
+                $sheet->getStyle('H2:J' . $lastRow)->getNumberFormat()->setFormatCode('#,##0');
+                $sheet->getStyle('H' . $totalsRow . ':J' . $totalsRow)->getNumberFormat()->setFormatCode('#,##0');
 
                 // Auto-fit columns
-                foreach (range('A', 'R') as $column) {
+                foreach (range('A', 'Q') as $column) {
                     $sheet->getColumnDimension($column)->setAutoSize(false);
                 }
             },

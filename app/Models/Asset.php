@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Models\Dimensions\Department;
+use App\Models\Dimensions\Project;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -26,7 +28,7 @@ class Asset extends Model
         'disposal_date',
         'project_id',
         'department_id',
-        'vendor_id',
+        'business_partner_id',
         'purchase_invoice_id',
     ];
 
@@ -67,7 +69,7 @@ class Asset extends Model
 
     public function vendor(): BelongsTo
     {
-        return $this->belongsTo(Vendor::class, 'vendor_id');
+        return $this->belongsTo(BusinessPartner::class, 'business_partner_id');
     }
 
     public function purchaseInvoice(): BelongsTo

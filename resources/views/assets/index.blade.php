@@ -50,17 +50,12 @@
                                         <option value="disposed">Disposed</option>
                                     </select>
                                 </div>
-                                <div class="col-md-2">
-                                    <select class="form-control select2bs4" id="fundFilter">
-                                        <option value="">All Funds</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-2">
+                                <div class="col-md-3">
                                     <select class="form-control select2bs4" id="projectFilter">
                                         <option value="">All Projects</option>
                                     </select>
                                 </div>
-                                <div class="col-md-2">
+                                <div class="col-md-3">
                                     <select class="form-control select2bs4" id="departmentFilter">
                                         <option value="">All Departments</option>
                                     </select>
@@ -208,15 +203,7 @@
 
                             <h6 class="text-primary">Dimensions</h6>
                             <div class="row">
-                                <div class="col-md-4">
-                                    <div class="form-group">
-                                        <label for="fund_id">Fund</label>
-                                        <select class="form-control select2bs4" id="fund_id" name="fund_id">
-                                            <option value="">Select Fund</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
+                                <div class="col-md-6">
                                     <div class="form-group">
                                         <label for="project_id">Project</label>
                                         <select class="form-control select2bs4" id="project_id" name="project_id">
@@ -224,7 +211,7 @@
                                         </select>
                                     </div>
                                 </div>
-                                <div class="col-md-4">
+                                <div class="col-md-6">
                                     <div class="form-group">
                                         <label for="department_id">Department</label>
                                         <select class="form-control select2bs4" id="department_id" name="department_id">
@@ -270,7 +257,6 @@
                     data: function(d) {
                         d.category_id = $('#categoryFilter').val();
                         d.status = $('#statusFilter').val();
-                        d.fund_id = $('#fundFilter').val();
                         d.project_id = $('#projectFilter').val();
                         d.department_id = $('#departmentFilter').val();
                     }
@@ -341,14 +327,14 @@
             loadFilterData();
 
             // Filter change events
-            $('#categoryFilter, #statusFilter, #fundFilter, #projectFilter, #departmentFilter').on('change',
+            $('#categoryFilter, #statusFilter, #projectFilter, #departmentFilter').on('change',
                 function() {
                     table.ajax.reload();
                 });
 
             // Clear filters
             $('#clearFilters').on('click', function() {
-                $('#categoryFilter, #statusFilter, #fundFilter, #projectFilter, #departmentFilter').val('')
+                $('#categoryFilter, #statusFilter, #projectFilter, #departmentFilter').val('')
                     .trigger('change');
                 $('.select2bs4').val('').trigger('change');
                 table.ajax.reload();
@@ -462,15 +448,6 @@
                     $('#categoryFilter').html(categoryOptions);
                 });
 
-                // Load funds
-                $.get('/assets/funds', function(funds) {
-                    var fundOptions = '<option value="">All Funds</option>';
-                    funds.forEach(function(fund) {
-                        fundOptions += `<option value="${fund.id}">${fund.name}</option>`;
-                    });
-                    $('#fundFilter').html(fundOptions);
-                });
-
                 // Load projects
                 $.get('/assets/projects', function(projects) {
                     var projectOptions = '<option value="">All Projects</option>';
@@ -503,15 +480,6 @@
                             `<option value="${category.id}">${category.name}</option>`;
                     });
                     $('#category_id').html(categoryOptions);
-                });
-
-                // Load funds for modal
-                $.get('/assets/funds', function(funds) {
-                    var fundOptions = '<option value="">Select Fund</option>';
-                    funds.forEach(function(fund) {
-                        fundOptions += `<option value="${fund.id}">${fund.name}</option>`;
-                    });
-                    $('#fund_id').html(fundOptions);
                 });
 
                 // Load projects for modal

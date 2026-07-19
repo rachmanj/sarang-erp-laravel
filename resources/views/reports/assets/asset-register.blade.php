@@ -62,17 +62,6 @@
                                         </select>
                                     </div>
                                     <div class="col-md-2">
-                                        <select name="fund_id" class="form-control select2bs4">
-                                            <option value="">All Funds</option>
-                                            @foreach ($filterOptions['funds'] as $fund)
-                                                <option value="{{ $fund->id }}"
-                                                    {{ request('fund_id') == $fund->id ? 'selected' : '' }}>
-                                                    {{ $fund->name }}
-                                                </option>
-                                            @endforeach
-                                        </select>
-                                    </div>
-                                    <div class="col-md-2">
                                         <select name="project_id" class="form-control select2bs4">
                                             <option value="">All Projects</option>
                                             @foreach ($filterOptions['projects'] as $project)
@@ -136,7 +125,6 @@
                                             <th>Asset Code</th>
                                             <th>Asset Name</th>
                                             <th>Category</th>
-                                            <th>Fund</th>
                                             <th>Project</th>
                                             <th>Department</th>
                                             <th>Acquisition Date</th>
@@ -152,7 +140,6 @@
                                                 <td>{{ $asset->code }}</td>
                                                 <td>{{ $asset->name }}</td>
                                                 <td>{{ $asset->category_name }}</td>
-                                                <td>{{ $asset->fund_name ?? '-' }}</td>
                                                 <td>{{ $asset->project_name ?? '-' }}</td>
                                                 <td>{{ $asset->department_name ?? '-' }}</td>
                                                 <td>{{ $asset->acquisition_date ? $asset->acquisition_date->format('d/m/Y') : '-' }}

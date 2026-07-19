@@ -316,19 +316,7 @@
                                     </div>
                                 </div>
                                 <div class="row">
-                                    <div class="col-md-4">
-                                        <div class="info-box">
-                                            <span class="info-box-icon bg-secondary">
-                                                <i class="fas fa-coins"></i>
-                                            </span>
-                                            <div class="info-box-content">
-                                                <span class="info-box-text">Orphaned Funds</span>
-                                                <span
-                                                    class="info-box-number">{{ $report['orphaned_records']['orphaned_funds'] }}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-4">
+                                    <div class="col-md-6">
                                         <div class="info-box">
                                             <span class="info-box-icon bg-secondary">
                                                 <i class="fas fa-project-diagram"></i>
@@ -340,7 +328,7 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="col-md-4">
+                                    <div class="col-md-6">
                                         <div class="info-box">
                                             <span class="info-box-icon bg-secondary">
                                                 <i class="fas fa-sitemap"></i>

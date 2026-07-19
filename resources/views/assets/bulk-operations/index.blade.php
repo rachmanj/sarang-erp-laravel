@@ -44,14 +44,6 @@
                                         </div>
                                         <div class="col-md-3">
                                             <div class="form-group">
-                                                <label for="fund_id">Fund</label>
-                                                <select class="form-control select2bs4" id="fund_id" name="fund_id">
-                                                    <option value="">All Funds</option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-3">
-                                            <div class="form-group">
                                                 <label for="project_id">Project</label>
                                                 <select class="form-control select2bs4" id="project_id" name="project_id">
                                                     <option value="">All Projects</option>
@@ -135,15 +127,6 @@
                                 <form id="bulkUpdateForm">
                                     @csrf
                                     <div class="row">
-                                        <div class="col-md-3">
-                                            <div class="form-group">
-                                                <label for="update_fund_id">Fund</label>
-                                                <select class="form-control select2bs4" id="update_fund_id"
-                                                    name="updates[fund_id]">
-                                                    <option value="">No Change</option>
-                                                </select>
-                                            </div>
-                                        </div>
                                         <div class="col-md-3">
                                             <div class="form-group">
                                                 <label for="update_project_id">Project</label>
@@ -285,7 +268,6 @@
                                                 <th>Name</th>
                                                 <th>Category</th>
                                                 <th>Acquisition Cost</th>
-                                                <th>Fund</th>
                                                 <th>Project</th>
                                                 <th>Department</th>
                                                 <th>Vendor</th>
@@ -380,7 +362,6 @@
                     type: 'GET',
                     data: function(d) {
                         d.search = $('#search').val();
-                        d.fund_id = $('#fund_id').val();
                         d.project_id = $('#project_id').val();
                         d.department_id = $('#department_id').val();
                         d.business_partner_id = $('#business_partner_id').val();
@@ -408,10 +389,6 @@
                     {
                         data: 'acquisition_cost',
                         name: 'acquisition_cost'
-                    },
-                    {
-                        data: 'fund_name',
-                        name: 'fund_name'
                     },
                     {
                         data: 'project_name',

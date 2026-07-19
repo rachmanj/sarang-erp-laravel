@@ -40,12 +40,15 @@ Include relevant context in brackets to help with future AI-assisted coding:
 
 ## Working On Now
 
+-   `[ ] P2: Asset module follow-ups after Phase 1 [sidebar: Movements/Import/Data Quality/Bulk Ops; FixedAssetService fund_id leftovers if any; declining_balance calc; docs/asset-depreciation-analysis.md]`
 -   `[ ] P1: Audit Trail System Implementation - Phase 1 [Complete Core UI - Create missing views (index, show, by-user, by-action), enhance AuditLogController with statistics and filtering, add sidebar menu integration, implement DataTables with server-side processing, add export functionality (Excel, PDF, CSV), see docs/audit-trail-phase1-detailed-action-plan.md for complete implementation guide]`
 -   `[WIP] P0: Multi-Entity Company Profile - Phase 2 Services & Numbering Integration [CompanyEntityService, DocumentNumberingService refactor, controller/service updates for PO/GRPO/PI/PP/SO/DO/SI/SR, docs/company-profile-multi-entity-plan.md]`
 -   `[ ] P1: Legacy data repair — Sales Receipt bank journals [37 posted SRs before 2026-06-23 debited 1.1.1.01 instead of receipt line bank; run `php artisan sales-receipts:repair-bank-journals --dry-run` then `--force`; command shipped — live repair pending ops sign-off; docs/decisions MEMORY [123]]`
 
 ## Recently Completed
 
+-   `[done] P1: Asset module — purge remaining fund references [AssetImportController/AssetReportsController validation+filters; AssetImportService fund_code; AssetReportService+AssetRegisterExport joins; AssetDataQualityService missing/orphaned fund checks; bulk-operations/import/data-quality/asset-register views; deleted AssetController::getFunds; grep-clean on asset controllers/services/views] (completed: 2026-07-19)`
+-   `[done] P1: Asset & Depreciation Phase 1 — missing Blade views + fund cleanup [11 views: assets create/show/edit, depreciation create/show, disposals show/edit, movements index/create/show/edit; AssetController/index fund refs removed; Asset vendor→BusinessPartner; disposal/movement/depreciation eager-load fund removed; docs/asset-depreciation-analysis.md] (completed: 2026-07-18)`
 -   `[done] P1: Rekening Koran month grid + session purge [KoranDashboardService; koran.blade.php replaces index; sessions list at /sessions; cell modal upload; bank-reconciliation:purge-sessions; sidebar Rekening Koran; tests KoranDashboard/Purge; docs] (completed: 2026-07-09)`
 -   `[done] P1: Bank Reconciliation N:M replace [evolve schema bank_book_lines + reconciliation_match_groups; ReconciliationBalanceService/MatchingService; async Parse/Fetch/AutoMatch jobs; manual + AI create flow; exclude lines; printable report; migrate legacy matches; tests BankReconciliationSignConventionTest, NmMatching, ManualMode, Exclude, Jobs; docs architecture/decisions/MEMORY/manual] (completed: 2026-07-09)`
 -   `[done] P1: Direct Sales (Sales Invoice mode) [is_direct_sale + payment_method + cash_account_id; DirectSalesPostingService; DirectSalesInvoiceJournalBuilder; SI create UI + sidebar shortcut; auto Sales Receipt for cash; DirectSalesTest; docs architecture/decisions/MEMORY/todo] (completed: 2026-06-28)`

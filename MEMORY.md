@@ -27,6 +27,22 @@
 
 ## Project Memory Entries
 
+### [130] Asset module — remaining fund reference purge (2026-07-19) ✅ COMPLETE
+
+**Challenge**: Phase 1 removed `fund` from Asset model/core CRUD, but import, bulk ops, data-quality, and asset register still referenced `fund_id`/`funds` (validation, CSV headers, eager loads, orphan checks, UI filters).
+
+**Solution**: Removed fund from `AssetImportController`, `AssetImportService`, `AssetReportService`, `AssetRegisterExport`, `AssetDataQualityService`, import/bulk/data-quality blades, and asset-register report. Deleted stub `AssetController::getFunds()`.
+
+**Key Learning**: Dimension removal needs a second pass over satellite surfaces (import templates, data-quality issue types, report joins/exports) — CRUD cleanup alone leaves broken paths that still query dropped columns/tables.
+
+### [129] Asset & Depreciation Phase 1 views + fund cleanup (2026-07-18) ✅ COMPLETE
+
+**Challenge**: Asset module backend was ~ready but 11 Blade views were missing (create/show/edit for assets, depreciation, disposals, full movements UI). Controllers still eager-loaded/filtered on removed `fund` dimension after funds table drop.
+
+**Solution**: Added AdminLTE views under `resources/views/assets/{create,show,edit}`, `depreciation/{create,show}`, `disposals/{show,edit}`, `movements/{index,create,show,edit}`. Stripped fund from `AssetController`, assets index filters/modal, disposal/movement/depreciation eager loads. Aligned `Asset::vendor()` to `BusinessPartner` via `business_partner_id`.
+
+**Key Learning**: After dimension removals, scrub eager loads (`with(['fund'])`), DataTable filters, modal Select2 loaders, and bulk validation together — leaving any one path still 500s when users open show/list pages.
+
 ### [128] Customer office/warehouse address resolution for SI/DO (2026-07-01) ✅ COMPLETE
 
 **Challenge**: Requirement was "SI sends to customer's office, goods deliver to customer's warehouse" — but customer addresses already had `office`/`warehouse` types on `business_partner_addresses` that no document actually preferred (SI print used `primaryAddress`; SO/DO defaulted from `default_shipping_address`).

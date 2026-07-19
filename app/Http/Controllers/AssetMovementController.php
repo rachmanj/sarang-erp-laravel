@@ -93,7 +93,7 @@ class AssetMovementController extends Controller
         $asset = null;
 
         if ($assetId) {
-            $asset = Asset::with(['category', 'fund', 'project', 'department'])
+            $asset = Asset::with(['category', 'project', 'department'])
                 ->findOrFail($assetId);
 
             if ($asset->status !== 'active') {
@@ -157,7 +157,7 @@ class AssetMovementController extends Controller
     {
         $this->authorize('view', $movement);
 
-        $movement->load(['asset.category', 'asset.fund', 'asset.project', 'asset.department', 'creator', 'approver']);
+        $movement->load(['asset.category', 'asset.project', 'asset.department', 'creator', 'approver']);
 
         return view('assets.movements.show', compact('movement'));
     }
@@ -174,7 +174,7 @@ class AssetMovementController extends Controller
                 ->with('error', 'Only draft movements can be edited.');
         }
 
-        $movement->load(['asset.category', 'asset.fund', 'asset.project', 'asset.department']);
+        $movement->load(['asset.category', 'asset.project', 'asset.department']);
 
         return view('assets.movements.edit', compact('movement'));
     }

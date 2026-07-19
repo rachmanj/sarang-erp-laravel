@@ -66,7 +66,7 @@ class AssetDepreciationController extends Controller
                 }
 
                 $actions .= sprintf(
-                    '<a href="/assets/depreciation/%d/details" class="btn btn-sm btn-info">Details</a>',
+                    '<a href="/assets/depreciation/%d" class="btn btn-sm btn-info">Details</a>',
                     $run->id
                 );
 
@@ -108,7 +108,13 @@ class AssetDepreciationController extends Controller
 
     public function show(AssetDepreciationRun $run)
     {
-        $run->load(['creator', 'poster', 'depreciationEntries.asset.category']);
+        $run->load([
+            'creator',
+            'poster',
+            'depreciationEntries.asset.category',
+            'depreciationEntries.project',
+            'depreciationEntries.department',
+        ]);
 
         return view('assets.depreciation.show', compact('run'));
     }
@@ -191,7 +197,7 @@ class AssetDepreciationController extends Controller
 
     public function entries(AssetDepreciationRun $run)
     {
-        $entries = AssetDepreciationEntry::with(['asset.category', 'fund', 'project', 'department'])
+        $entries = AssetDepreciationEntry::with(['asset.category', 'project', 'department'])
             ->where('period', $run->period)
             ->where('book', 'financial')
             ->get();
@@ -211,9 +217,12 @@ class AssetDepreciationController extends Controller
             })
             ->addColumn('dimensions', function ($entry) {
                 $dimensions = [];
-                if ($entry->fund) $dimensions[] = "Fund: {$entry->fund->name}";
-                if ($entry->project) $dimensions[] = "Project: {$entry->project->name}";
-                if ($entry->department) $dimensions[] = "Dept: {$entry->department->name}";
+                if ($entry->project) {
+                    $dimensions[] = "Project: {$entry->project->name}";
+                }
+                if ($entry->department) {
+                    $dimensions[] = "Dept: {$entry->department->name}";
+                }
 
                 return $dimensions ? implode('<br>', $dimensions) : 'No dimensions';
             })

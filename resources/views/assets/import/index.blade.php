@@ -68,15 +68,6 @@
                                                         <small class="form-text text-muted">Maximum file size: 10MB</small>
                                                     </div>
                                                 </div>
-                                                <div class="col-md-6">
-                                                    <div class="form-group">
-                                                        <label for="default_fund">Default Fund</label>
-                                                        <select class="form-control select2bs4" id="default_fund"
-                                                            name="options[default_fund]">
-                                                            <option value="">Select Fund (Optional)</option>
-                                                        </select>
-                                                    </div>
-                                                </div>
                                             </div>
 
                                             <div class="row">
@@ -145,21 +136,15 @@
                             </div>
                             <div class="card-body">
                                 <div class="row">
-                                    <div class="col-md-6">
+                                    <div class="col-md-4">
                                         <h6>Asset Categories</h6>
                                         <div id="categoriesList"></div>
                                     </div>
-                                    <div class="col-md-6">
-                                        <h6>Funds</h6>
-                                        <div id="fundsList"></div>
-                                    </div>
-                                </div>
-                                <div class="row mt-3">
-                                    <div class="col-md-6">
+                                    <div class="col-md-4">
                                         <h6>Projects</h6>
                                         <div id="projectsList"></div>
                                     </div>
-                                    <div class="col-md-6">
+                                    <div class="col-md-4">
                                         <h6>Departments</h6>
                                         <div id="departmentsList"></div>
                                     </div>
@@ -246,13 +231,11 @@
                 method: 'GET',
                 success: function(data) {
                     // Populate dropdowns
-                    populateSelect('#default_fund', data.funds);
                     populateSelect('#default_project', data.projects);
                     populateSelect('#default_department', data.departments);
 
                     // Display reference data
                     displayReferenceData('categoriesList', data.categories);
-                    displayReferenceData('fundsList', data.funds);
                     displayReferenceData('projectsList', data.projects);
                     displayReferenceData('departmentsList', data.departments);
                 },

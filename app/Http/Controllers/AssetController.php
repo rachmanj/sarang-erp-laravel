@@ -24,7 +24,6 @@ class AssetController extends Controller
     {
         $query = Asset::with([
             'category',
-            'fund',
             'project',
             'department',
             'vendor'
@@ -37,10 +36,6 @@ class AssetController extends Controller
 
         if ($request->filled('status')) {
             $query->where('status', $request->status);
-        }
-
-        if ($request->filled('fund_id')) {
-            $query->where('fund_id', $request->fund_id);
         }
 
         if ($request->filled('project_id')) {
@@ -82,9 +77,12 @@ class AssetController extends Controller
             })
             ->addColumn('dimensions', function ($asset) {
                 $dimensions = [];
-                if ($asset->fund) $dimensions[] = "Fund: {$asset->fund->name}";
-                if ($asset->project) $dimensions[] = "Project: {$asset->project->name}";
-                if ($asset->department) $dimensions[] = "Dept: {$asset->department->name}";
+                if ($asset->project) {
+                    $dimensions[] = "Project: {$asset->project->name}";
+                }
+                if ($asset->department) {
+                    $dimensions[] = "Dept: {$asset->department->name}";
+                }
 
                 return $dimensions ? implode('<br>', $dimensions) : 'No dimensions';
             })
@@ -127,7 +125,6 @@ class AssetController extends Controller
                             'method' => $asset->method,
                             'life_months' => $asset->life_months,
                             'placed_in_service_date' => $asset->placed_in_service_date->format('Y-m-d'),
-                            'fund_id' => $asset->fund_id,
                             'project_id' => $asset->project_id,
                             'department_id' => $asset->department_id,
                             'business_partner_id' => $asset->business_partner_id,
@@ -153,7 +150,6 @@ class AssetController extends Controller
     {
         $asset->load([
             'category',
-            'fund',
             'project',
             'department',
             'vendor',
@@ -186,7 +182,6 @@ class AssetController extends Controller
             'method' => 'required|in:straight_line,declining_balance',
             'life_months' => 'required|integer|min:1',
             'placed_in_service_date' => 'required|date',
-            'fund_id' => 'nullable|exists:funds,id',
             'project_id' => 'nullable|exists:projects,id',
             'department_id' => 'nullable|exists:departments,id',
             'business_partner_id' => 'nullable|exists:business_partners,id',
@@ -225,7 +220,6 @@ class AssetController extends Controller
             'method' => 'required|in:straight_line,declining_balance',
             'life_months' => 'required|integer|min:1',
             'placed_in_service_date' => 'required|date',
-            'fund_id' => 'nullable|exists:funds,id',
             'project_id' => 'nullable|exists:projects,id',
             'department_id' => 'nullable|exists:departments,id',
             'business_partner_id' => 'nullable|exists:business_partners,id',
@@ -265,11 +259,6 @@ class AssetController extends Controller
         return response()->json($categories);
     }
 
-    public function getFunds()
-    {
-        return response()->json($funds);
-    }
-
     public function getProjects()
     {
         $projects = Project::all(['id', 'code', 'name']);
@@ -307,7 +296,6 @@ class AssetController extends Controller
             'asset_ids' => 'required|array|min:1',
             'asset_ids.*' => 'exists:assets,id',
             'updates' => 'required|array',
-            'updates.fund_id' => 'nullable|exists:funds,id',
             'updates.project_id' => 'nullable|exists:projects,id',
             'updates.department_id' => 'nullable|exists:departments,id',
             'updates.business_partner_id' => 'nullable|exists:business_partners,id',
@@ -361,8 +349,8 @@ class AssetController extends Controller
     {
         $this->authorize('view', Asset::class);
 
-        $query = Asset::with(['category', 'fund', 'project', 'department', 'vendor'])
-            ->select(['id', 'code', 'name', 'description', 'serial_number', 'category_id', 'fund_id', 'project_id', 'department_id', 'business_partner_id', 'status', 'acquisition_cost', 'salvage_value', 'method', 'life_months', 'placed_in_service_date']);
+        $query = Asset::with(['category', 'project', 'department', 'vendor'])
+            ->select(['id', 'code', 'name', 'description', 'serial_number', 'category_id', 'project_id', 'department_id', 'business_partner_id', 'status', 'acquisition_cost', 'salvage_value', 'method', 'life_months', 'placed_in_service_date']);
 
         // Apply filters
         if ($request->filled('category_id')) {
@@ -371,10 +359,6 @@ class AssetController extends Controller
 
         if ($request->filled('status')) {
             $query->where('status', $request->status);
-        }
-
-        if ($request->filled('fund_id')) {
-            $query->where('fund_id', $request->fund_id);
         }
 
         if ($request->filled('project_id')) {
@@ -402,9 +386,6 @@ class AssetController extends Controller
         return DataTables::of($query)
             ->addColumn('category_name', function ($asset) {
                 return $asset->category ? $asset->category->name : '-';
-            })
-            ->addColumn('fund_name', function ($asset) {
-                return $asset->fund ? $asset->fund->name : '-';
             })
             ->addColumn('project_name', function ($asset) {
                 return $asset->project ? $asset->project->name : '-';
@@ -442,7 +423,7 @@ class AssetController extends Controller
         $updates = $request->get('updates');
 
         $assets = Asset::whereIn('id', $assetIds)
-            ->with(['category', 'fund', 'project', 'department', 'vendor'])
+            ->with(['category', 'project', 'department', 'vendor'])
             ->get();
 
         $preview = $assets->map(function ($asset) use ($updates) {

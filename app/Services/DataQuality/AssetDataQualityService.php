@@ -3,13 +3,7 @@
 namespace App\Services\DataQuality;
 
 use App\Models\Asset;
-use App\Models\AssetCategory;
-use App\Models\Fund;
-use App\Models\Project;
-use App\Models\Department;
-use App\Models\Vendor;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Collection;
 
 class AssetDataQualityService
 {
@@ -50,11 +44,10 @@ class AssetDataQualityService
                 ->orWhereNull('serial_number')
                 ->orWhere('serial_number', '')
                 ->orWhereNull('vendor_id')
-                ->orWhereNull('fund_id')
                 ->orWhereNull('project_id')
                 ->orWhereNull('department_id')
                 ->orWhereNull('placed_in_service_date');
-        })->with(['category', 'vendor', 'fund', 'project', 'department'])->get();
+        })->with(['category', 'vendor', 'project', 'department'])->get();
 
         return $incompleteAssets;
     }
@@ -75,7 +68,6 @@ class AssetDataQualityService
 
         // Missing relationships analysis
         $missingVendor = Asset::whereNull('vendor_id')->count();
-        $missingFund = Asset::whereNull('fund_id')->count();
         $missingProject = Asset::whereNull('project_id')->count();
         $missingDepartment = Asset::whereNull('department_id')->count();
 
@@ -110,13 +102,6 @@ class AssetDataQualityService
                 ->whereColumn('asset_categories.id', 'assets.category_id');
         })->count();
 
-        $orphanedFunds = Asset::whereNotNull('fund_id')
-            ->whereNotExists(function ($query) {
-                $query->select(DB::raw(1))
-                    ->from('funds')
-                    ->whereColumn('funds.id', 'assets.fund_id');
-            })->count();
-
         $orphanedProjects = Asset::whereNotNull('project_id')
             ->whereNotExists(function ($query) {
                 $query->select(DB::raw(1))
@@ -144,8 +129,8 @@ class AssetDataQualityService
                 'duplicate_issues' => $duplicateNameCount + $duplicateSerialCount + $duplicateCodeCount,
                 'incomplete_issues' => $incompleteCount,
                 'consistency_issues' => $negativeValues + $invalidLifeMonths + $futureServiceDates,
-                'orphaned_issues' => $orphanedCategories + $orphanedFunds + $orphanedProjects + $orphanedDepartments + $orphanedVendors,
-                'total_issues' => $duplicateNameCount + $duplicateSerialCount + $duplicateCodeCount + $incompleteCount + $negativeValues + $invalidLifeMonths + $futureServiceDates + $orphanedCategories + $orphanedFunds + $orphanedProjects + $orphanedDepartments + $orphanedVendors
+                'orphaned_issues' => $orphanedCategories + $orphanedProjects + $orphanedDepartments + $orphanedVendors,
+                'total_issues' => $duplicateNameCount + $duplicateSerialCount + $duplicateCodeCount + $incompleteCount + $negativeValues + $invalidLifeMonths + $futureServiceDates + $orphanedCategories + $orphanedProjects + $orphanedDepartments + $orphanedVendors
             ],
             'duplicates' => [
                 'duplicate_names' => $duplicateNameCount,
@@ -158,7 +143,6 @@ class AssetDataQualityService
                 'missing_serial_number' => $missingSerialNumber,
                 'missing_service_date' => $missingServiceDate,
                 'missing_vendor' => $missingVendor,
-                'missing_fund' => $missingFund,
                 'missing_project' => $missingProject,
                 'missing_department' => $missingDepartment,
                 'incomplete_assets' => $incompleteAssets
@@ -170,7 +154,6 @@ class AssetDataQualityService
             ],
             'orphaned_records' => [
                 'orphaned_categories' => $orphanedCategories,
-                'orphaned_funds' => $orphanedFunds,
                 'orphaned_projects' => $orphanedProjects,
                 'orphaned_departments' => $orphanedDepartments,
                 'orphaned_vendors' => $orphanedVendors
@@ -182,11 +165,11 @@ class AssetDataQualityService
     {
         switch ($type) {
             case 'name':
-                return Asset::where('name', $value)->with(['category', 'vendor', 'fund', 'project', 'department'])->get();
+                return Asset::where('name', $value)->with(['category', 'vendor', 'project', 'department'])->get();
             case 'serial':
-                return Asset::where('serial_number', $value)->with(['category', 'vendor', 'fund', 'project', 'department'])->get();
+                return Asset::where('serial_number', $value)->with(['category', 'vendor', 'project', 'department'])->get();
             case 'code':
-                return Asset::where('code', $value)->with(['category', 'vendor', 'fund', 'project', 'department'])->get();
+                return Asset::where('code', $value)->with(['category', 'vendor', 'project', 'department'])->get();
             default:
                 return collect();
         }
@@ -198,59 +181,48 @@ class AssetDataQualityService
             case 'missing_description':
                 return Asset::where(function ($query) {
                     $query->whereNull('description')->orWhere('description', '');
-                })->with(['category', 'vendor', 'fund', 'project', 'department'])->get();
+                })->with(['category', 'vendor', 'project', 'department'])->get();
 
             case 'missing_serial_number':
                 return Asset::where(function ($query) {
                     $query->whereNull('serial_number')->orWhere('serial_number', '');
-                })->with(['category', 'vendor', 'fund', 'project', 'department'])->get();
+                })->with(['category', 'vendor', 'project', 'department'])->get();
 
             case 'missing_service_date':
-                return Asset::whereNull('placed_in_service_date')->with(['category', 'vendor', 'fund', 'project', 'department'])->get();
+                return Asset::whereNull('placed_in_service_date')->with(['category', 'vendor', 'project', 'department'])->get();
 
             case 'missing_vendor':
-                return Asset::whereNull('vendor_id')->with(['category', 'vendor', 'fund', 'project', 'department'])->get();
-
-            case 'missing_fund':
-                return Asset::whereNull('fund_id')->with(['category', 'vendor', 'fund', 'project', 'department'])->get();
+                return Asset::whereNull('vendor_id')->with(['category', 'vendor', 'project', 'department'])->get();
 
             case 'missing_project':
-                return Asset::whereNull('project_id')->with(['category', 'vendor', 'fund', 'project', 'department'])->get();
+                return Asset::whereNull('project_id')->with(['category', 'vendor', 'project', 'department'])->get();
 
             case 'missing_department':
-                return Asset::whereNull('department_id')->with(['category', 'vendor', 'fund', 'project', 'department'])->get();
+                return Asset::whereNull('department_id')->with(['category', 'vendor', 'project', 'department'])->get();
 
             case 'negative_values':
                 return Asset::where('acquisition_cost', '<', 0)
                     ->orWhere('salvage_value', '<', 0)
                     ->orWhere('current_book_value', '<', 0)
                     ->orWhere('accumulated_depreciation', '<', 0)
-                    ->with(['category', 'vendor', 'fund', 'project', 'department'])
+                    ->with(['category', 'vendor', 'project', 'department'])
                     ->get();
 
             case 'invalid_life_months':
                 return Asset::where('life_months', '<=', 0)
                     ->orWhere('life_months', '>', 600)
-                    ->with(['category', 'vendor', 'fund', 'project', 'department'])
+                    ->with(['category', 'vendor', 'project', 'department'])
                     ->get();
 
             case 'future_service_dates':
-                return Asset::where('placed_in_service_date', '>', now())->with(['category', 'vendor', 'fund', 'project', 'department'])->get();
+                return Asset::where('placed_in_service_date', '>', now())->with(['category', 'vendor', 'project', 'department'])->get();
 
             case 'orphaned_categories':
                 return Asset::whereNotExists(function ($query) {
                     $query->select(DB::raw(1))
                         ->from('asset_categories')
                         ->whereColumn('asset_categories.id', 'assets.category_id');
-                })->with(['category', 'vendor', 'fund', 'project', 'department'])->get();
-
-            case 'orphaned_funds':
-                return Asset::whereNotNull('fund_id')
-                    ->whereNotExists(function ($query) {
-                        $query->select(DB::raw(1))
-                            ->from('funds')
-                            ->whereColumn('funds.id', 'assets.fund_id');
-                    })->with(['category', 'vendor', 'fund', 'project', 'department'])->get();
+                })->with(['category', 'vendor', 'project', 'department'])->get();
 
             case 'orphaned_projects':
                 return Asset::whereNotNull('project_id')
@@ -258,7 +230,7 @@ class AssetDataQualityService
                         $query->select(DB::raw(1))
                             ->from('projects')
                             ->whereColumn('projects.id', 'assets.project_id');
-                    })->with(['category', 'vendor', 'fund', 'project', 'department'])->get();
+                    })->with(['category', 'vendor', 'project', 'department'])->get();
 
             case 'orphaned_departments':
                 return Asset::whereNotNull('department_id')
@@ -266,7 +238,7 @@ class AssetDataQualityService
                         $query->select(DB::raw(1))
                             ->from('departments')
                             ->whereColumn('departments.id', 'assets.department_id');
-                    })->with(['category', 'vendor', 'fund', 'project', 'department'])->get();
+                    })->with(['category', 'vendor', 'project', 'department'])->get();
 
             case 'orphaned_vendors':
                 return Asset::whereNotNull('vendor_id')
@@ -274,7 +246,7 @@ class AssetDataQualityService
                         $query->select(DB::raw(1))
                             ->from('vendors')
                             ->whereColumn('vendors.id', 'assets.vendor_id');
-                    })->with(['category', 'vendor', 'fund', 'project', 'department'])->get();
+                    })->with(['category', 'vendor', 'project', 'department'])->get();
 
             default:
                 return collect();
@@ -329,7 +301,6 @@ class AssetDataQualityService
         $csv .= "Missing Serial Number," . $report['incomplete_data']['missing_serial_number'] . "\n";
         $csv .= "Missing Service Date," . $report['incomplete_data']['missing_service_date'] . "\n";
         $csv .= "Missing Vendor," . $report['incomplete_data']['missing_vendor'] . "\n";
-        $csv .= "Missing Fund," . $report['incomplete_data']['missing_fund'] . "\n";
         $csv .= "Missing Project," . $report['incomplete_data']['missing_project'] . "\n";
         $csv .= "Missing Department," . $report['incomplete_data']['missing_department'] . "\n\n";
 
@@ -340,7 +311,6 @@ class AssetDataQualityService
 
         $csv .= "ORPHANED RECORDS\n";
         $csv .= "Orphaned Categories," . $report['orphaned_records']['orphaned_categories'] . "\n";
-        $csv .= "Orphaned Funds," . $report['orphaned_records']['orphaned_funds'] . "\n";
         $csv .= "Orphaned Projects," . $report['orphaned_records']['orphaned_projects'] . "\n";
         $csv .= "Orphaned Departments," . $report['orphaned_records']['orphaned_departments'] . "\n";
         $csv .= "Orphaned Vendors," . $report['orphaned_records']['orphaned_vendors'] . "\n";
