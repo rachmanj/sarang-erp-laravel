@@ -346,9 +346,9 @@
 
                 var formData = new FormData(this);
                 var assetId = $('#assetModal').data('asset-id');
-                var url = `/assets/${assetId}`;
+                var url = @json(url('/assets')) + '/' + assetId;
 
-                formData.append('_method', 'PUT');
+                formData.append('_method', 'PATCH');
 
                 $.ajax({
                     url: url,
@@ -408,7 +408,7 @@
 
                 if (confirm(`Are you sure you want to delete "${assetName}"?`)) {
                     $.ajax({
-                        url: `/assets/${assetId}`,
+                        url: @json(url('/assets')) + '/' + assetId,
                         type: 'DELETE',
                         data: {
                             _token: '{{ csrf_token() }}'

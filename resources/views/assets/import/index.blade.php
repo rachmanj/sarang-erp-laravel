@@ -1,48 +1,47 @@
-@extends('layouts.app')
+@extends('layouts.main')
 
 @section('title', 'Asset Import')
 
 @section('content')
-    <div class="content-wrapper">
-        <div class="content-header">
-            <div class="container-fluid">
-                <div class="row mb-2">
-                    <div class="col-sm-6">
-                        <h1 class="m-0">Asset Import</h1>
-                    </div>
-                    <div class="col-sm-6">
-                        <ol class="breadcrumb float-sm-right">
-                            <li class="breadcrumb-item"><a href="{{ route('dashboard') }}">Home</a></li>
-                            <li class="breadcrumb-item"><a href="{{ route('assets.index') }}">Assets</a></li>
-                            <li class="breadcrumb-item active">Import</li>
-                        </ol>
-                    </div>
+    <div class="content-header">
+        <div class="container-fluid">
+            <div class="row mb-2">
+                <div class="col-sm-6">
+                    <h1 class="m-0">Asset Import</h1>
+                </div>
+                <div class="col-sm-6">
+                    <ol class="breadcrumb float-sm-right">
+                        <li class="breadcrumb-item"><a href="{{ route('dashboard') }}">Home</a></li>
+                        <li class="breadcrumb-item"><a href="{{ route('assets.index') }}">Assets</a></li>
+                        <li class="breadcrumb-item active">Import</li>
+                    </ol>
                 </div>
             </div>
         </div>
+    </div>
 
-        <section class="content">
-            <div class="container-fluid">
-                <!-- Import Steps -->
-                <div class="row">
-                    <div class="col-12">
-                        <div class="card">
-                            <div class="card-header">
-                                <h3 class="card-title">
-                                    <i class="fas fa-upload"></i> Bulk Asset Import
-                                </h3>
-                            </div>
-                            <div class="card-body">
-                                <!-- Step 1: Download Template -->
-                                <div class="row mb-4">
-                                    <div class="col-12">
-                                        <h5><i class="fas fa-download text-primary"></i> Step 1: Download Template</h5>
-                                        <p>Download the CSV template to see the required format and sample data.</p>
-                                        <a href="{{ route('assets.import.template') }}" class="btn btn-primary">
-                                            <i class="fas fa-download"></i> Download Template
-                                        </a>
-                                    </div>
+    <section class="content">
+        <div class="container-fluid">
+            <!-- Import Steps -->
+            <div class="row">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">
+                                <i class="fas fa-upload"></i> Bulk Asset Import
+                            </h3>
+                        </div>
+                        <div class="card-body">
+                            <!-- Step 1: Download Template -->
+                            <div class="row mb-4">
+                                <div class="col-12">
+                                    <h5><i class="fas fa-download text-primary"></i> Step 1: Download Template</h5>
+                                    <p>Download the CSV template to see the required format and sample data.</p>
+                                    <a href="{{ route('assets.import.template') }}" class="btn btn-primary">
+                                        <i class="fas fa-download"></i> Download Template
+                                    </a>
                                 </div>
+                            </div>
 
                                 <!-- Step 2: Upload File -->
                                 <div class="row mb-4">
@@ -154,8 +153,7 @@
                     </div>
                 </div>
             </div>
-        </section>
-    </div>
+    </section>
 @endsection
 
 @push('styles')

@@ -261,26 +261,21 @@ Route::middleware('auth')->group(function () {
         Route::get('/data', [AssetController::class, 'data'])->name('assets.data');
         Route::get('/create', [AssetController::class, 'create'])->middleware('permission:assets.create')->name('assets.create');
         Route::post('/', [AssetController::class, 'store'])->middleware('permission:assets.create')->name('assets.store');
-        Route::get('/{asset}', [AssetController::class, 'show'])->name('assets.show');
-        Route::get('/{asset}/edit', [AssetController::class, 'edit'])->middleware('permission:assets.update')->name('assets.edit');
-        Route::patch('/{asset}', [AssetController::class, 'update'])->middleware('permission:assets.update')->name('assets.update');
-        Route::delete('/{asset}', [AssetController::class, 'destroy'])->middleware('permission:assets.delete')->name('assets.destroy');
         Route::get('/categories', [AssetController::class, 'getCategories'])->name('assets.categories');
         Route::get('/projects', [AssetController::class, 'getProjects'])->name('assets.projects');
         Route::get('/departments', [AssetController::class, 'getDepartments'])->name('assets.departments');
         Route::get('/vendors', [AssetController::class, 'getVendors'])->name('assets.vendors');
 
-        // Asset Import Routes
+        // Static/nested routes MUST be registered before /{asset}
         Route::prefix('import')->middleware(['permission:assets.create'])->group(function () {
             Route::get('/', [AssetImportController::class, 'index'])->name('assets.import.index');
             Route::get('/template', [AssetImportController::class, 'template'])->name('assets.import.template');
-            Route::post('/validate', [AssetImportController::class, 'validate'])->name('assets.import.validate');
+            Route::post('/validate', [AssetImportController::class, 'validateImport'])->name('assets.import.validate');
             Route::post('/import', [AssetImportController::class, 'import'])->name('assets.import.import');
             Route::get('/reference-data', [AssetImportController::class, 'getReferenceData'])->name('assets.import.reference-data');
             Route::post('/bulk-update', [AssetImportController::class, 'bulkUpdate'])->middleware('permission:assets.update')->name('assets.import.bulk-update');
         });
 
-        // Asset Data Quality Routes
         Route::prefix('data-quality')->middleware(['permission:assets.view'])->group(function () {
             Route::get('/', [AssetDataQualityController::class, 'index'])->name('assets.data-quality.index');
             Route::get('/duplicates', [AssetDataQualityController::class, 'duplicates'])->name('assets.data-quality.duplicates');
@@ -293,13 +288,17 @@ Route::middleware('auth')->group(function () {
             Route::post('/assets-by-issue', [AssetDataQualityController::class, 'getAssetsByIssue'])->name('assets.data-quality.assets-by-issue');
         });
 
-        // Asset Bulk Operations Routes
         Route::prefix('bulk-operations')->middleware(['permission:assets.update'])->group(function () {
             Route::get('/', [AssetController::class, 'bulkUpdateIndex'])->name('assets.bulk-operations.index');
             Route::get('/data', [AssetController::class, 'bulkUpdateData'])->name('assets.bulk-update.data');
             Route::post('/preview', [AssetController::class, 'bulkUpdatePreview'])->name('assets.bulk-update.preview');
             Route::post('/update', [AssetController::class, 'bulkUpdate'])->name('assets.bulk-update');
         });
+
+        Route::get('/{asset}', [AssetController::class, 'show'])->whereNumber('asset')->name('assets.show');
+        Route::get('/{asset}/edit', [AssetController::class, 'edit'])->middleware('permission:assets.update')->whereNumber('asset')->name('assets.edit');
+        Route::patch('/{asset}', [AssetController::class, 'update'])->middleware('permission:assets.update')->whereNumber('asset')->name('assets.update');
+        Route::delete('/{asset}', [AssetController::class, 'destroy'])->middleware('permission:assets.delete')->whereNumber('asset')->name('assets.destroy');
     });
 
     // Fixed Assets Depreciation
@@ -308,16 +307,16 @@ Route::middleware('auth')->group(function () {
         Route::get('/data', [AssetDepreciationController::class, 'data'])->name('assets.depreciation.data');
         Route::get('/create', [AssetDepreciationController::class, 'create'])->name('assets.depreciation.create');
         Route::post('/', [AssetDepreciationController::class, 'store'])->name('assets.depreciation.store');
-        Route::get('/{run}', [AssetDepreciationController::class, 'show'])->name('assets.depreciation.show');
-        Route::get('/{run}/calculate', [AssetDepreciationController::class, 'calculate'])->name('assets.depreciation.calculate');
-        Route::post('/{run}/entries', [AssetDepreciationController::class, 'createEntries'])->name('assets.depreciation.createEntries');
-        Route::post('/{run}/post', [AssetDepreciationController::class, 'post'])->name('assets.depreciation.post');
-        Route::post('/{run}/reverse', [AssetDepreciationController::class, 'reverse'])->name('assets.depreciation.reverse');
-        Route::get('/{run}/entries', [AssetDepreciationController::class, 'entries'])->name('assets.depreciation.entries');
+        Route::get('/{run}', [AssetDepreciationController::class, 'show'])->whereNumber('run')->name('assets.depreciation.show');
+        Route::get('/{run}/calculate', [AssetDepreciationController::class, 'calculate'])->whereNumber('run')->name('assets.depreciation.calculate');
+        Route::post('/{run}/entries', [AssetDepreciationController::class, 'createEntries'])->whereNumber('run')->name('assets.depreciation.createEntries');
+        Route::post('/{run}/post', [AssetDepreciationController::class, 'post'])->whereNumber('run')->name('assets.depreciation.post');
+        Route::post('/{run}/reverse', [AssetDepreciationController::class, 'reverse'])->whereNumber('run')->name('assets.depreciation.reverse');
+        Route::get('/{run}/entries', [AssetDepreciationController::class, 'entries'])->whereNumber('run')->name('assets.depreciation.entries');
     });
 
     // Asset depreciation schedule
-    Route::get('/assets/{asset}/schedule', [AssetDepreciationController::class, 'schedule'])->middleware(['permission:assets.view'])->name('assets.schedule');
+    Route::get('/assets/{asset}/schedule', [AssetDepreciationController::class, 'schedule'])->middleware(['permission:assets.view'])->whereNumber('asset')->name('assets.schedule');
 
     // Asset Disposals
     Route::prefix('assets/disposals')->middleware(['permission:assets.disposal.view'])->group(function () {
@@ -325,12 +324,12 @@ Route::middleware('auth')->group(function () {
         Route::get('/data', [AssetDisposalController::class, 'data'])->name('assets.disposals.data');
         Route::get('/create', [AssetDisposalController::class, 'create'])->middleware('permission:assets.disposal.create')->name('assets.disposals.create');
         Route::post('/', [AssetDisposalController::class, 'store'])->middleware('permission:assets.disposal.create')->name('assets.disposals.store');
-        Route::get('/{disposal}', [AssetDisposalController::class, 'show'])->name('assets.disposals.show');
-        Route::get('/{disposal}/edit', [AssetDisposalController::class, 'edit'])->middleware('permission:assets.disposal.update')->name('assets.disposals.edit');
-        Route::patch('/{disposal}', [AssetDisposalController::class, 'update'])->middleware('permission:assets.disposal.update')->name('assets.disposals.update');
-        Route::delete('/{disposal}', [AssetDisposalController::class, 'destroy'])->middleware('permission:assets.disposal.delete')->name('assets.disposals.destroy');
-        Route::post('/{disposal}/post', [AssetDisposalController::class, 'post'])->middleware('permission:assets.disposal.post')->name('assets.disposals.post');
-        Route::post('/{disposal}/reverse', [AssetDisposalController::class, 'reverse'])->middleware('permission:assets.disposal.reverse')->name('assets.disposals.reverse');
+        Route::get('/{disposal}', [AssetDisposalController::class, 'show'])->whereNumber('disposal')->name('assets.disposals.show');
+        Route::get('/{disposal}/edit', [AssetDisposalController::class, 'edit'])->middleware('permission:assets.disposal.update')->whereNumber('disposal')->name('assets.disposals.edit');
+        Route::patch('/{disposal}', [AssetDisposalController::class, 'update'])->middleware('permission:assets.disposal.update')->whereNumber('disposal')->name('assets.disposals.update');
+        Route::delete('/{disposal}', [AssetDisposalController::class, 'destroy'])->middleware('permission:assets.disposal.delete')->whereNumber('disposal')->name('assets.disposals.destroy');
+        Route::post('/{disposal}/post', [AssetDisposalController::class, 'post'])->middleware('permission:assets.disposal.post')->whereNumber('disposal')->name('assets.disposals.post');
+        Route::post('/{disposal}/reverse', [AssetDisposalController::class, 'reverse'])->middleware('permission:assets.disposal.reverse')->whereNumber('disposal')->name('assets.disposals.reverse');
     });
 
     // Asset Movements
@@ -339,14 +338,14 @@ Route::middleware('auth')->group(function () {
         Route::get('/data', [AssetMovementController::class, 'data'])->name('assets.movements.data');
         Route::get('/create', [AssetMovementController::class, 'create'])->middleware('permission:assets.movement.create')->name('assets.movements.create');
         Route::post('/', [AssetMovementController::class, 'store'])->middleware('permission:assets.movement.create')->name('assets.movements.store');
-        Route::get('/{movement}', [AssetMovementController::class, 'show'])->name('assets.movements.show');
-        Route::get('/{movement}/edit', [AssetMovementController::class, 'edit'])->middleware('permission:assets.movement.update')->name('assets.movements.edit');
-        Route::patch('/{movement}', [AssetMovementController::class, 'update'])->middleware('permission:assets.movement.update')->name('assets.movements.update');
-        Route::delete('/{movement}', [AssetMovementController::class, 'destroy'])->middleware('permission:assets.movement.delete')->name('assets.movements.destroy');
-        Route::post('/{movement}/approve', [AssetMovementController::class, 'approve'])->middleware('permission:assets.movement.approve')->name('assets.movements.approve');
-        Route::post('/{movement}/complete', [AssetMovementController::class, 'complete'])->middleware('permission:assets.movement.update')->name('assets.movements.complete');
-        Route::post('/{movement}/cancel', [AssetMovementController::class, 'cancel'])->middleware('permission:assets.movement.update')->name('assets.movements.cancel');
-        Route::get('/asset/{asset}/history', [AssetMovementController::class, 'assetMovements'])->name('assets.movements.history');
+        Route::get('/asset/{asset}/history', [AssetMovementController::class, 'assetMovements'])->whereNumber('asset')->name('assets.movements.history');
+        Route::get('/{movement}', [AssetMovementController::class, 'show'])->whereNumber('movement')->name('assets.movements.show');
+        Route::get('/{movement}/edit', [AssetMovementController::class, 'edit'])->middleware('permission:assets.movement.update')->whereNumber('movement')->name('assets.movements.edit');
+        Route::patch('/{movement}', [AssetMovementController::class, 'update'])->middleware('permission:assets.movement.update')->whereNumber('movement')->name('assets.movements.update');
+        Route::delete('/{movement}', [AssetMovementController::class, 'destroy'])->middleware('permission:assets.movement.delete')->whereNumber('movement')->name('assets.movements.destroy');
+        Route::post('/{movement}/approve', [AssetMovementController::class, 'approve'])->middleware('permission:assets.movement.approve')->whereNumber('movement')->name('assets.movements.approve');
+        Route::post('/{movement}/complete', [AssetMovementController::class, 'complete'])->middleware('permission:assets.movement.update')->whereNumber('movement')->name('assets.movements.complete');
+        Route::post('/{movement}/cancel', [AssetMovementController::class, 'cancel'])->middleware('permission:assets.movement.update')->whereNumber('movement')->name('assets.movements.cancel');
     });
 
     // Inventory Management

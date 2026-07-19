@@ -168,7 +168,7 @@
                         if (response.success) {
                             toastr.success(response.message);
                             if (response.data && response.data.id) {
-                                window.location.href = '/assets/depreciation/' + response.data.id;
+                                window.location.href = @json(url('/assets/depreciation')) + '/' + response.data.id;
                             } else {
                                 window.location.href = '{{ route('assets.depreciation.index') }}';
                             }

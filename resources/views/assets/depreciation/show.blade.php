@@ -217,25 +217,25 @@
 
             $('#btn-calculate').on('click', function() {
                 var id = $(this).data('id');
-                handleAction('/assets/depreciation/' + id + '/calculate', 'GET',
+                handleAction(@json(url('/assets/depreciation')) + '/' + id + '/calculate', 'GET',
                     'Calculate depreciation for this run?');
             });
 
             $('#btn-create-entries').on('click', function() {
                 var id = $(this).data('id');
-                handleAction('/assets/depreciation/' + id + '/entries', 'POST',
+                handleAction(@json(url('/assets/depreciation')) + '/' + id + '/entries', 'POST',
                     'Create draft depreciation entries for this run?');
             });
 
             $('#btn-post').on('click', function() {
                 var id = $(this).data('id');
-                handleAction('/assets/depreciation/' + id + '/post', 'POST',
+                handleAction(@json(url('/assets/depreciation')) + '/' + id + '/post', 'POST',
                     'Are you sure you want to post this depreciation run?');
             });
 
             $('#btn-reverse').on('click', function() {
                 var id = $(this).data('id');
-                handleAction('/assets/depreciation/' + id + '/reverse', 'POST',
+                handleAction(@json(url('/assets/depreciation')) + '/' + id + '/reverse', 'POST',
                     'Are you sure you want to reverse this depreciation run?');
             });
         });

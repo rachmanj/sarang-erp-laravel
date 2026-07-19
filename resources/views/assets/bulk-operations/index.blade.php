@@ -1,118 +1,117 @@
-@extends('layouts.app')
+@extends('layouts.main')
 
 @section('title', 'Bulk Asset Operations')
 
 @section('content')
-    <div class="content-wrapper">
-        <div class="content-header">
-            <div class="container-fluid">
-                <div class="row mb-2">
-                    <div class="col-sm-6">
-                        <h1 class="m-0">Bulk Asset Operations</h1>
-                    </div>
-                    <div class="col-sm-6">
-                        <ol class="breadcrumb float-sm-right">
-                            <li class="breadcrumb-item"><a href="{{ route('dashboard') }}">Home</a></li>
-                            <li class="breadcrumb-item"><a href="{{ route('assets.index') }}">Assets</a></li>
-                            <li class="breadcrumb-item active">Bulk Operations</li>
-                        </ol>
-                    </div>
+    <div class="content-header">
+        <div class="container-fluid">
+            <div class="row mb-2">
+                <div class="col-sm-6">
+                    <h1 class="m-0">Bulk Asset Operations</h1>
+                </div>
+                <div class="col-sm-6">
+                    <ol class="breadcrumb float-sm-right">
+                        <li class="breadcrumb-item"><a href="{{ route('dashboard') }}">Home</a></li>
+                        <li class="breadcrumb-item"><a href="{{ route('assets.index') }}">Assets</a></li>
+                        <li class="breadcrumb-item active">Bulk Operations</li>
+                    </ol>
                 </div>
             </div>
         </div>
+    </div>
 
-        <section class="content">
-            <div class="container-fluid">
-                <!-- Filters -->
-                <div class="row mb-3">
-                    <div class="col-12">
-                        <div class="card">
-                            <div class="card-header">
-                                <h3 class="card-title">
-                                    <i class="fas fa-filter"></i> Filter Assets
-                                </h3>
-                            </div>
-                            <div class="card-body">
-                                <form id="filterForm">
-                                    <div class="row">
-                                        <div class="col-md-3">
-                                            <div class="form-group">
-                                                <label for="search">Search</label>
-                                                <input type="text" class="form-control" id="search" name="search"
-                                                    placeholder="Search assets...">
-                                            </div>
+    <section class="content">
+        <div class="container-fluid">
+            <!-- Filters -->
+            <div class="row mb-3">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">
+                                <i class="fas fa-filter"></i> Filter Assets
+                            </h3>
+                        </div>
+                        <div class="card-body">
+                            <form id="filterForm">
+                                <div class="row">
+                                    <div class="col-md-3">
+                                        <div class="form-group">
+                                            <label for="search">Search</label>
+                                            <input type="text" class="form-control" id="search" name="search"
+                                                placeholder="Search assets...">
                                         </div>
-                                        <div class="col-md-3">
-                                            <div class="form-group">
-                                                <label for="project_id">Project</label>
-                                                <select class="form-control select2bs4" id="project_id" name="project_id">
-                                                    <option value="">All Projects</option>
-                                                    @foreach ($projects as $project)
-                                                        <option value="{{ $project->id }}">{{ $project->code }} -
-                                                            {{ $project->name }}</option>
-                                                    @endforeach
-                                                </select>
-                                            </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="form-group">
+                                            <label for="project_id">Project</label>
+                                            <select class="form-control select2bs4" id="project_id" name="project_id">
+                                                <option value="">All Projects</option>
+                                                @foreach ($projects as $project)
+                                                    <option value="{{ $project->id }}">{{ $project->code }} -
+                                                        {{ $project->name }}</option>
+                                                @endforeach
+                                            </select>
                                         </div>
-                                        <div class="col-md-3">
-                                            <div class="form-group">
-                                                <label for="department_id">Department</label>
-                                                <select class="form-control select2bs4" id="department_id"
-                                                    name="department_id">
-                                                    <option value="">All Departments</option>
-                                                    @foreach ($departments as $department)
-                                                        <option value="{{ $department->id }}">{{ $department->code }} -
-                                                            {{ $department->name }}</option>
-                                                    @endforeach
-                                                </select>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="form-group">
+                                            <label for="department_id">Department</label>
+                                            <select class="form-control select2bs4" id="department_id"
+                                                name="department_id">
+                                                <option value="">All Departments</option>
+                                                @foreach ($departments as $department)
+                                                    <option value="{{ $department->id }}">{{ $department->code }} -
+                                                        {{ $department->name }}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-3">
+                                        <div class="form-group">
+                                            <label for="business_partner_id">Vendor</label>
+                                            <select class="form-control select2bs4" id="business_partner_id"
+                                                name="business_partner_id">
+                                                <option value="">All Vendors</option>
+                                                @foreach ($vendors as $vendor)
+                                                    <option value="{{ $vendor->id }}">{{ $vendor->code }} -
+                                                        {{ $vendor->name }}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="form-group">
+                                            <label for="status">Status</label>
+                                            <select class="form-control" id="status" name="status">
+                                                <option value="">All Status</option>
+                                                <option value="active">Active</option>
+                                                <option value="retired">Retired</option>
+                                                <option value="disposed">Disposed</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <label>&nbsp;</label>
+                                            <div>
+                                                <button type="button" class="btn btn-primary" onclick="applyFilters()">
+                                                    <i class="fas fa-search"></i> Apply Filters
+                                                </button>
+                                                <button type="button" class="btn btn-secondary"
+                                                    onclick="clearFilters()">
+                                                    <i class="fas fa-times"></i> Clear Filters
+                                                </button>
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="row">
-                                        <div class="col-md-3">
-                                            <div class="form-group">
-                                                <label for="business_partner_id">Vendor</label>
-                                                <select class="form-control select2bs4" id="business_partner_id"
-                                                    name="business_partner_id">
-                                                    <option value="">All Vendors</option>
-                                                    @foreach ($vendors as $vendor)
-                                                        <option value="{{ $vendor->id }}">{{ $vendor->code }} -
-                                                            {{ $vendor->name }}</option>
-                                                    @endforeach
-                                                </select>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-3">
-                                            <div class="form-group">
-                                                <label for="status">Status</label>
-                                                <select class="form-control" id="status" name="status">
-                                                    <option value="">All Status</option>
-                                                    <option value="active">Active</option>
-                                                    <option value="retired">Retired</option>
-                                                    <option value="disposed">Disposed</option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <div class="form-group">
-                                                <label>&nbsp;</label>
-                                                <div>
-                                                    <button type="button" class="btn btn-primary" onclick="applyFilters()">
-                                                        <i class="fas fa-search"></i> Apply Filters
-                                                    </button>
-                                                    <button type="button" class="btn btn-secondary"
-                                                        onclick="clearFilters()">
-                                                        <i class="fas fa-times"></i> Clear Filters
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </form>
-                            </div>
+                                </div>
+                            </form>
                         </div>
                     </div>
                 </div>
+            </div>
 
                 <!-- Bulk Update Form -->
                 <div class="row mb-3">
@@ -282,8 +281,7 @@
                     </div>
                 </div>
             </div>
-        </section>
-    </div>
+    </section>
 
     <!-- Preview Modal -->
     <div class="modal fade" id="previewModal" tabindex="-1" role="dialog">
@@ -465,7 +463,9 @@
             }
 
             const formData = new FormData($('#bulkUpdateForm')[0]);
-            formData.append('asset_ids', JSON.stringify(selectedAssets));
+            selectedAssets.forEach(function(id) {
+                formData.append('asset_ids[]', id);
+            });
 
             $.ajax({
                 url: '{{ route('assets.bulk-update.preview') }}',
@@ -515,7 +515,9 @@
             }
 
             const formData = new FormData($('#bulkUpdateForm')[0]);
-            formData.append('asset_ids', JSON.stringify(selectedAssets));
+            selectedAssets.forEach(function(id) {
+                formData.append('asset_ids[]', id);
+            });
 
             $.ajax({
                 url: '{{ route('assets.bulk-update') }}',

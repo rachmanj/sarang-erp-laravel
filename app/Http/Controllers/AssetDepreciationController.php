@@ -66,8 +66,8 @@ class AssetDepreciationController extends Controller
                 }
 
                 $actions .= sprintf(
-                    '<a href="/assets/depreciation/%d" class="btn btn-sm btn-info">Details</a>',
-                    $run->id
+                    '<a href="%s" class="btn btn-sm btn-info mr-1 mb-1">Details</a>',
+                    route('assets.depreciation.show', $run)
                 );
 
                 return $actions;

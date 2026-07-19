@@ -25,7 +25,7 @@ class AssetDisposalController extends Controller
      */
     public function index()
     {
-        $this->authorize('view', AssetDisposal::class);
+        $this->authorize('assets.disposal.view');
 
         return view('assets.disposals.index');
     }
@@ -35,7 +35,7 @@ class AssetDisposalController extends Controller
      */
     public function data(Request $request)
     {
-        $this->authorize('view', AssetDisposal::class);
+        $this->authorize('assets.disposal.view');
 
         $query = AssetDisposal::with(['asset.category', 'creator', 'poster'])
             ->select([
@@ -91,7 +91,7 @@ class AssetDisposalController extends Controller
      */
     public function create(Request $request)
     {
-        $this->authorize('create', AssetDisposal::class);
+        $this->authorize('assets.disposal.create');
 
         $assetId = $request->get('asset_id');
         $asset = null;
@@ -114,7 +114,7 @@ class AssetDisposalController extends Controller
      */
     public function store(Request $request)
     {
-        $this->authorize('create', AssetDisposal::class);
+        $this->authorize('assets.disposal.create');
 
         $request->validate([
             'asset_id' => 'required|exists:assets,id',
@@ -181,7 +181,7 @@ class AssetDisposalController extends Controller
      */
     public function show(AssetDisposal $disposal)
     {
-        $this->authorize('view', $disposal);
+        $this->authorize('assets.disposal.view');
 
         $disposal->load(['asset.category', 'asset.project', 'asset.department', 'creator', 'poster', 'journal']);
 
@@ -193,7 +193,7 @@ class AssetDisposalController extends Controller
      */
     public function edit(AssetDisposal $disposal)
     {
-        $this->authorize('update', $disposal);
+        $this->authorize('assets.disposal.update');
 
         if (!$disposal->isDraft()) {
             return redirect()->route('assets.disposals.show', $disposal)
@@ -210,7 +210,7 @@ class AssetDisposalController extends Controller
      */
     public function update(Request $request, AssetDisposal $disposal)
     {
-        $this->authorize('update', $disposal);
+        $this->authorize('assets.disposal.update');
 
         if (!$disposal->isDraft()) {
             return back()->with('error', 'Only draft disposals can be updated.');
@@ -250,7 +250,7 @@ class AssetDisposalController extends Controller
      */
     public function post(AssetDisposal $disposal)
     {
-        $this->authorize('update', $disposal);
+        $this->authorize('assets.disposal.post');
 
         if (!$disposal->canBePosted()) {
             return back()->with('error', 'This disposal cannot be posted.');
@@ -271,7 +271,7 @@ class AssetDisposalController extends Controller
      */
     public function reverse(AssetDisposal $disposal)
     {
-        $this->authorize('update', $disposal);
+        $this->authorize('assets.disposal.reverse');
 
         if (!$disposal->canBeReversed()) {
             return back()->with('error', 'This disposal cannot be reversed.');
@@ -292,7 +292,7 @@ class AssetDisposalController extends Controller
      */
     public function destroy(AssetDisposal $disposal)
     {
-        $this->authorize('delete', $disposal);
+        $this->authorize('assets.disposal.delete');
 
         if (!$disposal->isDraft()) {
             return back()->with('error', 'Only draft disposals can be deleted.');

@@ -187,7 +187,7 @@
 
                 if (confirm(`Are you sure you want to post the depreciation run for ${period}?`)) {
                     $.ajax({
-                        url: `/assets/depreciation/${runId}/post`,
+                        url: @json(url('/assets/depreciation')) + '/' + runId + '/post',
                         type: 'POST',
                         data: {
                             _token: '{{ csrf_token() }}'
@@ -219,7 +219,7 @@
                         `Are you sure you want to reverse the depreciation run for ${period}? This action cannot be undone.`
                         )) {
                     $.ajax({
-                        url: `/assets/depreciation/${runId}/reverse`,
+                        url: @json(url('/assets/depreciation')) + '/' + runId + '/reverse',
                         type: 'POST',
                         data: {
                             _token: '{{ csrf_token() }}'

@@ -28,7 +28,7 @@
                         <div class="card-header">
                             <h3 class="card-title">Asset Disposals</h3>
                             <div class="card-tools">
-                                @can('create', App\Models\AssetDisposal::class)
+                                @can('assets.disposal.create')
                                     <a href="{{ route('assets.disposals.create') }}" class="btn btn-primary btn-sm">
                                         <i class="fas fa-plus"></i> New Disposal
                                     </a>
@@ -201,47 +201,46 @@
                         searchable: false,
                         render: function(data, type, row) {
                             let actions = '';
+                            const showUrl = @json(url('/assets/disposals')) + '/' + data;
+                            const editUrl = showUrl + '/edit';
+                            const postUrl = showUrl + '/post';
+                            const reverseUrl = showUrl + '/reverse';
 
-                            // View button
-                            actions += `<a href="/assets/disposals/${data}" class="btn btn-info btn-sm" title="View">
+                            actions += `<a href="${showUrl}" class="btn btn-info btn-sm mr-1 mb-1" title="View">
                         <i class="fas fa-eye"></i>
                     </a> `;
 
-                            // Edit button (only for draft)
                             if (row.status === 'draft') {
-                                actions += `<a href="/assets/disposals/${data}/edit" class="btn btn-warning btn-sm" title="Edit">
+                                actions += `<a href="${editUrl}" class="btn btn-warning btn-sm mr-1 mb-1" title="Edit">
                             <i class="fas fa-edit"></i>
                         </a> `;
                             }
 
-                            // Post button (only for draft)
                             if (row.status === 'draft') {
-                                actions += `<form method="POST" action="/assets/disposals/${data}/post" style="display: inline;">
+                                actions += `<form method="POST" action="${postUrl}" style="display: inline;">
                             @csrf
-                            <button type="submit" class="btn btn-success btn-sm" title="Post" 
+                            <button type="submit" class="btn btn-success btn-sm mr-1 mb-1" title="Post"
                                 onclick="return confirm('Are you sure you want to post this disposal?')">
                                 <i class="fas fa-check"></i>
                             </button>
                         </form> `;
                             }
 
-                            // Reverse button (only for posted)
                             if (row.status === 'posted') {
-                                actions += `<form method="POST" action="/assets/disposals/${data}/reverse" style="display: inline;">
+                                actions += `<form method="POST" action="${reverseUrl}" style="display: inline;">
                             @csrf
-                            <button type="submit" class="btn btn-danger btn-sm" title="Reverse" 
+                            <button type="submit" class="btn btn-danger btn-sm mr-1 mb-1" title="Reverse"
                                 onclick="return confirm('Are you sure you want to reverse this disposal?')">
                                 <i class="fas fa-undo"></i>
                             </button>
                         </form> `;
                             }
 
-                            // Delete button (only for draft)
                             if (row.status === 'draft') {
-                                actions += `<form method="POST" action="/assets/disposals/${data}" style="display: inline;">
+                                actions += `<form method="POST" action="${showUrl}" style="display: inline;">
                             @csrf
                             @method('DELETE')
-                            <button type="submit" class="btn btn-danger btn-sm" title="Delete" 
+                            <button type="submit" class="btn btn-outline-danger btn-sm mb-1" title="Delete"
                                 onclick="return confirm('Are you sure you want to delete this disposal?')">
                                 <i class="fas fa-trash"></i>
                             </button>

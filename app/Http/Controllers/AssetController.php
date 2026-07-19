@@ -8,7 +8,6 @@ use App\Models\AssetCategory;
 use App\Models\Accounting\Account;
 use App\Models\Dimensions\Project;
 use App\Models\Dimensions\Department;
-use App\Models\Vendor;
 use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\Facades\DataTables;
 use Carbon\Carbon;
@@ -279,7 +278,7 @@ class AssetController extends Controller
 
     public function bulkUpdateIndex()
     {
-        $this->authorize('update', Asset::class);
+        $this->authorize('assets.update');
 
         $projects = Project::all(['id', 'code', 'name']);
         $departments = Department::all(['id', 'code', 'name']);
@@ -290,7 +289,13 @@ class AssetController extends Controller
 
     public function bulkUpdate(Request $request)
     {
-        $this->authorize('update', Asset::class);
+        $this->authorize('assets.update');
+
+        $assetIds = $request->input('asset_ids');
+        if (is_string($assetIds)) {
+            $assetIds = json_decode($assetIds, true) ?? [];
+            $request->merge(['asset_ids' => $assetIds]);
+        }
 
         $request->validate([
             'asset_ids' => 'required|array|min:1',
@@ -305,7 +310,7 @@ class AssetController extends Controller
             'updates.salvage_value' => 'nullable|numeric|min:0',
             'updates.method' => 'nullable|in:straight_line,declining_balance,double_declining_balance',
             'updates.life_months' => 'nullable|integer|min:1|max:600',
-            'updates.placed_in_service_date' => 'nullable|date'
+            'updates.placed_in_service_date' => 'nullable|date',
         ]);
 
         $assetIds = $request->get('asset_ids');
@@ -347,7 +352,7 @@ class AssetController extends Controller
 
     public function bulkUpdateData(Request $request)
     {
-        $this->authorize('view', Asset::class);
+        $this->authorize('assets.view');
 
         $query = Asset::with(['category', 'project', 'department', 'vendor'])
             ->select(['id', 'code', 'name', 'description', 'serial_number', 'category_id', 'project_id', 'department_id', 'business_partner_id', 'status', 'acquisition_cost', 'salvage_value', 'method', 'life_months', 'placed_in_service_date']);
@@ -411,12 +416,18 @@ class AssetController extends Controller
 
     public function bulkUpdatePreview(Request $request)
     {
-        $this->authorize('view', Asset::class);
+        $this->authorize('assets.view');
+
+        $assetIds = $request->input('asset_ids');
+        if (is_string($assetIds)) {
+            $assetIds = json_decode($assetIds, true) ?? [];
+            $request->merge(['asset_ids' => $assetIds]);
+        }
 
         $request->validate([
             'asset_ids' => 'required|array|min:1',
             'asset_ids.*' => 'exists:assets,id',
-            'updates' => 'required|array'
+            'updates' => 'required|array',
         ]);
 
         $assetIds = $request->get('asset_ids');

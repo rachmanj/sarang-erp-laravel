@@ -28,7 +28,7 @@
                         <div class="card-header">
                             <h3 class="card-title">Asset Movements</h3>
                             <div class="card-tools">
-                                @can('create', App\Models\AssetMovement::class)
+                                @can('assets.movement.create')
                                     <a href="{{ route('assets.movements.create') }}" class="btn btn-primary btn-sm">
                                         <i class="fas fa-plus"></i> New Movement
                                     </a>
@@ -200,13 +200,15 @@
                         searchable: false,
                         render: function(data, type, row) {
                             let actions = '';
+                            const showUrl = @json(url('/assets/movements')) + '/' + data;
+                            const editUrl = showUrl + '/edit';
 
-                            actions += `<a href="/assets/movements/${data}" class="btn btn-info btn-sm" title="View">
+                            actions += `<a href="${showUrl}" class="btn btn-info btn-sm mr-1 mb-1" title="View">
                         <i class="fas fa-eye"></i>
                     </a> `;
 
                             if (row.status === 'draft') {
-                                actions += `<a href="/assets/movements/${data}/edit" class="btn btn-warning btn-sm" title="Edit">
+                                actions += `<a href="${editUrl}" class="btn btn-warning btn-sm mb-1" title="Edit">
                             <i class="fas fa-edit"></i>
                         </a> `;
                             }

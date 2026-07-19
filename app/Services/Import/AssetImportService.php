@@ -4,10 +4,10 @@ namespace App\Services\Import;
 
 use App\Models\Asset;
 use App\Models\AssetCategory;
-use App\Models\Project;
-use App\Models\Department;
-use App\Models\Vendor;
-use App\Models\PurchaseInvoice;
+use App\Models\BusinessPartner;
+use App\Models\Dimensions\Department;
+use App\Models\Dimensions\Project;
+use App\Models\Accounting\PurchaseInvoice;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Collection;
@@ -125,7 +125,7 @@ class AssetImportService
             'placed_in_service_date' => 'required|date',
             'project_code' => 'nullable|string|exists:projects,code',
             'department_code' => 'nullable|string|exists:departments,code',
-            'vendor_code' => 'nullable|string|exists:vendors,code',
+            'vendor_code' => 'nullable|string|exists:business_partners,code',
             'purchase_invoice_number' => 'nullable|string|exists:purchase_invoices,invoice_number'
         ];
     }
@@ -171,7 +171,9 @@ class AssetImportService
         $category = AssetCategory::where('code', $row['category_code'])->first();
         $project = $row['project_code'] ? Project::where('code', $row['project_code'])->first() : null;
         $department = $row['department_code'] ? Department::where('code', $row['department_code'])->first() : null;
-        $vendor = $row['vendor_code'] ? Vendor::where('code', $row['vendor_code'])->first() : null;
+        $vendor = $row['vendor_code']
+            ? BusinessPartner::where('partner_type', 'supplier')->where('code', $row['vendor_code'])->first()
+            : null;
         $purchaseInvoice = $row['purchase_invoice_number'] ? PurchaseInvoice::where('invoice_number', $row['purchase_invoice_number'])->first() : null;
 
         // Set defaults from category if not provided
@@ -202,7 +204,7 @@ class AssetImportService
             'placed_in_service_date' => Carbon::parse($row['placed_in_service_date']),
             'project_id' => $project?->id,
             'department_id' => $department?->id,
-            'vendor_id' => $vendor?->id,
+            'business_partner_id' => $vendor?->id,
             'purchase_invoice_id' => $purchaseInvoice?->id,
             'status' => 'active',
             'current_book_value' => $row['acquisition_cost'],

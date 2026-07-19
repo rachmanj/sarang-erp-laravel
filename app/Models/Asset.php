@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Accounting\PurchaseInvoice;
 use App\Models\Dimensions\Department;
 use App\Models\Dimensions\Project;
 use Illuminate\Database\Eloquent\Model;

@@ -1,92 +1,90 @@
-@extends('layouts.app')
+@extends('layouts.main')
 
 @section('title', 'Asset Data Quality Report')
 
 @section('content')
-    <div class="content-wrapper">
-        <div class="content-header">
-            <div class="container-fluid">
-                <div class="row mb-2">
-                    <div class="col-sm-6">
-                        <h1 class="m-0">Asset Data Quality Report</h1>
-                    </div>
-                    <div class="col-sm-6">
-                        <ol class="breadcrumb float-sm-right">
-                            <li class="breadcrumb-item"><a href="{{ route('dashboard') }}">Home</a></li>
-                            <li class="breadcrumb-item"><a href="{{ route('assets.index') }}">Assets</a></li>
-                            <li class="breadcrumb-item active">Data Quality</li>
-                        </ol>
-                    </div>
+    <div class="content-header">
+        <div class="container-fluid">
+            <div class="row mb-2">
+                <div class="col-sm-6">
+                    <h1 class="m-0">Asset Data Quality Report</h1>
+                </div>
+                <div class="col-sm-6">
+                    <ol class="breadcrumb float-sm-right">
+                        <li class="breadcrumb-item"><a href="{{ route('dashboard') }}">Home</a></li>
+                        <li class="breadcrumb-item"><a href="{{ route('assets.index') }}">Assets</a></li>
+                        <li class="breadcrumb-item active">Data Quality</li>
+                    </ol>
                 </div>
             </div>
         </div>
+    </div>
 
-        <section class="content">
-            <div class="container-fluid">
-                <!-- Data Quality Score -->
-                <div class="row mb-3">
-                    <div class="col-12">
-                        <div class="card">
-                            <div class="card-header">
-                                <h3 class="card-title">
-                                    <i class="fas fa-chart-line"></i> Data Quality Score
-                                </h3>
-                                <div class="card-tools">
-                                    <button class="btn btn-success btn-sm" onclick="exportReport('csv')">
-                                        <i class="fas fa-download"></i> Export CSV
-                                    </button>
-                                    <button class="btn btn-info btn-sm" onclick="exportReport('json')">
-                                        <i class="fas fa-download"></i> Export JSON
-                                    </button>
-                                </div>
+    <section class="content">
+        <div class="container-fluid">
+            <!-- Data Quality Score -->
+            <div class="row mb-3">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">
+                                <i class="fas fa-chart-line"></i> Data Quality Score
+                            </h3>
+                            <div class="card-tools">
+                                <button class="btn btn-success btn-sm" onclick="exportReport('csv')">
+                                    <i class="fas fa-download"></i> Export CSV
+                                </button>
+                                <button class="btn btn-info btn-sm" onclick="exportReport('json')">
+                                    <i class="fas fa-download"></i> Export JSON
+                                </button>
                             </div>
-                            <div class="card-body">
-                                <div class="row">
-                                    <div class="col-md-3">
-                                        <div class="info-box">
-                                            <span class="info-box-icon bg-primary">
-                                                <i class="fas fa-percentage"></i>
-                                            </span>
-                                            <div class="info-box-content">
-                                                <span class="info-box-text">Quality Score</span>
-                                                <span class="info-box-number">{{ $score }}%</span>
-                                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-3">
+                                    <div class="info-box">
+                                        <span class="info-box-icon bg-primary">
+                                            <i class="fas fa-percentage"></i>
+                                        </span>
+                                        <div class="info-box-content">
+                                            <span class="info-box-text">Quality Score</span>
+                                            <span class="info-box-number">{{ $score }}%</span>
                                         </div>
                                     </div>
-                                    <div class="col-md-3">
-                                        <div class="info-box">
-                                            <span class="info-box-icon bg-info">
-                                                <i class="fas fa-cube"></i>
-                                            </span>
-                                            <div class="info-box-content">
-                                                <span class="info-box-text">Total Assets</span>
-                                                <span
-                                                    class="info-box-number">{{ $report['summary']['total_assets'] }}</span>
-                                            </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="info-box">
+                                        <span class="info-box-icon bg-info">
+                                            <i class="fas fa-cube"></i>
+                                        </span>
+                                        <div class="info-box-content">
+                                            <span class="info-box-text">Total Assets</span>
+                                            <span
+                                                class="info-box-number">{{ $report['summary']['total_assets'] }}</span>
                                         </div>
                                     </div>
-                                    <div class="col-md-3">
-                                        <div class="info-box">
-                                            <span class="info-box-icon bg-warning">
-                                                <i class="fas fa-exclamation-triangle"></i>
-                                            </span>
-                                            <div class="info-box-content">
-                                                <span class="info-box-text">Total Issues</span>
-                                                <span
-                                                    class="info-box-number">{{ $report['summary']['total_issues'] }}</span>
-                                            </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="info-box">
+                                        <span class="info-box-icon bg-warning">
+                                            <i class="fas fa-exclamation-triangle"></i>
+                                        </span>
+                                        <div class="info-box-content">
+                                            <span class="info-box-text">Total Issues</span>
+                                            <span
+                                                class="info-box-number">{{ $report['summary']['total_issues'] }}</span>
                                         </div>
                                     </div>
-                                    <div class="col-md-3">
-                                        <div class="info-box">
-                                            <span class="info-box-icon bg-success">
-                                                <i class="fas fa-check-circle"></i>
-                                            </span>
-                                            <div class="info-box-content">
-                                                <span class="info-box-text">Clean Assets</span>
-                                                <span
-                                                    class="info-box-number">{{ $report['summary']['total_assets'] - $report['summary']['total_issues'] }}</span>
-                                            </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="info-box">
+                                        <span class="info-box-icon bg-success">
+                                            <i class="fas fa-check-circle"></i>
+                                        </span>
+                                        <div class="info-box-content">
+                                            <span class="info-box-text">Clean Assets</span>
+                                            <span
+                                                class="info-box-number">{{ max(0, $report['summary']['total_assets'] - $report['summary']['total_issues']) }}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -94,6 +92,7 @@
                         </div>
                     </div>
                 </div>
+            </div>
 
                 <!-- Issue Categories -->
                 <div class="row">
@@ -352,8 +351,7 @@
                     </div>
                 </div>
             </div>
-        </section>
-    </div>
+    </section>
 @endsection
 
 @push('scripts')

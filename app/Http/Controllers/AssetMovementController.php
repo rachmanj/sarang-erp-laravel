@@ -15,7 +15,7 @@ class AssetMovementController extends Controller
      */
     public function index()
     {
-        $this->authorize('view', AssetMovement::class);
+        $this->authorize('assets.movement.view');
 
         return view('assets.movements.index');
     }
@@ -25,7 +25,7 @@ class AssetMovementController extends Controller
      */
     public function data(Request $request)
     {
-        $this->authorize('view', AssetMovement::class);
+        $this->authorize('assets.movement.view');
 
         $query = AssetMovement::with(['asset.category', 'creator', 'approver'])
             ->select([
@@ -87,7 +87,7 @@ class AssetMovementController extends Controller
      */
     public function create(Request $request)
     {
-        $this->authorize('create', AssetMovement::class);
+        $this->authorize('assets.movement.create');
 
         $assetId = $request->get('asset_id');
         $asset = null;
@@ -110,7 +110,7 @@ class AssetMovementController extends Controller
      */
     public function store(Request $request)
     {
-        $this->authorize('create', AssetMovement::class);
+        $this->authorize('assets.movement.create');
 
         $request->validate([
             'asset_id' => 'required|exists:assets,id',
@@ -155,7 +155,7 @@ class AssetMovementController extends Controller
      */
     public function show(AssetMovement $movement)
     {
-        $this->authorize('view', $movement);
+        $this->authorize('assets.movement.view');
 
         $movement->load(['asset.category', 'asset.project', 'asset.department', 'creator', 'approver']);
 
@@ -167,7 +167,7 @@ class AssetMovementController extends Controller
      */
     public function edit(AssetMovement $movement)
     {
-        $this->authorize('update', $movement);
+        $this->authorize('assets.movement.update');
 
         if (!$movement->isDraft()) {
             return redirect()->route('assets.movements.show', $movement)
@@ -184,7 +184,7 @@ class AssetMovementController extends Controller
      */
     public function update(Request $request, AssetMovement $movement)
     {
-        $this->authorize('update', $movement);
+        $this->authorize('assets.movement.update');
 
         if (!$movement->isDraft()) {
             return back()->with('error', 'Only draft movements can be updated.');
@@ -223,7 +223,7 @@ class AssetMovementController extends Controller
      */
     public function approve(AssetMovement $movement)
     {
-        $this->authorize('update', $movement);
+        $this->authorize('assets.movement.approve');
 
         if (!$movement->canBeApproved()) {
             return back()->with('error', 'This movement cannot be approved.');
@@ -244,7 +244,7 @@ class AssetMovementController extends Controller
      */
     public function complete(AssetMovement $movement)
     {
-        $this->authorize('update', $movement);
+        $this->authorize('assets.movement.update');
 
         if (!$movement->canBeCompleted()) {
             return back()->with('error', 'This movement cannot be completed.');
@@ -265,7 +265,7 @@ class AssetMovementController extends Controller
      */
     public function cancel(AssetMovement $movement)
     {
-        $this->authorize('update', $movement);
+        $this->authorize('assets.movement.update');
 
         if (!$movement->canBeCancelled()) {
             return back()->with('error', 'This movement cannot be cancelled.');
@@ -286,7 +286,7 @@ class AssetMovementController extends Controller
      */
     public function destroy(AssetMovement $movement)
     {
-        $this->authorize('delete', $movement);
+        $this->authorize('assets.movement.delete');
 
         if (!$movement->isDraft()) {
             return back()->with('error', 'Only draft movements can be deleted.');
@@ -303,7 +303,7 @@ class AssetMovementController extends Controller
      */
     public function assetMovements(Asset $asset)
     {
-        $this->authorize('view', AssetMovement::class);
+        $this->authorize('assets.movement.view');
 
         $movements = $asset->movements()
             ->with(['creator', 'approver'])

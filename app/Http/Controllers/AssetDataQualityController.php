@@ -19,7 +19,7 @@ class AssetDataQualityController extends Controller
 
     public function index()
     {
-        $this->authorize('view', \App\Models\Asset::class);
+        $this->authorize('assets.view');
 
         $report = $this->dataQualityService->getDataQualityReport();
         $score = $this->dataQualityService->getDataQualityScore();
@@ -29,7 +29,7 @@ class AssetDataQualityController extends Controller
 
     public function duplicates()
     {
-        $this->authorize('view', \App\Models\Asset::class);
+        $this->authorize('assets.view');
 
         $duplicates = $this->dataQualityService->getDuplicateAssets();
 
@@ -38,7 +38,7 @@ class AssetDataQualityController extends Controller
 
     public function incomplete()
     {
-        $this->authorize('view', \App\Models\Asset::class);
+        $this->authorize('assets.view');
 
         $incompleteAssets = $this->dataQualityService->getIncompleteAssets();
 
@@ -47,7 +47,7 @@ class AssetDataQualityController extends Controller
 
     public function consistency()
     {
-        $this->authorize('view', \App\Models\Asset::class);
+        $this->authorize('assets.view');
 
         $report = $this->dataQualityService->getDataQualityReport();
 
@@ -56,7 +56,7 @@ class AssetDataQualityController extends Controller
 
     public function orphaned()
     {
-        $this->authorize('view', \App\Models\Asset::class);
+        $this->authorize('assets.view');
 
         $report = $this->dataQualityService->getDataQualityReport();
 
@@ -65,7 +65,7 @@ class AssetDataQualityController extends Controller
 
     public function getDuplicateDetails(Request $request)
     {
-        $this->authorize('view', \App\Models\Asset::class);
+        $this->authorize('assets.view');
 
         $request->validate([
             'type' => 'required|in:name,serial,code',
@@ -82,7 +82,7 @@ class AssetDataQualityController extends Controller
 
     public function getAssetsByIssue(Request $request)
     {
-        $this->authorize('view', \App\Models\Asset::class);
+        $this->authorize('assets.view');
 
         $request->validate([
             'issue_type' => 'required|string',
@@ -99,7 +99,7 @@ class AssetDataQualityController extends Controller
 
     public function exportReport(Request $request)
     {
-        $this->authorize('view', \App\Models\Asset::class);
+        $this->authorize('assets.view');
 
         $format = $request->get('format', 'csv');
 
@@ -118,7 +118,7 @@ class AssetDataQualityController extends Controller
 
     public function getDataQualityScore()
     {
-        $this->authorize('view', \App\Models\Asset::class);
+        $this->authorize('assets.view');
 
         $score = $this->dataQualityService->getDataQualityScore();
 

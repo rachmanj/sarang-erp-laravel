@@ -21,14 +21,14 @@ class AssetImportController extends Controller
 
     public function index()
     {
-        $this->authorize('view', \App\Models\Asset::class);
+        $this->authorize('assets.view');
 
         return view('assets.import.index');
     }
 
     public function template()
     {
-        $this->authorize('view', \App\Models\Asset::class);
+        $this->authorize('assets.view');
 
         $csv = $this->assetImportService->generateTemplate();
 
@@ -39,7 +39,7 @@ class AssetImportController extends Controller
 
     public function validateImport(Request $request)
     {
-        $this->authorize('create', \App\Models\Asset::class);
+        $this->authorize('assets.create');
 
         $request->validate([
             'file' => 'required|file|mimes:csv,txt|max:10240' // 10MB max
@@ -72,7 +72,7 @@ class AssetImportController extends Controller
 
     public function import(Request $request)
     {
-        $this->authorize('create', \App\Models\Asset::class);
+        $this->authorize('assets.create');
 
         $request->validate([
             'file' => 'required|file|mimes:csv,txt|max:10240',
@@ -125,22 +125,22 @@ class AssetImportController extends Controller
 
     public function getReferenceData()
     {
-        $this->authorize('view', \App\Models\Asset::class);
+        $this->authorize('assets.view');
 
         return response()->json([
             'categories' => \App\Models\AssetCategory::select('id', 'code', 'name')->get(),
-            'projects' => \App\Models\Project::select('id', 'code', 'name')->get(),
-            'departments' => \App\Models\Department::select('id', 'code', 'name')->get(),
+            'projects' => \App\Models\Dimensions\Project::select('id', 'code', 'name')->get(),
+            'departments' => \App\Models\Dimensions\Department::select('id', 'code', 'name')->get(),
             'vendors' => \App\Models\BusinessPartner::where('partner_type', 'supplier')->select('id', 'code', 'name')->get(),
-            'purchase_invoices' => \App\Models\PurchaseInvoice::select('id', 'invoice_number', 'business_partner_id')
-                ->with('vendor:id,name')
-                ->get()
+            'purchase_invoices' => \App\Models\Accounting\PurchaseInvoice::select('id', 'invoice_number', 'business_partner_id')
+                ->with('businessPartner:id,name')
+                ->get(),
         ]);
     }
 
     public function bulkUpdate(Request $request)
     {
-        $this->authorize('update', \App\Models\Asset::class);
+        $this->authorize('assets.update');
 
         $request->validate([
             'asset_ids' => 'required|array',
