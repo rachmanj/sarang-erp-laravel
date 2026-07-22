@@ -2,15 +2,13 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
 use App\Models\Asset;
 use App\Models\AssetCategory;
-use App\Models\Accounting\Account;
-use App\Models\Dimensions\Project;
 use App\Models\Dimensions\Department;
+use App\Models\Dimensions\Project;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\Facades\DataTables;
-use Carbon\Carbon;
 
 class AssetController extends Controller
 {
@@ -25,7 +23,7 @@ class AssetController extends Controller
             'category',
             'project',
             'department',
-            'vendor'
+            'vendor',
         ]);
 
         // Apply filters
@@ -152,7 +150,7 @@ class AssetController extends Controller
             'project',
             'department',
             'vendor',
-            'depreciationEntries.journal'
+            'depreciationEntries.journal',
         ]);
 
         return view('assets.show', compact('asset'));
@@ -209,7 +207,7 @@ class AssetController extends Controller
     public function update(Request $request, Asset $asset)
     {
         $request->validate([
-            'code' => 'required|string|max:50|unique:assets,code,' . $asset->id,
+            'code' => 'required|string|max:50|unique:assets,code,'.$asset->id,
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
             'serial_number' => 'nullable|string|max:255',
@@ -231,16 +229,23 @@ class AssetController extends Controller
 
         $asset->update($request->all());
 
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Asset updated successfully.',
+            ]);
+        }
+
         return redirect()->route('assets.show', $asset)
             ->with('success', 'Asset updated successfully.');
     }
 
     public function destroy(Asset $asset)
     {
-        if (!$asset->canBeDeleted()) {
+        if (! $asset->canBeDeleted()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Cannot delete asset with existing depreciation entries.'
+                'message' => 'Cannot delete asset with existing depreciation entries.',
             ], 422);
         }
 
@@ -248,31 +253,35 @@ class AssetController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Asset deleted successfully.'
+            'message' => 'Asset deleted successfully.',
         ]);
     }
 
     public function getCategories()
     {
         $categories = AssetCategory::active()->get(['id', 'code', 'name']);
+
         return response()->json($categories);
     }
 
     public function getProjects()
     {
         $projects = Project::all(['id', 'code', 'name']);
+
         return response()->json($projects);
     }
 
     public function getDepartments()
     {
         $departments = Department::all(['id', 'code', 'name']);
+
         return response()->json($departments);
     }
 
     public function getVendors()
     {
         $vendors = \App\Models\BusinessPartner::where('partner_type', 'supplier')->get(['id', 'code', 'name']);
+
         return response()->json($vendors);
     }
 
@@ -324,7 +333,7 @@ class AssetController extends Controller
         if (empty($updates)) {
             return response()->json([
                 'success' => false,
-                'message' => 'No valid updates provided'
+                'message' => 'No valid updates provided',
             ], 400);
         }
 
@@ -338,14 +347,14 @@ class AssetController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => "Successfully updated {$updatedCount} assets",
-                'updated_count' => $updatedCount
+                'updated_count' => $updatedCount,
             ]);
         } catch (\Exception $e) {
             DB::rollback();
 
             return response()->json([
                 'success' => false,
-                'message' => 'Bulk update failed: ' . $e->getMessage()
+                'message' => 'Bulk update failed: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -402,13 +411,13 @@ class AssetController extends Controller
                 return $asset->vendor ? $asset->vendor->name : '-';
             })
             ->editColumn('acquisition_cost', function ($asset) {
-                return 'Rp ' . number_format($asset->acquisition_cost, 0, ',', '.');
+                return 'Rp '.number_format($asset->acquisition_cost, 0, ',', '.');
             })
             ->editColumn('placed_in_service_date', function ($asset) {
                 return $asset->placed_in_service_date ? $asset->placed_in_service_date->format('d/m/Y') : '-';
             })
             ->addColumn('checkbox', function ($asset) {
-                return '<input type="checkbox" class="asset-checkbox" value="' . $asset->id . '">';
+                return '<input type="checkbox" class="asset-checkbox" value="'.$asset->id.'">';
             })
             ->rawColumns(['checkbox'])
             ->toJson();
@@ -443,7 +452,7 @@ class AssetController extends Controller
                 'code' => $asset->code,
                 'name' => $asset->name,
                 'current_values' => [],
-                'new_values' => []
+                'new_values' => [],
             ];
 
             foreach ($updates as $field => $newValue) {
