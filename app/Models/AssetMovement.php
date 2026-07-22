@@ -2,12 +2,14 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Carbon\Carbon;
 
 class AssetMovement extends Model
 {
+    use HasFactory;
+
     protected $fillable = [
         'asset_id',
         'movement_date',
@@ -166,7 +168,7 @@ class AssetMovement extends Model
     // Approve movement
     public function approve(int $approvedBy): void
     {
-        if (!$this->canBeApproved()) {
+        if (! $this->canBeApproved()) {
             throw new \InvalidArgumentException('Movement cannot be approved');
         }
 
@@ -180,7 +182,7 @@ class AssetMovement extends Model
     // Complete movement
     public function complete(): void
     {
-        if (!$this->canBeCompleted()) {
+        if (! $this->canBeCompleted()) {
             throw new \InvalidArgumentException('Movement cannot be completed');
         }
 
@@ -192,7 +194,7 @@ class AssetMovement extends Model
     // Cancel movement
     public function cancel(): void
     {
-        if (!$this->canBeCancelled()) {
+        if (! $this->canBeCancelled()) {
             throw new \InvalidArgumentException('Movement cannot be cancelled');
         }
 

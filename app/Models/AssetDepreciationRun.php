@@ -3,12 +3,15 @@
 namespace App\Models;
 
 use App\Models\Accounting\Journal;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class AssetDepreciationRun extends Model
 {
+    use HasFactory;
+
     protected $fillable = [
         'period',
         'status',
@@ -92,7 +95,7 @@ class AssetDepreciationRun extends Model
 
     public function canBeReversed(): bool
     {
-        return $this->status === 'posted' && !is_null($this->journal_id);
+        return $this->status === 'posted' && ! is_null($this->journal_id);
     }
 
     public function getPeriodYearAttribute(): int

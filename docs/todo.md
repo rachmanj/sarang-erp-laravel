@@ -1,5 +1,5 @@
 **Purpose**: Track current work and immediate priorities
-**Last Updated**: 2026-06-28 (Direct Sales SI mode shipped)
+**Last Updated**: 2026-07-20 (Asset Reports repair)
 
 ## Task Management Guidelines
 
@@ -47,6 +47,10 @@ Include relevant context in brackets to help with future AI-assisted coding:
 
 ## Recently Completed
 
+-   `[done] P2: Journal detail view [journals.show with lines, totals, source-document link via JournalSourceUrlResolver; View action on Journals index; JournalLine relations; JournalShowTest; docs architecture] (completed: 2026-07-22)`
+-   `[done] P1: Asset Reports repair & UX [schema drift fix: business_partners/placed_in_service_date/category.non_depreciable/period join; Quick Stats asset_summary + assets.view auth; created 6 missing report blades; pagination+full-set totals; Excel parity; AssetReportDemoSeeder; AssetReportsTest; factories] (completed: 2026-07-20)`
+-   `[done] P1: Financial statement quick wins [comparative prior columns on BS/P&L UI; snapshot cache key includes project_id/dept_id; entity_name from company_entities; entity+period filter parity on BS/P&L/TB; leaf drill-down to accounts.show; ReportAccuracyTest + ReportsTest; docs financial-statements-reports, MEMORY [132]] (completed: 2026-07-20)`
+-   `[done] P0: Bank Reconciliation improvements — outstanding items, carry-forward, statement cross-foot, identity finalize, adjusting journals, matching quality, FX snapshot, CSV/report audit [ReconciliationBalanceService identity; CarryForward/Adjustment/SnapshotIntegrity services; migration 2026_07_20_201940; workbench O/J actions; tests Outstanding/CarryForward/CrossFoot/Adjustment/MatchingQuality] (completed: 2026-07-20)`
 -   `[done] P1: Asset module — purge remaining fund references [AssetImportController/AssetReportsController validation+filters; AssetImportService fund_code; AssetReportService+AssetRegisterExport joins; AssetDataQualityService missing/orphaned fund checks; bulk-operations/import/data-quality/asset-register views; deleted AssetController::getFunds; grep-clean on asset controllers/services/views] (completed: 2026-07-19)`
 -   `[done] P1: Asset & Depreciation Phase 1 — missing Blade views + fund cleanup [11 views: assets create/show/edit, depreciation create/show, disposals show/edit, movements index/create/show/edit; AssetController/index fund refs removed; Asset vendor→BusinessPartner; disposal/movement/depreciation eager-load fund removed; docs/asset-depreciation-analysis.md] (completed: 2026-07-18)`
 -   `[done] P1: Rekening Koran month grid + session purge [KoranDashboardService; koran.blade.php replaces index; sessions list at /sessions; cell modal upload; bank-reconciliation:purge-sessions; sidebar Rekening Koran; tests KoranDashboard/Purge; docs] (completed: 2026-07-09)`

@@ -15,11 +15,30 @@
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
                     <div>
-                        <h3 class="card-title">Trial Balance Report</h3>
+                        <h3 class="card-title" id="tb-title">Trial Balance Report</h3>
+                        <p class="mb-0 small text-muted" id="tb-entity"></p>
                     </div>
-                    <form class="form-inline align-items-end" id="form">
-                        <input type="date" name="date" class="form-control form-control-sm mr-1"
-                            value="{{ now()->toDateString() }}" />
+                    <form class="form-inline align-items-end flex-wrap" id="form">
+                        <label class="mr-2 mb-0 small">As of
+                            <input type="date" name="date" class="form-control form-control-sm ml-1"
+                                value="{{ now()->toDateString() }}" />
+                        </label>
+                        <label class="mr-2 mb-0 small">Period
+                            <input type="number" name="period_year" class="form-control form-control-sm ml-1"
+                                style="width:5rem" placeholder="Year" min="2000" max="2100" />
+                            <input type="number" name="period_month" class="form-control form-control-sm ml-1"
+                                style="width:4rem" placeholder="Mo" min="1" max="12" />
+                        </label>
+                        @if (($companyEntities ?? collect())->isNotEmpty())
+                            <label class="mr-2 mb-0 small">Entity
+                                <select name="company_entity_id" class="form-control form-control-sm ml-1">
+                                    <option value="">All</option>
+                                    @foreach ($companyEntities as $entity)
+                                        <option value="{{ $entity->id }}">{{ $entity->name }}</option>
+                                    @endforeach
+                                </select>
+                            </label>
+                        @endif
                         <label class="mr-2 mb-0 small">
                             <input type="checkbox" name="include_unposted" id="tb_include_unposted" value="1">
                             Include unposted journals
@@ -67,9 +86,26 @@
             }).format(x);
         }
 
+        function accountDrillUrl(accountId) {
+            const asOf = form.date.value;
+            const year = asOf ? asOf.substring(0, 4) : new Date().getFullYear();
+            const p = new URLSearchParams();
+            p.set('from', year + '-01-01');
+            p.set('to', asOf);
+            if (form.company_entity_id && form.company_entity_id.value) {
+                p.set('company_entity_id', form.company_entity_id.value);
+            }
+            return '/accounts/' + accountId + '?' + p.toString();
+        }
+
         function tbQuery() {
             const p = new URLSearchParams();
             p.set('date', form.date.value);
+            if (form.period_year && form.period_year.value) p.set('period_year', form.period_year.value);
+            if (form.period_month && form.period_month.value) p.set('period_month', form.period_month.value);
+            if (form.company_entity_id && form.company_entity_id.value) {
+                p.set('company_entity_id', form.company_entity_id.value);
+            }
             if (document.getElementById('tb_include_unposted').checked) p.set('include_unposted', '1');
             return p.toString();
         }
@@ -88,6 +124,7 @@
                 }
             });
             const data = await res.json();
+            document.getElementById('tb-entity').textContent = data.entity_name || '';
             tbody.innerHTML = '';
             let tdebit = 0,
                 tcredit = 0;
@@ -95,8 +132,14 @@
                 tdebit += r.debit;
                 tcredit += r.credit;
                 const tr = document.createElement('tr');
+                const codeCell = r.account_id ?
+                    '<a href="' + accountDrillUrl(r.account_id) + '">' + r.code + '</a>' :
+                    r.code;
+                const nameCell = r.account_id ?
+                    '<a href="' + accountDrillUrl(r.account_id) + '">' + r.name + '</a>' :
+                    r.name;
                 tr.innerHTML =
-                    `<td>${r.code}</td><td>${r.name}</td><td>${r.currencies || 'IDR'}</td>` +
+                    `<td>${codeCell}</td><td>${nameCell}</td><td>${r.currencies || 'IDR'}</td>` +
                     `<td class="text-right text-nowrap">${formatTrialBalanceIdr(r.debit)}</td>` +
                     `<td class="text-right text-nowrap">${formatTrialBalanceIdr(r.credit)}</td>` +
                     `<td class="text-right text-nowrap">${formatTrialBalanceIdr(r.balance)}</td>`;
@@ -110,7 +153,12 @@
             load();
         });
         document.getElementById('tb_include_unposted').addEventListener('change', tbUpdateExports);
-        form.date.addEventListener('change', tbUpdateExports);
+        ['date', 'period_year', 'period_month'].forEach(name => {
+            if (form[name]) form[name].addEventListener('change', tbUpdateExports);
+        });
+        if (form.company_entity_id) {
+            form.company_entity_id.addEventListener('change', tbUpdateExports);
+        }
         load();
     </script>
 @endsection

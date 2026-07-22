@@ -1,27 +1,16 @@
 @extends('layouts.main')
 
-@section('title', 'Asset Register Report')
+@section('title_page')
+    Asset Register Report
+@endsection
+
+@section('breadcrumb_title')
+    <li class="breadcrumb-item"><a href="{{ route('dashboard') }}">Dashboard</a></li>
+    <li class="breadcrumb-item"><a href="{{ route('reports.assets.index') }}">Asset Reports</a></li>
+    <li class="breadcrumb-item active">Asset Register</li>
+@endsection
 
 @section('content')
-    <div class="content-header">
-        <div class="container-fluid">
-            <div class="row mb-2">
-                <div class="col-sm-6">
-                    <h1 class="m-0">Asset Register Report</h1>
-                </div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-right">
-                        <li class="breadcrumb-item"><a href="{{ route('dashboard') }}">Home</a></li>
-                        <li class="breadcrumb-item"><a href="{{ route('reports.assets.index') }}">Asset Reports</a></li>
-                        <li class="breadcrumb-item active">Asset Register</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <section class="content">
-        <div class="container-fluid">
             <div class="row">
                 <div class="col-12">
                     <div class="card">
@@ -47,7 +36,6 @@
                             </div>
                         </div>
                         <div class="card-body">
-                            <!-- Filters -->
                             <form method="GET" class="mb-4">
                                 <div class="row">
                                     <div class="col-md-2">
@@ -117,7 +105,6 @@
                                 </div>
                             </form>
 
-                            <!-- Report Table -->
                             <div class="table-responsive">
                                 <table class="table table-bordered table-striped">
                                     <thead>
@@ -127,7 +114,7 @@
                                             <th>Category</th>
                                             <th>Project</th>
                                             <th>Department</th>
-                                            <th>Acquisition Date</th>
+                                            <th>Placed in Service</th>
                                             <th>Acquisition Cost</th>
                                             <th>Accumulated Depreciation</th>
                                             <th>Book Value</th>
@@ -142,7 +129,7 @@
                                                 <td>{{ $asset->category_name }}</td>
                                                 <td>{{ $asset->project_name ?? '-' }}</td>
                                                 <td>{{ $asset->department_name ?? '-' }}</td>
-                                                <td>{{ $asset->acquisition_date ? $asset->acquisition_date->format('d/m/Y') : '-' }}
+                                                <td>{{ $asset->placed_in_service_date ? $asset->placed_in_service_date->format('d/m/Y') : '-' }}
                                                 </td>
                                                 <td class="text-right">Rp
                                                     {{ number_format($asset->acquisition_cost, 0, ',', '.') }}</td>
@@ -152,29 +139,30 @@
                                                     {{ number_format($asset->current_book_value, 0, ',', '.') }}</td>
                                                 <td>
                                                     <span
-                                                        class="badge badge-{{ $asset->status == 'active' ? 'success' : ($asset->status == 'inactive' ? 'warning' : 'danger') }}">
+                                                        class="badge badge-{{ $asset->status == 'active' ? 'success' : ($asset->status == 'retired' ? 'warning' : 'danger') }}">
                                                         {{ ucfirst($asset->status) }}
                                                     </span>
                                                 </td>
                                             </tr>
                                         @empty
                                             <tr>
-                                                <td colspan="11" class="text-center">No assets found matching the
-                                                    criteria.</td>
+                                                <td colspan="10" class="text-center text-muted py-4">
+                                                    No assets found matching the criteria.
+                                                </td>
                                             </tr>
                                         @endforelse
                                     </tbody>
-                                    @if ($assets->count() > 0)
+                                    @if ($totals['count'] > 0)
                                         <tfoot>
                                             <tr class="font-weight-bold">
-                                                <td colspan="7" class="text-right">Total:</td>
+                                                <td colspan="6" class="text-right">Total ({{ $totals['count'] }} assets):</td>
                                                 <td class="text-right">Rp
-                                                    {{ number_format($assets->sum('acquisition_cost'), 0, ',', '.') }}</td>
+                                                    {{ number_format($totals['acquisition_cost'], 0, ',', '.') }}</td>
                                                 <td class="text-right">Rp
-                                                    {{ number_format($assets->sum('accumulated_depreciation'), 0, ',', '.') }}
+                                                    {{ number_format($totals['accumulated_depreciation'], 0, ',', '.') }}
                                                 </td>
                                                 <td class="text-right">Rp
-                                                    {{ number_format($assets->sum('current_book_value'), 0, ',', '.') }}
+                                                    {{ number_format($totals['current_book_value'], 0, ',', '.') }}
                                                 </td>
                                                 <td></td>
                                             </tr>
@@ -183,53 +171,50 @@
                                 </table>
                             </div>
 
-                            <!-- Summary Statistics -->
-                            @if ($assets->count() > 0)
+                            @if ($assets->hasPages())
+                                <div class="mt-3">
+                                    {{ $assets->links() }}
+                                </div>
+                            @endif
+
+                            @if ($totals['count'] > 0)
                                 <div class="row mt-4">
                                     <div class="col-md-3">
                                         <div class="info-box">
-                                            <span class="info-box-icon bg-info">
-                                                <i class="fas fa-cube"></i>
-                                            </span>
+                                            <span class="info-box-icon bg-info"><i class="fas fa-cube"></i></span>
                                             <div class="info-box-content">
                                                 <span class="info-box-text">Total Assets</span>
-                                                <span class="info-box-number">{{ $assets->count() }}</span>
+                                                <span class="info-box-number">{{ $totals['count'] }}</span>
                                             </div>
                                         </div>
                                     </div>
                                     <div class="col-md-3">
                                         <div class="info-box">
-                                            <span class="info-box-icon bg-success">
-                                                <i class="fas fa-dollar-sign"></i>
-                                            </span>
+                                            <span class="info-box-icon bg-success"><i class="fas fa-dollar-sign"></i></span>
                                             <div class="info-box-content">
                                                 <span class="info-box-text">Total Acquisition Cost</span>
                                                 <span class="info-box-number">Rp
-                                                    {{ number_format($assets->sum('acquisition_cost'), 0, ',', '.') }}</span>
+                                                    {{ number_format($totals['acquisition_cost'], 0, ',', '.') }}</span>
                                             </div>
                                         </div>
                                     </div>
                                     <div class="col-md-3">
                                         <div class="info-box">
-                                            <span class="info-box-icon bg-warning">
-                                                <i class="fas fa-chart-line"></i>
-                                            </span>
+                                            <span class="info-box-icon bg-warning"><i class="fas fa-chart-line"></i></span>
                                             <div class="info-box-content">
                                                 <span class="info-box-text">Total Depreciation</span>
                                                 <span class="info-box-number">Rp
-                                                    {{ number_format($assets->sum('accumulated_depreciation'), 0, ',', '.') }}</span>
+                                                    {{ number_format($totals['accumulated_depreciation'], 0, ',', '.') }}</span>
                                             </div>
                                         </div>
                                     </div>
                                     <div class="col-md-3">
                                         <div class="info-box">
-                                            <span class="info-box-icon bg-primary">
-                                                <i class="fas fa-book"></i>
-                                            </span>
+                                            <span class="info-box-icon bg-primary"><i class="fas fa-book"></i></span>
                                             <div class="info-box-content">
                                                 <span class="info-box-text">Total Book Value</span>
                                                 <span class="info-box-number">Rp
-                                                    {{ number_format($assets->sum('current_book_value'), 0, ',', '.') }}</span>
+                                                    {{ number_format($totals['current_book_value'], 0, ',', '.') }}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -239,14 +224,11 @@
                     </div>
                 </div>
             </div>
-        </div>
-    </section>
 @endsection
 
 @section('scripts')
     <script>
         $(document).ready(function() {
-            // Initialize Select2
             $('.select2bs4').select2({
                 theme: 'bootstrap4',
                 width: '100%'

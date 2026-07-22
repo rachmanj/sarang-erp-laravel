@@ -1,27 +1,16 @@
 @extends('layouts.main')
 
-@section('title', 'Asset Summary Dashboard')
+@section('title_page')
+    Asset Summary Dashboard
+@endsection
+
+@section('breadcrumb_title')
+    <li class="breadcrumb-item"><a href="{{ route('dashboard') }}">Dashboard</a></li>
+    <li class="breadcrumb-item"><a href="{{ route('reports.assets.index') }}">Asset Reports</a></li>
+    <li class="breadcrumb-item active">Summary</li>
+@endsection
 
 @section('content')
-    <div class="content-header">
-        <div class="container-fluid">
-            <div class="row mb-2">
-                <div class="col-sm-6">
-                    <h1 class="m-0">Asset Summary Dashboard</h1>
-                </div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-right">
-                        <li class="breadcrumb-item"><a href="{{ route('dashboard') }}">Home</a></li>
-                        <li class="breadcrumb-item"><a href="{{ route('reports.assets.index') }}">Asset Reports</a></li>
-                        <li class="breadcrumb-item active">Summary</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <section class="content">
-        <div class="container-fluid">
             <!-- Key Metrics -->
             <div class="row">
                 <div class="col-lg-3 col-6">
@@ -95,7 +84,7 @@
                                             <tr>
                                                 <td>
                                                     <span
-                                                        class="badge badge-{{ $status->status == 'active' ? 'success' : ($status->status == 'inactive' ? 'warning' : 'danger') }}">
+                                                        class="badge badge-{{ $status->status == 'active' ? 'success' : ($status->status == 'retired' ? 'warning' : 'danger') }}">
                                                         {{ ucfirst($status->status) }}
                                                     </span>
                                                 </td>
@@ -315,6 +304,4 @@
                     </div>
                 </div>
             </div>
-        </div>
-    </section>
 @endsection

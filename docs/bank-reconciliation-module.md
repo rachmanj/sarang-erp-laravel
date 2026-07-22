@@ -1,6 +1,8 @@
 # Bank Reconciliation Module — Implementation Guide
 
-Portable reference for re-implementing the **Bank Reconciliation** feature from this project into another Laravel application. The module matches **bank statement lines** (from Rekening Koran PDF or manual entry) against **book/GL lines** (SAP in this app) per bank account and month, with auto-match, manual N:M grouping, balance validation, and a separate validator approval workflow.
+Portable reference for re-implementing the **Bank Reconciliation** feature from this project into another Laravel application. The module matches **bank statement lines** (from Rekening Koran PDF or manual entry) against **book/GL line snapshots** per bank account and month, with N:M match groups, outstanding carry-forward, statement cross-foot, in-module adjusting journals, and finalize on the standard reconciliation identity.
+
+> **Current behaviour (2026-07-20):** Finalize requires (1) no `unmatched` lines, (2) cleared `bank_net + book_net ≈ 0`, (3) statement cross-foot when balances are set, (4) `statement_closing + deposits_in_transit − outstanding_checks ≈ book_closing`. Outstanding book/bank lines carry into the next month's session. See `docs/decisions.md` (2026-07-20) and `MEMORY.md` [131].
 
 ---
 

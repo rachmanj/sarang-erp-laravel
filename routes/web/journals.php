@@ -12,4 +12,6 @@ Route::prefix('journals')->middleware(['permission:journals.view'])->group(funct
 
     // Currency API Routes
     Route::get('/api/exchange-rate', [ManualJournalController::class, 'getExchangeRate'])->name('journals.api.exchange-rate');
+
+    Route::get('/{journal}', [ManualJournalController::class, 'show'])->name('journals.show');
 });

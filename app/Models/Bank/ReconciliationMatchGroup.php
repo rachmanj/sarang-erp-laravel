@@ -15,6 +15,8 @@ class ReconciliationMatchGroup extends Model
 
     public const TYPE_AUTO_SPLIT = 'auto_split';
 
+    public const TYPE_AUTO_REFERENCE = 'auto_reference';
+
     public const TYPE_MANUAL = 'manual';
 
     protected $fillable = [
@@ -87,6 +89,7 @@ class ReconciliationMatchGroup extends Model
             self::TYPE_AUTO_EXACT,
             self::TYPE_AUTO_FUZZY,
             self::TYPE_AUTO_SPLIT,
+            self::TYPE_AUTO_REFERENCE,
         ], true);
     }
 }

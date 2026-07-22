@@ -85,6 +85,11 @@ class BankReconciliation extends Model
         return $this->hasMany(ReconciliationMatchGroup::class);
     }
 
+    public function matchAudits(): HasMany
+    {
+        return $this->hasMany(ReconciliationMatchAudit::class);
+    }
+
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');

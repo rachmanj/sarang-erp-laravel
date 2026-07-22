@@ -44,6 +44,7 @@ class ReportService
 
         return [
             'as_of' => $date,
+            'entity_name' => $this->resolveEntityName($filters),
             'rows' => $rows,
             'totals' => [
                 'debit' => array_sum(array_column($rows, 'debit')),
@@ -286,7 +287,7 @@ class ReportService
             'as_of' => $date,
             'prior_as_of' => $priorAsOf,
             'report_title' => 'Balance Sheet',
-            'entity_name' => (string) config('app.name'),
+            'entity_name' => $this->resolveEntityName($filters),
             'sections' => $sections,
             'totals' => [
                 'assets' => $totalAssets,
@@ -374,12 +375,19 @@ class ReportService
         $netIncome = round($operatingIncome + $totals['other_income'] - $totals['other_expense'], 2);
 
         $priorSubtotals = null;
+        $priorSectionTotals = null;
         if (! empty($filters['prior_from']) && ! empty($filters['prior_to'])) {
             $prior = $this->getProfitAndLoss([
                 'from' => $filters['prior_from'],
                 'to' => $filters['prior_to'],
+                'company_entity_id' => $filters['company_entity_id'] ?? null,
+                'project_id' => $filters['project_id'] ?? null,
+                'dept_id' => $filters['dept_id'] ?? null,
             ], $onlyPostedJournals, $hideZeroLines);
             $priorSubtotals = $prior['subtotals'];
+            $priorSectionTotals = collect($prior['sections'])->mapWithKeys(
+                fn (array $section) => [$section['key'] => $section['total']]
+            )->all();
         }
 
         $sections = [];
@@ -389,6 +397,7 @@ class ReportService
                 'label' => $bucketLabels[$key],
                 'rows' => $buckets[$key],
                 'total' => $totals[$key],
+                'prior_total' => $priorSectionTotals[$key] ?? null,
             ];
         }
 
@@ -397,7 +406,7 @@ class ReportService
             'to' => $to,
             'filters' => $normalized,
             'report_title' => 'Profit & Loss Statement',
-            'entity_name' => (string) config('app.name'),
+            'entity_name' => $this->resolveEntityName($filters),
             'sections' => $sections,
             'subtotals' => [
                 'gross_profit' => $grossProfit,
@@ -838,6 +847,8 @@ class ReportService
             $normalized['as_of'] ?? '',
             $onlyPostedJournals ? '1' : '0',
             $normalized['company_entity_id'] ?? '',
+            $normalized['project_id'] ?? '',
+            $normalized['dept_id'] ?? '',
         ]);
 
         if (isset($this->balanceSnapshotCache[$cacheKey])) {
@@ -1336,6 +1347,19 @@ class ReportService
         }
 
         return 'revenue';
+    }
+
+    private function resolveEntityName(array $filters): string
+    {
+        $entityId = isset($filters['company_entity_id']) ? (int) $filters['company_entity_id'] : 0;
+        if ($entityId > 0) {
+            $name = DB::table('company_entities')->where('id', $entityId)->value('name');
+            if ($name) {
+                return (string) $name;
+            }
+        }
+
+        return (string) config('app.name');
     }
 
     private function accountCodeUnderPrefix(string $code, string $prefix): bool

@@ -5,13 +5,16 @@ namespace App\Models;
 use App\Models\Accounting\PurchaseInvoice;
 use App\Models\Dimensions\Department;
 use App\Models\Dimensions\Project;
+use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Carbon\Carbon;
 
 class Asset extends Model
 {
+    use HasFactory;
+
     protected $fillable = [
         'code',
         'name',
@@ -44,6 +47,7 @@ class Asset extends Model
     ];
 
     protected $auditLogIgnore = ['updated_at', 'created_at'];
+
     protected $auditEntityType = 'asset';
 
     // Relationships
@@ -56,7 +60,6 @@ class Asset extends Model
     {
         return $this->hasMany(AssetDepreciationEntry::class, 'asset_id');
     }
-
 
     public function project(): BelongsTo
     {

@@ -2,12 +2,15 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class AssetCategory extends Model
 {
+    use HasFactory;
+
     protected $fillable = [
         'code',
         'name',
@@ -32,6 +35,7 @@ class AssetCategory extends Model
     ];
 
     protected $auditLogIgnore = ['updated_at', 'created_at'];
+
     protected $auditEntityType = 'asset_category';
 
     // Relationships
@@ -79,7 +83,7 @@ class AssetCategory extends Model
     // Helper methods
     public function getDefaultDepreciationRateAttribute(): float
     {
-        if ($this->non_depreciable || !$this->life_months_default) {
+        if ($this->non_depreciable || ! $this->life_months_default) {
             return 0;
         }
 

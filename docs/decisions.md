@@ -1,7 +1,17 @@
 **Purpose**: Record technical decisions and rationale for future reference
-**Last Updated**: 2026-07-01 (Customer office/warehouse address resolution for SI/DO)
+**Last Updated**: 2026-07-20 (Asset Reports schema alignment)
 
 # Technical Decision Records
+
+## Decision: Asset Reports query against live asset schema - 2026-07-20
+
+**Context**: Report hub and exporters still assumed a pre-refactor asset schema (`vendors` table, `acquisition_date`, `is_depreciable`/`depreciable_cost` columns, depreciation `run_id`/`period_start`). Live tables use `business_partners`, `placed_in_service_date`, category `non_depreciable`, and period-string linkage between runs and entries. Asset status enum is `active|retired|disposed` (not `inactive`).
+
+**Decision**: Keep all asset report SQL in `AssetReportService` as the single query source; Excel exports call the service rather than duplicating joins. Depreciability uses `Asset::scopeDepreciable()`; fully-depreciated uses `accumulated_depreciation >= (acquisition_cost - salvage_value)`. Depreciation entries join runs on `period`. List reports paginate (50) with separate aggregate totals so footers stay correct. Quick Stats uses dedicated `asset_summary` JSON branch (array, not collection count). Routes under `/reports/assets` require `permission:assets.view` (stricter disposal/movement/depreciation permissions retained on those actions).
+
+**Implementation**: `AssetReportService`, `AssetReportsController`, export classes, 8 report blades (6 newly created), `AssetReportDemoSeeder`, factories, `tests/Feature/AssetReportsTest.php`.
+
+**Review Date**: 2027-07-20
 
 ## Decision: Customer office (SI) and warehouse (DO) address resolution - 2026-07-01
 
@@ -2955,4 +2965,23 @@ Decision: [Title] - [YYYY-MM-DD]
 **Implementation**: Migrations evolve `bank_reconciliations`/`bank_statement_lines`; new `bank_book_lines`, `reconciliation_match_groups`, pivots; services `ReconciliationBalanceService`, `ReconciliationMatchingService`, `BankBookLineFetcher`; jobs `ParseBankStatementJob`, `FetchBookGlLinesJob`, `AutoMatchReconciliationJob`; workbench UI with dual-grid multi-select; `bank-reconciliation:migrate-legacy` command.
 
 **Review Date**: 2027-01-09 (6 months).
+
+---
+
+### Decision: Bank Reconciliation true identity + outstanding carry-forward (2026-07-20)
+
+**Context**: The N:M module finalized on `bank_net + book_net ≈ 0` with **exclude** as the only escape for timing differences. Excluded items never carried forward, so deposits in transit / unpresented checks broke next month's matching. Statement opening/closing were not cross-footed; `finalize()` overwrote `closing_balance_book` with book net; bank charges required leaving the module to post a manual journal.
+
+**Options Considered**:
+
+1. **Keep clear-to-zero + exclude** — simplest, but not a real bank reconciliation.
+2. **Standard identity + outstanding status + carry-forward + in-module adjustments** — statement_closing ± outstanding ≈ book_closing; outstanding lines roll into next session; post adjusting journals from unmatched bank lines.
+
+**Decision**: Option 2.
+
+**Rationale**: Aligns with CPA practice (deposits in transit / outstanding checks schedule), preserves GL integrity (snapshots + audits), and closes the bank-charge workflow hole without mutating `journal_lines` match flags.
+
+**Implementation**: Migration `2026_07_20_201940_evolve_bank_reconciliation_outstanding_and_hardening`; services `ReconciliationCarryForwardService`, `ReconciliationAdjustmentService`, `ReconciliationSnapshotIntegrityService`; balance identity in `ReconciliationBalanceService`; reference-first matching + row locks; workbench outstanding/adjust/filter/CSV; tests `BankReconciliationOutstanding/CarryForward/CrossFoot/Adjustment/MatchingQualityTest`.
+
+**Review Date**: 2027-01-20 (6 months).
 

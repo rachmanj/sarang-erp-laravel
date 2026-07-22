@@ -153,4 +153,143 @@ class ReportAccuracyTest extends TestCase
         $dashboard = app(DashboardDataService::class)->getDashboardData(true);
         $this->assertEqualsWithDelta($expected, (float) $dashboard['kpis']['cash_on_hand'], 0.02);
     }
+
+    public function test_balance_snapshot_cache_isolates_project_filter(): void
+    {
+        $cashId = (int) DB::table('accounts')->where('code', '1.1.1.01')->value('id');
+        $arId = (int) DB::table('accounts')->where('code', '1.1.2.01')->value('id');
+        $this->assertGreaterThan(0, $cashId);
+        $this->assertGreaterThan(0, $arId);
+
+        $projectA = (int) DB::table('projects')->insertGetId([
+            'code' => 'TST-PROJ-A',
+            'name' => 'Test Project A',
+            'budget_total' => 0,
+            'status' => 'active',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $projectB = (int) DB::table('projects')->insertGetId([
+            'code' => 'TST-PROJ-B',
+            'name' => 'Test Project B',
+            'budget_total' => 0,
+            'status' => 'active',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $journalId = DB::table('journals')->insertGetId([
+            'date' => now()->toDateString(),
+            'description' => 'ReportAccuracy project filter cache test',
+            'source_type' => 'test',
+            'source_id' => 99001,
+            'posted_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('journal_lines')->insert([
+            [
+                'journal_id' => $journalId,
+                'account_id' => $cashId,
+                'debit' => 1234.56,
+                'credit' => 0,
+                'project_id' => $projectA,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'journal_id' => $journalId,
+                'account_id' => $arId,
+                'debit' => 0,
+                'credit' => 1234.56,
+                'project_id' => $projectA,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        ]);
+
+        $service = app(ReportService::class);
+        $date = now()->toDateString();
+        $cashPx = ['1.1.1.01'];
+
+        $withA = $service->balanceSheetDisplayTotalForPrefixes($date, $cashPx, true, ['project_id' => $projectA]);
+        $withB = $service->balanceSheetDisplayTotalForPrefixes($date, $cashPx, true, ['project_id' => $projectB]);
+
+        $this->assertNotEquals(
+            round($withA, 2),
+            round($withB, 2),
+            'Snapshot cache must not reuse balances across different project_id filters'
+        );
+        $this->assertGreaterThanOrEqual(1234.56, $withA);
+    }
+
+    public function test_balance_sheet_comparative_includes_prior_amounts(): void
+    {
+        $asOf = now()->toDateString();
+        $priorAsOf = now()->subYear()->toDateString();
+        $bs = $this->reports->getBalanceSheet($asOf, true, false, $priorAsOf);
+
+        $this->assertSame($priorAsOf, $bs['prior_as_of']);
+        $this->assertNotNull($bs['totals']['prior']);
+        $this->assertArrayHasKey('assets', $bs['totals']['prior']);
+
+        $foundPrior = false;
+        foreach ($bs['sections'] as $section) {
+            foreach ($section['rows'] as $row) {
+                if (array_key_exists('prior_amount', $row)) {
+                    $foundPrior = true;
+                    break 2;
+                }
+            }
+        }
+        $this->assertTrue($foundPrior, 'Comparative BS rows should include prior_amount');
+    }
+
+    public function test_profit_and_loss_comparative_includes_prior_section_totals(): void
+    {
+        $from = now()->startOfMonth()->toDateString();
+        $to = now()->toDateString();
+        $priorFrom = now()->subYear()->startOfMonth()->toDateString();
+        $priorTo = now()->subYear()->toDateString();
+
+        $pl = $this->reports->getProfitAndLoss([
+            'from' => $from,
+            'to' => $to,
+            'prior_from' => $priorFrom,
+            'prior_to' => $priorTo,
+        ], true, false);
+
+        $this->assertNotNull($pl['prior_subtotals']);
+        $this->assertArrayHasKey('net_income', $pl['prior_subtotals']);
+        foreach ($pl['sections'] as $section) {
+            $this->assertArrayHasKey('prior_total', $section);
+            $this->assertNotNull($section['prior_total']);
+        }
+    }
+
+    public function test_entity_name_resolves_from_company_entity_filter(): void
+    {
+        $entity = DB::table('company_entities')->where('code', '71')->first(['id', 'name']);
+        $this->assertNotNull($entity);
+
+        $bs = $this->reports->getBalanceSheet(now()->toDateString(), true, true, null, [
+            'company_entity_id' => $entity->id,
+        ]);
+        $this->assertSame($entity->name, $bs['entity_name']);
+
+        $pl = $this->reports->getProfitAndLoss([
+            'from' => now()->startOfMonth()->toDateString(),
+            'to' => now()->toDateString(),
+            'company_entity_id' => $entity->id,
+        ]);
+        $this->assertSame($entity->name, $pl['entity_name']);
+
+        $tb = $this->reports->getTrialBalance(now()->toDateString(), true, [
+            'company_entity_id' => $entity->id,
+        ]);
+        $this->assertSame($entity->name, $tb['entity_name']);
+
+        $defaultBs = $this->reports->getBalanceSheet(now()->toDateString());
+        $this->assertSame((string) config('app.name'), $defaultBs['entity_name']);
+    }
 }

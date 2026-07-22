@@ -5,11 +5,14 @@ namespace App\Models;
 use App\Models\Accounting\Journal;
 use App\Models\Dimensions\Department;
 use App\Models\Dimensions\Project;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class AssetDepreciationEntry extends Model
 {
+    use HasFactory;
+
     protected $fillable = [
         'asset_id',
         'period',
@@ -34,7 +37,6 @@ class AssetDepreciationEntry extends Model
     {
         return $this->belongsTo(Journal::class, 'journal_id');
     }
-
 
     public function project(): BelongsTo
     {
@@ -75,7 +77,7 @@ class AssetDepreciationEntry extends Model
     // Helper methods
     public function isPosted(): bool
     {
-        return !is_null($this->journal_id);
+        return ! is_null($this->journal_id);
     }
 
     public function getPeriodYearAttribute(): int

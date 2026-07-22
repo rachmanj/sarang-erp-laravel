@@ -270,4 +270,71 @@ class ReportsTest extends TestCase
         $pdf->assertOk();
         $pdf->assertHeader('Content-Type', 'application/pdf');
     }
+
+    public function test_balance_sheet_page_exposes_comparative_filters_and_drilldown(): void
+    {
+        $response = $this->get('/reports/balance-sheet');
+        $response->assertOk();
+        $response->assertSee('name="prior_as_of"', false);
+        $response->assertSee('name="company_entity_id"', false);
+        $response->assertSee('name="period_year"', false);
+        $response->assertSee('/accounts/', false);
+        $response->assertSee('accountDrillUrl', false);
+    }
+
+    public function test_profit_loss_page_exposes_comparative_filters_and_drilldown(): void
+    {
+        $response = $this->get('/reports/profit-loss');
+        $response->assertOk();
+        $response->assertSee('name="prior_from"', false);
+        $response->assertSee('name="prior_to"', false);
+        $response->assertSee('name="company_entity_id"', false);
+        $response->assertSee('name="period_year"', false);
+        $response->assertSee('/accounts/', false);
+        $response->assertSee('accountDrillUrl', false);
+    }
+
+    public function test_trial_balance_page_exposes_entity_period_and_drilldown(): void
+    {
+        $response = $this->get('/reports/trial-balance');
+        $response->assertOk();
+        $response->assertSee('name="company_entity_id"', false);
+        $response->assertSee('name="period_year"', false);
+        $response->assertSee('/accounts/', false);
+        $response->assertSee('accountDrillUrl', false);
+    }
+
+    public function test_balance_sheet_json_comparative_and_entity_name(): void
+    {
+        $entity = DB::table('company_entities')->where('code', '71')->first(['id', 'name']);
+        $this->assertNotNull($entity);
+
+        $asOf = now()->toDateString();
+        $priorAsOf = now()->subYear()->toDateString();
+        $response = $this->getJson(
+            '/reports/balance-sheet?as_of='.$asOf.'&prior_as_of='.$priorAsOf.'&company_entity_id='.$entity->id
+        );
+        $response->assertOk();
+        $data = $response->json();
+        $this->assertSame($entity->name, $data['entity_name']);
+        $this->assertSame($priorAsOf, $data['prior_as_of']);
+        $this->assertNotNull($data['totals']['prior']);
+    }
+
+    public function test_profit_loss_json_comparative_prior_section_totals(): void
+    {
+        $from = now()->startOfMonth()->toDateString();
+        $to = now()->toDateString();
+        $priorFrom = now()->subYear()->startOfMonth()->toDateString();
+        $priorTo = now()->subYear()->toDateString();
+        $response = $this->getJson(
+            '/reports/profit-loss?from='.$from.'&to='.$to.'&prior_from='.$priorFrom.'&prior_to='.$priorTo
+        );
+        $response->assertOk();
+        $data = $response->json();
+        $this->assertNotNull($data['prior_subtotals']);
+        foreach ($data['sections'] as $section) {
+            $this->assertArrayHasKey('prior_total', $section);
+        }
+    }
 }

@@ -7,6 +7,7 @@ use App\Models\Bank\BankBookLine;
 use App\Models\Bank\BankReconciliation;
 use App\Models\Bank\BankStatement;
 use App\Models\Bank\BankStatementLine;
+use App\Models\Bank\ReconciliationMatchAudit;
 use App\Services\CompanyEntityService;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
@@ -17,6 +18,8 @@ class BankReconciliationService
         private CompanyEntityService $companyEntityService,
         private ReconciliationBalanceService $balanceService,
         private BankBookLineFetcher $bookLineFetcher,
+        private ReconciliationCarryForwardService $carryForwardService,
+        private ReconciliationSnapshotIntegrityService $snapshotIntegrityService,
     ) {}
 
     public function createManualSession(BankAccount $bankAccount, string $periode): BankReconciliation
@@ -25,7 +28,7 @@ class BankReconciliationService
 
         $this->assertUniquePeriod($bankAccount->id, $monthStart);
 
-        return BankReconciliation::create([
+        $reconciliation = BankReconciliation::create([
             'bank_account_id' => $bankAccount->id,
             'bank_statement_id' => null,
             'periode' => $monthStart,
@@ -35,9 +38,15 @@ class BankReconciliationService
             'status' => BankReconciliation::STATUS_IN_REVIEW,
             'opening_balance_bank' => 0,
             'closing_balance_bank' => 0,
+            'statement_opening' => 0,
+            'statement_closing' => 0,
             'created_by' => Auth::id(),
             'company_entity_id' => $this->companyEntityService->getDefaultEntity()->id,
         ]);
+
+        $this->carryForwardService->importOutstandingInto($reconciliation);
+
+        return $reconciliation;
     }
 
     public function createAiSession(BankAccount $bankAccount, string $periode, UploadedFile $file): BankReconciliation
@@ -53,7 +62,7 @@ class BankReconciliationService
             'period_end' => date('Y-m-t', strtotime($monthStart)),
             'opening_balance' => 0,
             'closing_balance' => 0,
-            'currency' => 'IDR',
+            'currency' => $bankAccount->currency ?: 'IDR',
             'original_filename' => $file->getClientOriginalName(),
             'file_path' => $storedPath,
             'status' => 'imported',
@@ -61,7 +70,7 @@ class BankReconciliationService
             'company_entity_id' => $this->companyEntityService->getDefaultEntity()->id,
         ]);
 
-        return BankReconciliation::create([
+        $reconciliation = BankReconciliation::create([
             'bank_account_id' => $bankAccount->id,
             'bank_statement_id' => $statement->id,
             'periode' => $monthStart,
@@ -72,6 +81,32 @@ class BankReconciliationService
             'created_by' => Auth::id(),
             'company_entity_id' => $statement->company_entity_id,
         ]);
+
+        $this->carryForwardService->importOutstandingInto($reconciliation);
+
+        return $reconciliation;
+    }
+
+    public function updateStatementBalances(
+        BankReconciliation $reconciliation,
+        float $opening,
+        float $closing,
+    ): void {
+        $this->assertEditable($reconciliation);
+
+        $reconciliation->update([
+            'opening_balance_bank' => round($opening, 2),
+            'closing_balance_bank' => round($closing, 2),
+            'statement_opening' => round($opening, 2),
+            'statement_closing' => round($closing, 2),
+        ]);
+
+        if ($reconciliation->statement) {
+            $reconciliation->statement->update([
+                'opening_balance' => round($opening, 2),
+                'closing_balance' => round($closing, 2),
+            ]);
+        }
     }
 
     public function addBankLine(BankReconciliation $reconciliation, array $data): BankStatementLine
@@ -187,25 +222,120 @@ class BankReconciliationService
         ]);
     }
 
+    public function setBankLineOutstanding(
+        BankReconciliation $reconciliation,
+        BankStatementLine $line,
+        bool $outstanding,
+        ?string $reason = null,
+    ): void {
+        $this->assertEditable($reconciliation);
+
+        if ((int) $line->bank_reconciliation_id !== (int) $reconciliation->id) {
+            throw new \RuntimeException('Line does not belong to this session.');
+        }
+
+        if (! $line->canMarkOutstanding()) {
+            throw new \RuntimeException('Only unmatched or outstanding bank lines can be toggled.');
+        }
+
+        $line->update([
+            'match_status' => $outstanding ? BankStatementLine::MATCH_OUTSTANDING : BankStatementLine::MATCH_UNMATCHED,
+            'line_notes' => $outstanding ? ($reason ?: 'Outstanding timing difference') : null,
+        ]);
+
+        ReconciliationMatchAudit::create([
+            'bank_reconciliation_id' => $reconciliation->id,
+            'action' => ReconciliationMatchAudit::ACTION_OUTSTANDING,
+            'bank_line_ids' => [$line->id],
+            'performed_by' => Auth::id(),
+            'notes' => $outstanding ? ($reason ?: 'Marked outstanding') : 'Cleared outstanding',
+        ]);
+    }
+
+    public function setBookLineOutstanding(
+        BankReconciliation $reconciliation,
+        BankBookLine $line,
+        bool $outstanding,
+        ?string $reason = null,
+    ): void {
+        $this->assertEditable($reconciliation);
+
+        if ((int) $line->bank_reconciliation_id !== (int) $reconciliation->id) {
+            throw new \RuntimeException('Line does not belong to this session.');
+        }
+
+        if (! $line->canMarkOutstanding()) {
+            throw new \RuntimeException('Only unmatched or outstanding book lines can be toggled.');
+        }
+
+        $line->update([
+            'match_status' => $outstanding ? BankBookLine::MATCH_OUTSTANDING : BankBookLine::MATCH_UNMATCHED,
+            'line_notes' => $outstanding ? ($reason ?: 'Outstanding timing difference') : null,
+        ]);
+
+        ReconciliationMatchAudit::create([
+            'bank_reconciliation_id' => $reconciliation->id,
+            'action' => ReconciliationMatchAudit::ACTION_OUTSTANDING,
+            'book_line_ids' => [$line->id],
+            'performed_by' => Auth::id(),
+            'notes' => $outstanding ? ($reason ?: 'Marked outstanding') : 'Cleared outstanding',
+        ]);
+    }
+
     public function finalize(BankReconciliation $reconciliation): BankReconciliation
     {
         if ($reconciliation->isLockedForEditing()) {
             throw new \RuntimeException('Reconciliation session is already completed.');
         }
 
-        if (! $this->balanceService->isBalanced($reconciliation)) {
+        $staleCount = $this->snapshotIntegrityService->refreshStaleFlags($reconciliation);
+        if ($staleCount > 0) {
             throw new \RuntimeException(
-                'Cannot finalize while difference is '
-                .number_format($this->balanceService->difference($reconciliation), 2)
-                .'. Exclude lines or create matches until balanced.'
+                "Cannot finalize: {$staleCount} book line(s) reference missing or changed journals. Re-fetch book lines first."
             );
         }
+
+        $crossFoot = $this->balanceService->statementCrossFoot($reconciliation);
+        if ($crossFoot !== null && ! $crossFoot['valid']
+            && abs($this->balanceService->statementClosing($reconciliation)) + abs($this->balanceService->statementOpening($reconciliation)) > ReconciliationBalanceService::TOLERANCE
+        ) {
+            throw new \RuntimeException(
+                'Statement lines do not cross-foot to statement closing − opening. Difference: '
+                .number_format($crossFoot['difference'], 2)
+                .'. Check for missing or duplicated statement lines.'
+            );
+        }
+
+        if (! $this->balanceService->isBalanced($reconciliation)) {
+            $payload = $this->balanceService->statusPayload($reconciliation);
+            $parts = [];
+            if ($payload['unmatched_bank_count'] > 0 || $payload['unmatched_book_count'] > 0) {
+                $parts[] = "unmatched lines remain (bank {$payload['unmatched_bank_count']}, book {$payload['unmatched_book_count']})";
+            }
+            if (abs($payload['difference']) >= ReconciliationBalanceService::TOLERANCE) {
+                $parts[] = 'cleared net difference '.number_format($payload['difference'], 2);
+            }
+            if (abs($payload['reconciliation_difference']) >= ReconciliationBalanceService::TOLERANCE
+                && $payload['has_statement_balances']
+            ) {
+                $parts[] = 'reconciliation identity difference '.number_format($payload['reconciliation_difference'], 2);
+            }
+
+            throw new \RuntimeException(
+                'Cannot finalize: '.implode('; ', $parts ?: ['session is not balanced'])
+                .'. Mark timing differences as Outstanding, exclude errors, or create matches/adjustments.'
+            );
+        }
+
+        // Keep book closing from GL snapshot (opening + movement), do not overwrite with bookNet.
+        $bookClosing = $this->balanceService->bookClosing($reconciliation);
 
         $reconciliation->update([
             'status' => BankReconciliation::STATUS_COMPLETED,
             'finalized_by' => Auth::id(),
             'finalized_at' => now(),
-            'closing_balance_book' => $this->balanceService->bookNet($reconciliation),
+            'closing_balance_book' => $bookClosing,
+            'book_balance' => $bookClosing,
         ]);
 
         if ($reconciliation->statement) {
@@ -232,7 +362,10 @@ class BankReconciliationService
 
     public function fetchBookLines(BankReconciliation $reconciliation): int
     {
-        return $this->bookLineFetcher->fetchAndReplace($reconciliation);
+        $inserted = $this->bookLineFetcher->fetchAndReplace($reconciliation);
+        $this->snapshotIntegrityService->refreshStaleFlags($reconciliation);
+
+        return $inserted;
     }
 
     private function assertUniquePeriod(int $bankAccountId, string $periode): void

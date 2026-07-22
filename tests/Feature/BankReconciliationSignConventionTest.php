@@ -66,7 +66,16 @@ class BankReconciliationSignConventionTest extends TestCase
 
         $this->assertSame(-48010000.0, $balance->bankNet($this->reconciliation));
         $this->assertSame(48010000.0, $balance->bookNet($this->reconciliation));
-        $this->assertTrue($balance->isBalanced($this->reconciliation));
+        $this->assertSame(0.0, $balance->difference($this->reconciliation));
+        $this->assertFalse($balance->isBalanced($this->reconciliation), 'Unmatched lines must be matched/outstanding/excluded before balanced');
+
+        app(ReconciliationMatchingService::class)->manualMatch(
+            $this->reconciliation,
+            [$this->reconciliation->bankLines()->first()->id],
+            [$this->reconciliation->bookLines()->first()->id],
+        );
+
+        $this->assertTrue($balance->isBalanced($this->reconciliation->fresh()));
     }
 
     public function test_manual_match_requires_bank_plus_book_net_zero(): void

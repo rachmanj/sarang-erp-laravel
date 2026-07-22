@@ -1,31 +1,39 @@
 **Purpose**: AI's persistent knowledge base for project context and learnings
-**Last Updated**: 2026-07-01 (Customer office/warehouse address resolution)
-
-## Memory Maintenance Guidelines
-
-### Structure Standards
-
--   Entry Format: ### [ID] [Title (YYYY-MM-DD)] ✅ STATUS
--   Required Fields: Date, Challenge/Decision, Solution, Key Learning
--   Length Limit: 3-6 lines per entry (excluding sub-bullets)
--   Status Indicators: ✅ COMPLETE, ⚠️ PARTIAL, ❌ BLOCKED
-
-### Content Guidelines
-
--   Focus: Architecture decisions, critical bugs, security fixes, major technical challenges
--   Exclude: Routine features, minor bug fixes, documentation updates
--   Learning: Each entry must include actionable learning or decision rationale
--   Redundancy: Remove duplicate information, consolidate similar issues
-
-### File Management
-
--   Archive Trigger: When file exceeds 500 lines or 6 months old
--   Archive Format: `memory-YYYY-MM.md` (e.g., `memory-2025-01.md`)
--   New File: Start fresh with current date and carry forward only active decisions
-
----
+**Last Updated**: 2026-07-22 (Journal detail view)
 
 ## Project Memory Entries
+
+### [134] Journal detail view (2026-07-22) ✅ COMPLETE
+
+**Challenge**: Journals index listed header totals only; users could reverse but not inspect line-level detail or navigate to the source document.
+
+**Solution**: Added `journals.show` with eager-loaded lines (account, project, department, currency), totals, and `JournalSourceUrlResolver` source link; View button on DataTable actions; `JournalShowTest`.
+
+**Key Learning**: Reuse `JournalSourceUrlResolver` from COA drill-down — same permission-gated source-document links apply to journal detail without a new resolver.
+
+### [133] Asset Reports schema drift & hub repair (2026-07-20) ✅ COMPLETE
+
+**Challenge**: `/reports/assets` Quick Stats posted unknown `asset_summary`; register/summary/aging still queried `vendors`/`acquisition_date`/`is_depreciable`; depreciation schedule joined non-existent `run_id`/`period_start`; 6 report blades were missing.
+
+**Solution**: Aligned `AssetReportService` + exports to live schema (`business_partners`, `placed_in_service_date`, `scopeDepreciable`, period-based dep join); authorized `/data`; rebuilt blades with pagination/totals/Excel parity; `AssetReportDemoSeeder` + `AssetReportsTest`.
+
+**Key Learning**: After asset master refactors, report services and Excel exporters must be grepped for old column names (`vendor_id`, `acquisition_date`, `run_id`) before shipping — empty local tables can hide 500s until seed/data arrives.
+
+### [132] Financial statement quick wins (2026-07-20) ✅ COMPLETE
+
+**Challenge**: BS/P&L already computed comparative periods and entity filters in `ReportService`, but UIs did not expose them; snapshot cache ignored `project_id`/`dept_id`; headers always used `config('app.name')`.
+
+**Solution**: Fixed snapshot cache key; `resolveEntityName()` for BS/P&L/TB; P&L `prior_total` per section; BS/P&L/TB blades with comparative columns, entity/period filters, and leaf drill-down to `accounts.show`; tests in ReportAccuracyTest/ReportsTest.
+
+**Key Learning**: Prefer wiring existing ReportService capabilities into blades before inventing new report engines; always include every filter dimension that `applyCommonFilters` uses in any in-request cache key.
+
+### [131] Bank Reconciliation identity, outstanding carry-forward, adjustments (2026-07-20) ✅ COMPLETE
+
+**Challenge**: Clear-to-zero finalize + exclude could not represent timing differences across months; statement balances were unvalidated; bank charges needed an external manual journal; matching ignored `reference_no`.
+
+**Solution**: Added `outstanding` status + carry-forward into next session; finalize on standard identity + cross-foot + no unmatched; in-module adjusting journals via `PostingService`; reference-first auto-match, snapshot stale flags, audit trail, CSV/report outstanding schedule.
+
+**Key Learning**: Bank recon must treat outstanding book items as first-class (not exclude); keep `closing_balance_book` from GL opening+movement — never overwrite with cleared book net on finalize.
 
 ### [130] Asset module — remaining fund reference purge (2026-07-19) ✅ COMPLETE
 

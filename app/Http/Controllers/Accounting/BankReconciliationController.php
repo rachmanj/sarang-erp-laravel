@@ -5,11 +5,14 @@ namespace App\Http\Controllers\Accounting;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\ExcludeReconciliationLineRequest;
 use App\Http\Requests\ManualMatchGroupBankReconciliationRequest;
+use App\Http\Requests\MarkOutstandingReconciliationLineRequest;
+use App\Http\Requests\PostBankReconciliationAdjustmentRequest;
 use App\Http\Requests\StoreBankReconciliationRequest;
 use App\Http\Requests\StoreBankStatementLineRequest;
 use App\Jobs\Bank\AutoMatchReconciliationJob;
 use App\Jobs\Bank\FetchBookGlLinesJob;
 use App\Jobs\Bank\ParseBankStatementJob;
+use App\Models\Accounting\Account;
 use App\Models\Bank\BankAccount;
 use App\Models\Bank\BankBookLine;
 use App\Models\Bank\BankReconciliation;
@@ -17,11 +20,14 @@ use App\Models\Bank\BankStatementLine;
 use App\Models\Bank\ReconciliationMatchGroup;
 use App\Services\Bank\BankReconciliationService;
 use App\Services\Bank\KoranDashboardService;
+use App\Services\Bank\ReconciliationAdjustmentService;
 use App\Services\Bank\ReconciliationBalanceService;
 use App\Services\Bank\ReconciliationMatchingService;
+use App\Services\Bank\ReconciliationSnapshotIntegrityService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Yajra\DataTables\Facades\DataTables;
 
 class BankReconciliationController extends Controller
@@ -31,16 +37,21 @@ class BankReconciliationController extends Controller
         private ReconciliationMatchingService $matchingService,
         private ReconciliationBalanceService $balanceService,
         private KoranDashboardService $koranDashboardService,
+        private ReconciliationAdjustmentService $adjustmentService,
+        private ReconciliationSnapshotIntegrityService $snapshotIntegrityService,
     ) {
         $this->middleware(['auth']);
         $this->middleware('permission:bank_reconciliation.view')->only([
             'index', 'sessions', 'show', 'data', 'status', 'report', 'koranCell', 'statementPdf',
+            'exportCsv', 'suggestions',
         ]);
         $this->middleware('permission:bank_reconciliation.import')->only(['create', 'store']);
         $this->middleware('permission:bank_reconciliation.reconcile')->only([
             'parse', 'fetchBook', 'autoMatch', 'match', 'unmatch',
             'storeLine', 'updateLine', 'destroyLine',
             'excludeBankLine', 'excludeBookLine',
+            'outstandingBankLine', 'outstandingBookLine',
+            'postAdjustment', 'updateBalances',
         ]);
         $this->middleware('permission:bank_reconciliation.finalize')->only(['finalize']);
     }
@@ -135,11 +146,33 @@ class BankReconciliationController extends Controller
             'bookLines' => fn ($q) => $q->orderBy('posting_date')->orderBy('id'),
             'matchGroups.bankLines',
             'matchGroups.bookLines',
+            'matchAudits.performedBy',
         ]);
 
         $balance = $this->balanceService->statusPayload($bankReconciliation);
+        $staleLines = $this->snapshotIntegrityService->staleLines($bankReconciliation);
+        $counterAccounts = Account::query()
+            ->where('is_postable', true)
+            ->where(function ($q) {
+                $q->where('code', 'like', '4.%')
+                    ->orWhere('code', 'like', '6.%')
+                    ->orWhere('code', 'like', '7.%');
+            })
+            ->orderBy('code')
+            ->get(['id', 'code', 'name']);
 
-        return view('bank-reconciliation.show', compact('bankReconciliation', 'balance'));
+        $suggestions = [];
+        foreach ($bankReconciliation->bankLines->where('match_status', BankStatementLine::MATCH_UNMATCHED) as $bankLine) {
+            $suggestions[$bankLine->id] = $this->matchingService->suggestMatches($bankReconciliation, $bankLine, 3);
+        }
+
+        return view('bank-reconciliation.show', compact(
+            'bankReconciliation',
+            'balance',
+            'staleLines',
+            'counterAccounts',
+            'suggestions',
+        ));
     }
 
     public function status(BankReconciliation $bankReconciliation)
@@ -159,12 +192,85 @@ class BankReconciliationController extends Controller
             'bookLines',
             'matchGroups.bankLines',
             'matchGroups.bookLines',
+            'matchAudits.performedBy',
             'finalizedBy',
         ]);
 
         $balance = $this->balanceService->statusPayload($bankReconciliation);
+        $outstandingItems = collect();
+        foreach ($bankReconciliation->bookLines->where('match_status', BankBookLine::MATCH_OUTSTANDING) as $line) {
+            $outstandingItems->push((object) [
+                'side' => 'BOOK',
+                'posting_date' => $line->posting_date ?? $line->doc_date,
+                'description' => $line->description,
+                'debit' => $line->debit,
+                'credit' => $line->credit,
+                'line_notes' => $line->line_notes,
+            ]);
+        }
+        foreach ($bankReconciliation->bankLines->where('match_status', BankStatementLine::MATCH_OUTSTANDING) as $line) {
+            $outstandingItems->push((object) [
+                'side' => 'BANK',
+                'posting_date' => $line->posting_date,
+                'description' => $line->description,
+                'debit' => $line->debit,
+                'credit' => $line->credit,
+                'line_notes' => $line->line_notes,
+            ]);
+        }
 
-        return view('bank-reconciliation.report', compact('bankReconciliation', 'balance'));
+        return view('bank-reconciliation.report', compact(
+            'bankReconciliation',
+            'balance',
+            'outstandingItems',
+        ));
+    }
+
+    public function exportCsv(BankReconciliation $bankReconciliation): StreamedResponse
+    {
+        $bankReconciliation->load(['bankAccount', 'bankLines', 'bookLines', 'matchGroups']);
+        $balance = $this->balanceService->statusPayload($bankReconciliation);
+        $filename = 'bank-reconciliation-'.$bankReconciliation->id.'-'.$bankReconciliation->periode->format('Y-m').'.csv';
+
+        return response()->streamDownload(function () use ($bankReconciliation, $balance) {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, ['Bank Reconciliation Export']);
+            fputcsv($out, ['Account', $bankReconciliation->bankAccount?->name]);
+            fputcsv($out, ['Period', $bankReconciliation->periode?->format('Y-m')]);
+            fputcsv($out, ['Statement Closing', $balance['statement_closing']]);
+            fputcsv($out, ['Book Closing', $balance['book_closing']]);
+            fputcsv($out, ['Deposits in Transit', $balance['deposits_in_transit']]);
+            fputcsv($out, ['Outstanding Checks', $balance['outstanding_checks']]);
+            fputcsv($out, ['Adjusted Statement', $balance['adjusted_statement_balance']]);
+            fputcsv($out, ['Difference', $balance['reconciliation_difference']]);
+            fputcsv($out, []);
+            fputcsv($out, ['Side', 'Date', 'Description', 'Reference', 'Debit', 'Credit', 'Status', 'Carried Forward']);
+            foreach ($bankReconciliation->bankLines as $line) {
+                fputcsv($out, [
+                    'BANK',
+                    $line->posting_date?->format('Y-m-d'),
+                    $line->description,
+                    $line->reference_no,
+                    $line->debit,
+                    $line->credit,
+                    $line->match_status,
+                    $line->is_carried_forward ? 'yes' : 'no',
+                ]);
+            }
+            foreach ($bankReconciliation->bookLines as $line) {
+                fputcsv($out, [
+                    'BOOK',
+                    ($line->posting_date ?? $line->doc_date)?->format('Y-m-d'),
+                    $line->description,
+                    $line->ref_doc_num,
+                    $line->debit,
+                    $line->credit,
+                    $line->match_status,
+                    $line->is_carried_forward ? 'yes' : 'no',
+                ]);
+            }
+            fclose($out);
+        }, $filename, ['Content-Type' => 'text/csv']);
     }
 
     public function statementPdf(BankReconciliation $bankReconciliation): Response
@@ -319,6 +425,90 @@ class BankReconciliationController extends Controller
         }
 
         return back()->with('success', 'Book line updated.');
+    }
+
+    public function outstandingBankLine(
+        MarkOutstandingReconciliationLineRequest $request,
+        BankReconciliation $bankReconciliation,
+        BankStatementLine $line,
+    ) {
+        try {
+            $this->reconciliationService->setBankLineOutstanding(
+                $bankReconciliation,
+                $line,
+                (bool) $request->validated('outstanding'),
+                $request->validated('reason'),
+            );
+        } catch (\RuntimeException $e) {
+            return back()->withErrors(['error' => $e->getMessage()]);
+        }
+
+        return back()->with('success', 'Bank line outstanding status updated.');
+    }
+
+    public function outstandingBookLine(
+        MarkOutstandingReconciliationLineRequest $request,
+        BankReconciliation $bankReconciliation,
+        BankBookLine $bookLine,
+    ) {
+        try {
+            $this->reconciliationService->setBookLineOutstanding(
+                $bankReconciliation,
+                $bookLine,
+                (bool) $request->validated('outstanding'),
+                $request->validated('reason'),
+            );
+        } catch (\RuntimeException $e) {
+            return back()->withErrors(['error' => $e->getMessage()]);
+        }
+
+        return back()->with('success', 'Book line outstanding status updated.');
+    }
+
+    public function postAdjustment(
+        PostBankReconciliationAdjustmentRequest $request,
+        BankReconciliation $bankReconciliation,
+        BankStatementLine $line,
+    ) {
+        try {
+            $journalId = $this->adjustmentService->postFromBankLine(
+                $bankReconciliation,
+                $line,
+                (int) $request->validated('counter_account_id'),
+                $request->validated('memo'),
+            );
+        } catch (\RuntimeException $e) {
+            return back()->withErrors(['error' => $e->getMessage()]);
+        }
+
+        return back()->with('success', "Adjusting journal #{$journalId} posted and matched.");
+    }
+
+    public function updateBalances(Request $request, BankReconciliation $bankReconciliation)
+    {
+        $data = $request->validate([
+            'opening_balance_bank' => ['required', 'numeric'],
+            'closing_balance_bank' => ['required', 'numeric'],
+        ]);
+
+        try {
+            $this->reconciliationService->updateStatementBalances(
+                $bankReconciliation,
+                (float) $data['opening_balance_bank'],
+                (float) $data['closing_balance_bank'],
+            );
+        } catch (\RuntimeException $e) {
+            return back()->withErrors(['error' => $e->getMessage()]);
+        }
+
+        return back()->with('success', 'Statement balances updated.');
+    }
+
+    public function suggestions(BankReconciliation $bankReconciliation, BankStatementLine $line)
+    {
+        return response()->json([
+            'suggestions' => $this->matchingService->suggestMatches($bankReconciliation, $line),
+        ]);
     }
 
     public function finalize(BankReconciliation $bankReconciliation)

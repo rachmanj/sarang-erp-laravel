@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Reports;
 use App\Http\Controllers\Controller;
 use App\Services\Reports\AssetReportService;
 use Illuminate\Http\Request;
-use Carbon\Carbon;
 
 class AssetReportsController extends Controller
 {
@@ -13,12 +12,9 @@ class AssetReportsController extends Controller
         private AssetReportService $assetReportService
     ) {}
 
-    /**
-     * Display asset reports index
-     */
     public function index()
     {
-        if (!auth()->user()->can('assets.view')) {
+        if (! auth()->user()->can('assets.view')) {
             abort(403, 'Unauthorized action.');
         }
 
@@ -27,12 +23,9 @@ class AssetReportsController extends Controller
         return view('reports.assets.index', compact('filterOptions'));
     }
 
-    /**
-     * Asset Register Report
-     */
     public function assetRegister(Request $request)
     {
-        if (!auth()->user()->can('assets.view')) {
+        if (! auth()->user()->can('assets.view')) {
             abort(403, 'Unauthorized action.');
         }
 
@@ -42,30 +35,34 @@ class AssetReportsController extends Controller
             'department_id',
             'status',
             'date_from',
-            'date_to'
+            'date_to',
         ]);
-
-        $assets = $this->assetReportService->getAssetRegister($filters);
-        $filterOptions = $this->assetReportService->getFilterOptions();
 
         if ($request->has('export')) {
             $exportType = $request->get('export', 'csv');
             if ($exportType === 'excel') {
                 return $this->assetReportService->exportAssetRegisterToExcel($filters);
-            } else {
-                return $this->assetReportService->exportToCsv($assets, 'asset_register_' . date('Y-m-d') . '.csv');
             }
+
+            $assets = $this->assetReportService->getAssetRegister($filters);
+
+            return $this->assetReportService->exportToCsv(
+                $assets,
+                'asset_register_'.date('Y-m-d').'.csv',
+                $this->assetReportService->csvColumnsFor('asset_register')
+            );
         }
 
-        return view('reports.assets.asset-register', compact('assets', 'filterOptions', 'filters'));
+        $assets = $this->assetReportService->getAssetRegister($filters, true);
+        $totals = $this->assetReportService->getAssetRegisterTotals($filters);
+        $filterOptions = $this->assetReportService->getFilterOptions();
+
+        return view('reports.assets.asset-register', compact('assets', 'totals', 'filterOptions', 'filters'));
     }
 
-    /**
-     * Depreciation Schedule Report
-     */
     public function depreciationSchedule(Request $request)
     {
-        if (!auth()->user()->can('assets.view')) {
+        if (! auth()->user()->can('assets.view')) {
             abort(403, 'Unauthorized action.');
         }
 
@@ -74,30 +71,34 @@ class AssetReportsController extends Controller
             'category_id',
             'period_from',
             'period_to',
-            'status'
+            'status',
         ]);
-
-        $entries = $this->assetReportService->getDepreciationSchedule($filters);
-        $filterOptions = $this->assetReportService->getFilterOptions();
 
         if ($request->has('export')) {
             $exportType = $request->get('export', 'csv');
             if ($exportType === 'excel') {
                 return $this->assetReportService->exportDepreciationScheduleToExcel($filters);
-            } else {
-                return $this->assetReportService->exportToCsv($entries, 'depreciation_schedule_' . date('Y-m-d') . '.csv');
             }
+
+            $entries = $this->assetReportService->getDepreciationSchedule($filters);
+
+            return $this->assetReportService->exportToCsv(
+                $entries,
+                'depreciation_schedule_'.date('Y-m-d').'.csv',
+                $this->assetReportService->csvColumnsFor('depreciation_schedule')
+            );
         }
 
-        return view('reports.assets.depreciation-schedule', compact('entries', 'filterOptions', 'filters'));
+        $entries = $this->assetReportService->getDepreciationSchedule($filters, true);
+        $totals = $this->assetReportService->getDepreciationScheduleTotals($filters);
+        $filterOptions = $this->assetReportService->getFilterOptions();
+
+        return view('reports.assets.depreciation-schedule', compact('entries', 'totals', 'filterOptions', 'filters'));
     }
 
-    /**
-     * Disposal Summary Report
-     */
     public function disposalSummary(Request $request)
     {
-        if (!auth()->user()->can('assets.disposal.view')) {
+        if (! auth()->user()->can('assets.disposal.view')) {
             abort(403, 'Unauthorized action.');
         }
 
@@ -106,30 +107,34 @@ class AssetReportsController extends Controller
             'status',
             'date_from',
             'date_to',
-            'category_id'
+            'category_id',
         ]);
-
-        $disposals = $this->assetReportService->getDisposalSummary($filters);
-        $filterOptions = $this->assetReportService->getFilterOptions();
 
         if ($request->has('export')) {
             $exportType = $request->get('export', 'csv');
             if ($exportType === 'excel') {
                 return $this->assetReportService->exportDisposalSummaryToExcel($filters);
-            } else {
-                return $this->assetReportService->exportToCsv($disposals, 'disposal_summary_' . date('Y-m-d') . '.csv');
             }
+
+            $disposals = $this->assetReportService->getDisposalSummary($filters);
+
+            return $this->assetReportService->exportToCsv(
+                $disposals,
+                'disposal_summary_'.date('Y-m-d').'.csv',
+                $this->assetReportService->csvColumnsFor('disposal_summary')
+            );
         }
 
-        return view('reports.assets.disposal-summary', compact('disposals', 'filterOptions', 'filters'));
+        $disposals = $this->assetReportService->getDisposalSummary($filters, true);
+        $totals = $this->assetReportService->getDisposalSummaryTotals($filters);
+        $filterOptions = $this->assetReportService->getFilterOptions();
+
+        return view('reports.assets.disposal-summary', compact('disposals', 'totals', 'filterOptions', 'filters'));
     }
 
-    /**
-     * Movement Log Report
-     */
     public function movementLog(Request $request)
     {
-        if (!auth()->user()->can('assets.movement.view')) {
+        if (! auth()->user()->can('assets.movement.view')) {
             abort(403, 'Unauthorized action.');
         }
 
@@ -138,30 +143,33 @@ class AssetReportsController extends Controller
             'status',
             'date_from',
             'date_to',
-            'asset_id'
+            'asset_id',
         ]);
-
-        $movements = $this->assetReportService->getMovementLog($filters);
-        $filterOptions = $this->assetReportService->getFilterOptions();
 
         if ($request->has('export')) {
             $exportType = $request->get('export', 'csv');
             if ($exportType === 'excel') {
                 return $this->assetReportService->exportMovementLogToExcel($filters);
-            } else {
-                return $this->assetReportService->exportToCsv($movements, 'movement_log_' . date('Y-m-d') . '.csv');
             }
+
+            $movements = $this->assetReportService->getMovementLog($filters);
+
+            return $this->assetReportService->exportToCsv(
+                $movements,
+                'movement_log_'.date('Y-m-d').'.csv',
+                $this->assetReportService->csvColumnsFor('movement_log')
+            );
         }
+
+        $movements = $this->assetReportService->getMovementLog($filters, true);
+        $filterOptions = $this->assetReportService->getFilterOptions();
 
         return view('reports.assets.movement-log', compact('movements', 'filterOptions', 'filters'));
     }
 
-    /**
-     * Asset Summary Dashboard
-     */
     public function summary()
     {
-        if (!auth()->user()->can('assets.view')) {
+        if (! auth()->user()->can('assets.view')) {
             abort(403, 'Unauthorized action.');
         }
 
@@ -170,71 +178,108 @@ class AssetReportsController extends Controller
         return view('reports.assets.summary', compact('summary'));
     }
 
-    /**
-     * Asset Aging Report
-     */
     public function assetAging(Request $request)
     {
-        if (!auth()->user()->can('assets.view')) {
+        if (! auth()->user()->can('assets.view')) {
             abort(403, 'Unauthorized action.');
         }
 
-        $assets = $this->assetReportService->getAssetAging();
+        $filters = $request->only(['category_id']);
 
         if ($request->has('export')) {
-            return $this->assetReportService->exportToCsv($assets, 'asset_aging_' . date('Y-m-d') . '.csv');
+            $exportType = $request->get('export', 'csv');
+            if ($exportType === 'excel') {
+                return $this->assetReportService->exportAssetAgingToExcel($filters);
+            }
+
+            $assets = $this->assetReportService->getAssetAging($filters);
+
+            return $this->assetReportService->exportToCsv(
+                $assets,
+                'asset_aging_'.date('Y-m-d').'.csv',
+                $this->assetReportService->csvColumnsFor('asset_aging')
+            );
         }
 
-        return view('reports.assets.asset-aging', compact('assets'));
+        $assets = $this->assetReportService->getAssetAging($filters, true);
+        $filterOptions = $this->assetReportService->getFilterOptions();
+
+        return view('reports.assets.asset-aging', compact('assets', 'filterOptions', 'filters'));
     }
 
-    /**
-     * Low Value Assets Report
-     */
     public function lowValueAssets(Request $request)
     {
-        if (!auth()->user()->can('assets.view')) {
+        if (! auth()->user()->can('assets.view')) {
             abort(403, 'Unauthorized action.');
         }
 
-        $threshold = $request->get('threshold', 1000000);
-        $assets = $this->assetReportService->getLowValueAssets($threshold);
+        $threshold = (float) $request->get('threshold', 1000000);
 
         if ($request->has('export')) {
-            return $this->assetReportService->exportToCsv($assets, 'low_value_assets_' . date('Y-m-d') . '.csv');
+            $exportType = $request->get('export', 'csv');
+            if ($exportType === 'excel') {
+                return $this->assetReportService->exportLowValueAssetsToExcel($threshold);
+            }
+
+            $assets = $this->assetReportService->getLowValueAssets($threshold);
+
+            return $this->assetReportService->exportToCsv(
+                $assets,
+                'low_value_assets_'.date('Y-m-d').'.csv',
+                $this->assetReportService->csvColumnsFor('low_value_assets')
+            );
         }
+
+        $assets = $this->assetReportService->getLowValueAssets($threshold, true);
 
         return view('reports.assets.low-value-assets', compact('assets', 'threshold'));
     }
 
-    /**
-     * Depreciation Run History
-     */
     public function depreciationRunHistory(Request $request)
     {
-        if (!auth()->user()->can('assets.depreciation.run')) {
+        if (! auth()->user()->can('assets.depreciation.run')) {
             abort(403, 'Unauthorized action.');
         }
 
         $filters = $request->only(['status', 'period_from', 'period_to']);
-        $runs = $this->assetReportService->getDepreciationRunHistory($filters);
 
         if ($request->has('export')) {
-            return $this->assetReportService->exportToCsv($runs, 'depreciation_run_history_' . date('Y-m-d') . '.csv');
+            $exportType = $request->get('export', 'csv');
+            if ($exportType === 'excel') {
+                return $this->assetReportService->exportDepreciationRunHistoryToExcel($filters);
+            }
+
+            $runs = $this->assetReportService->getDepreciationRunHistory($filters);
+
+            return $this->assetReportService->exportToCsv(
+                $runs,
+                'depreciation_run_history_'.date('Y-m-d').'.csv',
+                $this->assetReportService->csvColumnsFor('depreciation_run_history')
+            );
         }
+
+        $runs = $this->assetReportService->getDepreciationRunHistory($filters, true);
 
         return view('reports.assets.depreciation-run-history', compact('runs', 'filters'));
     }
 
-    /**
-     * Get report data for AJAX requests
-     */
     public function getReportData(Request $request)
     {
+        if (! auth()->user()->can('assets.view')) {
+            abort(403, 'Unauthorized action.');
+        }
+
         $reportType = $request->get('report_type');
         $filters = $request->except(['report_type', '_token']);
 
         switch ($reportType) {
+            case 'asset_summary':
+                $data = $this->assetReportService->getAssetSummary();
+
+                return response()->json([
+                    'data' => $data,
+                    'generated_at' => now()->format('Y-m-d H:i:s'),
+                ]);
             case 'asset_register':
                 $data = $this->assetReportService->getAssetRegister($filters);
                 break;
@@ -248,10 +293,10 @@ class AssetReportsController extends Controller
                 $data = $this->assetReportService->getMovementLog($filters);
                 break;
             case 'asset_aging':
-                $data = $this->assetReportService->getAssetAging();
+                $data = $this->assetReportService->getAssetAging($filters);
                 break;
             case 'low_value_assets':
-                $threshold = $filters['threshold'] ?? 1000000;
+                $threshold = (float) ($filters['threshold'] ?? 1000000);
                 $data = $this->assetReportService->getLowValueAssets($threshold);
                 break;
             case 'depreciation_run_history':
@@ -264,7 +309,7 @@ class AssetReportsController extends Controller
         return response()->json([
             'data' => $data,
             'count' => $data->count(),
-            'generated_at' => now()->format('Y-m-d H:i:s')
+            'generated_at' => now()->format('Y-m-d H:i:s'),
         ]);
     }
 }

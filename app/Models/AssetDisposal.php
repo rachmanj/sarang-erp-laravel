@@ -3,12 +3,14 @@
 namespace App\Models;
 
 use App\Models\Accounting\Journal;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Carbon\Carbon;
 
 class AssetDisposal extends Model
 {
+    use HasFactory;
+
     protected $fillable = [
         'disposal_no',
         'asset_id',
@@ -108,12 +110,12 @@ class AssetDisposal extends Model
 
     public function canBePosted(): bool
     {
-        return $this->status === 'draft' && !is_null($this->gain_loss_amount);
+        return $this->status === 'draft' && ! is_null($this->gain_loss_amount);
     }
 
     public function canBeReversed(): bool
     {
-        return $this->status === 'posted' && !is_null($this->journal_id);
+        return $this->status === 'posted' && ! is_null($this->journal_id);
     }
 
     public function getStatusBadgeAttribute(): string
@@ -162,17 +164,17 @@ class AssetDisposal extends Model
         if ($difference > 0) {
             return [
                 'amount' => $difference,
-                'type' => 'gain'
+                'type' => 'gain',
             ];
         } elseif ($difference < 0) {
             return [
                 'amount' => abs($difference),
-                'type' => 'loss'
+                'type' => 'loss',
             ];
         } else {
             return [
                 'amount' => 0,
-                'type' => 'neutral'
+                'type' => 'neutral',
             ];
         }
     }

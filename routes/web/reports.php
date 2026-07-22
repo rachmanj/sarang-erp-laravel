@@ -35,16 +35,22 @@ Route::prefix('reports')->group(function () {
     });
 
     // Asset Reports
-    Route::prefix('assets')->group(function () {
+    Route::prefix('assets')->middleware(['permission:assets.view'])->group(function () {
         Route::get('/', [AssetReportsController::class, 'index'])->name('reports.assets.index');
         Route::get('/register', [AssetReportsController::class, 'assetRegister'])->name('reports.assets.register');
         Route::get('/depreciation-schedule', [AssetReportsController::class, 'depreciationSchedule'])->name('reports.assets.depreciation-schedule');
-        Route::get('/disposal-summary', [AssetReportsController::class, 'disposalSummary'])->name('reports.assets.disposal-summary');
-        Route::get('/movement-log', [AssetReportsController::class, 'movementLog'])->name('reports.assets.movement-log');
+        Route::get('/disposal-summary', [AssetReportsController::class, 'disposalSummary'])
+            ->middleware('permission:assets.disposal.view')
+            ->name('reports.assets.disposal-summary');
+        Route::get('/movement-log', [AssetReportsController::class, 'movementLog'])
+            ->middleware('permission:assets.movement.view')
+            ->name('reports.assets.movement-log');
         Route::get('/summary', [AssetReportsController::class, 'summary'])->name('reports.assets.summary');
         Route::get('/aging', [AssetReportsController::class, 'assetAging'])->name('reports.assets.aging');
         Route::get('/low-value', [AssetReportsController::class, 'lowValueAssets'])->name('reports.assets.low-value');
-        Route::get('/depreciation-history', [AssetReportsController::class, 'depreciationRunHistory'])->name('reports.assets.depreciation-history');
+        Route::get('/depreciation-history', [AssetReportsController::class, 'depreciationRunHistory'])
+            ->middleware('permission:assets.depreciation.run')
+            ->name('reports.assets.depreciation-history');
         Route::post('/data', [AssetReportsController::class, 'getReportData'])->name('reports.assets.data');
     });
 });

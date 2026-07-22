@@ -16,6 +16,8 @@ class BankStatementLine extends Model
 
     public const MATCH_EXCLUDED = 'excluded';
 
+    public const MATCH_OUTSTANDING = 'outstanding';
+
     protected $fillable = [
         'bank_reconciliation_id',
         'bank_statement_id',
@@ -36,6 +38,10 @@ class BankStatementLine extends Model
         'ai_confidence',
         'line_hash',
         'ai_meta',
+        'adjusting_journal_id',
+        'is_carried_forward',
+        'carried_from_bank_line_id',
+        'origin_reconciliation_id',
     ];
 
     protected function casts(): array
@@ -49,6 +55,7 @@ class BankStatementLine extends Model
             'running_balance' => 'decimal:2',
             'is_ai_extracted' => 'boolean',
             'ai_meta' => 'array',
+            'is_carried_forward' => 'boolean',
         ];
     }
 
@@ -67,6 +74,16 @@ class BankStatementLine extends Model
         return $this->hasOne(MatchGroupBankLine::class);
     }
 
+    public function carriedFrom(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'carried_from_bank_line_id');
+    }
+
+    public function originReconciliation(): BelongsTo
+    {
+        return $this->belongsTo(BankReconciliation::class, 'origin_reconciliation_id');
+    }
+
     public function netAmount(): float
     {
         return round((float) $this->debit - (float) $this->credit, 2);
@@ -80,5 +97,10 @@ class BankStatementLine extends Model
     public function isAvailableForMatching(): bool
     {
         return $this->match_status === self::MATCH_UNMATCHED;
+    }
+
+    public function canMarkOutstanding(): bool
+    {
+        return in_array($this->match_status, [self::MATCH_UNMATCHED, self::MATCH_OUTSTANDING], true);
     }
 }

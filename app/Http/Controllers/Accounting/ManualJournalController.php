@@ -3,10 +3,13 @@
 namespace App\Http\Controllers\Accounting;
 
 use App\Http\Controllers\Controller;
+use App\Models\Accounting\Journal;
+use App\Services\Accounting\JournalSourceUrlResolver;
 use App\Services\Accounting\PostingService;
 use App\Services\CurrencyService;
 use App\Services\ExchangeRateService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\Facades\DataTables;
 
@@ -29,6 +32,7 @@ class ManualJournalController extends Controller
         $projects = DB::table('projects')->orderBy('code')->get(['id', 'code', 'name']);
         $departments = DB::table('departments')->orderBy('code')->get(['id', 'code', 'name']);
         $currencies = $this->currencyService->getActiveCurrencies();
+
         return view('journals.manual.create', compact('accounts', 'projects', 'departments', 'currencies'));
     }
 
@@ -55,6 +59,7 @@ class ManualJournalController extends Controller
             if (empty($line['currency_id'])) {
                 unset($line['debit_foreign'], $line['credit_foreign'], $line['exchange_rate']);
             }
+
             return $line;
         })->all();
 
@@ -79,7 +84,7 @@ class ManualJournalController extends Controller
 
         try {
             $baseCurrency = $this->currencyService->getBaseCurrency();
-            if (!$baseCurrency) {
+            if (! $baseCurrency) {
                 return response()->json(['error' => 'Base currency not found'], 400);
             }
 
@@ -89,13 +94,13 @@ class ManualJournalController extends Controller
 
             $exchangeRate = $this->exchangeRateService->getRate($currencyId, $baseCurrency->id, $date);
 
-            if (!$exchangeRate) {
+            if (! $exchangeRate) {
                 return response()->json(['error' => 'Exchange rate not found for the selected currency and date'], 400);
             }
 
             return response()->json(['rate' => $exchangeRate->rate]);
         } catch (\Exception $e) {
-            return response()->json(['error' => 'Error retrieving exchange rate: ' . $e->getMessage()], 500);
+            return response()->json(['error' => 'Error retrieving exchange rate: '.$e->getMessage()], 500);
         }
     }
 
@@ -109,6 +114,7 @@ class ManualJournalController extends Controller
             ->orderByDesc('j.id')
             ->limit(200)
             ->get();
+
         return view('journals.index', compact('journals'));
     }
 
@@ -116,7 +122,43 @@ class ManualJournalController extends Controller
     {
         $this->authorize('journals.reverse');
         $this->service->reverseJournal($journal, now()->toDateString(), $request->user()->id);
+
         return back()->with('success', "Journal #{$journal} reversed");
+    }
+
+    public function show(Journal $journal, JournalSourceUrlResolver $sourceUrlResolver)
+    {
+        $journal->load([
+            'lines.account',
+            'lines.project',
+            'lines.dept',
+            'lines.currency',
+            'postedBy',
+        ]);
+
+        $totalDebit = $journal->lines->sum('debit');
+        $totalCredit = $journal->lines->sum('credit');
+        $hasForeignCurrency = $journal->lines->contains(fn ($line) => $line->currency_id !== null);
+
+        $sourceUrl = $sourceUrlResolver->resolve(
+            $journal->source_type,
+            $journal->source_id,
+            auth()->user()
+        );
+        $sourceLabel = $sourceUrlResolver->label(
+            $journal->source_type,
+            $journal->source_id,
+            $journal->journal_no
+        );
+
+        return view('journals.show', [
+            'journal' => $journal,
+            'totalDebit' => $totalDebit,
+            'totalCredit' => $totalCredit,
+            'hasForeignCurrency' => $hasForeignCurrency,
+            'sourceUrl' => $sourceUrl,
+            'sourceLabel' => $sourceLabel,
+        ]);
     }
 
     public function data(Request $request)
@@ -133,19 +175,25 @@ class ManualJournalController extends Controller
             $query->whereDate('j.date', '<=', $request->input('to'));
         }
         if ($request->filled('desc')) {
-            $query->where('j.description', 'like', '%' . $request->input('desc') . '%');
+            $query->where('j.description', 'like', '%'.$request->input('desc').'%');
         }
 
         return DataTables::of($query)
+            ->editColumn('date', function ($row) {
+                return Carbon::parse($row->date)->format('d-M-Y');
+            })
             ->editColumn('debit', function ($row) {
-                return number_format((float)$row->debit, 2);
+                return number_format((float) $row->debit, 2);
             })
             ->editColumn('credit', function ($row) {
-                return number_format((float)$row->credit, 2);
+                return number_format((float) $row->credit, 2);
             })
             ->addColumn('actions', function ($row) {
-                $url = route('journals.reverse', $row->id);
-                return '<button type="button" class="btn btn-danger btn-xs reverse-button" data-id="' . $row->id . '" data-url="' . $url . '">Reverse</button>';
+                $viewUrl = route('journals.show', $row->id);
+                $reverseUrl = route('journals.reverse', $row->id);
+
+                return '<a href="'.$viewUrl.'" class="btn btn-info btn-xs mr-1"><i class="fas fa-eye"></i> View</a>'
+                    .'<button type="button" class="btn btn-danger btn-xs reverse-button" data-id="'.$row->id.'" data-url="'.$reverseUrl.'">Reverse</button>';
             })
             ->rawColumns(['actions'])
             ->make(true);

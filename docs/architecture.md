@@ -117,7 +117,7 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 ### 1. Financial Management System
 
 -   **Chart of Accounts**: Hierarchical account structure with 5 types (asset, liability, net_assets, income, expense). **Per-account ledger drill-down (2026-06-24)**: `accounts.show` (`/accounts/{account}`) lists posted journal lines for one account with opening/closing balance summary, date filter, and clickable source-document links (`JournalSourceUrlResolver`); data via `ReportService::getAccountLedger()` (reuses `JournalReportQueryBuilder`). COA index rows link to this page.
--   **Journal Management**: Manual journal entries with entity-aware numbering (code 12) and multi-currency support, entity resolution from source documents
+-   **Journal Management**: Manual journal entries with entity-aware numbering (code 12) and multi-currency support, entity resolution from source documents. **Per-journal detail (2026-07-22)**: `journals.show` (`/journals/{journal}`) displays journal header, all lines (account, memo, project, department, currency), totals, and source-document link via `JournalSourceUrlResolver`; Journals index DataTable includes View action.
 -   **Period Management**: Financial period closing with validation
 -   **Posting Service**: Centralized accounting posting with balance validation and foreign currency handling
 
@@ -393,7 +393,7 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 -   **Trial Balance**: Real-time financial position reporting
 -   **GL Detail**: Detailed general ledger with filtering
 -   **Cash Ledger**: Cash flow tracking and reporting
--   **Asset Reports**: Comprehensive asset reporting suite
+-   **Asset Reports**: Hub at `/reports/assets` (`AssetReportsController` + `AssetReportService`). Sub-reports: register, depreciation schedule (period-linked entries), disposal summary, movement log, summary dashboard, aging, low-value, depreciation run history. Joins use `business_partners` and `placed_in_service_date`; depreciability via category `non_depreciable`. Quick Stats AJAX `POST /reports/assets/data` (`report_type=asset_summary`) requires `assets.view`. List pages paginate with full-set totals; CSV/Excel export parity across reports.
 -   **AR/AP Reports**: Customer and vendor analysis
 -   **Withholding Tax**: Tax reporting and compliance
 -   **Document Creation Logs**: Unified list of core trade documents (PO, GRPO, PI, PP, SO, DO, SI, SR) ordered by **`created_at`**, with filters (date range, document type, supplier/customer). Route: `GET /reports/document-creation-logs` (`reports.document-creation-logs.index`). Permission: **`reports.open-items`** (same as Open Items). Service: `App\Services\DocumentCreationLogsService`; controller: `App\Http\Controllers\Reports\DocumentCreationLogsController`
@@ -559,12 +559,13 @@ The system uses a hierarchical sidebar navigation structure optimized for tradin
 -   `business_partner_details`: Flexible custom field storage for partner-specific data
 -   `tax_codes`: Tax configuration
 -   `bank_accounts`: Operational bank master linked to COA via `account_id` (account number used for PDF auto-detect). Routes: `/bank-accounts`.
--   `bank_statements` / `bank_statement_lines`: Imported statement headers + normalized lines (`debit`/`credit` columns, `line_hash` dedupe, `match_status`, optional `bank_reconciliation_id` for manual lines).
--   `bank_book_lines`: Snapshot of posted `journal_lines` for the reconciliation period (replaces live-only book query).
+-   `bank_statements` / `bank_statement_lines`: Imported statement headers + normalized lines (`debit`/`credit`, `line_hash`, `match_status` including `outstanding`, optional `adjusting_journal_id`, carry-forward fields).
+-   `bank_book_lines`: Snapshot of posted `journal_lines` for the period (FX-aware via `debit_foreign`/`credit_foreign`); supports `outstanding`, carry-forward, and `is_stale` snapshot integrity flags. FK `journal_line_id` → `journal_lines` ON DELETE SET NULL.
 -   `bank_reconciliations`: Session per `bank_account_id` + `periode` (month); `source_mode` `ai`|`manual`; status `processing`|`in_review`|`completed`|`failed`.
--   `reconciliation_match_groups` + `match_group_bank_lines` / `match_group_book_lines`: N:M matching with `bank_total + book_total ≈ 0` balance rule.
+-   `reconciliation_match_groups` + pivots: N:M matching (`auto_exact`|`auto_fuzzy`|`auto_split`|`auto_reference`|`manual`) with group totals netting to zero.
+-   `reconciliation_match_audits`: Match/unmatch/outstanding/adjustment audit trail.
 -   `bank_transactions`: Legacy stub (unused by reconciliation module).
--   **Bank Reconciliation flow**: **Rekening Koran** month grid at `/bank-reconciliation` (bank × month cells) → create session (AI PDF or manual from cell modal) → queue jobs → workbench → finalize when balanced. Session list at `/bank-reconciliation/sessions`. Purge all sessions: `php artisan bank-reconciliation:purge-sessions`. Permissions: `bank_accounts.*`, `bank_reconciliation.*`.
+-   **Bank Reconciliation flow**: **Rekening Koran** grid → AI/manual session → queue jobs → workbench (match / outstanding / exclude / post adjusting journal) → finalize when (1) no unmatched lines, (2) cleared nets ≈ 0, (3) statement cross-foot valid, (4) identity `statement_closing + deposits_in_transit − outstanding_checks ≈ book_closing`. Outstanding items carry into the next month. CSV export + print/PDF report with outstanding schedule. Permissions: `bank_accounts.*`, `bank_reconciliation.*`.
 
 #### Company Entity Tables
 
@@ -698,11 +699,11 @@ The database schema has been consolidated from 51 to 44 migration files for impr
 -   `/reports/open-items/*`: Open Items reporting with comprehensive document status monitoring, aging analysis, and Excel export
 -   `/reports/document-creation-logs`: Document Creation Logs — merged list of PO, GRPO, PI, PP, SO, DO, SI, SR by `created_at` (permission `reports.open-items`)
 -   `/reports/*`: Comprehensive reporting suite (permission `reports.view` unless noted). **Core financial statements** (see `App\Services\Reports\ReportService`, `App\Http\Controllers\Reports\ReportsController`, `routes/web/reports.php`):
-    -   **Trial Balance** & **GL Detail**: Posted journals by default; `include_unposted=1` includes drafts. GL Detail includes **running balance** and account picker. Shared filters via `JournalReportQueryBuilder` (`period_year`/`period_month`, optional `company_entity_id`). Exports: `export=csv`, `export=pdf` (Dompdf views under `resources/views/reports/pdf/`).
-    -   **Balance Sheet**: Asset / liability / `net_assets` only; hierarchical rows from COA `parent_id` with parent **rollup** (child sums). Uses `accounts.report_group` / `normal_balance` where set. JSON includes `totals.unclosed_pnl_cumulative` and `difference_vs_unclosed_pnl` (tie-out to cumulative P&amp;L in TB). UI/PDF corporate header (`entity_name` = `config('app.name')`). **Reference**: `docs/financial-statements-reports.md`.
+    -   **Trial Balance** & **GL Detail**: Posted journals by default; `include_unposted=1` includes drafts. GL Detail includes **running balance** and account picker. Shared filters via `JournalReportQueryBuilder` (`period_year`/`period_month`, optional `company_entity_id`). TB UI also exposes entity/period filters, `entity_name`, and account drill-down to `accounts.show`. Exports: `export=csv`, `export=pdf` (Dompdf views under `resources/views/reports/pdf/`).
+    -   **Balance Sheet**: Asset / liability / `net_assets` only; hierarchical rows from COA `parent_id` with parent **rollup** (child sums). Uses `accounts.report_group` / `normal_balance` where set. JSON includes `totals.unclosed_pnl_cumulative` and `difference_vs_unclosed_pnl` (tie-out to cumulative P&amp;L in TB). Comparative `prior_as_of` (per-row `prior_amount` + `totals.prior`). UI: entity/period filters, Prior/Variance/% columns, leaf drill-down to `accounts.show`. Header `entity_name` resolves from selected `company_entity` (else `config('app.name')`). **Reference**: `docs/financial-statements-reports.md`.
+    -   **Profit & Loss**: Period P&amp;L by `report_group` (fallback COA roots 4/5/6/7); hierarchical rows within each section; comparative `prior_from`/`prior_to` with section `prior_total` + `prior_subtotals`; same entity/period/drill-down UX as BS.
     -   **AR/AP**: Aging and party balances share allocation-netted as-of logic; **Subledger Reconciliation** (`reports.subledger-reconciliation`) compares aging totals to GL control accounts (`control_type` `ar`/`ap`).
     -   **Cash Ledger**: Defaults to first postable account under `config('cash_flow.account_prefixes.cash_and_bank')` (typically `1.1.1.x`).
-    -   **Profit & Loss**: Period P&amp;L by COA buckets (4 revenue, 5 COGS, 6 operating, 7 other); same hierarchy/rollup pattern as BS within each section.
     -   **Cash Flow (indirect)**: Starts from net income + depreciation add-back + working capital deltas from **balance sheet display** balances by **prefix** lists in `config/cash_flow.php` (`tax_payables`, `input_vat_prepaid_assets`, `short_term_borrowings`, `equity_financing_prefixes`, etc.). Financing excludes `3.3` retained earnings by default to avoid double-counting net income. `ReportService::balanceSheetDisplayTotalForPrefixes()` supports reconciliation tests.
 -   `/admin/*`: User and role management (users, roles, permissions, assistant report, approval workflows)
 -   `/admin/customers/{businessPartner}/api-keys`: Create/list/revoke **customer API keys** (customers only; **`business_partners.manage`** plus **`view-admin`**); powers external **`/api/v1/invoices`** clients — see **`docs/customer-invoice-api-reference.md`**

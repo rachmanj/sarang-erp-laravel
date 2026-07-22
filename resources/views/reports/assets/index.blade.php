@@ -10,26 +10,7 @@
 @endsection
 
 @section('content')
-    <div class="content-header">
-        <div class="container-fluid">
-            <div class="row mb-2">
-                <div class="col-sm-6">
-                    <h1 class="m-0">Asset Reports</h1>
-                </div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-right">
-                        <li class="breadcrumb-item"><a href="{{ route('dashboard') }}">Home</a></li>
-                        <li class="breadcrumb-item active">Asset Reports</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <section class="content">
-        <div class="container-fluid">
             <div class="row">
-                <!-- Standard Reports -->
                 <div class="col-md-6">
                     <div class="card">
                         <div class="card-header">
@@ -91,7 +72,6 @@
                     </div>
                 </div>
 
-                <!-- Analytics Reports -->
                 <div class="col-md-6">
                     <div class="card">
                         <div class="card-header">
@@ -154,7 +134,6 @@
                 </div>
             </div>
 
-            <!-- Quick Stats -->
             <div class="row mt-4">
                 <div class="col-12">
                     <div class="card">
@@ -214,16 +193,17 @@
                     </div>
                 </div>
             </div>
-        </div>
-    </section>
 @endsection
 
 @section('scripts')
     <script>
         $(document).ready(function() {
-            // Load quick statistics
             loadQuickStats();
         });
+
+        function formatIdr(value) {
+            return 'Rp ' + Number(value || 0).toLocaleString('id-ID');
+        }
 
         function loadQuickStats() {
             $.ajax({
@@ -234,21 +214,23 @@
                     _token: '{{ csrf_token() }}'
                 },
                 success: function(response) {
-                    if (response.data) {
-                        const summary = response.data;
-
-                        // Update statistics
-                        $('#total-assets').text(summary.by_status.reduce((sum, item) => sum + item.count, 0));
-                        $('#total-value').text('Rp ' + summary.by_status.reduce((sum, item) => sum + parseFloat(
-                            item.total_cost), 0).toLocaleString('id-ID'));
-                        $('#total-depreciation').text('Rp ' + summary.depreciation.total_depreciation
-                            .toLocaleString('id-ID'));
-                        $('#book-value').text('Rp ' + summary.depreciation.total_book_value.toLocaleString(
-                            'id-ID'));
+                    if (!response.data) {
+                        return;
                     }
+
+                    const summary = response.data;
+                    const byStatus = summary.by_status || [];
+                    const totalAssets = byStatus.reduce((sum, item) => sum + Number(item.count || 0), 0);
+                    const totalValue = byStatus.reduce((sum, item) => sum + Number(item.total_cost || 0), 0);
+                    const depreciation = summary.depreciation || {};
+
+                    $('#total-assets').text(totalAssets.toLocaleString('id-ID'));
+                    $('#total-value').text(formatIdr(totalValue));
+                    $('#total-depreciation').text(formatIdr(depreciation.total_depreciation));
+                    $('#book-value').text(formatIdr(depreciation.total_book_value));
                 },
                 error: function() {
-                    console.log('Failed to load quick statistics');
+                    $('#total-assets, #total-value, #total-depreciation, #book-value').text('N/A');
                 }
             });
         }

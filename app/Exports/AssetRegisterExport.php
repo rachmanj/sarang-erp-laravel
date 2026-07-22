@@ -2,69 +2,31 @@
 
 namespace App\Exports;
 
-use App\Models\Asset;
+use App\Services\Reports\AssetReportService;
 use Maatwebsite\Excel\Concerns\FromCollection;
+use Maatwebsite\Excel\Concerns\WithColumnWidths;
+use Maatwebsite\Excel\Concerns\WithEvents;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
 use Maatwebsite\Excel\Concerns\WithStyles;
-use Maatwebsite\Excel\Concerns\WithColumnWidths;
-use Maatwebsite\Excel\Concerns\WithEvents;
 use Maatwebsite\Excel\Events\AfterSheet;
-use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
-class AssetRegisterExport implements FromCollection, WithHeadings, WithMapping, WithStyles, WithColumnWidths, WithEvents
+class AssetRegisterExport implements FromCollection, WithColumnWidths, WithEvents, WithHeadings, WithMapping, WithStyles
 {
-    protected $filters;
+    protected array $filters;
 
-    public function __construct($filters = [])
+    public function __construct(array $filters = [])
     {
         $this->filters = $filters;
     }
 
     public function collection()
     {
-        $query = Asset::with(['category', 'project', 'department', 'vendor'])
-            ->select([
-                'assets.*',
-                'asset_categories.name as category_name',
-                'projects.name as project_name',
-                'departments.name as department_name',
-                'vendors.name as vendor_name'
-            ])
-            ->join('asset_categories', 'assets.category_id', '=', 'asset_categories.id')
-            ->leftJoin('projects', 'assets.project_id', '=', 'projects.id')
-            ->leftJoin('departments', 'assets.department_id', '=', 'departments.id')
-            ->leftJoin('vendors', 'assets.vendor_id', '=', 'vendors.id');
-
-        // Apply filters
-        if (isset($this->filters['category_id']) && $this->filters['category_id']) {
-            $query->where('assets.category_id', $this->filters['category_id']);
-        }
-
-        if (isset($this->filters['project_id']) && $this->filters['project_id']) {
-            $query->where('assets.project_id', $this->filters['project_id']);
-        }
-
-        if (isset($this->filters['department_id']) && $this->filters['department_id']) {
-            $query->where('assets.department_id', $this->filters['department_id']);
-        }
-
-        if (isset($this->filters['status']) && $this->filters['status']) {
-            $query->where('assets.status', $this->filters['status']);
-        }
-
-        if (isset($this->filters['date_from']) && $this->filters['date_from']) {
-            $query->where('assets.acquisition_date', '>=', $this->filters['date_from']);
-        }
-
-        if (isset($this->filters['date_to']) && $this->filters['date_to']) {
-            $query->where('assets.acquisition_date', '<=', $this->filters['date_to']);
-        }
-
-        return $query->orderBy('assets.code')->get();
+        return app(AssetReportService::class)->getAssetRegister($this->filters);
     }
 
     public function headings(): array
@@ -76,17 +38,14 @@ class AssetRegisterExport implements FromCollection, WithHeadings, WithMapping, 
             'Project',
             'Department',
             'Vendor',
-            'Acquisition Date',
+            'Placed in Service Date',
             'Acquisition Cost',
             'Accumulated Depreciation',
             'Book Value',
             'Status',
-            'Depreciable',
             'Useful Life (Months)',
             'Depreciation Method',
-            'Placed in Service Date',
             'Disposal Date',
-            'Notes'
         ];
     }
 
@@ -99,47 +58,40 @@ class AssetRegisterExport implements FromCollection, WithHeadings, WithMapping, 
             $asset->project_name ?? '',
             $asset->department_name ?? '',
             $asset->vendor_name ?? '',
-            $asset->acquisition_date ? $asset->acquisition_date->format('d/m/Y') : '',
+            $asset->placed_in_service_date ? $asset->placed_in_service_date->format('d/m/Y') : '',
             $asset->acquisition_cost,
             $asset->accumulated_depreciation,
             $asset->current_book_value,
             ucfirst($asset->status),
-            $asset->is_depreciable ? 'Yes' : 'No',
-            $asset->useful_life_months,
-            $asset->depreciation_method ?? 'Straight Line',
-            $asset->placed_in_service_date ? $asset->placed_in_service_date->format('d/m/Y') : '',
+            $asset->life_months,
+            $asset->method ?? 'straight_line',
             $asset->disposal_date ? $asset->disposal_date->format('d/m/Y') : '',
-            $asset->notes ?? ''
         ];
     }
 
     public function columnWidths(): array
     {
         return [
-            'A' => 15, // Asset Code
-            'B' => 30, // Asset Name
-            'C' => 20, // Category
-            'D' => 20, // Project
-            'E' => 20, // Department
-            'F' => 25, // Vendor
-            'G' => 15, // Acquisition Date
-            'H' => 18, // Acquisition Cost
-            'I' => 22, // Accumulated Depreciation
-            'J' => 15, // Book Value
-            'K' => 12, // Status
-            'L' => 12, // Depreciable
-            'M' => 18, // Useful Life
-            'N' => 20, // Depreciation Method
-            'O' => 20, // Placed in Service Date
-            'P' => 15, // Disposal Date
-            'Q' => 30, // Notes
+            'A' => 15,
+            'B' => 30,
+            'C' => 20,
+            'D' => 20,
+            'E' => 20,
+            'F' => 25,
+            'G' => 20,
+            'H' => 18,
+            'I' => 22,
+            'J' => 15,
+            'K' => 12,
+            'L' => 18,
+            'M' => 20,
+            'N' => 15,
         ];
     }
 
     public function styles(Worksheet $sheet)
     {
         return [
-            // Style the header row
             1 => [
                 'font' => [
                     'bold' => true,
@@ -167,18 +119,15 @@ class AssetRegisterExport implements FromCollection, WithHeadings, WithMapping, 
         return [
             AfterSheet::class => function (AfterSheet $event) {
                 $sheet = $event->sheet->getDelegate();
-
-                // Add totals row
                 $lastRow = $sheet->getHighestRow();
                 $totalsRow = $lastRow + 2;
 
-                $sheet->setCellValue('A' . $totalsRow, 'TOTAL:');
-                $sheet->setCellValue('H' . $totalsRow, '=SUM(H2:H' . $lastRow . ')');
-                $sheet->setCellValue('I' . $totalsRow, '=SUM(I2:I' . $lastRow . ')');
-                $sheet->setCellValue('J' . $totalsRow, '=SUM(J2:J' . $lastRow . ')');
+                $sheet->setCellValue('A'.$totalsRow, 'TOTAL:');
+                $sheet->setCellValue('H'.$totalsRow, '=SUM(H2:H'.$lastRow.')');
+                $sheet->setCellValue('I'.$totalsRow, '=SUM(I2:I'.$lastRow.')');
+                $sheet->setCellValue('J'.$totalsRow, '=SUM(J2:J'.$lastRow.')');
 
-                // Style totals row
-                $sheet->getStyle('A' . $totalsRow . ':Q' . $totalsRow)->applyFromArray([
+                $sheet->getStyle('A'.$totalsRow.':N'.$totalsRow)->applyFromArray([
                     'font' => ['bold' => true],
                     'fill' => [
                         'fillType' => Fill::FILL_SOLID,
@@ -191,14 +140,8 @@ class AssetRegisterExport implements FromCollection, WithHeadings, WithMapping, 
                     ],
                 ]);
 
-                // Format currency columns
-                $sheet->getStyle('H2:J' . $lastRow)->getNumberFormat()->setFormatCode('#,##0');
-                $sheet->getStyle('H' . $totalsRow . ':J' . $totalsRow)->getNumberFormat()->setFormatCode('#,##0');
-
-                // Auto-fit columns
-                foreach (range('A', 'Q') as $column) {
-                    $sheet->getColumnDimension($column)->setAutoSize(false);
-                }
+                $sheet->getStyle('H2:J'.$lastRow)->getNumberFormat()->setFormatCode('#,##0');
+                $sheet->getStyle('H'.$totalsRow.':J'.$totalsRow)->getNumberFormat()->setFormatCode('#,##0');
             },
         ];
     }
