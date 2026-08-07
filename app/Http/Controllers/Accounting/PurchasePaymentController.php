@@ -9,6 +9,7 @@ use App\Models\Accounting\PurchasePayment;
 use App\Models\Accounting\PurchasePaymentLine;
 use App\Models\PurchaseOrder;
 use App\Services\Accounting\JournalBuilders\PurchasePaymentJournalBuilder;
+use App\Services\Accounting\PaymentRoundingService;
 use App\Services\Accounting\PostingService;
 use App\Services\Accounting\PurchaseInvoiceFooterMath;
 use App\Services\CompanyEntityService;
@@ -35,6 +36,7 @@ class PurchasePaymentController extends Controller
         private CompanyEntityService $companyEntityService,
         private DocumentRelationshipService $documentRelationshipService,
         private PurchasePaymentJournalBuilder $purchasePaymentJournalBuilder,
+        private PaymentRoundingService $paymentRoundingService,
     ) {
         $this->middleware(['auth']);
         $this->middleware('permission:ap.payments.view')->only(['index', 'show']);
@@ -87,7 +89,18 @@ class PurchasePaymentController extends Controller
             ];
         }
 
-        return view('purchase_payments.create', compact('vendors', 'accounts', 'entities', 'defaultEntity', 'prefill'));
+        $purchasePaymentRoundingTolerance = $this->paymentRoundingService->purchasePaymentTolerance();
+        $defaultRoundingAccountId = $this->paymentRoundingService->defaultRoundingAccountId();
+
+        return view('purchase_payments.create', compact(
+            'vendors',
+            'accounts',
+            'entities',
+            'defaultEntity',
+            'prefill',
+            'purchasePaymentRoundingTolerance',
+            'defaultRoundingAccountId',
+        ));
     }
 
     private function invoiceEligibleForPayment(PurchaseInvoice $invoice): bool
@@ -131,26 +144,31 @@ class PurchasePaymentController extends Controller
             'allocations' => ['required', 'array', 'min:1'],
             'allocations.*.invoice_id' => ['required', 'integer', 'exists:purchase_invoices,id'],
             'allocations.*.amount' => ['required', 'numeric', 'min:0.01'],
+            'rounding_account_id' => ['nullable', 'integer', 'exists:accounts,id'],
         ]);
 
         $entity = $this->companyEntityService->getEntity($request->input('company_entity_id'));
 
-        return DB::transaction(function () use ($data, $entity) {
-            // Calculate total payment amount
+        return DB::transaction(function () use ($data, $entity, $request) {
             $totalPayment = 0;
             foreach ($data['lines'] as $l) {
                 $totalPayment += (float) $l['amount'];
             }
 
-            // Calculate total allocation amount
             $totalAllocation = 0;
             foreach ($data['allocations'] as $alloc) {
                 $totalAllocation += (float) $alloc['amount'];
             }
 
-            // Validate that payment total matches allocation total
-            if (abs($totalPayment - $totalAllocation) > 0.01) {
-                return back()->withErrors(['lines' => 'Payment total must match allocation total.'])->withInput();
+            $rounding = $this->paymentRoundingService->resolve(
+                $totalPayment,
+                $totalAllocation,
+                $this->paymentRoundingService->purchasePaymentTolerance(),
+                $request->input('rounding_account_id') ? (int) $request->input('rounding_account_id') : null
+            );
+
+            if ($rounding['error']) {
+                return back()->withErrors(['lines' => $rounding['error']])->withInput();
             }
 
             // Validate allocations don't exceed remaining balances
@@ -179,15 +197,21 @@ class PurchasePaymentController extends Controller
                 }
             }
 
+            $baseCurrency = \App\Models\Currency::getBaseCurrency();
+            $currencyId = $baseCurrency ? $baseCurrency->id : 1;
+
             $payment = PurchasePayment::create([
                 'payment_no' => null,
                 'date' => $data['date'],
                 'business_partner_id' => $data['business_partner_id'],
                 'company_entity_id' => $entity->id,
                 'created_by' => Auth::id(),
+                'currency_id' => $currencyId,
                 'description' => $data['description'] ?? null,
                 'status' => 'draft',
                 'total_amount' => $totalPayment,
+                'rounding_amount' => $rounding['rounding_amount'],
+                'rounding_account_id' => $rounding['rounding_account_id'],
             ]);
 
             $paymentNo = $this->documentNumberingService->generateNumber('purchase_payment', $data['date'], [

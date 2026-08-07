@@ -2,9 +2,8 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
-use Illuminate\Database\Seeder;
 use App\Models\Accounting\Account;
+use Illuminate\Database\Seeder;
 
 class TradingCoASeeder extends Seeder
 {
@@ -17,10 +16,10 @@ class TradingCoASeeder extends Seeder
 
         $create = function (string $code, string $name, string $type, bool $isPostable = true, ?string $parentCode = null) use (&$codeToId) {
             $parentId = $parentCode ? ($codeToId[$parentCode] ?? null) : null;
-            
+
             // Check if account already exists
             $existingAccount = Account::where('code', $code)->first();
-            
+
             if ($existingAccount) {
                 // Update existing account
                 $existingAccount->update([
@@ -221,6 +220,7 @@ class TradingCoASeeder extends Seeder
         $create('7.1.1', 'Pendapatan Sewa', 'income', true, '7.1');
         $create('7.1.2', 'Pendapatan Bunga', 'income', true, '7.1');
         $create('7.1.3', 'Keuntungan Selisih Kurs', 'income', true, '7.1');
+        $create('7.1.4', 'Selisih Pembulatan (Rounding)', 'income', true, '7.1');
 
         $create('7.2', 'Beban Lain-lain', 'expense', false, '7');
         $create('7.2.1', 'Kerugian Selisih Kurs', 'expense', true, '7.2');

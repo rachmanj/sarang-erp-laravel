@@ -220,6 +220,10 @@
                                         </div>
                                     </div>
                                 </div>
+
+                                @include('components.payment-rounding-section', [
+                                    'selectedRoundingAccountId' => old('rounding_account_id'),
+                                ])
                             </div>
                             <div class="card-footer">
                                 <div class="row">
@@ -253,6 +257,8 @@
         let allocationIndex = 0;
         const prefill = @json($prefill ?? null);
         const initialAllocationMap = prefill && prefill.allocations ? prefill.allocations : null;
+        const roundingTolerance = @json($purchasePaymentRoundingTolerance ?? 999999);
+        const defaultRoundingAccountId = @json($defaultRoundingAccountId);
 
         $(document).ready(function() {
             // Initialize Select2BS4
@@ -306,9 +312,11 @@
             });
 
             $(document).on('input', '.payment-amount-input', function() {
-                updateTotals();
+                updatePaymentTotal();
                 validateForm();
             });
+
+            $('#rounding_account_id').on('change', validateForm);
 
             // Remove payment line
             $(document).on('click', '.remove-payment-line', function() {
@@ -530,9 +538,6 @@
             });
 
             $('#total-allocation').text(formatCurrency(totalAllocation));
-
-            // Update payment line total
-            updatePaymentLineAmount(totalAllocation);
         }
 
         function updatePaymentLine() {
@@ -554,11 +559,7 @@
             const paymentAmountInput = linesTbody.find('.payment-amount-input');
 
             if (paymentAmountInput.length === 0) {
-                // Create payment line if it doesn't exist
                 createPaymentLine(amount);
-            } else {
-                // Update existing payment line
-                paymentAmountInput.val(amount.toFixed(2));
             }
 
             updatePaymentTotal();
@@ -617,18 +618,44 @@
                 total += parseFloat($(this).val() || 0);
             });
             $('#total-payment').text(formatCurrency(total));
+            updateRoundingUI();
+        }
+
+        function getNumericTotal(selector) {
+            return parseFloat($(selector).text().replace(/[^\d.-]/g, '') || 0);
+        }
+
+        function updateRoundingUI() {
+            const totalAllocation = getNumericTotal('#total-allocation');
+            const totalPayment = getNumericTotal('#total-payment');
+            const roundingAmount = Math.round((totalPayment - totalAllocation) * 100) / 100;
+            const roundingCard = $('#rounding-card');
+            const roundingInfo = $('#rounding-info-message');
+            const roundingSelect = $('#rounding_account_id');
+
+            if (Math.abs(roundingAmount) > 0.01) {
+                roundingCard.slideDown();
+                const direction = roundingAmount > 0 ? 'Loss' : 'Gain';
+                roundingInfo
+                    .removeClass('text-danger text-info')
+                    .addClass('text-info')
+                    .text(`Rounding adjustment: ${formatCurrency(Math.abs(roundingAmount))} (${direction})`);
+                roundingSelect.prop('required', true);
+                if (!roundingSelect.val() && defaultRoundingAccountId) {
+                    roundingSelect.val(String(defaultRoundingAccountId)).trigger('change');
+                }
+            } else {
+                roundingCard.slideUp();
+                roundingInfo.text('');
+                roundingSelect.prop('required', false);
+            }
         }
 
         function validateForm() {
-            let totalAllocation = 0;
-            $('.allocation-amount-input:visible').each(function() {
-                totalAllocation += parseFloat($(this).val() || 0);
-            });
-            let totalPayment = 0;
-            $('.payment-amount-input').each(function() {
-                totalPayment += parseFloat($(this).val() || 0);
-            });
-            const diff = Math.abs(totalAllocation - totalPayment);
+            const totalAllocation = getNumericTotal('#total-allocation');
+            const totalPayment = getNumericTotal('#total-payment');
+            const roundingAmount = Math.round((totalPayment - totalAllocation) * 100) / 100;
+            const diff = Math.abs(roundingAmount);
             const validationMsg = $('#validation-message');
             const submitBtn = $('#submit-btn');
 
@@ -644,10 +671,16 @@
                 return false;
             }
 
-            if (diff > 0.01) {
+            if (diff > roundingTolerance) {
                 validationMsg.text(
-                    `Payment total (${formatCurrency(totalPayment)}) must match allocation total (${formatCurrency(totalAllocation)})`
-                    );
+                    `Payment total (${formatCurrency(totalPayment)}) differs from allocation total (${formatCurrency(totalAllocation)}) by more than the allowed tolerance (${formatCurrency(roundingTolerance)})`
+                );
+                submitBtn.prop('disabled', true);
+                return false;
+            }
+
+            if (diff > 0.01 && !$('#rounding_account_id').val()) {
+                validationMsg.text('Select a rounding account for the cash/allocation difference');
                 submitBtn.prop('disabled', true);
                 return false;
             }

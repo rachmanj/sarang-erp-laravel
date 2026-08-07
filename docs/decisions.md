@@ -1,7 +1,19 @@
 **Purpose**: Record technical decisions and rationale for future reference
-**Last Updated**: 2026-07-20 (Asset Reports schema alignment)
+**Last Updated**: 2026-08-06 (AR/AP payment rounding tolerance)
 
 # Technical Decision Records
+
+## Decision: AR/AP payment rounding tolerance (Sales Receipt & Purchase Payment) - 2026-08-06
+
+**Context**: Customers and vendors often pay/receive rounded cash amounts (e.g. invoice due Rp 8,245,999.99, customer pays Rp 8,246,000.00; or due Rp 1,000.85, pays Rp 1,000.00). The previous strict `abs(cash − allocation) > 0.01` validation blocked settlement and invoice closure.
+
+**Decision**: Relax **document-level** cash-vs-allocation match only; keep per-invoice allocation capped at remaining balance. Store `rounding_amount = total_cash − total_allocations` on `sales_receipts` / `purchase_payments`. When `|rounding_amount|` is within configurable tolerance (ERP parameters `sales_receipt_rounding_tolerance` / `purchase_payment_rounding_tolerance`, default **Rp 999,999**), accept and post the difference to a **single shared rounding account** (`7.1.4 Selisih Pembulatan (Rounding)`), user-overridable per document via `rounding_account_id` dropdown. **`PaymentRoundingService`** resolves tolerance/account; journal builders derive AR/AP settle as `total_amount − rounding_amount`. Invoice closure uses cent-based comparison and `forceFill()` because `closure_status` is not in `SalesInvoice::$fillable`.
+
+**Tradeoff**: Generous default tolerance means large data-entry mistakes could be silently booked as rounding rather than rejected or tracked as customer/vendor credit/advance — acceptable for current ops preference; tighten tolerance via ERP Parameters if needed.
+
+**Implementation**: migrations + `RoundingAccountSeeder`; `SalesReceiptJournalBuilder`, `PurchasePaymentJournalBuilder`; create/edit/show/print UI; `SalesReceiptRoundingTest`, `PurchasePaymentRoundingTest`.
+
+**Review Date**: 2027-08-06
 
 ## Decision: Asset Reports query against live asset schema - 2026-07-20
 

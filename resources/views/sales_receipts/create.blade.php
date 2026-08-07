@@ -216,6 +216,10 @@
                                         </div>
                                     </div>
                                 </div>
+
+                                @include('components.payment-rounding-section', [
+                                    'selectedRoundingAccountId' => old('rounding_account_id'),
+                                ])
                             </div>
                             <div class="card-footer">
                                 <div class="row">
@@ -247,8 +251,35 @@
         let availableInvoices = [];
         let selectedInvoices = new Set();
         let allocationIndex = 0;
+        let invoiceLoadGeneration = 0;
+        let applyingPrefill = false;
         const prefill = @json($prefill ?? null);
         const initialAllocationMap = prefill && prefill.allocations ? prefill.allocations : null;
+        const roundingTolerance = @json($salesReceiptRoundingTolerance ?? 999999);
+        const defaultRoundingAccountId = @json($defaultRoundingAccountId);
+
+        function updateDocumentNumber() {
+            const entityId = $('#company_entity_id').val();
+            const date = $('#receipt_date').val() || new Date().toISOString().slice(0, 10);
+            if (!entityId) {
+                return;
+            }
+            $.ajax({
+                url: '{{ route('sales-receipts.api.document-number') }}',
+                method: 'GET',
+                data: { company_entity_id: entityId, date: date },
+                success: function(response) {
+                    if (response.document_number) {
+                        $('#receipt_no_preview').val(response.document_number);
+                    } else if (response.error) {
+                        console.error('Document number error:', response.error);
+                    }
+                },
+                error: function(xhr) {
+                    console.error('Document number request failed:', xhr);
+                }
+            });
+        }
 
         $(document).ready(function() {
             $('.select2bs4').select2({
@@ -257,29 +288,11 @@
                 allowClear: true
             });
 
-            function updateDocumentNumber() {
-                const entityId = $('#company_entity_id').val();
-                const date = $('#receipt_date').val() || new Date().toISOString().slice(0, 10);
-                if (!entityId) return;
-                $.ajax({
-                    url: '{{ route('sales-receipts.api.document-number') }}',
-                    method: 'GET',
-                    data: { company_entity_id: entityId, date: date },
-                    success: function(response) {
-                        if (response.document_number) {
-                            $('#receipt_no_preview').val(response.document_number);
-                        } else if (response.error) {
-                            console.error('Document number error:', response.error);
-                        }
-                    },
-                    error: function(xhr) {
-                        console.error('Document number request failed:', xhr);
-                    }
-                });
-            }
-
             $('#company_entity_id').on('change', function() {
                 updateDocumentNumber();
+                if (applyingPrefill) {
+                    return;
+                }
                 const customerId = $('#business_partner_id').val();
                 if (customerId) {
                     loadAvailableInvoices(customerId);
@@ -292,6 +305,9 @@
             updateDocumentNumber();
 
             $('#business_partner_id').on('change', function() {
+                if (applyingPrefill) {
+                    return;
+                }
                 const customerId = $(this).val();
                 if (customerId) {
                     loadAvailableInvoices(customerId);
@@ -303,19 +319,28 @@
             $(document).on('input', '.allocation-amount-input', function() {
                 validateAllocation($(this));
                 updateTotals();
+                updateReceiptLine();
                 validateForm();
             });
 
             $(document).on('input', '.receipt-amount-input', function() {
-                updateTotals();
+                updateReceiptTotal();
                 validateForm();
             });
 
+            $('#rounding_account_id').on('change', validateForm);
+
             $(document).on('click', '.remove-receipt-line', function() {
                 $(this).closest('tr').remove();
-                updateTotals();
+                updateReceiptTotal();
                 validateForm();
             });
+
+            @if (old('business_partner_id'))
+                $('#business_partner_id').trigger('change');
+            @else
+                applyPrefill();
+            @endif
         });
 
         async function loadAvailableInvoices(customerId) {
@@ -324,6 +349,9 @@
                 hideInvoiceSelection();
                 return;
             }
+
+            const generation = ++invoiceLoadGeneration;
+
             try {
                 const params = new URLSearchParams({
                     business_partner_id: customerId,
@@ -333,11 +361,19 @@
                     `{{ route('sales-receipts.availableInvoices') }}?${params.toString()}`
                 );
                 const data = await response.json();
+
+                if (generation !== invoiceLoadGeneration) {
+                    return;
+                }
+
                 availableInvoices = data.invoices || [];
                 renderInvoiceTable();
-                applyInitialAllocations();
                 showInvoiceSelection();
+                applyInitialAllocations();
             } catch (error) {
+                if (generation !== invoiceLoadGeneration) {
+                    return;
+                }
                 console.error('Error loading invoices:', error);
                 toastr.error('Failed to load invoices. Please try again.');
             }
@@ -382,15 +418,22 @@
             if (!prefill) {
                 return;
             }
-            if (prefill.company_entity_id) {
-                $('#company_entity_id').val(String(prefill.company_entity_id)).trigger('change');
-            }
-            if (prefill.description) {
-                $('textarea[name="description"], input[name="description"]').val(prefill.description);
-            }
-            if (prefill.business_partner_id && prefill.company_entity_id) {
-                $('#business_partner_id').val(String(prefill.business_partner_id)).trigger('change');
-                await loadAvailableInvoices(prefill.business_partner_id);
+
+            applyingPrefill = true;
+            try {
+                if (prefill.company_entity_id) {
+                    $('#company_entity_id').val(String(prefill.company_entity_id)).trigger('change.select2');
+                    updateDocumentNumber();
+                }
+                if (prefill.description) {
+                    $('textarea[name="description"], input[name="description"]').val(prefill.description);
+                }
+                if (prefill.business_partner_id) {
+                    $('#business_partner_id').val(String(prefill.business_partner_id)).trigger('change.select2');
+                    await loadAvailableInvoices(prefill.business_partner_id);
+                }
+            } finally {
+                applyingPrefill = false;
             }
         }
 
@@ -527,20 +570,33 @@
             }
         }
 
-        function updateTotals() {
+        function getTotalAllocation() {
             let totalAllocation = 0;
 
-            $('.allocation-amount-input:visible').each(function() {
-                const amount = parseFloat($(this).val() || 0);
-                totalAllocation += amount;
+            $('.invoice-checkbox:checked').each(function() {
+                const row = $(this).closest('tr');
+                totalAllocation += parseFloat(row.find('.allocation-amount-input').val() || 0);
             });
 
-            $('#total-allocation').text(formatCurrency(totalAllocation));
-            updateReceiptLineAmount(totalAllocation);
+            return totalAllocation;
+        }
+
+        function getTotalReceipt() {
+            let totalReceipt = 0;
+
+            $('.receipt-amount-input').each(function() {
+                totalReceipt += parseFloat($(this).val() || 0);
+            });
+
+            return totalReceipt;
+        }
+
+        function updateTotals() {
+            $('#total-allocation').text(formatCurrency(getTotalAllocation()));
         }
 
         function updateReceiptLine() {
-            const totalAllocation = parseFloat($('#total-allocation').text().replace(/[^\d.-]/g, '') || 0);
+            const totalAllocation = getTotalAllocation();
 
             if (totalAllocation > 0 && selectedInvoices.size > 0) {
                 showReceiptLines();
@@ -602,7 +658,7 @@
             `;
             linesTbody.html(row);
 
-            $('.select2bs4').select2({
+            linesTbody.find('select.select2bs4').select2({
                 theme: 'bootstrap4',
                 placeholder: 'Select an option',
                 allowClear: true
@@ -610,17 +666,41 @@
         }
 
         function updateReceiptTotal() {
-            let total = 0;
-            $('.receipt-amount-input').each(function() {
-                total += parseFloat($(this).val() || 0);
-            });
-            $('#total-receipt').text(formatCurrency(total));
+            $('#total-receipt').text(formatCurrency(getTotalReceipt()));
+            updateRoundingUI();
+        }
+
+        function updateRoundingUI() {
+            const totalAllocation = getTotalAllocation();
+            const totalReceipt = getTotalReceipt();
+            const roundingAmount = Math.round((totalReceipt - totalAllocation) * 100) / 100;
+            const roundingCard = $('#rounding-card');
+            const roundingInfo = $('#rounding-info-message');
+            const roundingSelect = $('#rounding_account_id');
+
+            if (Math.abs(roundingAmount) > 0.01) {
+                roundingCard.slideDown();
+                const direction = roundingAmount > 0 ? 'Gain' : 'Loss';
+                roundingInfo
+                    .removeClass('text-danger text-info')
+                    .addClass('text-info')
+                    .text(`Rounding adjustment: ${formatCurrency(Math.abs(roundingAmount))} (${direction})`);
+                roundingSelect.prop('required', true);
+                if (!roundingSelect.val() && defaultRoundingAccountId) {
+                    roundingSelect.val(String(defaultRoundingAccountId)).trigger('change');
+                }
+            } else {
+                roundingCard.slideUp();
+                roundingInfo.text('');
+                roundingSelect.prop('required', false);
+            }
         }
 
         function validateForm() {
-            const totalAllocation = parseFloat($('#total-allocation').text().replace(/[^\d.-]/g, '') || 0);
-            const totalReceipt = parseFloat($('#total-receipt').text().replace(/[^\d.-]/g, '') || 0);
-            const diff = Math.abs(totalAllocation - totalReceipt);
+            const totalAllocation = getTotalAllocation();
+            const totalReceipt = getTotalReceipt();
+            const roundingAmount = Math.round((totalReceipt - totalAllocation) * 100) / 100;
+            const diff = Math.abs(roundingAmount);
             const validationMsg = $('#validation-message');
             const submitBtn = $('#submit-btn');
 
@@ -636,10 +716,16 @@
                 return false;
             }
 
-            if (diff > 0.01) {
+            if (diff > roundingTolerance) {
                 validationMsg.text(
-                    `Receipt total (${formatCurrency(totalReceipt)}) must match allocation total (${formatCurrency(totalAllocation)})`
+                    `Receipt total (${formatCurrency(totalReceipt)}) differs from allocation total (${formatCurrency(totalAllocation)}) by more than the allowed tolerance (${formatCurrency(roundingTolerance)})`
                 );
+                submitBtn.prop('disabled', true);
+                return false;
+            }
+
+            if (diff > 0.01 && !$('#rounding_account_id').val()) {
+                validationMsg.text('Select a rounding account for the cash/allocation difference');
                 submitBtn.prop('disabled', true);
                 return false;
             }
@@ -709,11 +795,5 @@
             $('.allocation-amount-input[disabled]').remove();
             rebuildAllocationIndices();
         });
-
-        @if (old('business_partner_id'))
-            $('#business_partner_id').trigger('change');
-        @else
-            applyPrefill();
-        @endif
     </script>
 @endpush

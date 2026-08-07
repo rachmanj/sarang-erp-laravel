@@ -472,13 +472,13 @@ Jika melakukan pembayaran sebelum invoice dibuat:
 3. Setelah invoice dibuat, edit Purchase Payment dan alokasikan ke invoice
 4. Post Purchase Payment
 
-### 7. Penanganan Selisih Kecil
+### 7. Penanganan Selisih Kecil (pembulatan)
 
-Jika ada selisih kecil antara payment dan allocation:
+Jika nominal **kas/bank** sedikit berbeda dari **total alokasi** (mis. customer/vendor bayar dibulatkan):
 
--   Sistem memiliki toleransi ±0.01 untuk pembulatan
--   Jika selisih lebih besar, periksa kembali perhitungan
--   Hubungi administrator jika diperlukan
+-   Sistem memakai **toleransi pembulatan** configurable: parameter ERP **`purchase_payment_rounding_tolerance`** (default **Rp 999.999**).
+-   Selisih dalam toleransi diposting ke akun **7.1.4 Selisih Pembulatan (Rounding)** (bisa diubah per dokumen).
+-   Jika selisih **melebihi toleransi**, periksa kembali perhitungan atau hubungi administrator.
 
 ---
 
@@ -659,7 +659,7 @@ Purchase Invoice (Credit) → Purchase Payment → Post → Jurnal Akuntansi
 
 ### Q: Bagaimana jika ada selisih kecil karena pembulatan?
 
-**A**: Sistem memiliki toleransi ±0.01 untuk pembulatan. Jika selisih lebih besar, periksa kembali perhitungan atau hubungi administrator.
+**A**: Sistem memakai toleransi **`purchase_payment_rounding_tolerance`** (default **Rp 999.999**) dan akun pembulatan default **7.1.4**. Selisih dalam toleransi diposting otomatis; melebihi toleransi → periksa perhitungan atau hubungi administrator.
 
 ### Q: Apakah bisa membuat Purchase Payment tanpa invoice?
 

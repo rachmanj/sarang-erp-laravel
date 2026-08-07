@@ -128,17 +128,18 @@ class DocumentClosureService
         foreach ($invoices as $invoice) {
             // Calculate remaining amount for this invoice
             $allocatedAmount = SalesReceiptAllocation::where('invoice_id', $invoice->id)->sum('amount');
-            $remainingAmount = $invoice->total_amount - $allocatedAmount;
+            $invoiceCents = (int) round(((float) $invoice->total_amount) * 100);
+            $allocatedCents = (int) round(((float) $allocatedAmount) * 100);
+            $remainingCents = $invoiceCents - $allocatedCents;
 
-            if ($remainingAmount <= 0) {
-                // Invoice is fully paid, close it
-                $invoice->update([
+            if ($remainingCents <= 0) {
+                $invoice->forceFill([
                     'closure_status' => 'closed',
                     'closed_by_document_type' => 'sales_receipt',
                     'closed_by_document_id' => $receiptId,
                     'closed_at' => now(),
                     'closed_by_user_id' => $userId ?? Auth::id(),
-                ]);
+                ])->save();
             }
         }
 

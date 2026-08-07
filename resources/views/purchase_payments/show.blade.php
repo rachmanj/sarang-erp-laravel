@@ -117,6 +117,22 @@
                                                     class="text-primary">{{ number_format($payment->total_amount, 2) }}</strong>
                                             </td>
                                         </tr>
+                                        @if (abs((float) ($payment->rounding_amount ?? 0)) > 0.01)
+                                            @php
+                                                $roundingAccount = $payment->rounding_account_id
+                                                    ? DB::table('accounts')->find($payment->rounding_account_id)
+                                                    : null;
+                                            @endphp
+                                            <tr>
+                                                <th>Rounding {{ (float) $payment->rounding_amount > 0 ? 'Loss' : 'Gain' }}:</th>
+                                                <td>
+                                                    {{ number_format(abs((float) $payment->rounding_amount), 2) }}
+                                                    @if ($roundingAccount)
+                                                        <span class="text-muted">({{ $roundingAccount->code }} - {{ $roundingAccount->name }})</span>
+                                                    @endif
+                                                </td>
+                                            </tr>
+                                        @endif
                                         @if ($payment->posted_at)
                                             <tr>
                                                 <th>Posted At:</th>

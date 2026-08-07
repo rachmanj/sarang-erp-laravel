@@ -65,8 +65,8 @@
             "title_id": "Navigasi dokumen, Preview Journal, filter Open/Closed, Create Target, Hapus",
             "menu_path_en": "Document show pages → Base/Target card, Preview Journal, Delete dropdown; list pages → Open/Closed switch; header Create Payment/Receipt/Invoice buttons.",
             "menu_path_id": "Halaman detail → kartu Base/Target, Preview Journal, dropdown Delete; daftar → switch Open/Closed; tombol Create Payment/Receipt/Invoice.",
-            "keywords_en": ["preview journal", "base document", "target document", "open closed filter", "delete document", "cascade delete", "create payment", "create receipt", "copy to GRPO"],
-            "keywords_id": ["preview journal", "base target", "filter open closed", "hapus dokumen", "delete cascade", "buat payment", "buat receipt", "copy GRPO"],
+            "keywords_en": ["preview journal", "base document", "target document", "open closed filter", "delete document", "cascade delete", "create payment", "create receipt", "sales_invoice_id", "copy to GRPO", "relationship map", "SO DO SI SR", "journal decimal"],
+            "keywords_id": ["preview journal", "base target", "filter open closed", "hapus dokumen", "delete cascade", "buat payment", "buat receipt", "sales_invoice_id", "copy GRPO", "relationship map", "SO DO SI SR", "desimal jurnal"],
             "notes": "Manuals: document-workflow-features-manual-en.md / document-workflow-features-manual-id.md"
         },
         {
@@ -161,8 +161,8 @@
             "title_id": "Penerimaan penjualan",
             "menu_path_en": "Sidebar → Sales → Sales Receipts (customer payments against invoices). Draft receipts: View → Edit; posted receipts cannot be edited.",
             "menu_path_id": "Menu samping → Sales → Sales Receipts (pelunasan faktur). Draft: buka detail → Edit; yang sudah posted tidak bisa diedit.",
-            "keywords_en": ["sales receipt", "SR", "payment", "collection", "edit draft receipt", "change sales receipt", "update allocation", "draft receipt", "ar.receipts.create", "ar.receipts.post", "ar.receipts.view", "correct SR before post", "company entity", "PT CV filter", "wrong invoice on receipt"],
-            "keywords_id": ["sales receipt", "penerimaan", "pelunasan", "kas masuk", "edit sales receipt", "ubah draft", "koreksi alokasi", "penerimaan penjualan", "ar.receipts.create", "ar.receipts.post", "perbaiki SR", "filter entitas", "PT CV", "salah entitas receipt"],
+            "keywords_en": ["sales receipt", "SR", "payment", "collection", "edit draft receipt", "change sales receipt", "update allocation", "draft receipt", "ar.receipts.create", "ar.receipts.post", "ar.receipts.view", "correct SR before post", "company entity", "PT CV filter", "wrong invoice on receipt", "create receipt from invoice", "sales_invoice_id", "payment rounding", "rounding tolerance", "7.1.4", "selisih pembulatan", "receipt lines bank account", "relationship map SR"],
+            "keywords_id": ["sales receipt", "penerimaan", "pelunasan", "kas masuk", "edit sales receipt", "ubah draft", "koreksi alokasi", "penerimaan penjualan", "ar.receipts.create", "ar.receipts.post", "perbaiki SR", "filter entitas", "PT CV", "salah entitas receipt", "buat receipt dari faktur", "sales_invoice_id", "pembulatan", "toleransi pembulatan", "7.1.4", "selisih pembulatan", "akun kas baris penerimaan", "relationship map SR"],
             "notes": "Manuals: sales-receipt-manual-en.md, sales-receipt-manual-id.md. Reindex: php artisan help:reindex"
         },
         {
@@ -179,11 +179,11 @@
             "id": "document-relationship-map",
             "title_en": "Document Relationship Map",
             "title_id": "Peta hubungan dokumen / Relationship Map",
-            "menu_path_en": "Document detail (SO, DO, SI, …) → header button Relationship Map → modal Document Relationship Map; diagram section Document Workflow.",
-            "menu_path_id": "Halaman detail dokumen (SO, DO, SI, …) → tombol Relationship Map di header → modal; bagian diagram bernama Document Workflow.",
-            "keywords_en": ["relationship map", "document workflow", "mermaid", "SO DO SI chain", "document diagram"],
-            "keywords_id": ["relationship map", "peta dokumen", "alur dokumen", "diagram SO DO SI", "workflow dokumen"],
-            "notes": "Node labels show document type, number, date, status, amount. sales-workflow-corrections-help-*.md"
+            "menu_path_en": "Document detail (SO, DO, SI, SR, …) → header button Relationship Map → modal Document Relationship Map; diagram section Document Workflow.",
+            "menu_path_id": "Halaman detail dokumen (SO, DO, SI, SR, …) → tombol Relationship Map di header → modal; bagian diagram bernama Document Workflow.",
+            "keywords_en": ["relationship map", "document workflow", "mermaid", "SO DO SI SR chain", "sales receipt map", "document diagram"],
+            "keywords_id": ["relationship map", "peta dokumen", "alur dokumen", "diagram SO DO SI SR", "peta sales receipt", "workflow dokumen"],
+            "notes": "Expanded sales chain includes Sales Receipt. Manuals: sales-receipt-manual-*.md, document-workflow-features-manual-*.md, sales-workflow-corrections-help-*.md. Reindex: php artisan help:reindex"
         },
         {
             "id": "company-entity-correction",
@@ -203,6 +203,16 @@
             "menu_path_id": "Menu samping → Purchase → Purchase Invoices.",
             "keywords_en": ["purchase invoice", "PINV", "AP", "future date", "invoice date", "opening balance"],
             "keywords_id": ["faktur pembelian", "PI", "AP", "tanggal faktur", "tanggal masa depan", "saldo awal"]
+        },
+        {
+            "id": "purchase-payments",
+            "title_en": "Purchase Payments (PP)",
+            "title_id": "Pembayaran pembelian (PP)",
+            "menu_path_en": "Sidebar → Purchase → Purchase Payments. Create from posted PI via Create Payment on invoice show page.",
+            "menu_path_id": "Menu samping → Purchase → Purchase Payments. Buat dari PI posted lewat tombol Create Payment di detail faktur.",
+            "keywords_en": ["purchase payment", "PP", "AP payment", "vendor payment", "payment rounding", "rounding tolerance", "purchase_payment_rounding_tolerance", "7.1.4", "payment lines bank account", "allocation"],
+            "keywords_id": ["purchase payment", "pembayaran pembelian", "PP", "bayar vendor", "pembulatan pembayaran", "toleransi pembulatan", "purchase_payment_rounding_tolerance", "7.1.4", "selisih pembulatan", "baris pembayaran akun bank", "alokasi invoice"],
+            "notes": "Manual: purchase-payment-manual-id.md. Reindex: php artisan help:reindex"
         },
         {
             "id": "purchase-orders",

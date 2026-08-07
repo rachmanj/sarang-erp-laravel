@@ -10,6 +10,7 @@ use App\Models\Accounting\SalesReceipt;
 use App\Models\Accounting\SalesReceiptLine;
 use App\Models\SalesOrder;
 use App\Services\Accounting\JournalBuilders\SalesReceiptJournalBuilder;
+use App\Services\Accounting\PaymentRoundingService;
 use App\Services\Accounting\PostingService;
 use App\Services\Accounting\SalesInvoicePostingMath;
 use App\Services\CompanyEntityService;
@@ -34,7 +35,9 @@ class SalesReceiptController extends Controller
         private DocumentNumberingService $documentNumberingService,
         private DocumentClosureService $documentClosureService,
         private CompanyEntityService $companyEntityService,
+        private DocumentRelationshipService $documentRelationshipService,
         private SalesReceiptJournalBuilder $salesReceiptJournalBuilder,
+        private PaymentRoundingService $paymentRoundingService,
     ) {
         $this->middleware(['auth']);
         $this->middleware('permission:ar.receipts.view')->only(['index', 'show']);
@@ -89,7 +92,18 @@ class SalesReceiptController extends Controller
             ];
         }
 
-        return view('sales_receipts.create', compact('customers', 'accounts', 'entities', 'defaultEntity', 'prefill'));
+        $salesReceiptRoundingTolerance = $this->paymentRoundingService->salesReceiptTolerance();
+        $defaultRoundingAccountId = $this->paymentRoundingService->defaultRoundingAccountId();
+
+        return view('sales_receipts.create', compact(
+            'customers',
+            'accounts',
+            'entities',
+            'defaultEntity',
+            'prefill',
+            'salesReceiptRoundingTolerance',
+            'defaultRoundingAccountId',
+        ));
     }
 
     public function getDocumentNumber(Request $request)
@@ -126,11 +140,12 @@ class SalesReceiptController extends Controller
             'allocations' => ['required', 'array', 'min:1'],
             'allocations.*.invoice_id' => ['required', 'integer', 'exists:sales_invoices,id'],
             'allocations.*.amount' => ['required', 'numeric', 'min:0.01'],
+            'rounding_account_id' => ['nullable', 'integer', 'exists:accounts,id'],
         ]);
 
         $entity = $this->companyEntityService->getEntity($data['company_entity_id']);
 
-        return DB::transaction(function () use ($data, $entity) {
+        return DB::transaction(function () use ($data, $entity, $request) {
             $totalReceipt = 0;
             foreach ($data['lines'] as $l) {
                 $totalReceipt += (float) $l['amount'];
@@ -141,8 +156,15 @@ class SalesReceiptController extends Controller
                 $totalAllocation += (float) $alloc['amount'];
             }
 
-            if (abs($totalReceipt - $totalAllocation) > 0.01) {
-                return back()->withErrors(['lines' => 'Receipt total must match allocation total.'])->withInput();
+            $rounding = $this->paymentRoundingService->resolve(
+                $totalReceipt,
+                $totalAllocation,
+                $this->paymentRoundingService->salesReceiptTolerance(),
+                $request->input('rounding_account_id') ? (int) $request->input('rounding_account_id') : null
+            );
+
+            if ($rounding['error']) {
+                return back()->withErrors(['lines' => $rounding['error']])->withInput();
             }
 
             foreach ($data['allocations'] as $alloc) {
@@ -184,6 +206,8 @@ class SalesReceiptController extends Controller
                 'description' => $data['description'] ?? null,
                 'status' => 'draft',
                 'total_amount' => $totalReceipt,
+                'rounding_amount' => $rounding['rounding_amount'],
+                'rounding_account_id' => $rounding['rounding_account_id'],
             ]);
 
             $receiptNo = $this->documentNumberingService->generateNumber('sales_receipt', $data['date'], [
@@ -210,14 +234,7 @@ class SalesReceiptController extends Controller
                 ]);
             }
 
-            $relationshipService = app(DocumentRelationshipService::class);
-            foreach ($data['allocations'] as $alloc) {
-                $inv = SalesInvoice::query()->find($alloc['invoice_id']);
-                if ($inv) {
-                    $relationshipService->clearDocumentCache($inv);
-                }
-            }
-            $relationshipService->clearDocumentCache($receipt);
+            $this->documentRelationshipService->syncSalesReceiptRelationships($receipt);
 
             // Attempt to close related Sales Invoices if fully paid
             try {
@@ -274,13 +291,18 @@ class SalesReceiptController extends Controller
             ->where('receipt_id', $receipt->id)
             ->get();
 
+        $salesReceiptRoundingTolerance = $this->paymentRoundingService->salesReceiptTolerance();
+        $defaultRoundingAccountId = $this->paymentRoundingService->defaultRoundingAccountId();
+
         return view('sales_receipts.edit', compact(
             'receipt',
             'customers',
             'accounts',
             'entities',
             'defaultEntity',
-            'allocations'
+            'allocations',
+            'salesReceiptRoundingTolerance',
+            'defaultRoundingAccountId',
         ));
     }
 
@@ -302,7 +324,7 @@ class SalesReceiptController extends Controller
             ->map(fn ($id) => (int) $id)
             ->all();
 
-        return DB::transaction(function () use ($data, $entity, $receipt, $previousBusinessPartnerId, $previousAllocationInvoiceIds) {
+        return DB::transaction(function () use ($data, $entity, $receipt, $previousBusinessPartnerId, $previousAllocationInvoiceIds, $request) {
             $totalReceipt = 0;
             foreach ($data['lines'] as $l) {
                 $totalReceipt += (float) $l['amount'];
@@ -313,8 +335,15 @@ class SalesReceiptController extends Controller
                 $totalAllocation += (float) $alloc['amount'];
             }
 
-            if (abs($totalReceipt - $totalAllocation) > 0.01) {
-                return back()->withErrors(['lines' => 'Receipt total must match allocation total.'])->withInput();
+            $rounding = $this->paymentRoundingService->resolve(
+                $totalReceipt,
+                $totalAllocation,
+                $this->paymentRoundingService->salesReceiptTolerance(),
+                $request->input('rounding_account_id') ? (int) $request->input('rounding_account_id') : null
+            );
+
+            if ($rounding['error']) {
+                return back()->withErrors(['lines' => $rounding['error']])->withInput();
             }
 
             foreach ($data['allocations'] as $alloc) {
@@ -353,6 +382,8 @@ class SalesReceiptController extends Controller
                 'company_entity_id' => $entity->id,
                 'description' => $data['description'] ?? null,
                 'total_amount' => $totalReceipt,
+                'rounding_amount' => $rounding['rounding_amount'],
+                'rounding_account_id' => $rounding['rounding_account_id'],
             ]);
 
             foreach ($data['lines'] as $l) {
@@ -374,7 +405,9 @@ class SalesReceiptController extends Controller
                 ]);
             }
 
-            $relationshipService = app(DocumentRelationshipService::class);
+            $receipt->refresh();
+            $this->documentRelationshipService->syncSalesReceiptRelationships($receipt);
+
             $invoiceIdsToRefresh = array_unique(array_merge(
                 $previousAllocationInvoiceIds,
                 collect($data['allocations'])->pluck('invoice_id')->map(fn ($i) => (int) $i)->all()
@@ -382,11 +415,9 @@ class SalesReceiptController extends Controller
             foreach ($invoiceIdsToRefresh as $invId) {
                 $inv = SalesInvoice::query()->find($invId);
                 if ($inv) {
-                    $relationshipService->clearDocumentCache($inv);
+                    $this->documentRelationshipService->clearDocumentCache($inv);
                 }
             }
-            $receipt->refresh();
-            $relationshipService->clearDocumentCache($receipt);
 
             try {
                 $this->documentClosureService->syncSalesInvoiceClosuresAfterSalesReceiptDraftUpdated(

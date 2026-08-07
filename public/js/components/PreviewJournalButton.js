@@ -228,14 +228,17 @@ class PreviewJournalButton {
             totalCredit += parseFloat(line.credit || 0);
         });
 
-        // Update totals
-        document.querySelector(".total-debit").textContent =
-            this.formatAmount(totalDebit);
-        document.querySelector(".total-credit").textContent =
-            this.formatAmount(totalCredit);
+        const apiTotalDebit = journalData.total_debit ?? totalDebit;
+        const apiTotalCredit = journalData.total_credit ?? totalCredit;
 
-        // Check balance
-        const isBalanced = Math.abs(totalDebit - totalCredit) < 0.01;
+        document.querySelector(".total-debit").textContent =
+            this.formatAmount(apiTotalDebit);
+        document.querySelector(".total-credit").textContent =
+            this.formatAmount(apiTotalCredit);
+
+        const isBalanced =
+            journalData.is_balanced ??
+            Math.abs(apiTotalDebit - apiTotalCredit) < 0.01;
         this.showBalanceCheck(isBalanced);
 
         // Show content
@@ -320,8 +323,8 @@ class PreviewJournalButton {
         return new Intl.NumberFormat("id-ID", {
             style: "currency",
             currency: "IDR",
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 0,
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
         }).format(amount);
     }
 

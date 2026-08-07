@@ -2,9 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
 use App\Models\ErpParameter;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 
 class ErpParameterController extends Controller
 {
@@ -52,10 +53,16 @@ class ErpParameterController extends Controller
     {
         $request->validate([
             'category' => 'required|string|max:100',
-            'parameter_key' => 'required|string|max:100|unique:erp_parameters,category,' . $request->category . ',parameter_key',
+            'parameter_key' => [
+                'required',
+                'string',
+                'max:100',
+                Rule::unique('erp_parameters', 'parameter_key')
+                    ->where('category', $request->input('category')),
+            ],
             'parameter_name' => 'required|string|max:200',
             'parameter_value' => 'required',
-            'data_type' => 'required|in:string,integer,boolean,json',
+            'data_type' => 'required|in:string,integer,decimal,boolean,json',
             'description' => 'nullable|string',
             'is_active' => 'boolean',
         ]);
@@ -104,10 +111,17 @@ class ErpParameterController extends Controller
     {
         $request->validate([
             'category' => 'required|string|max:100',
-            'parameter_key' => 'required|string|max:100|unique:erp_parameters,category,' . $request->category . ',parameter_key,' . $erpParameter->id,
+            'parameter_key' => [
+                'required',
+                'string',
+                'max:100',
+                Rule::unique('erp_parameters', 'parameter_key')
+                    ->where('category', $request->input('category'))
+                    ->ignore($erpParameter->id),
+            ],
             'parameter_name' => 'required|string|max:200',
             'parameter_value' => 'required',
-            'data_type' => 'required|in:string,integer,boolean,json',
+            'data_type' => 'required|in:string,integer,decimal,boolean,json',
             'description' => 'nullable|string',
             'is_active' => 'boolean',
         ]);
@@ -145,7 +159,7 @@ class ErpParameterController extends Controller
     {
         $category = $request->get('category');
 
-        if (!$category) {
+        if (! $category) {
             return response()->json([]);
         }
 
@@ -179,7 +193,7 @@ class ErpParameterController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Parameters updated successfully.'
+            'message' => 'Parameters updated successfully.',
         ]);
     }
 }

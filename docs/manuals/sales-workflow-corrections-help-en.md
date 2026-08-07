@@ -25,10 +25,12 @@ This file supports the in-app **HELP** assistant (navbar **?**). Chunks are spli
 
 ## Relationship Map and Document Workflow diagram
 
-- **Button** on document detail pages: **Relationship Map** in the header.
+- **Button** on document detail pages: **Relationship Map** in the header (SO, DO, SI, **SR**, SQ, PO, GRPO, PI, PP, …).
 - **Modal**: **Document Relationship Map**; diagram title **Document Workflow**.
-- **Node labels** include **document type** (e.g. Sales Order, Delivery Order), **number**, **date**, **Status** line, and **amount**. Reference text appears only when a reference exists (see UI behaviour).
-- **Keywords**: document map, workflow diagram, SO DO SI chain, N/A in diagram.
+- **Sales chain** expansion includes **Sales Receipt** linked to allocated **Sales Invoice(s)** and upstream **DO / SO / SQ** when data exists.
+- **Node labels** include **document type** (e.g. Sales Order, Delivery Order, Sales Receipt), **number**, **date**, **Status** line, and **amount**. Reference text appears only when a reference exists (see UI behaviour).
+- If a **Sales Receipt** map looks empty for an old document, edit/save the draft SR so SI→SR links sync; new receipts sync on create/update.
+- **Keywords**: document map, workflow diagram, SO DO SI SR chain, sales receipt relationship map, N/A in diagram.
 
 ## Wrong Company entity on Sales Order
 

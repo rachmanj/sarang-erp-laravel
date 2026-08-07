@@ -14,8 +14,11 @@ class PurchasePayment extends Model
         'business_partner_id',
         'company_entity_id',
         'created_by',
+        'currency_id',
         'description',
         'total_amount',
+        'rounding_amount',
+        'rounding_account_id',
         'status',
         'posted_at',
     ];
@@ -24,6 +27,7 @@ class PurchasePayment extends Model
         'date' => 'date',
         'posted_at' => 'datetime',
         'total_amount' => 'float',
+        'rounding_amount' => 'float',
     ];
 
     protected $auditLogIgnore = ['updated_at', 'created_at'];

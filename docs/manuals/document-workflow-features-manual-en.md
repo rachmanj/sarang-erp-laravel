@@ -20,6 +20,10 @@ Menu: open the document from **Purchase** or **Sales** sidebar lists, then scrol
 
 For posted-capable documents (GRPO, PI, PP, DO, SI, SR), click **Preview Journal** in the Base/Target card to see the **exact journal lines** that will be created on post — same logic as posting (`JournalBuilders`).
 
+- Amounts display with **two decimal places** (e.g. **8,245,999.99**, not rounded to whole rupiah).
+- **Sales Invoice** preview shows AR reclass lines (AR UnInvoice → Piutang Dagang, PPN reclass) at cent precision.
+- **Sales Receipt** preview includes a **rounding line** on account **7.1.4** when cash received differs from allocations within tolerance.
+
 Supported document types: Goods Receipt PO, Purchase Invoice, Purchase Payment, Delivery Order, Sales Invoice, Sales Receipt.
 
 If preview is empty, check that lines, accounts, and tax codes are complete on the draft document.
@@ -52,9 +56,20 @@ From a document show page you can create the next step in the chain:
 | DO (delivered) | Create Invoice from Delivery Order | Sales Invoice |
 | Posted SI | Create Receipt | Sales Receipt with customer + invoice allocation |
 
-Posted PI→PP and SI→SR open the payment/receipt create screen with **partner, entity, and invoice checkbox** already selected.
+Posted PI→PP and SI→SR open the payment/receipt create screen with **partner, entity, and invoice** prefilled. SI→SR uses URL **`/sales-receipts/create?sales_invoice_id={id}`**; the **Receipt Lines** bank/cash account row appears automatically after the invoice loads.
 
 ---
+
+## Relationship Map (Document Workflow diagram)
+
+On supported document **show** pages (SO, DO, SI, SR, SQ, PO, GRPO, PI, PP, etc.), click **Relationship Map** in the header.
+
+- Modal title: **Document Relationship Map**; diagram section: **Document Workflow** (Mermaid).
+- **Sales chain** expands multi-hop when possible: **SQ → SO → DO → SI → SR** (plus trading/GRPO overlay on SI when linked).
+- **Sales Receipt** nodes link to allocated **Sales Invoices** and upstream documents.
+- **Base / Target** navigation uses the same relationship data (one hop); the map shows the expanded graph.
+
+**Keywords:** relationship map, document workflow, SO DO SI SR, sales receipt map empty, mermaid diagram.
 
 ## Document deletion
 

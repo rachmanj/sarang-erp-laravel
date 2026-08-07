@@ -219,6 +219,10 @@
                                         </div>
                                     </div>
                                 </div>
+
+                                @include('components.payment-rounding-section', [
+                                    'selectedRoundingAccountId' => old('rounding_account_id', $receipt->rounding_account_id),
+                                ])
                             </div>
                             <div class="card-footer">
                                 <div class="row">
@@ -251,6 +255,8 @@
         const initialAllocationMap = @json($allocationAmountsByInvoice);
         const initialLines = @json($linePayload);
         const MULTI_LINE_MODE = initialLines.length > 1;
+        const roundingTolerance = @json($salesReceiptRoundingTolerance ?? 999999);
+        const defaultRoundingAccountId = @json($defaultRoundingAccountId);
         let availableInvoices = [];
         let selectedInvoices = new Set();
         let allocationIndex = 0;
@@ -287,9 +293,11 @@
             });
 
             $(document).on('input', '.receipt-amount-input', function() {
-                updateTotals();
+                updateReceiptTotal();
                 validateForm();
             });
+
+            $('#rounding_account_id').on('change', validateForm);
 
             $(document).on('click', '.remove-receipt-line', function() {
                 $(this).closest('tr').remove();
@@ -361,6 +369,7 @@
             });
             showReceiptLines();
             updateReceiptTotal();
+            updateRoundingUI();
         }
 
         async function loadAvailableInvoices(customerId) {
@@ -567,11 +576,7 @@
             });
 
             $('#total-allocation').text(formatCurrency(totalAllocation));
-            if (!MULTI_LINE_MODE) {
-                updateReceiptLineAmount(totalAllocation);
-            } else {
-                updateReceiptTotal();
-            }
+            updateReceiptTotal();
             validateForm();
         }
 
@@ -580,7 +585,9 @@
 
             if (totalAllocation > 0 && selectedInvoices.size > 0) {
                 showReceiptLines();
-                updateReceiptLineAmount(totalAllocation);
+                if (!MULTI_LINE_MODE) {
+                    updateReceiptLineAmount(totalAllocation);
+                }
             } else {
                 hideReceiptLines();
             }
@@ -592,8 +599,6 @@
 
             if (receiptAmountInput.length === 0) {
                 createReceiptLine(amount);
-            } else {
-                receiptAmountInput.first().val(amount.toFixed(2));
             }
 
             updateReceiptTotal();
@@ -651,12 +656,44 @@
                 total += parseFloat($(this).val() || 0);
             });
             $('#total-receipt').text(formatCurrency(total));
+            updateRoundingUI();
+        }
+
+        function getNumericTotal(selector) {
+            return parseFloat($(selector).text().replace(/[^\d.-]/g, '') || 0);
+        }
+
+        function updateRoundingUI() {
+            const totalAllocation = getNumericTotal('#total-allocation');
+            const totalReceipt = getNumericTotal('#total-receipt');
+            const roundingAmount = Math.round((totalReceipt - totalAllocation) * 100) / 100;
+            const roundingCard = $('#rounding-card');
+            const roundingInfo = $('#rounding-info-message');
+            const roundingSelect = $('#rounding_account_id');
+
+            if (Math.abs(roundingAmount) > 0.01) {
+                roundingCard.slideDown();
+                const direction = roundingAmount > 0 ? 'Gain' : 'Loss';
+                roundingInfo
+                    .removeClass('text-danger text-info')
+                    .addClass('text-info')
+                    .text(`Rounding adjustment: ${formatCurrency(Math.abs(roundingAmount))} (${direction})`);
+                roundingSelect.prop('required', true);
+                if (!roundingSelect.val() && defaultRoundingAccountId) {
+                    roundingSelect.val(String(defaultRoundingAccountId)).trigger('change');
+                }
+            } else {
+                roundingCard.slideUp();
+                roundingInfo.text('');
+                roundingSelect.prop('required', false);
+            }
         }
 
         function validateForm() {
-            const totalAllocation = parseFloat($('#total-allocation').text().replace(/[^\d.-]/g, '') || 0);
-            const totalReceipt = parseFloat($('#total-receipt').text().replace(/[^\d.-]/g, '') || 0);
-            const diff = Math.abs(totalAllocation - totalReceipt);
+            const totalAllocation = getNumericTotal('#total-allocation');
+            const totalReceipt = getNumericTotal('#total-receipt');
+            const roundingAmount = Math.round((totalReceipt - totalAllocation) * 100) / 100;
+            const diff = Math.abs(roundingAmount);
             const validationMsg = $('#validation-message');
             const submitBtn = $('#submit-btn');
 
@@ -672,10 +709,16 @@
                 return false;
             }
 
-            if (diff > 0.01) {
+            if (diff > roundingTolerance) {
                 validationMsg.text(
-                    `Receipt total (${formatCurrency(totalReceipt)}) must match allocation total (${formatCurrency(totalAllocation)})`
+                    `Receipt total (${formatCurrency(totalReceipt)}) differs from allocation total (${formatCurrency(totalAllocation)}) by more than the allowed tolerance (${formatCurrency(roundingTolerance)})`
                 );
+                submitBtn.prop('disabled', true);
+                return false;
+            }
+
+            if (diff > 0.01 && !$('#rounding_account_id').val()) {
+                validationMsg.text('Select a rounding account for the cash/allocation difference');
                 submitBtn.prop('disabled', true);
                 return false;
             }

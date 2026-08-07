@@ -19,6 +19,10 @@ Jawaban bersumber dari **dokumentasi internal** (`docs/manuals/`) yang telah dii
    - "Bagaimana transfer stok antar gudang?"
    - "Di mana menu Sales Invoice?"
    - "Cara posting Purchase Invoice?"
+   - "Bagaimana buat sales receipt dari faktur?"
+   - "Customer bayar nominal dibulatkan — pembulatan sales receipt?"
+   - "Kenapa Relationship Map sales receipt kosong?"
+   - "Bayar vendor nominal dibulatkan — pembulatan purchase payment?"
 3. Pilih **Answer language** jika ingin memaksa bahasa jawaban.
 4. Klik **Ask**.
 5. Baca jawaban dan daftar **Sources** (nama file panduan yang dipakai sebagai referensi).

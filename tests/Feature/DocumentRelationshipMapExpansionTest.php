@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Accounting\SalesInvoice;
+use App\Models\Accounting\SalesReceipt;
 use App\Models\DeliveryOrder;
 use App\Models\SalesOrder;
 use App\Models\User;
@@ -147,5 +148,57 @@ class DocumentRelationshipMapExpansionTest extends TestCase
         $response = $this->getJson('/api/documents/delivery-orders/'.$do->id.'/relationship-map?legacy_map=1');
         $response->assertOk();
         $response->assertJsonPath('success', true);
+    }
+
+    public function test_sales_receipt_relationship_map_includes_allocated_invoice_chain(): void
+    {
+        [$so, $do, $si] = $this->createMinimalSalesChain(true);
+        $this->assertNotNull($si);
+
+        $bpId = (int) DB::table('business_partners')->value('id');
+        $entityId = (int) DB::table('company_entities')->value('id');
+        $userId = (int) DB::table('users')->value('id');
+        $currencyId = (int) DB::table('currencies')->value('id');
+
+        $si->update(['status' => 'posted', 'total_amount' => 100]);
+
+        $receipt = SalesReceipt::query()->create([
+            'receipt_no' => 'T-MAP-SR-'.uniqid(),
+            'date' => now()->toDateString(),
+            'business_partner_id' => $bpId,
+            'company_entity_id' => $entityId,
+            'currency_id' => $currencyId,
+            'exchange_rate' => 1,
+            'status' => 'draft',
+            'total_amount' => 100,
+            'created_by' => $userId,
+        ]);
+
+        DB::table('sales_receipt_allocations')->insert([
+            'receipt_id' => $receipt->id,
+            'invoice_id' => $si->id,
+            'amount' => 100,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        /** @var DocumentRelationshipService $service */
+        $service = app(DocumentRelationshipService::class);
+        $service->syncSalesReceiptRelationships($receipt);
+
+        $user = User::query()->first();
+        $this->assertNotNull($user);
+        $this->grantMapPermissions($user);
+        $this->actingAs($user);
+
+        $response = $this->getJson('/api/documents/sales-receipts/'.$receipt->id.'/relationship-map');
+        $response->assertOk();
+        $response->assertJsonPath('success', true);
+
+        $types = collect($response->json('mermaid.nodes'))->pluck('type')->unique()->sort()->values()->all();
+        $this->assertContains('Sales Receipt', $types);
+        $this->assertContains('Sales Invoice', $types);
+        $this->assertContains('Delivery Order', $types);
+        $this->assertContains('Sales Order', $types);
     }
 }

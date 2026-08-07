@@ -28,6 +28,7 @@ class UpdateSalesReceiptRequest extends FormRequest
             'allocations' => ['required', 'array', 'min:1'],
             'allocations.*.invoice_id' => ['required', 'integer', 'exists:sales_invoices,id'],
             'allocations.*.amount' => ['required', 'numeric', 'min:0.01'],
+            'rounding_account_id' => ['nullable', 'integer', 'exists:accounts,id'],
         ];
     }
 

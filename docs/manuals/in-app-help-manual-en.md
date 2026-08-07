@@ -19,6 +19,10 @@ Answers are grounded in internal documentation (`docs/manuals/`) indexed on the 
    - "How do I transfer stock between warehouses?"
    - "Where is the Sales Invoice menu?"
    - "How do I post a purchase invoice?"
+   - "How do I create a sales receipt from an invoice?"
+   - "Customer paid a rounded amount — how does sales receipt rounding work?"
+   - "Why is the Relationship Map empty on my sales receipt?"
+   - "Vendor paid a rounded amount — how does purchase payment rounding work?"
 3. Set **Answer language** if you want to force the reply language.
 4. Click **Ask**.
 5. Read the answer and **Sources** (manual filenames used as references).

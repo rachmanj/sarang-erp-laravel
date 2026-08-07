@@ -20,6 +20,8 @@ class SalesReceipt extends Model
         'currency_id',
         'description',
         'total_amount',
+        'rounding_amount',
+        'rounding_account_id',
         'status',
         'posted_at',
     ];
@@ -28,6 +30,7 @@ class SalesReceipt extends Model
         'date' => 'date',
         'posted_at' => 'datetime',
         'total_amount' => 'float',
+        'rounding_amount' => 'float',
     ];
 
     protected $auditLogIgnore = ['updated_at', 'created_at'];

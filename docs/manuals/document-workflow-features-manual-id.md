@@ -20,6 +20,10 @@ Menu: buka dokumen dari daftar **Purchase** atau **Sales**, lalu lihat kartu nav
 
 Untuk dokumen yang bisa diposting (GRPO, PI, PP, DO, SI, SR), klik **Preview Journal** di kartu Base/Target untuk melihat **baris jurnal yang sama** dengan saat posting.
 
+- Nominal ditampilkan **dua desimal** (mis. **8.245.999,99**, bukan dibulatkan ke rupiah utuh).
+- Preview **Sales Invoice** menampilkan reclass AR/PPN dengan presisi sen.
+- Preview **Sales Receipt** menampilkan baris **pembulatan** ke akun **7.1.4** bila kas diterima berbeda dari alokasi dalam toleransi.
+
 Tipe yang didukung: Goods Receipt PO, Purchase Invoice, Purchase Payment, Delivery Order, Sales Invoice, Sales Receipt.
 
 Jika preview kosong, periksa kelengkapan baris, akun, dan kode pajak pada draft.
@@ -52,9 +56,20 @@ Dari halaman detail dokumen Anda dapat membuat langkah berikutnya:
 | DO (delivered) | Create Invoice from Delivery Order | Sales Invoice |
 | SI posted | Create Receipt | Sales Receipt + alokasi faktur |
 
-PI→PP dan SI→SR membuka form pembayaran/penerimaan dengan **partner, entitas, dan centang faktur** sudah terisi.
+PI→PP dan SI→SR membuka form pembayaran/penerimaan dengan **partner, entitas, dan faktur** sudah terisi. SI→SR memakai URL **`/sales-receipts/create?sales_invoice_id={id}`**; baris **Receipt Lines** (akun kas/bank) muncul otomatis setelah invoice dimuat.
 
 ---
+
+## Relationship Map (diagram Document Workflow)
+
+Di halaman **detail** dokumen yang didukung (SO, DO, SI, SR, SQ, PO, GRPO, PI, PP, dll.), klik **Relationship Map** di header.
+
+- Modal: **Document Relationship Map**; diagram: **Document Workflow** (Mermaid).
+- **Rantai penjualan** diperluas multi-hop bila memungkinkan: **SQ → SO → DO → SI → SR** (plus overlay trading/GRPO pada SI jika ada).
+- Node **Sales Receipt** terhubung ke **Sales Invoice** yang dialokasikan dan dokumen upstream.
+- Navigasi **Base / Target** memakai data relasi yang sama (satu hop); map menampilkan graf lengkap.
+
+**Kata kunci:** relationship map, peta dokumen, SO DO SI SR, map SR kosong, diagram workflow.
 
 ## Penghapusan dokumen
 

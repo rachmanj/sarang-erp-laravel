@@ -25,10 +25,12 @@ Dokumen ini mendukung **bantuan dalam aplikasi (HELP, ikon ?)**. Gunakan judul `
 
 ## Relationship Map dan diagram Document Workflow
 
-- **Tombol**: pada detail dokumen (SO, DO, SI, dll.) — **Relationship Map** di header.
+- **Tombol**: pada detail dokumen (SO, DO, SI, **SR**, SQ, PO, GRPO, PI, PP, …) — **Relationship Map** di header.
 - **Modal**: judul **Document Relationship Map**; diagram bernama **Document Workflow**.
-- **Isi kotak diagram**: baris berisi **jenis dokumen** (mis. Sales Order, Delivery Order), **nomor**, **tanggal**, **Status** (bukan singkatan N/A untuk status — referensi pelanggan hanya ditampilkan jika ada; lihat panduan teknis UI).
-- **Kata kunci**: peta dokumen, alur dokumen, hubungan SO DO SI, workflow diagram, N/A di diagram (bukan status jika tidak ada referensi).
+- **Rantai penjualan** diperluas multi-hop: **SQ → SO → DO → SI → SR** bila data ada; **Sales Receipt** terhubung ke **Sales Invoice** yang dialokasikan.
+- **Isi kotak diagram**: baris berisi **jenis dokumen** (mis. Sales Order, Delivery Order, Sales Receipt), **nomor**, **tanggal**, **Status**, dan **amount**. Referensi pelanggan hanya ditampilkan jika ada.
+- Receipt **lama** dengan map kosong: edit/simpan draft SR agar tautan SI→SR tersimpan; receipt baru sync otomatis saat create/update.
+- **Kata kunci**: peta dokumen, alur dokumen, SO DO SI SR, sales receipt map kosong, workflow diagram.
 
 ## Salah pilih Company entity pada Sales Order
 

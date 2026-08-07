@@ -133,6 +133,22 @@
                 <th colspan="2" style="text-align:right">Total</th>
                 <th style="text-align:right">{{ number_format($payment->total_amount, 2) }}</th>
             </tr>
+            @if (abs((float) ($payment->rounding_amount ?? 0)) > 0.01)
+                @php
+                    $roundingAccount = $payment->rounding_account_id
+                        ? DB::table('accounts')->find($payment->rounding_account_id)
+                        : null;
+                @endphp
+                <tr>
+                    <th colspan="2" style="text-align:right">Rounding {{ (float) $payment->rounding_amount > 0 ? 'Loss' : 'Gain' }}</th>
+                    <th style="text-align:right">
+                        {{ number_format(abs((float) $payment->rounding_amount), 2) }}
+                        @if ($roundingAccount)
+                            ({{ $roundingAccount->code }})
+                        @endif
+                    </th>
+                </tr>
+            @endif
         </tfoot>
     </table>
 </body>

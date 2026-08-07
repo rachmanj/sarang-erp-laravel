@@ -300,6 +300,33 @@ class DocumentRelationshipService
         $this->clearDocumentCache($payment);
     }
 
+    public function syncSalesReceiptRelationships(SalesReceipt $receipt): void
+    {
+        $morphReceipt = $receipt->getMorphClass();
+        $morphInvoice = (new SalesInvoice)->getMorphClass();
+
+        DocumentRelationship::where('target_document_type', $morphReceipt)
+            ->where('target_document_id', $receipt->id)
+            ->where('source_document_type', $morphInvoice)
+            ->whereIn('relationship_type', ['base', 'target'])
+            ->delete();
+
+        $invoiceIds = DB::table('sales_receipt_allocations')
+            ->where('receipt_id', $receipt->id)
+            ->pluck('invoice_id');
+
+        foreach ($invoiceIds as $invoiceId) {
+            $invoice = SalesInvoice::find($invoiceId);
+            if ($invoice) {
+                $this->createBaseRelationship($invoice, $receipt);
+                $this->createTargetRelationship($invoice, $receipt);
+                $this->clearDocumentCache($invoice);
+            }
+        }
+
+        $this->clearDocumentCache($receipt);
+    }
+
     public function labelForMorphClass(string $morphClass): string
     {
         $labels = [
@@ -648,6 +675,9 @@ class DocumentRelationshipService
      */
     private function initializeSRRelationships(): void
     {
+        $morphSi = (new SalesInvoice)->getMorphClass();
+        $morphSr = (new SalesReceipt)->getMorphClass();
+
         $allocations = DB::table('sales_receipt_allocations')
             ->join('sales_receipts', 'sales_receipt_allocations.receipt_id', '=', 'sales_receipts.id')
             ->join('sales_invoices', 'sales_receipt_allocations.invoice_id', '=', 'sales_invoices.id')
@@ -656,17 +686,17 @@ class DocumentRelationshipService
 
         foreach ($allocations as $allocation) {
             DocumentRelationship::updateOrCreate([
-                'source_document_type' => 'App\Models\SalesInvoice',
+                'source_document_type' => $morphSi,
                 'source_document_id' => $allocation->invoice_id,
-                'target_document_type' => 'App\Models\SalesReceipt',
+                'target_document_type' => $morphSr,
                 'target_document_id' => $allocation->receipt_id,
                 'relationship_type' => 'target',
             ]);
 
             DocumentRelationship::updateOrCreate([
-                'source_document_type' => 'App\Models\SalesInvoice',
+                'source_document_type' => $morphSi,
                 'source_document_id' => $allocation->invoice_id,
-                'target_document_type' => 'App\Models\SalesReceipt',
+                'target_document_type' => $morphSr,
                 'target_document_id' => $allocation->receipt_id,
                 'relationship_type' => 'base',
             ]);
@@ -905,6 +935,19 @@ class DocumentRelationshipService
             if ($si && $this->canUserViewDocument($si, $user)) {
                 $models[$stableKey($si)] = $si;
                 $addEdge($si, $model);
+            }
+        }
+
+        if ($model instanceof SalesReceipt) {
+            $invoiceIds = DB::table('sales_receipt_allocations')
+                ->where('receipt_id', $model->id)
+                ->pluck('invoice_id');
+            foreach ($invoiceIds as $invoiceId) {
+                $si = SalesInvoice::query()->find($invoiceId);
+                if ($si && $this->canUserViewDocument($si, $user)) {
+                    $models[$stableKey($si)] = $si;
+                    $addEdge($si, $model);
+                }
             }
         }
     }

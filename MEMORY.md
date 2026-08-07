@@ -1,7 +1,15 @@
 **Purpose**: AI's persistent knowledge base for project context and learnings
-**Last Updated**: 2026-07-22 (Journal detail view)
+**Last Updated**: 2026-08-06 (AR/AP payment rounding tolerance)
 
 ## Project Memory Entries
+
+### [136] AR/AP payment rounding tolerance (2026-08-06) ✅ COMPLETE
+
+**Challenge**: Sales Receipts and Purchase Payments required exact cash = allocation match, blocking real-world rounded payments (e.g. Rp 8,245,999.99 invoice settled with Rp 8,246,000.00 cash).
+
+**Solution**: Added `rounding_amount` + `rounding_account_id` on both document types; `PaymentRoundingService` with ERP-parameter tolerance (default Rp 999,999); COA `7.1.4 Selisih Pembulatan (Rounding)`; journal builders post cash for full tender, AR/AP for allocation total, rounding line for difference; UI shows rounding card when diff detected and lets user pick account; cent-based invoice closure via `forceFill`.
+
+**Key Learning**: Use integer cents for rounding math and journal settle amounts to avoid float drift (8245999.99 vs 8246000.00). Journal rounding line condition must be `roundingCents !== 0`, not `abs(amount) > 0.01` (exactly 0.01 would be skipped). `SalesInvoice::update()` silently ignores `closure_status` — use `forceFill` for closure fields.
 
 ### [134] Journal detail view (2026-07-22) ✅ COMPLETE
 
