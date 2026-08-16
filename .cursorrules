@@ -5,6 +5,29 @@ YOUR ROLES:
 3. senior UI/UX software designer with 15+ years experience in developing enterprise grade software,
 4. senior software architect with 15+ years experience in developing SAP B1
 
+# Project Overview
+
+**Sarange ERP** — comprehensive ERP for Indonesian trading companies.
+- **Backend**: Laravel 12 (PHP 8.2+), MySQL
+- **Frontend**: Blade templates + AdminLTE 3 + Bootstrap 4 + jQuery + DataTables (Yajra) + SweetAlert2 + Select2BS4
+- **Auth**: Spatie Permission (RBAC with 40+ granular permissions) + Laravel Auth
+- **PDF**: DomPDF (multiple layouts: Standard A4, Dot Matrix, PT CSJ, CV Saranghae)
+- **Excel**: Maatwebsite/Laravel Excel
+- **AI**: In-app HELP (RAG via OpenRouter), Domain Assistant, Bank Reconciliation AI
+- **Timezone**: Asia/Singapore
+- **DB**: `sarang_live` (production clone on local dev), `sarang_erp_test` (PHPUnit isolated)
+
+## Key Architecture Decisions
+
+- **Multi-Entity**: PT CSJ (code 71, default) + CV Cahaya Saranghae. Document numbering: `EEYYDDNNNNN`.
+- **Business Partner**: Unified customer + supplier model (`business_partners` table, `partner_type` field). Use `business_partner_id` everywhere — NOT `vendor_id` or `customer_id`.
+- **Accounting Flow**: Intermediate accounts — AR UnInvoice (1.1.2.04), AP UnInvoice (2.1.1.03). GRPO → AP UnInvoice, PI → Utang Dagang. DO → AR UnInvoice, SI → Piutang Dagang.
+- **Journal Builders**: All posting uses centralized `JournalBuilders` in `app/Services/Accounting/JournalBuilders/`. Preview and post MUST share the same builder — never duplicate line-generation logic.
+- **Document Lifecycle**: PO→GRPO→PI→PP, SO→DO→SI→SR. Document closure via `DocumentClosureService`. Open/Closed computed via `DocumentOpenState`.
+- **Permissions**: ALWAYS use Spatie string permissions (`'assets.view'`, `'ar.invoices.create'`). NEVER use `$this->authorize('view', Model::class)` unless a policy explicitly maps the ability.
+- **FIFO**: `InventoryService` with true FIFO layers. LIFO removed (non-PSAK). Use `updateItemValuationAfterDataRepair()` (tolerant replay) after data fixes.
+- **Control Accounts**: `PostingService` updates `control_account_balances` automatically. AR/AP/Inventory control accounts mapped to subsidiary ledgers.
+
 # Enhanced Project Documentation Automation
 
 ## Core Documentation Maintenance
@@ -45,67 +68,111 @@ Periodically (when todo.md gets cluttered):
 2. Move future ideas from todo to `docs/backlog.md`
 3. Reprioritize based on what you've learned
 
-## Database Access Preferences
+## Database Access
 
-### MySQL MCP Integration
+- Use **Laravel's MySQL connection** via `php artisan tinker` or direct queries for data inspection.
+- The `sarang_live` database is a production clone restored locally — treat existing data as read-only reference.
+- For testing, PHPUnit uses **`sarang_erp_test`** (isolated via `phpunit.xml`). Never run `RefreshDatabase` against `sarang_live`.
+- Artisan commands for DB: `migrate --force`, `db:seed`, `cache:clear`, `config:clear`.
 
--   **ALWAYS use MySQL MCP** for database queries instead of Laravel Tinker commands
--   MCP provides direct, safe, read-only access to the `sarang_live` database
--   Query the database directly using natural language requests
+## Development Workflow
 
-### Database Query Guidelines
+### Local Server
+```bash
+# Start dev server (assumed already running)
+php artisan serve --no-reload
+# Vite
+npm run dev
+# Queue worker
+php artisan queue:listen --tries=1
+# Or use composer dev shortcut
+composer dev
+```
 
--   Use direct SQL queries via MCP for data exploration and analysis
--   Prefer MCP queries over `php artisan tinker` commands for database inspection
--   Examples:
-    -   Instead of: "Run `User::count()` in tinker"
-    -   Use: "How many users are in the database?"
-    -   Instead of: "Check recent distributions with tinker"
-    -   Use: "Show me distributions created in the last 7 days"
+### Testing
+```bash
+# Run all tests (uses sarang_erp_test DB)
+php artisan test
+# Run specific test
+php artisan test --filter=SalesReceiptRoundingTest
+```
 
-### When to Use Each Tool
+### After Making Changes
+1. Run relevant tests
+2. Do browser testing (assume server is already running at localhost:8000)
+3. Update docs (architecture/decisions/MEMORY/todo) as needed
+4. For frontend changes: `npm run build`
 
--   **MySQL MCP**: Data inspection, analysis, counts, structure exploration
--   **Laravel Artisan**: Migrations, seeding, cache clearing, queue management
--   **Manual file editing**: Code changes, configuration updates
+### Before Commit
+```bash
+git add -A && git commit -m "descriptive message" && git push
+```
+
+## Code Conventions & Pitfalls
+
+### NEVER
+- Use hardcoded account codes (`1.1.1.01`) in journal posting — use model relationships or COA lookups
+- Duplicate journal preview logic from posting logic — share the JournalBuilder
+- Use `vendor_id` or `customer_id` — always `business_partner_id`
+- Use `$this->authorize('view', Model::class)` without a Policy — use Spatie string permissions
+- Run `RefreshDatabase` against `sarang_live` — PHPUnit must use `sarang_erp_test`
+- Emit raw session text into JS string literals — use `@json(session(...))` for toastr/flash
+- Parse Indonesian-formatted numbers (`"1.234.567,89"`) with `parseFloat()` — use raw input values
+- Use `sed -i` on Docker volumes — use `cat /tmp/new > /path/to/file`
+- Reference `vendors` or `customers` tables — they don't exist; use `business_partners`
+- Register static routes AFTER `/{id}` catch-alls — static paths first
+
+### ALWAYS
+- Eager-load relationships in controllers (`with(['lines.inventoryItem', 'businessPartner'])`)
+- Use `JournalSourceUrlResolver` for source-document links in journal/ledger views
+- Validate document date `before_or_equal:today` (except opening balance or `future_date` permission)
+- Use `forceFill()` when updating `closure_status` on models that guard it
+- Run `php artisan cache:clear && php artisan config:clear` after dotenv changes or 500-recovery
+- Run `npm run build` AND include both `resources/` and `public/build/` in deploy tarballs
+- Add `use` imports for all controller classes referenced in route files
+- Run `php artisan route:list 2>&1 | head -5` after adding routes to catch missing imports
+
+### Common Gotchas
+- **ProTable Chinese text**: AntD ProTable may need explicit `searchText`/`resetText`/`showTotal`/`options={false}` + dayjs locale. App uses AdminLTE, not AntD ProTable — but if ProTable is introduced later, apply the `antd-pro-chinese-font-fix` checklist.
+- **Dotenv spaces**: Values with spaces MUST be quoted (`APP_NAME="Pratasaba ERP"`).
+- **Docker layer cache**: Use `--no-cache` for guaranteed fresh builds.
+- **bootstrap/cache drift**: Tarball deploy overwrites `bootstrap/cache/` from local → 500 on VPS. Run `rm -rf bootstrap/cache/*` after deploy.
+- **Inertia ensure_pages_exist**: Not applicable (app uses Blade, not Inertia). If Inertia is introduced later, JS source files must be deployed alongside built assets.
+- **d.forEach error**: Usually corrupted `Cache::rememberForever()` in `HandleInertiaRequests` — but app uses Blade, not Inertia. Equivalent pattern: check `Cache::get()` keys after 500-recovery; run `cache:clear`.
 
 ## Documentation Standards
 
 ### Architecture Documentation
-
--   Document CURRENT state, not intended state
--   Include working code examples and patterns
--   Generate Mermaid diagrams for complex data flows
--   Reference specific files and functions when relevant
+- Document CURRENT state, not intended state
+- Include working code examples and patterns
+- Generate Mermaid diagrams for complex data flows
+- Reference specific files and functions when relevant
 
 ### Task Management
-
--   Include sufficient context for future AI assistance
--   Reference specific files, functions, and error messages
--   Update status and completion dates accurately
--   Note blockers and dependencies clearly
--   Keep focus on immediate work, move future ideas to backlog
+- Include sufficient context for future AI assistance
+- Reference specific files, functions, and error messages
+- Update status and completion dates accurately
+- Note blockers and dependencies clearly
+- Keep focus on immediate work, move future ideas to backlog
 
 ### Memory Entries
-
--   Focus on significant decisions and learnings
--   Include actionable insights, not just descriptions
--   Keep entries concise but informative
--   Archive old entries when file gets too long
+- Focus on significant decisions and learnings
+- Include actionable insights, not just descriptions
+- Keep entries concise but informative
+- Archive old entries when file gets too long
 
 ### Decision Records
-
--   Capture context that led to the decision
--   Document alternatives that were considered
--   Include implementation implications
--   Set review dates for revisiting decisions
+- Capture context that led to the decision
+- Document alternatives that were considered
+- Include implementation implications
+- Set review dates for revisiting decisions
 
 ## Cross-Referencing Rules
 
--   Always check existing documentation before adding new content
--   Link related decisions, tasks, and architecture changes
--   Update multiple files when changes affect multiple areas
--   Maintain consistency between memory, architecture, and task tracking
+- Always check existing documentation before adding new content
+- Link related decisions, tasks, and architecture changes
+- Update multiple files when changes affect multiple areas
+- Maintain consistency between memory, architecture, and task tracking
 
 ### Document Relationship Map (living roadmap)
 
@@ -116,7 +183,23 @@ When changing **Base/Target navigation** or the **Relationship Map** modal (`Doc
 3. Append implementation notes to **`docs/relationship-map-implementation-summary.md`**; log non-trivial product/technical choices in **`docs/decisions.md`**; use **`docs/todo.md`** / **`docs/backlog.md`** for delivery tracking.
 4. After behaviour changes, note important learnings in **`MEMORY.md`** per the Memory guidelines above.
 
-since this app already launched, you need to consider existing data in db. live db already restore to this local db for you to access.
-After making change, do browser testing, assume the server is already running
+## Deployment Rule (CRITICAL)
+
+This app is already deployed and running LIVE in production on IDCloudHost VPS.
+
+- **ALL development** (new features, bug fixes, improvements) MUST be done on the DEV server (local `dea-geekom`).
+- **NEVER deploy to production VPS** without Iwan's explicit approval.
+- Only deploy to production when Iwan says: "deploy to VPS", "deploy to production", or similar explicit command.
+- Before deployment, confirm with Iwan what changes are being deployed.
+
+## Production Awareness
+
+This app is already launched with real data in production. When making changes:
+
+1. Consider existing data in `sarang_live` database (already restored locally)
+2. Write migrations that handle existing rows (nullable columns, default values, backfill commands)
+3. Test against real data, not just fresh seeds
+4. After making changes, do browser testing — assume the server is already running
+5. For destructive operations (delete, reverse), always provide a `--dry-run` mode in artisan commands
 
 Remember: These documents should provide comprehensive context for future development and AI assistance, evolving as living documentation that stays current with your codebase.
