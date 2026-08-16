@@ -61,10 +61,15 @@ class BusinessPartnerAccountStatementTest extends TestCase
         $partner = BusinessPartner::query()->where('partner_type', 'supplier')->first();
         $this->assertNotNull($partner);
 
-        $account = $partner->getAccountOrDefault();
-        $this->assertNotNull($account);
+        $accountId = (int) DB::table('accounts')->where('code', '2.1.1.01')->value('id');
+        $this->assertGreaterThan(0, $accountId);
+        $partner->update(['account_id' => $accountId]);
+        $partner->refresh();
 
-        $otherAccountId = (int) DB::table('accounts')->where('id', '!=', $account->id)->value('id');
+        $otherAccountId = (int) DB::table('accounts')
+            ->where('id', '!=', $accountId)
+            ->where('is_postable', 1)
+            ->value('id');
 
         $service = app(PostingService::class);
         $service->postJournal([
@@ -73,7 +78,7 @@ class BusinessPartnerAccountStatementTest extends TestCase
             'source_type' => 'test',
             'source_id' => 1,
             'lines' => [
-                ['account_id' => $account->id, 'debit' => 1000, 'credit' => 0],
+                ['account_id' => $accountId, 'debit' => 1000, 'credit' => 0],
                 ['account_id' => $otherAccountId, 'debit' => 0, 'credit' => 1000],
             ],
         ]);

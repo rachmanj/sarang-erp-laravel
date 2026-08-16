@@ -3,6 +3,7 @@
 namespace App\Services\Documents\Support;
 
 use App\Models\DocumentRelationship;
+use App\Models\InventoryTransaction;
 use App\Models\TaxTransaction;
 use App\Services\Accounting\PeriodCloseService;
 use App\Services\Accounting\PostingService;
