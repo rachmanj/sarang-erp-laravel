@@ -113,7 +113,7 @@ class InventoryDataTablesOrderingTest extends TestCase
             ->pluck('code')
             ->all();
 
-        $data = collect($response->json('data'))->whereIn('code', $codes)->sortBy('purchase_price')->values();
+        $data = collect($response->json('data'))->whereIn('code', $codes)->values();
 
         $this->assertCount(3, $data);
         $this->assertEquals('500.00', $data[0]['purchase_price']);
