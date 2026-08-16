@@ -604,6 +604,17 @@
                     </li>
                 @endcanany
 
+                @can('whatsapp.settings')
+                    <li class="nav-header">PENGATURAN</li>
+                    <li class="nav-item">
+                        <a href="{{ route('whatsapp.settings.edit') }}"
+                            class="nav-link {{ request()->routeIs('whatsapp.settings.*') ? 'active' : '' }}">
+                            <i class="nav-icon fab fa-whatsapp"></i>
+                            <p>WhatsApp</p>
+                        </a>
+                    </li>
+                @endcan
+
                 <!-- Reports Section -->
                 @include('layouts.partials.menu.reports')
 

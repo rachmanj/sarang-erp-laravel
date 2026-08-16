@@ -12,7 +12,7 @@ use Spatie\Permission\Traits\HasRoles;
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable, HasRoles;
+    use HasFactory, HasRoles, Notifiable;
 
     /**
      * The attributes that are mass assignable.
@@ -23,6 +23,7 @@ class User extends Authenticatable
         'name',
         'username',
         'email',
+        'whatsapp_number',
         'password',
         'is_active',
         'audit_log_filter_presets',
@@ -54,7 +55,9 @@ class User extends Authenticatable
     }
 
     protected $auditLogIgnore = ['updated_at', 'created_at', 'email_verified_at'];
+
     protected $auditLogSensitive = ['password', 'remember_token'];
+
     protected $auditEntityType = 'user';
 
     public function auditLogs(): HasMany

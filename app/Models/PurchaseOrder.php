@@ -75,6 +75,23 @@ class PurchaseOrder extends Model
 
     protected $auditEntityType = 'purchase_order';
 
+    protected static function booted(): void
+    {
+        static::created(function (PurchaseOrder $purchaseOrder): void {
+            if ($purchaseOrder->approval_status === 'pending') {
+                app(\App\Services\WhatsApp\WhatsAppService::class)
+                    ->notifyPurchaseOrderPendingApproval($purchaseOrder);
+            }
+        });
+
+        static::updated(function (PurchaseOrder $purchaseOrder): void {
+            if ($purchaseOrder->wasChanged('approval_status') && $purchaseOrder->approval_status === 'pending') {
+                app(\App\Services\WhatsApp\WhatsAppService::class)
+                    ->notifyPurchaseOrderPendingApproval($purchaseOrder);
+            }
+        });
+    }
+
     // Relationships
     public function lines(): HasMany
     {

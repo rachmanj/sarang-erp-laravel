@@ -42,6 +42,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SupplierAnalyticsController;
 use App\Http\Controllers\TaxController;
 use App\Http\Controllers\WarehouseController;
+use App\Http\Controllers\WhatsApp\WhatsAppSettingsController;
 use App\Models\BusinessPartner;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -225,6 +226,13 @@ Route::middleware('auth')->group(function () {
         Route::get('/', [CompanyInfoController::class, 'index'])->name('company-info.index');
         Route::post('/', [CompanyInfoController::class, 'update'])->name('company-info.update');
         Route::post('/upload-logo', [CompanyInfoController::class, 'uploadLogo'])->name('company-info.upload-logo');
+    });
+
+    // WhatsApp Settings
+    Route::prefix('settings/whatsapp')->middleware(['permission:whatsapp.settings'])->group(function () {
+        Route::get('/', [WhatsAppSettingsController::class, 'edit'])->name('whatsapp.settings.edit');
+        Route::post('/', [WhatsAppSettingsController::class, 'update'])->name('whatsapp.settings.update');
+        Route::post('/test', [WhatsAppSettingsController::class, 'sendTest'])->name('whatsapp.settings.test');
     });
 
     // Downloads

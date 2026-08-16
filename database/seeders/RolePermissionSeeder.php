@@ -163,6 +163,8 @@ class RolePermissionSeeder extends Seeder
             'bank_reconciliation.import',
             'bank_reconciliation.reconcile',
             'bank_reconciliation.finalize',
+            // WhatsApp
+            'whatsapp.settings',
         ];
 
         foreach ($permissions as $perm) {
