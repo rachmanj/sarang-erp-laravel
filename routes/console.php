@@ -9,3 +9,4 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('whatsapp:poll-messages')->everyMinute();
+Schedule::command('whatsapp:send-daily-report')->dailyAt(config('whatsapp.daily_report_time'));

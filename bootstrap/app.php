@@ -1,6 +1,7 @@
 <?php
 
 use App\Console\Commands\PollWhatsAppMessages;
+use App\Console\Commands\SendDailyReportWhatsApp;
 use App\Console\Commands\ServeCommand;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -16,6 +17,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withCommands([
         ServeCommand::class,
         PollWhatsAppMessages::class,
+        SendDailyReportWhatsApp::class,
     ])
     ->withMiddleware(function (Middleware $middleware) {
         // Register Spatie Permission middleware aliases
