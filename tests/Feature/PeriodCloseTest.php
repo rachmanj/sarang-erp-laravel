@@ -2,11 +2,10 @@
 
 namespace Tests\Feature;
 
-use Illuminate\Foundation\Testing\RefreshDatabase;
-use Tests\TestCase;
-use App\Models\User;
-use Illuminate\Support\Facades\DB;
 use App\Services\Accounting\PostingService;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
+use Tests\TestCase;
 
 class PeriodCloseTest extends TestCase
 {
@@ -36,7 +35,7 @@ class PeriodCloseTest extends TestCase
             'source_id' => 99,
             'lines' => [
                 ['account_id' => $this->accountId('1.1.2.01'), 'debit' => 100, 'credit' => 0],
-                ['account_id' => $this->accountId('4.1.1'), 'debit' => 0, 'credit' => 100],
+                ['account_id' => $this->accountId('4.1.1.01'), 'debit' => 0, 'credit' => 100],
             ],
         ]);
     }
