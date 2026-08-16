@@ -19,6 +19,9 @@
                         <h3 class="card-title">
                             <i class="fas fa-shopping-cart mr-1"></i>
                             Purchase Order {{ $order->order_no ?? '#' . $order->id }}
+                            @if ($latestWhatsAppMessage)
+                                <span class="badge badge-info ml-2">WhatsApp: {{ $latestWhatsAppMessage->status }}</span>
+                            @endif
                         </h3>
                     </div>
                     <div>

@@ -8,6 +8,7 @@ use App\Models\AssetCategory;
 use App\Models\CompanyEntity;
 use App\Models\InventoryItem;
 use App\Models\PurchaseOrder;
+use App\Models\WhatsAppMessage;
 use App\Services\Accounting\PurchaseOrderFooterMath;
 use App\Services\CompanyEntityService;
 use App\Services\CurrencyService;
@@ -297,7 +298,13 @@ class PurchaseOrderController extends Controller
         $order = PurchaseOrder::with(['lines.inventoryItem.partNumbers', 'lines.partNumber', 'businessPartner', 'approvals.user', 'approvedBy', 'createdBy'])
             ->findOrFail($id);
 
-        return view('purchase_orders.show', compact('order'));
+        $latestWhatsAppMessage = WhatsAppMessage::query()
+            ->where('related_entity_id', $order->id)
+            ->whereIn('related_entity_type', ['purchase_order', PurchaseOrder::class])
+            ->orderByDesc('id')
+            ->first();
+
+        return view('purchase_orders.show', compact('order', 'latestWhatsAppMessage'));
     }
 
     public function print(Request $request, int $id)
