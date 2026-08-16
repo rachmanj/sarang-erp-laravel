@@ -33,7 +33,7 @@ class PostingServiceTest extends TestCase
         ];
         $jid = $service->postJournal($payload);
         $this->assertDatabaseHas('journals', ['id' => $jid, 'description' => 'Test']);
-        $this->assertMatchesRegularExpression('/^JNL-\d{6}-\d{6}$/', DB::table('journals')->where('id', $jid)->value('journal_no'));
+        $this->assertMatchesRegularExpression('/^\d{11}$/', DB::table('journals')->where('id', $jid)->value('journal_no'));
         $lines = DB::table('journal_lines')->where('journal_id', $jid)->count();
         $this->assertSame(2, $lines);
     }
@@ -103,7 +103,6 @@ class PostingServiceTest extends TestCase
     {
         $service = app(PostingService::class);
         $projectId = (int) DB::table('projects')->value('id');
-        $fundId = (int) DB::table('funds')->value('id');
         $deptId = (int) DB::table('departments')->value('id');
 
         $jid = $service->postJournal([
@@ -117,7 +116,6 @@ class PostingServiceTest extends TestCase
                     'debit' => 75,
                     'credit' => 0,
                     'project_id' => $projectId,
-                    'fund_id' => $fundId,
                     'dept_id' => $deptId,
                 ],
                 [
@@ -125,7 +123,6 @@ class PostingServiceTest extends TestCase
                     'debit' => 0,
                     'credit' => 75,
                     'project_id' => $projectId,
-                    'fund_id' => $fundId,
                     'dept_id' => $deptId,
                 ],
             ],
@@ -135,7 +132,6 @@ class PostingServiceTest extends TestCase
         $this->assertCount(2, $orig);
         foreach ($orig as $l) {
             $this->assertSame($projectId, (int) $l->project_id);
-            $this->assertSame($fundId, (int) $l->fund_id);
             $this->assertSame($deptId, (int) $l->dept_id);
         }
 
@@ -144,7 +140,6 @@ class PostingServiceTest extends TestCase
         $this->assertCount(2, $rev);
         foreach ($rev as $l) {
             $this->assertSame($projectId, (int) $l->project_id);
-            $this->assertSame($fundId, (int) $l->fund_id);
             $this->assertSame($deptId, (int) $l->dept_id);
         }
     }
