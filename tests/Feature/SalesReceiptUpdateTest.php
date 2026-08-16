@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\ErpParameter;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -147,6 +148,17 @@ class SalesReceiptUpdateTest extends TestCase
         $invoiceId = (int) DB::table('sales_receipt_allocations')
             ->where('receipt_id', $receiptId)
             ->value('invoice_id');
+
+        ErpParameter::updateOrCreate(
+            ['parameter_key' => 'sales_receipt_rounding_tolerance'],
+            [
+                'category' => 'payment_settings',
+                'parameter_name' => 'Sales Receipt Rounding Tolerance',
+                'parameter_value' => '1',
+                'data_type' => 'decimal',
+                'is_active' => true,
+            ]
+        );
 
         $this->from(route('sales-receipts.edit', $receiptId, false))
             ->put('/sales-receipts/'.$receiptId, [

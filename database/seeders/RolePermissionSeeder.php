@@ -272,6 +272,7 @@ class RolePermissionSeeder extends Seeder
                 'purchase-orders.view',
                 'purchase-orders.create',
                 'purchase-orders.update',
+                'purchase-orders.approve',
                 // Vendors (to view vendor information)
                 'vendors.view',
                 // Projects and departments (for cost tracking)
