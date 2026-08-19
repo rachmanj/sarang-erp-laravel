@@ -4,12 +4,119 @@ namespace Tests\Unit;
 
 use App\Models\Accounting\SalesInvoice;
 use App\Models\Accounting\SalesInvoiceLine;
+use App\Models\DeliveryOrder;
+use App\Models\DeliveryOrderLine;
+use App\Models\InventoryItem;
+use App\Models\Master\TaxCode;
+use App\Models\ProductCategory;
+use App\Models\SalesOrder;
+use App\Models\SalesOrderLine;
+use App\Models\Warehouse;
 use App\Services\Accounting\SalesInvoicePostingMath;
 use Illuminate\Database\Eloquent\Collection;
-use PHPUnit\Framework\TestCase;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
+use Tests\TestCase;
 
 class SalesInvoicePostingMathTest extends TestCase
 {
+    use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->seed();
+    }
+
+    /**
+     * @return array{deliveryOrderLine: DeliveryOrderLine, salesOrderLine: SalesOrderLine}
+     */
+    private function createDoLinkedLines(float $soVatRate, float $soWtaxRate = 0.0): array
+    {
+        $bpId = (int) DB::table('business_partners')->value('id');
+        $entityId = (int) DB::table('company_entities')->value('id');
+        $userId = (int) DB::table('users')->value('id');
+        $currencyId = (int) DB::table('currencies')->value('id');
+        $warehouse = Warehouse::query()->firstOrFail();
+        $category = ProductCategory::query()->firstOrFail();
+        $revenueAccountId = (int) DB::table('accounts')->where('is_postable', 1)->orderBy('id')->value('id');
+
+        $item = InventoryItem::query()->create([
+            'code' => 'T-SI-MATH-'.uniqid(),
+            'name' => 'SI posting math item',
+            'category_id' => $category->id,
+            'default_warehouse_id' => $warehouse->id,
+            'unit_of_measure' => 'EA',
+            'purchase_currency_id' => $currencyId,
+            'selling_currency_id' => $currencyId,
+            'purchase_price' => 10000,
+            'selling_price' => 30000,
+            'valuation_method' => 'fifo',
+            'item_type' => 'item',
+            'is_active' => true,
+        ]);
+
+        $so = SalesOrder::query()->create([
+            'order_no' => 'T-SI-MATH-SO-'.uniqid(),
+            'date' => now()->toDateString(),
+            'business_partner_id' => $bpId,
+            'company_entity_id' => $entityId,
+            'currency_id' => $currencyId,
+            'exchange_rate' => 1,
+            'warehouse_id' => $warehouse->id,
+            'status' => 'approved',
+            'total_amount' => 60000,
+            'created_by' => $userId,
+        ]);
+
+        $soLine = SalesOrderLine::query()->create([
+            'order_id' => $so->id,
+            'account_id' => $revenueAccountId,
+            'inventory_item_id' => $item->id,
+            'item_code' => $item->code,
+            'item_name' => $item->name,
+            'qty' => 2,
+            'delivered_qty' => 0,
+            'pending_qty' => 2,
+            'unit_price' => 30000,
+            'amount' => 60000,
+            'vat_rate' => $soVatRate,
+            'wtax_rate' => $soWtaxRate,
+        ]);
+
+        $do = DeliveryOrder::query()->create([
+            'do_number' => 'T-SI-MATH-DO-'.uniqid(),
+            'sales_order_id' => $so->id,
+            'business_partner_id' => $bpId,
+            'company_entity_id' => $entityId,
+            'warehouse_id' => $warehouse->id,
+            'delivery_address' => 'Test address',
+            'planned_delivery_date' => now()->toDateString(),
+            'actual_delivery_date' => now()->toDateString(),
+            'status' => 'delivered',
+            'approval_status' => 'approved',
+            'created_by' => $userId,
+        ]);
+
+        $doLine = DeliveryOrderLine::query()->create([
+            'delivery_order_id' => $do->id,
+            'sales_order_line_id' => $soLine->id,
+            'inventory_item_id' => $item->id,
+            'item_code' => $item->code,
+            'item_name' => $item->name,
+            'ordered_qty' => 2,
+            'delivered_qty' => 2,
+            'unit_price' => 30000,
+            'amount' => 60000,
+            'status' => 'delivered',
+        ]);
+
+        return [
+            'deliveryOrderLine' => $doLine,
+            'salesOrderLine' => $soLine,
+        ];
+    }
+
     public function test_split_line_matches_amount_from_pricing_with_eleven_percent_vat(): void
     {
         $taxCode = (object) ['rate' => 11.0];
@@ -137,6 +244,41 @@ class SalesInvoicePostingMathTest extends TestCase
             'delivery_order_line_id' => null,
         ]);
         $line->setRelation('taxCode', $taxCode);
+
+        $gross = SalesInvoicePostingMath::computedGrossAmountForLine($line);
+        $this->assertEqualsWithDelta(66600.0, $gross, 0.01);
+    }
+
+    public function test_computed_gross_uses_invoice_line_tax_when_do_linked_so_has_no_vat(): void
+    {
+        $ctx = $this->createDoLinkedLines(0.0);
+        $ppnTaxCode = TaxCode::query()->where('code', 'PPN11_OUT')->firstOrFail();
+
+        $line = new SalesInvoiceLine([
+            'qty' => 2,
+            'unit_price' => 30000,
+            'tax_code_id' => $ppnTaxCode->id,
+            'wtax_rate' => 0,
+            'delivery_order_line_id' => $ctx['deliveryOrderLine']->id,
+        ]);
+        $line->setRelation('taxCode', $ppnTaxCode);
+
+        $gross = SalesInvoicePostingMath::computedGrossAmountForLine($line);
+        $this->assertEqualsWithDelta(66600.0, $gross, 0.01);
+    }
+
+    public function test_computed_gross_inherits_so_vat_when_do_linked_invoice_has_no_tax_code(): void
+    {
+        $ctx = $this->createDoLinkedLines(11.0);
+
+        $line = new SalesInvoiceLine([
+            'qty' => 2,
+            'unit_price' => 30000,
+            'tax_code_id' => null,
+            'wtax_rate' => 0,
+            'delivery_order_line_id' => $ctx['deliveryOrderLine']->id,
+        ]);
+        $line->setRelation('taxCode', null);
 
         $gross = SalesInvoicePostingMath::computedGrossAmountForLine($line);
         $this->assertEqualsWithDelta(66600.0, $gross, 0.01);

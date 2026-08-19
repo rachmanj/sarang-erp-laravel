@@ -21,27 +21,25 @@ final class SalesInvoicePostingMath
         $unitPrice = (float) $line->unit_price;
         $dppDisc = (float) ($line->discount_amount ?? 0);
 
-        if ($line->delivery_order_line_id) {
+        $vatRate = self::vatRatePercentForLine($line);
+        $wtaxRate = (float) ($line->wtax_rate ?? 0);
+
+        if ($vatRate === 0.0 && $line->delivery_order_line_id) {
             $dol = DeliveryOrderLine::with('salesOrderLine')->find($line->delivery_order_line_id);
             $sol = $dol?->salesOrderLine;
             if ($sol) {
-                return SalesOrderLine::computeAmountFromPricing(
-                    $qty,
-                    $unitPrice,
-                    $sol->vat_rate,
-                    $sol->wtax_rate,
-                    $dppDisc
-                );
+                $vatRate = (float) ($sol->vat_rate ?? 0);
+                if ($wtaxRate === 0.0) {
+                    $wtaxRate = (float) ($sol->wtax_rate ?? 0);
+                }
             }
         }
-
-        $vatRate = self::vatRatePercentForLine($line);
 
         return SalesOrderLine::computeAmountFromPricing(
             $qty,
             $unitPrice,
             $vatRate,
-            (float) ($line->wtax_rate ?? 0),
+            $wtaxRate,
             $dppDisc
         );
     }
