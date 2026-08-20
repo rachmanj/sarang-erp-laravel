@@ -156,6 +156,41 @@ class ProductCategoryJournalAccountResolutionTest extends TestCase
         $this->assertSame($toolsCogsId, $cogsLine['account_id']);
     }
 
+    public function test_delivery_order_journal_credits_tools_category_inventory_account_on_cogs_release(): void
+    {
+        $toolsCategory = ProductCategory::query()->where('code', 'TOOLS')->firstOrFail();
+        $item = $this->createInventoryItem($toolsCategory->id);
+        $do = $this->createDeliveredOrderForItem($item);
+
+        $draft = app(DeliveryOrderJournalBuilder::class)->buildRevenueRecognition($do->fresh());
+
+        $toolsInventoryId = $this->accountId('1.1.3.01.11');
+
+        $inventoryReleaseLine = collect($draft->lines)->first(
+            fn (array $line) => $line['credit'] > 0 && str_contains($line['memo'], 'Release inventory')
+        );
+
+        $this->assertNotNull($inventoryReleaseLine);
+        $this->assertSame($toolsInventoryId, $inventoryReleaseLine['account_id']);
+    }
+
+    public function test_delivery_order_journal_falls_back_to_parent_inventory_account_when_item_has_no_category(): void
+    {
+        $item = $this->createInventoryItem(null);
+        $do = $this->createDeliveredOrderForItem($item);
+
+        $draft = app(DeliveryOrderJournalBuilder::class)->buildRevenueRecognition($do->fresh());
+
+        $parentInventoryId = $this->accountId('1.1.3.01');
+
+        $inventoryReleaseLine = collect($draft->lines)->first(
+            fn (array $line) => $line['credit'] > 0 && str_contains($line['memo'], 'Release inventory')
+        );
+
+        $this->assertNotNull($inventoryReleaseLine);
+        $this->assertSame($parentInventoryId, $inventoryReleaseLine['account_id']);
+    }
+
     public function test_delivery_order_journal_falls_back_to_stationery_when_item_has_no_category(): void
     {
         $item = $this->createInventoryItem(null);
@@ -237,6 +272,14 @@ class ProductCategoryJournalAccountResolutionTest extends TestCase
 
         $this->assertNotNull($cogsLine);
         $this->assertSame($toolsCogsId, $cogsLine['account_id']);
+
+        $toolsInventoryId = $this->accountId('1.1.3.01.11');
+        $inventoryReleaseLine = collect($draft->lines)->first(
+            fn (array $line) => $line['credit'] > 0 && str_contains($line['memo'], 'Release inventory')
+        );
+
+        $this->assertNotNull($inventoryReleaseLine);
+        $this->assertSame($toolsInventoryId, $inventoryReleaseLine['account_id']);
     }
 
     public function test_direct_sales_invoice_journal_falls_back_to_stationery_cogs_when_item_has_no_category(): void
@@ -296,5 +339,13 @@ class ProductCategoryJournalAccountResolutionTest extends TestCase
 
         $this->assertNotNull($cogsLine);
         $this->assertSame($stationeryCogsId, $cogsLine['account_id']);
+
+        $parentInventoryId = $this->accountId('1.1.3.01');
+        $inventoryReleaseLine = collect($draft->lines)->first(
+            fn (array $line) => $line['credit'] > 0 && str_contains($line['memo'], 'Release inventory')
+        );
+
+        $this->assertNotNull($inventoryReleaseLine);
+        $this->assertSame($parentInventoryId, $inventoryReleaseLine['account_id']);
     }
 }

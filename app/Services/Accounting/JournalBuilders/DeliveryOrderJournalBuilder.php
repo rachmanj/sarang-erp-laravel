@@ -22,6 +22,7 @@ class DeliveryOrderJournalBuilder
         $deliveryOrder->loadMissing([
             'lines.inventoryItem.category.salesAccount',
             'lines.inventoryItem.category.cogsAccount',
+            'lines.inventoryItem.category.inventoryAccount',
             'lines.inventoryItem.category.parent',
         ]);
 
@@ -56,12 +57,12 @@ class DeliveryOrderJournalBuilder
                     ];
 
                     $lines[] = [
-                        'account_id' => $this->getInventoryReservedAccount(),
+                        'account_id' => $this->resolveInventoryAccountId($line->inventoryItem),
                         'debit' => 0,
                         'credit' => $cogsAmount,
                         'project_id' => $line->project_id ?? null,
                         'dept_id' => $line->dept_id ?? null,
-                        'memo' => "Release reserved inventory - DO {$deliveryOrder->do_number} - {$line->item_name}",
+                        'memo' => "Release inventory - DO {$deliveryOrder->do_number} - {$line->item_name}",
                     ];
                 }
 
@@ -87,15 +88,21 @@ class DeliveryOrderJournalBuilder
         );
     }
 
-    private function getInventoryReservedAccount(): int
+    private function resolveInventoryAccountId(?InventoryItem $item): int
     {
+        if ($item) {
+            $account = $item->getAccountByType('inventory');
+            if ($account) {
+                return (int) $account->id;
+            }
+        }
+
         $account = DB::table('accounts')
             ->where('code', '1.1.3.01')
-            ->orWhere('name', 'like', '%Inventory Reserved%')
             ->first();
 
         if (! $account) {
-            throw new \Exception('Inventory Reserved account not found. Please create account with code 1.1.3.01');
+            throw new \Exception('Inventory account not found. Please create account with code 1.1.3.01');
         }
 
         return (int) $account->id;

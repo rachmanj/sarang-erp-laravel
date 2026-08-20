@@ -519,12 +519,6 @@ class DeliveryService
 
             $this->reduceStockOnApproval($deliveryOrder);
 
-            try {
-                $this->deliveryJournalService->createInventoryReservation($deliveryOrder);
-            } catch (\Exception $e) {
-                Log::error('Failed to create inventory reservation journal entry: '.$e->getMessage());
-            }
-
             return $deliveryOrder;
         });
     }

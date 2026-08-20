@@ -19,19 +19,18 @@ class DirectSalesInvoiceJournalBuilder
     {
         $invoice->loadMissing([
             'lines.inventoryItem.category.cogsAccount',
+            'lines.inventoryItem.category.inventoryAccount',
             'lines.inventoryItem.category.parent',
         ]);
 
         $arAccountId = (int) DB::table('accounts')->where('code', '1.1.2.01')->value('id');
         $ppnOutputId = (int) DB::table('accounts')->where('code', '2.1.2.01')->value('id');
         $wtaxPrepaidId = (int) DB::table('accounts')->where('code', '1.1.4.02')->value('id');
-        $inventoryAvailableAccountId = $this->getInventoryAvailableAccount();
 
         $scaledLines = HeaderDiscountAllocation::salesInvoiceLineScaled($invoice);
         $scaledByLineId = collect($scaledLines)->keyBy('line_id');
 
         $lines = [];
-        $totalCogs = 0.0;
         $ppnTotal = 0.0;
         $wtaxTotal = 0.0;
 
@@ -65,7 +64,6 @@ class DirectSalesInvoiceJournalBuilder
                     $unitCost = $this->inventoryService->calculateUnitCost($line->inventoryItem);
                     $cogsAmount = round($qty * $unitCost, 2);
                     if ($cogsAmount > 0) {
-                        $totalCogs += $cogsAmount;
                         $lines[] = [
                             'account_id' => $this->resolveCogsAccountId($line->inventoryItem),
                             'debit' => $cogsAmount,
@@ -73,6 +71,14 @@ class DirectSalesInvoiceJournalBuilder
                             'project_id' => $line->project_id,
                             'dept_id' => $line->dept_id,
                             'memo' => 'COGS - Direct sale '.$invoice->invoice_no.' - '.($line->item_name ?? 'Item'),
+                        ];
+                        $lines[] = [
+                            'account_id' => $this->resolveInventoryAccountId($line->inventoryItem),
+                            'debit' => 0,
+                            'credit' => $cogsAmount,
+                            'project_id' => $line->project_id,
+                            'dept_id' => $line->dept_id,
+                            'memo' => 'Release inventory - Direct sale '.$invoice->invoice_no.' - '.($line->item_name ?? 'Item'),
                         ];
                     }
                 }
@@ -87,17 +93,6 @@ class DirectSalesInvoiceJournalBuilder
                 'project_id' => null,
                 'dept_id' => null,
                 'memo' => 'PPN Keluaran',
-            ];
-        }
-
-        if ($totalCogs > 0) {
-            $lines[] = [
-                'account_id' => $inventoryAvailableAccountId,
-                'debit' => 0,
-                'credit' => round($totalCogs, 2),
-                'project_id' => null,
-                'dept_id' => null,
-                'memo' => 'Release inventory - Direct sale '.$invoice->invoice_no,
             ];
         }
 
@@ -131,15 +126,21 @@ class DirectSalesInvoiceJournalBuilder
         );
     }
 
-    private function getInventoryAvailableAccount(): int
+    private function resolveInventoryAccountId(?InventoryItem $item): int
     {
+        if ($item) {
+            $account = $item->getAccountByType('inventory');
+            if ($account) {
+                return (int) $account->id;
+            }
+        }
+
         $account = DB::table('accounts')
-            ->where('code', '1.1.3.02')
-            ->orWhere('name', 'like', '%Inventory Available%')
+            ->where('code', '1.1.3.01')
             ->first();
 
         if (! $account) {
-            throw new \Exception('Inventory Available account not found. Please create account with code 1.1.3.02');
+            throw new \Exception('Inventory account not found. Please create account with code 1.1.3.01');
         }
 
         return (int) $account->id;
