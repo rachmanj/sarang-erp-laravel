@@ -3,6 +3,7 @@
 namespace App\Services\Accounting\JournalBuilders;
 
 use App\Models\Accounting\SalesInvoice;
+use App\Models\InventoryItem;
 use App\Services\Accounting\HeaderDiscountAllocation;
 use App\Services\Accounting\SalesInvoicePostingMath;
 use App\Services\InventoryService;
@@ -16,12 +17,14 @@ class DirectSalesInvoiceJournalBuilder
 
     public function build(SalesInvoice $invoice): JournalDraft
     {
-        $invoice->loadMissing(['lines.inventoryItem']);
+        $invoice->loadMissing([
+            'lines.inventoryItem.category.cogsAccount',
+            'lines.inventoryItem.category.parent',
+        ]);
 
         $arAccountId = (int) DB::table('accounts')->where('code', '1.1.2.01')->value('id');
         $ppnOutputId = (int) DB::table('accounts')->where('code', '2.1.2.01')->value('id');
         $wtaxPrepaidId = (int) DB::table('accounts')->where('code', '1.1.4.02')->value('id');
-        $cogsAccountId = $this->getCOGSAccount();
         $inventoryAvailableAccountId = $this->getInventoryAvailableAccount();
 
         $scaledLines = HeaderDiscountAllocation::salesInvoiceLineScaled($invoice);
@@ -64,7 +67,7 @@ class DirectSalesInvoiceJournalBuilder
                     if ($cogsAmount > 0) {
                         $totalCogs += $cogsAmount;
                         $lines[] = [
-                            'account_id' => $cogsAccountId,
+                            'account_id' => $this->resolveCogsAccountId($line->inventoryItem),
                             'debit' => $cogsAmount,
                             'credit' => 0,
                             'project_id' => $line->project_id,
@@ -142,7 +145,19 @@ class DirectSalesInvoiceJournalBuilder
         return (int) $account->id;
     }
 
-    private function getCOGSAccount(): int
+    private function resolveCogsAccountId(?InventoryItem $item): int
+    {
+        if ($item) {
+            $account = $item->getAccountByType('cogs');
+            if ($account) {
+                return (int) $account->id;
+            }
+        }
+
+        return $this->getStationeryCogsAccount();
+    }
+
+    private function getStationeryCogsAccount(): int
     {
         $account = DB::table('accounts')
             ->where(function ($q) {

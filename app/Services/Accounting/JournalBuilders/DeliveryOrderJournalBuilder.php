@@ -3,6 +3,7 @@
 namespace App\Services\Accounting\JournalBuilders;
 
 use App\Models\DeliveryOrder;
+use App\Models\InventoryItem;
 use App\Services\InventoryService;
 use Illuminate\Support\Facades\DB;
 
@@ -18,7 +19,11 @@ class DeliveryOrderJournalBuilder
             throw new \Exception('Delivery Order must be delivered before creating revenue recognition journal entry.');
         }
 
-        $deliveryOrder->loadMissing(['lines.inventoryItem']);
+        $deliveryOrder->loadMissing([
+            'lines.inventoryItem.category.salesAccount',
+            'lines.inventoryItem.category.cogsAccount',
+            'lines.inventoryItem.category.parent',
+        ]);
 
         $lines = [];
         $totalRevenue = 0.0;
@@ -31,7 +36,7 @@ class DeliveryOrderJournalBuilder
 
                 if ($deliveredAmount > 0) {
                     $lines[] = [
-                        'account_id' => $this->getSalesRevenueAccount(),
+                        'account_id' => $this->resolveSalesAccountId($line->inventoryItem),
                         'debit' => 0,
                         'credit' => $deliveredAmount,
                         'project_id' => $line->project_id ?? null,
@@ -42,7 +47,7 @@ class DeliveryOrderJournalBuilder
 
                 if ($cogsAmount > 0) {
                     $lines[] = [
-                        'account_id' => $this->getCOGSAccount(),
+                        'account_id' => $this->resolveCogsAccountId($line->inventoryItem),
                         'debit' => $cogsAmount,
                         'credit' => 0,
                         'project_id' => $line->project_id ?? null,
@@ -96,7 +101,31 @@ class DeliveryOrderJournalBuilder
         return (int) $account->id;
     }
 
-    private function getSalesRevenueAccount(): int
+    private function resolveSalesAccountId(?InventoryItem $item): int
+    {
+        if ($item) {
+            $account = $item->getAccountByType('sales');
+            if ($account) {
+                return (int) $account->id;
+            }
+        }
+
+        return $this->getStationerySalesRevenueAccount();
+    }
+
+    private function resolveCogsAccountId(?InventoryItem $item): int
+    {
+        if ($item) {
+            $account = $item->getAccountByType('cogs');
+            if ($account) {
+                return (int) $account->id;
+            }
+        }
+
+        return $this->getStationeryCogsAccount();
+    }
+
+    private function getStationerySalesRevenueAccount(): int
     {
         $account = DB::table('accounts')
             ->where('code', '4.1.1.01')
@@ -110,7 +139,7 @@ class DeliveryOrderJournalBuilder
         return (int) $account->id;
     }
 
-    private function getCOGSAccount(): int
+    private function getStationeryCogsAccount(): int
     {
         $account = DB::table('accounts')
             ->where(function ($q) {

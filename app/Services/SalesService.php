@@ -112,8 +112,7 @@ class SalesService
 
                 if ($data['order_type'] === 'item') {
                     $inventoryItemId = $lineData['item_id'];
-                    // For inventory items, use a default sales account
-                    $accountId = $this->getDefaultSalesAccount();
+                    $accountId = $this->resolveSalesAccountForInventoryItem($inventoryItemId);
                 } else {
                     $accountId = $lineData['item_id'];
                 }
@@ -266,7 +265,7 @@ class SalesService
 
                 if ($data['order_type'] === 'item') {
                     $inventoryItemId = $lineData['item_id'];
-                    $accountId = $this->getDefaultSalesAccount();
+                    $accountId = $this->resolveSalesAccountForInventoryItem($inventoryItemId);
                 } else {
                     $accountId = $lineData['item_id'];
                 }
@@ -789,8 +788,31 @@ class SalesService
         return $salesOrder->canCopyToSalesInvoice();
     }
 
+    private function resolveSalesAccountForInventoryItem(?int $inventoryItemId): int
+    {
+        if (! $inventoryItemId) {
+            return $this->getDefaultSalesAccount();
+        }
+
+        $item = InventoryItem::with([
+            'category.salesAccount',
+            'category.parent',
+        ])->find($inventoryItemId);
+
+        if (! $item) {
+            return $this->getDefaultSalesAccount();
+        }
+
+        $account = $item->getAccountByType('sales');
+        if ($account) {
+            return (int) $account->id;
+        }
+
+        return $this->getDefaultSalesAccount();
+    }
+
     /**
-     * Get default sales account for inventory items
+     * Stationery fallback sales account for inventory items without a category mapping
      */
     private function getDefaultSalesAccount()
     {
