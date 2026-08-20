@@ -256,7 +256,7 @@ class RepairInventoryReserveJournalAccountsCommand extends Command
                  FROM journal_lines jl
                  INNER JOIN journals j ON j.id = jl.journal_id
                  INNER JOIN delivery_order_lines dol ON dol.delivery_order_id = j.source_id
-                     AND dol.item_name = SUBSTRING_INDEX(jl.memo, ' - ', -1)
+                     AND dol.item_name = SUBSTRING(jl.memo, LOCATE(' - ', jl.memo, LOCATE(' - ', jl.memo) + 3) + 3)
                  LEFT JOIN inventory_items ii ON ii.id = dol.inventory_item_id
                  LEFT JOIN product_categories pc ON pc.id = ii.category_id
                  WHERE j.source_type = ?
@@ -270,7 +270,7 @@ class RepairInventoryReserveJournalAccountsCommand extends Command
             "UPDATE journal_lines jl
              INNER JOIN journals j ON j.id = jl.journal_id
              INNER JOIN delivery_order_lines dol ON dol.delivery_order_id = j.source_id
-                 AND dol.item_name = SUBSTRING_INDEX(jl.memo, ' - ', -1)
+                 AND dol.item_name = SUBSTRING(jl.memo, LOCATE(' - ', jl.memo, LOCATE(' - ', jl.memo) + 3) + 3)
              LEFT JOIN inventory_items ii ON ii.id = dol.inventory_item_id
              LEFT JOIN product_categories pc ON pc.id = ii.category_id
              SET jl.account_id = COALESCE(pc.inventory_account_id, ?)
@@ -300,7 +300,6 @@ class RepairInventoryReserveJournalAccountsCommand extends Command
                  FROM journal_lines jl
                  INNER JOIN journals j ON j.id = jl.journal_id
                  INNER JOIN sales_invoice_lines sil ON sil.invoice_id = j.source_id
-                     AND sil.item_name = SUBSTRING_INDEX(jl.memo, ' - ', -1)
                  LEFT JOIN inventory_items ii ON ii.id = sil.inventory_item_id
                  LEFT JOIN product_categories pc ON pc.id = ii.category_id
                  WHERE j.source_type = 'sales_invoice'
@@ -314,7 +313,6 @@ class RepairInventoryReserveJournalAccountsCommand extends Command
             "UPDATE journal_lines jl
              INNER JOIN journals j ON j.id = jl.journal_id
              INNER JOIN sales_invoice_lines sil ON sil.invoice_id = j.source_id
-                 AND sil.item_name = SUBSTRING_INDEX(jl.memo, ' - ', -1)
              LEFT JOIN inventory_items ii ON ii.id = sil.inventory_item_id
              LEFT JOIN product_categories pc ON pc.id = ii.category_id
              SET jl.account_id = COALESCE(pc.inventory_account_id, ?)
@@ -345,7 +343,7 @@ class RepairInventoryReserveJournalAccountsCommand extends Command
                 "SELECT COUNT(*) AS aggregate
                  FROM journal_lines reversal
                  INNER JOIN journal_lines original
-                     ON original.id = CAST(SUBSTRING(reversal.memo, 19) AS UNSIGNED)
+                     ON original.id = CAST(SUBSTRING(reversal.memo, 18) AS UNSIGNED)
                  WHERE reversal.memo LIKE 'Reversal of line %'
                    AND reversal.account_id IN ({$parentPlaceholders})",
                 $parentIds
@@ -355,7 +353,7 @@ class RepairInventoryReserveJournalAccountsCommand extends Command
         return DB::update(
             "UPDATE journal_lines reversal
              INNER JOIN journal_lines original
-                 ON original.id = CAST(SUBSTRING(reversal.memo, 19) AS UNSIGNED)
+                 ON original.id = CAST(SUBSTRING(reversal.memo, 18) AS UNSIGNED)
              SET reversal.account_id = original.account_id
              WHERE reversal.memo LIKE 'Reversal of line %'
                AND reversal.account_id IN ({$parentPlaceholders})",
