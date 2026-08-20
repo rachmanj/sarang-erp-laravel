@@ -33,6 +33,7 @@ class Kernel extends BaseKernel
         \App\Console\Commands\RepairSalesReceiptBankJournalsCommand::class,
         \App\Console\Commands\MigrateLegacyBankReconciliationCommand::class,
         \App\Console\Commands\PurgeBankReconciliationSessionsCommand::class,
+        \App\Console\Commands\RepairParentAccountPostingsCommand::class,
     ];
 
     /**
