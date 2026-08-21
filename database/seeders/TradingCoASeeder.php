@@ -210,7 +210,7 @@ class TradingCoASeeder extends Seeder
         $create('6.2.6', 'Biaya Konsultan', 'expense', true, '6.2');
         $create('6.2.7', 'Biaya Legal dan Notaris', 'expense', true, '6.2');
         $create('6.2.8', 'Biaya Audit', 'expense', true, '6.2');
-        $create('6.2.9', 'Biaya Penyusutan', 'expense', true, '6.2');
+        $create('6.2.14', 'Biaya Penyusutan', 'expense', true, '6.2');
         $create('6.2.10', 'Biaya Asuransi', 'expense', true, '6.2');
         $create('6.2.11', 'Biaya Pemeliharaan', 'expense', true, '6.2');
         $create('6.2.12', 'Biaya Lain-lain', 'expense', true, '6.2');

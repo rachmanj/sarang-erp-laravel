@@ -1372,7 +1372,7 @@ class ReportService
         $query = $this->journalQuery->withAccounts($onlyPostedJournals)
             ->where('a.type', 'expense')
             ->where(function ($q) {
-                $q->where('a.code', 'like', '6.2.9%')
+                $q->where('a.code', 'like', '6.2.14%')
                     ->orWhere('a.code', 'like', '5.2.6%')
                     ->orWhereRaw('LOWER(a.name) like ?', ['%depreciation%'])
                     ->orWhereRaw('LOWER(a.name) like ?', ['%penyusutan%']);
