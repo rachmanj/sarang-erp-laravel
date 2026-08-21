@@ -136,6 +136,7 @@ class TradingCoASeeder extends Seeder
         $create('3.1', 'Modal Saham', 'net_assets', false, '3');
         $create('3.1.1', 'Modal Saham Biasa', 'net_assets', true, '3.1');
         $create('3.1.2', 'Modal Saham Preferen', 'net_assets', true, '3.1');
+        $create('3.1.3', 'Modal/Penyertaan CV', 'net_assets', true, '3.1');
 
         $create('3.2', 'Agio/Disagio Saham', 'net_assets', false, '3');
         $create('3.2.1', 'Agio Saham', 'net_assets', true, '3.2');

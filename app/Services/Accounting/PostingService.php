@@ -37,7 +37,11 @@ class PostingService
 
         return DB::transaction(function () use ($payload) {
             // Resolve entity from source document or use default
-            $entityId = $this->resolveJournalEntity($payload['source_type'] ?? null, $payload['source_id'] ?? null);
+            $entityId = $this->resolveJournalEntity(
+                $payload['source_type'] ?? null,
+                $payload['source_id'] ?? null,
+                isset($payload['company_entity_id']) ? (int) $payload['company_entity_id'] : null
+            );
 
             // Determine journal currency
             $journalCurrency = $this->determineJournalCurrency($payload['lines']);
@@ -340,8 +344,12 @@ class PostingService
     /**
      * Resolve entity for journal from source document or use default.
      */
-    private function resolveJournalEntity(?string $sourceType, ?int $sourceId): int
+    private function resolveJournalEntity(?string $sourceType, ?int $sourceId, ?int $companyEntityId = null): int
     {
+        if ($companyEntityId !== null) {
+            return $companyEntityId;
+        }
+
         // Manual journals use default entity
         if (! $sourceType || ! $sourceId || $sourceType === 'manual_journal') {
             return $this->companyEntityService->getDefaultEntity()->id;
