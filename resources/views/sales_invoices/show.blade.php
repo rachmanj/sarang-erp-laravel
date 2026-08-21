@@ -268,6 +268,10 @@
                                                 <strong>{{ $line->inventoryItem->name }}</strong>
                                             @elseif($line->item_name)
                                                 <strong>{{ $line->item_name }}</strong>
+                                            @elseif($line->description)
+                                                {{ $line->description }}
+                                            @elseif($line->account && $line->account->name)
+                                                {{ $line->account->name }}
                                             @else
                                                 <span class="text-muted">—</span>
                                             @endif

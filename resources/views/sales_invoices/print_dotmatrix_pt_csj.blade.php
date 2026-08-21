@@ -99,7 +99,7 @@
                 <td class="text-center">{{ $num + 1 }}</td>
                 <td>{{ $l->item_code ?? optional($l->inventoryItem)->code ?? '—' }}</td>
                 <td>{{ $l->partNumber?->part_number ?? $l->deliveryOrderLine?->partNumber?->part_number ?? '—' }}</td>
-                <td>{{ $l->item_name ?? $l->description ?? '—' }}</td>
+                <td>{{ $l->item_name ?? $l->description ?? optional($l->inventoryItem)->name ?? optional($l->account)->name ?? '—' }}</td>
                 <td class="text-right">{{ number_format($l->qty, 2) }}</td>
                 <td class="text-right">{{ number_format($l->unit_price, 2) }}</td>
                 <td class="text-right">{{ (float) ($l->discount_amount ?? 0) > 0 ? number_format($l->discount_amount, 2) : '—' }}</td>
