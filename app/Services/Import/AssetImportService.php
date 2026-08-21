@@ -126,7 +126,7 @@ class AssetImportService
             'project_code' => 'nullable|string|exists:projects,code',
             'department_code' => 'nullable|string|exists:departments,code',
             'vendor_code' => 'nullable|string|exists:business_partners,code',
-            'purchase_invoice_number' => 'nullable|string|exists:purchase_invoices,invoice_number'
+            'purchase_invoice_number' => 'nullable|string|exists:purchase_invoices,invoice_no'
         ];
     }
 
@@ -174,7 +174,7 @@ class AssetImportService
         $vendor = $row['vendor_code']
             ? BusinessPartner::where('partner_type', 'supplier')->where('code', $row['vendor_code'])->first()
             : null;
-        $purchaseInvoice = $row['purchase_invoice_number'] ? PurchaseInvoice::where('invoice_number', $row['purchase_invoice_number'])->first() : null;
+        $purchaseInvoice = $row['purchase_invoice_number'] ? PurchaseInvoice::where('invoice_no', $row['purchase_invoice_number'])->first() : null;
 
         // Set defaults from category if not provided
         if (!$row['salvage_value'] && $category) {

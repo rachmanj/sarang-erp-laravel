@@ -132,7 +132,7 @@ class AssetImportController extends Controller
             'projects' => \App\Models\Dimensions\Project::select('id', 'code', 'name')->get(),
             'departments' => \App\Models\Dimensions\Department::select('id', 'code', 'name')->get(),
             'vendors' => \App\Models\BusinessPartner::where('partner_type', 'supplier')->select('id', 'code', 'name')->get(),
-            'purchase_invoices' => \App\Models\Accounting\PurchaseInvoice::select('id', 'invoice_number', 'business_partner_id')
+            'purchase_invoices' => \App\Models\Accounting\PurchaseInvoice::select('id', 'invoice_no', 'business_partner_id')
                 ->with('businessPartner:id,name')
                 ->get(),
         ]);
