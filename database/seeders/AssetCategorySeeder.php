@@ -111,8 +111,8 @@ class AssetCategorySeeder extends Seeder
                 'method_default' => 'straight_line',
                 'salvage_value_policy' => 0,
                 'non_depreciable' => false,
-                'asset_account_id' => $accounts['1.2.1.04']->id, // Kendaraan
-                'accumulated_depreciation_account_id' => $accounts['1.2.1.05']->id, // Akumulasi Penyusutan Kendaraan
+                'asset_account_id' => $accounts['1.2.1.06']->id, // Peralatan Kantor
+                'accumulated_depreciation_account_id' => $accounts['1.2.1.07']->id, // Akumulasi Penyusutan Peralatan Kantor
                 'depreciation_expense_account_id' => $accounts['6.2.9']->id, // Biaya Penyusutan
                 'gain_on_disposal_account_id' => $accounts['7.1.1']->id, // Pendapatan Sewa
                 'loss_on_disposal_account_id' => $accounts['7.2.3']->id, // Kerugian Penjualan Aset
