@@ -18,7 +18,7 @@ class CompanyEntitySeeder extends Seeder
                 'name' => 'PT Cahaya Sarange Jaya',
                 'legal_name' => 'PT Cahaya Sarange Jaya',
                 'tax_number' => null,
-                'address' => 'Jl. Gatot Subroto No. 12, Jakarta, Indonesia',
+                'address' => 'Jl. MT Haryono Ruko Haryono Palace No.25, Gn. Bahagia, Kecamatan Balikpapan Selatan, Kota Balikpapan, Kalimantan Timur 76125',
                 'phone' => '+62 21 555 1234',
                 'email' => 'info@cahayasarangjaya.com',
                 'website' => 'https://www.cahayasarangjaya.com',
