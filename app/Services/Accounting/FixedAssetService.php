@@ -227,12 +227,12 @@ class FixedAssetService
         AssetDepreciationEntry::where('period', $run->period)
             ->where('book', 'financial')
             ->whereNull('journal_id')
-            ->update(['journal_id' => $journal->id]);
+            ->update(['journal_id' => $journal]);
 
         // Update run status
         $run->update([
             'status' => 'posted',
-            'journal_id' => $journal->id,
+            'journal_id' => $journal,
             'posted_by' => $postedBy,
             'posted_at' => now(),
         ]);
@@ -453,7 +453,7 @@ class FixedAssetService
             // Update disposal status
             $disposal->update([
                 'status' => 'posted',
-                'journal_id' => $journal->id,
+                'journal_id' => $journal,
                 'posted_by' => $postedBy,
                 'posted_at' => now(),
             ]);

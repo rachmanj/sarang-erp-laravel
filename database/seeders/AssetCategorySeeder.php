@@ -22,7 +22,7 @@ class AssetCategorySeeder extends Seeder
             '1.2.1.05',
             '1.2.1.06',
             '1.2.1.07',
-            '6.2.9',
+            '6.2.14',
             '7.1.1',
             '7.2.3',
         ])->get()->keyBy('code');
@@ -38,7 +38,7 @@ class AssetCategorySeeder extends Seeder
                 'non_depreciable' => true,
                 'asset_account_id' => $accounts['1.2.1.01']->id, // Tanah
                 'accumulated_depreciation_account_id' => $accounts['1.2.1.01']->id,
-                'depreciation_expense_account_id' => $accounts['6.2.9']->id, // Biaya Penyusutan
+                'depreciation_expense_account_id' => $accounts['6.2.14']->id, // Biaya Penyusutan
                 'gain_on_disposal_account_id' => $accounts['7.1.1']->id, // Pendapatan Sewa
                 'loss_on_disposal_account_id' => $accounts['7.2.3']->id, // Kerugian Penjualan Aset
                 'is_active' => true,
@@ -53,7 +53,7 @@ class AssetCategorySeeder extends Seeder
                 'non_depreciable' => false,
                 'asset_account_id' => $accounts['1.2.1.02']->id, // Bangunan
                 'accumulated_depreciation_account_id' => $accounts['1.2.1.03']->id, // Akumulasi Penyusutan Bangunan
-                'depreciation_expense_account_id' => $accounts['6.2.9']->id, // Biaya Penyusutan
+                'depreciation_expense_account_id' => $accounts['6.2.14']->id, // Biaya Penyusutan
                 'gain_on_disposal_account_id' => $accounts['7.1.1']->id, // Pendapatan Sewa
                 'loss_on_disposal_account_id' => $accounts['7.2.3']->id, // Kerugian Penjualan Aset
                 'is_active' => true,
@@ -68,7 +68,7 @@ class AssetCategorySeeder extends Seeder
                 'non_depreciable' => false,
                 'asset_account_id' => $accounts['1.2.1.04']->id, // Kendaraan
                 'accumulated_depreciation_account_id' => $accounts['1.2.1.05']->id, // Akumulasi Penyusutan Kendaraan
-                'depreciation_expense_account_id' => $accounts['6.2.9']->id, // Biaya Penyusutan
+                'depreciation_expense_account_id' => $accounts['6.2.14']->id, // Biaya Penyusutan
                 'gain_on_disposal_account_id' => $accounts['7.1.1']->id, // Pendapatan Sewa
                 'loss_on_disposal_account_id' => $accounts['7.2.3']->id, // Kerugian Penjualan Aset
                 'is_active' => true,
@@ -83,7 +83,7 @@ class AssetCategorySeeder extends Seeder
                 'non_depreciable' => false,
                 'asset_account_id' => $accounts['1.2.1.06']->id, // Peralatan Kantor
                 'accumulated_depreciation_account_id' => $accounts['1.2.1.07']->id, // Akumulasi Penyusutan Peralatan Kantor
-                'depreciation_expense_account_id' => $accounts['6.2.9']->id, // Biaya Penyusutan
+                'depreciation_expense_account_id' => $accounts['6.2.14']->id, // Biaya Penyusutan
                 'gain_on_disposal_account_id' => $accounts['7.1.1']->id, // Pendapatan Sewa
                 'loss_on_disposal_account_id' => $accounts['7.2.3']->id, // Kerugian Penjualan Aset
                 'is_active' => true,
@@ -98,7 +98,7 @@ class AssetCategorySeeder extends Seeder
                 'non_depreciable' => false,
                 'asset_account_id' => $accounts['1.2.1.06']->id, // Peralatan Kantor
                 'accumulated_depreciation_account_id' => $accounts['1.2.1.07']->id, // Akumulasi Penyusutan Peralatan Kantor
-                'depreciation_expense_account_id' => $accounts['6.2.9']->id, // Biaya Penyusutan
+                'depreciation_expense_account_id' => $accounts['6.2.14']->id, // Biaya Penyusutan
                 'gain_on_disposal_account_id' => $accounts['7.1.1']->id, // Pendapatan Sewa
                 'loss_on_disposal_account_id' => $accounts['7.2.3']->id, // Kerugian Penjualan Aset
                 'is_active' => true,
@@ -113,7 +113,7 @@ class AssetCategorySeeder extends Seeder
                 'non_depreciable' => false,
                 'asset_account_id' => $accounts['1.2.1.06']->id, // Peralatan Kantor
                 'accumulated_depreciation_account_id' => $accounts['1.2.1.07']->id, // Akumulasi Penyusutan Peralatan Kantor
-                'depreciation_expense_account_id' => $accounts['6.2.9']->id, // Biaya Penyusutan
+                'depreciation_expense_account_id' => $accounts['6.2.14']->id, // Biaya Penyusutan
                 'gain_on_disposal_account_id' => $accounts['7.1.1']->id, // Pendapatan Sewa
                 'loss_on_disposal_account_id' => $accounts['7.2.3']->id, // Kerugian Penjualan Aset
                 'is_active' => true,
