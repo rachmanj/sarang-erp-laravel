@@ -9,17 +9,22 @@ class BankReconciliationSupport
         string $direction,
         float $amount,
         ?string $referenceNo,
-        ?string $description
+        ?string $description,
+        ?int $lineOrder = null,
     ): string {
-        $payload = implode('|', [
+        $parts = [
             $postingDate,
             $direction,
             number_format($amount, 2, '.', ''),
             trim((string) $referenceNo),
             trim((string) $description),
-        ]);
+        ];
 
-        return hash('sha256', $payload);
+        if ($lineOrder !== null) {
+            $parts[] = (string) $lineOrder;
+        }
+
+        return hash('sha256', implode('|', $parts));
     }
 
     public static function statementDirectionToBookSide(string $direction): string

@@ -70,6 +70,8 @@ class BankStatementParser
                 $debit = $direction === 'debit' ? $amount : 0;
                 $credit = $direction === 'credit' ? $amount : 0;
 
+                $lineOrder = ++$order;
+
                 BankStatementLine::create([
                     'bank_reconciliation_id' => $reconciliation->id,
                     'bank_statement_id' => $statement->id,
@@ -89,10 +91,11 @@ class BankStatementParser
                         $amount,
                         $line['reference_no'] ?? null,
                         $line['description'] ?? null,
+                        $lineOrder,
                     ),
                     'is_ai_extracted' => true,
                     'ai_confidence' => isset($line['confidence']) ? (float) $line['confidence'] : null,
-                    'line_order' => ++$order,
+                    'line_order' => $lineOrder,
                     'ai_meta' => $line['meta'] ?? null,
                 ]);
 
