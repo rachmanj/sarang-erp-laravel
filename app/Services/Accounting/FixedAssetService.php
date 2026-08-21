@@ -283,6 +283,7 @@ class FixedAssetService
 
         foreach ($assetDepreciation as $assetId => $amount) {
             Asset::where('id', $assetId)->increment('accumulated_depreciation', $amount);
+            Asset::where('id', $assetId)->decrement('current_book_value', $amount);
         }
     }
 
@@ -332,6 +333,7 @@ class FixedAssetService
 
             foreach ($assetDepreciation as $assetId => $amount) {
                 Asset::where('id', $assetId)->decrement('accumulated_depreciation', $amount);
+                Asset::where('id', $assetId)->increment('current_book_value', $amount);
             }
         });
     }
