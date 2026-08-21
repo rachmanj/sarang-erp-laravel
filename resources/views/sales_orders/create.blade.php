@@ -303,6 +303,7 @@
                                                         </th>
                                                         <th style="width: 15%">Description</th>
                                                         <th style="width: 8%">Qty <span class="text-danger">*</span></th>
+                                                        <th style="width: 8%">UOM</th>
                                                         <th style="width: 10%">Unit Price <span
                                                                 class="text-danger">*</span>
                                                         </th>
@@ -317,7 +318,7 @@
                                                 <tbody></tbody>
                                                 <tfoot>
                                                     <tr>
-                                                        <th colspan="3" class="text-right">Original DPP:</th>
+                                                        <th colspan="4" class="text-right">Original DPP:</th>
                                                         <th class="text-right" id="original-amount">0.00</th>
                                                         <th class="text-right" id="total-vat">0.00</th>
                                                         <th class="text-right" id="total-wtax">0.00</th>
@@ -326,17 +327,17 @@
                                                         <th></th>
                                                     </tr>
                                                     <tr>
-                                                        <th colspan="3" class="text-right">Line DPP discounts:</th>
+                                                        <th colspan="4" class="text-right">Line DPP discounts:</th>
                                                         <th colspan="5" class="text-right" id="total-line-discount">0.00</th>
                                                         <th colspan="2"></th>
                                                     </tr>
                                                     <tr>
-                                                        <th colspan="3" class="text-right">Header discount:</th>
+                                                        <th colspan="4" class="text-right">Header discount:</th>
                                                         <th colspan="5" class="text-right" id="total-header-discount">0.00</th>
                                                         <th colspan="2"></th>
                                                     </tr>
                                                     <tr>
-                                                        <th colspan="3" class="text-right">Grand Total (net):</th>
+                                                        <th colspan="4" class="text-right">Grand Total (net):</th>
                                                         <th colspan="5" class="text-right" id="amount-due">0.00</th>
                                                         <th colspan="2"></th>
                                                     </tr>
@@ -719,6 +720,11 @@
                             class="form-control form-control-sm text-right qty-input" value="${data.qty || 1}" required>
                     </td>
                     <td>
+                        <select name="lines[${lineIdx}][order_unit_id]" class="form-control form-control-sm unit-select" data-line-idx="${lineIdx}">
+                            <option value="">Select Unit</option>
+                        </select>
+                    </td>
+                    <td>
                         <input type="number" step="0.01" min="0" name="lines[${lineIdx}][unit_price]" 
                             class="form-control form-control-sm text-right price-input" value="${data.unit_price || 0}" required>
                     </td>
@@ -802,7 +808,29 @@
                 } else {
                     partNumberSelect.hide();
                 }
+
+                loadItemUnits($(this).val(), row);
             });
+
+            function loadItemUnits(itemId, row) {
+                const $unitSelect = row.find('.unit-select');
+                if (!itemId) {
+                    $unitSelect.empty().append('<option value="">Select Unit</option>');
+                    return;
+                }
+                $unitSelect.empty().append('<option value="">Loading units...</option>');
+                $.get('{{ route('unit-of-measures.api.item-units') }}', { item_id: itemId })
+                    .done(function(units) {
+                        $unitSelect.empty().append('<option value="">Select Unit</option>');
+                        units.forEach(function(unit) {
+                            const selected = unit.is_base_unit ? 'selected' : '';
+                            $unitSelect.append(`<option value="${unit.id}" ${selected}>${unit.display_name}</option>`);
+                        });
+                    })
+                    .fail(function() {
+                        $unitSelect.empty().append('<option value="">Error loading units</option>');
+                    });
+            }
 
             function updateAllLineDropdowns() {
                 const orderType = $('#order_type').val() || 'item';
@@ -1214,6 +1242,8 @@
                 } else {
                     partNumberSelect.hide();
                 }
+
+                loadItemUnits(itemId, row);
                 
                 // Store available quantity as data attribute for validation
                 row.data('available-qty', availableQty);

@@ -9,6 +9,7 @@ use App\Models\SalesCommission;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderApproval;
 use App\Models\SalesOrderLine;
+use App\Models\UnitOfMeasure;
 use Exception;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -38,6 +39,19 @@ class SalesService
         $this->approvalWorkflowService = $approvalWorkflowService;
         $this->workflowAuditService = $workflowAuditService;
         $this->companyEntityService = $companyEntityService;
+    }
+
+    private function resolveUnitOfMeasureCode($orderUnitId, $inventoryItemId): ?string
+    {
+        if ($orderUnitId) {
+            $unit = UnitOfMeasure::find($orderUnitId);
+            return $unit ? $unit->code : null;
+        }
+        if ($inventoryItemId) {
+            $item = InventoryItem::find($inventoryItemId);
+            return $item ? $item->unit_of_measure : null;
+        }
+        return null;
     }
 
     public function createSalesOrder($data)
@@ -124,7 +138,8 @@ class SalesService
                     'part_number_id' => $lineData['part_number_id'] ?? null,
                     'item_code' => null,
                     'item_name' => null,
-                    'unit_of_measure' => null,
+                    'order_unit_id' => $lineData['order_unit_id'] ?? null,
+                    'unit_of_measure' => $this->resolveUnitOfMeasureCode($lineData['order_unit_id'] ?? null, $inventoryItemId),
                     'description' => $lineData['description'] ?? null,
                     'qty' => $lineData['qty'],
                     'delivered_qty' => 0,
@@ -277,7 +292,8 @@ class SalesService
                     'part_number_id' => $lineData['part_number_id'] ?? null,
                     'item_code' => null,
                     'item_name' => null,
-                    'unit_of_measure' => null,
+                    'order_unit_id' => $lineData['order_unit_id'] ?? null,
+                    'unit_of_measure' => $this->resolveUnitOfMeasureCode($lineData['order_unit_id'] ?? null, $inventoryItemId),
                     'description' => $lineData['description'] ?? null,
                     'qty' => $lineData['qty'],
                     'delivered_qty' => 0,
