@@ -29,6 +29,10 @@
                         </div>
                     </div>
                     <div class="d-flex flex-wrap align-items-center mt-2 mt-md-0">
+                        <a href="{{ route('accounts.export', ['account' => $account, 'from' => $from, 'to' => $to, 'include_unposted' => $onlyPosted ? null : 1, 'company_entity_id' => request('company_entity_id')]) }}"
+                            class="btn btn-sm btn-success mr-1 mb-1">
+                            <i class="fas fa-file-excel mr-1"></i>Export Excel
+                        </a>
                         <a href="{{ route('accounts.index') }}" class="btn btn-sm btn-secondary mr-1 mb-1">
                             <i class="fas fa-arrow-left mr-1"></i>Back to Chart of Accounts
                         </a>

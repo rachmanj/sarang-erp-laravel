@@ -146,6 +146,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/create', [AccountController::class, 'create'])->name('accounts.create');
         Route::post('/', [AccountController::class, 'store'])->name('accounts.store');
         Route::get('/{account}', [AccountController::class, 'show'])->name('accounts.show');
+        Route::get('/{account}/export', [AccountController::class, 'export'])->name('accounts.export');
         Route::get('/{account}/edit', [AccountController::class, 'edit'])->name('accounts.edit');
         Route::patch('/{account}', [AccountController::class, 'update'])->name('accounts.update');
     });
