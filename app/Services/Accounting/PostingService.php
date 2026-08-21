@@ -125,6 +125,7 @@ class PostingService
             'source_type' => $journal->source_type,
             'source_id' => $journal->source_id,
             'posted_by' => $postedBy,
+            'company_entity_id' => $journal->company_entity_id,
             'lines' => [],
         ];
 

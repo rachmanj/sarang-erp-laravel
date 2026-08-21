@@ -144,6 +144,39 @@ class PostingServiceTest extends TestCase
         }
     }
 
+    public function test_reversal_preserves_company_entity(): void
+    {
+        $service = app(PostingService::class);
+
+        // Use the non-default entity (code 72) to catch entity-dropping regressions.
+        $entityId = (int) DB::table('company_entities')->where('code', '72')->value('id');
+        $defaultEntityId = (int) DB::table('company_entities')->where('code', '71')->value('id');
+        $this->assertGreaterThan(0, $entityId);
+        $this->assertNotSame($defaultEntityId, $entityId);
+
+        $jid = $service->postJournal([
+            'date' => now()->toDateString(),
+            'description' => 'Entity preservation test',
+            'source_type' => 'manual_journal',
+            'source_id' => 0,
+            'company_entity_id' => $entityId,
+            'lines' => [
+                ['account_id' => $this->accountId('1.1.2.01'), 'debit' => 100, 'credit' => 0],
+                ['account_id' => $this->accountId('4.1.1.01'), 'debit' => 0, 'credit' => 100],
+            ],
+        ]);
+
+        $this->assertSame($entityId, (int) DB::table('journals')->where('id', $jid)->value('company_entity_id'));
+
+        $rid = $service->reverseJournal($jid, now()->toDateString());
+
+        $this->assertSame(
+            $entityId,
+            (int) DB::table('journals')->where('id', $rid)->value('company_entity_id'),
+            'Reversal journal must preserve the source journal entity'
+        );
+    }
+
     public function test_non_postable_account_rejected(): void
     {
         $this->expectException(\InvalidArgumentException::class);
