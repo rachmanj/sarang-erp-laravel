@@ -20,6 +20,7 @@ use App\Http\Controllers\AssetDepreciationController;
 use App\Http\Controllers\AssetDisposalController;
 use App\Http\Controllers\AssetImportController;
 use App\Http\Controllers\AssetMovementController;
+use App\Http\Controllers\AuditController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\BusinessIntelligenceController;
@@ -633,6 +634,13 @@ Route::middleware('auth')->group(function () {
         Route::get('/api/account-balance', [AccountStatementController::class, 'getAccountBalance'])->name('account-statements.account-balance');
         Route::get('/api/business-partner-balance', [AccountStatementController::class, 'getBusinessPartnerBalance'])->name('account-statements.business-partner-balance');
     });
+
+    Route::get('/audit', [AuditController::class, 'index'])
+        ->middleware('permission:audit.view')
+        ->name('audit.index');
+    Route::get('/audit/{run}', [AuditController::class, 'show'])
+        ->middleware('permission:audit.view')
+        ->name('audit.show');
 
     // Control Account Management
     Route::prefix('control-accounts')->middleware(['permission:accounts.view'])->group(function () {

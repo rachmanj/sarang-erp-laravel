@@ -66,6 +66,7 @@ class RolePermissionSeeder extends Seeder
             'manage-company-info',
             'reports.view',
             'reports.open-items',
+            'audit.view',
             // AR/AP
             'ar.invoices.view',
             'ar.invoices.create',
@@ -211,6 +212,7 @@ class RolePermissionSeeder extends Seeder
                 'bank_reconciliation.view',
                 'bank_reconciliation.import',
                 'bank_reconciliation.reconcile',
+                'audit.view',
             ],
             'approver' => [
                 'reports.view',
@@ -250,7 +252,7 @@ class RolePermissionSeeder extends Seeder
                 'ar.receipts.create',
                 'ap.payments.create',
             ],
-            'auditor' => ['reports.view', 'reports.open-items'],
+            'auditor' => ['reports.view', 'reports.open-items', 'audit.view'],
             'logistic' => [
                 // Inventory management
                 'inventory.view',

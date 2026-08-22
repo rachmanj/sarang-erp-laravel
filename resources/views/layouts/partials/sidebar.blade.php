@@ -403,7 +403,7 @@
                 </li>
 
                 <!-- 6. Accounting Group -->
-                @canany(['journals.view', 'accounts.view', 'account_statements.view', 'currencies.view', 'bank_reconciliation.view', 'bank_accounts.view', 'tax.view'])
+                @canany(['journals.view', 'accounts.view', 'account_statements.view', 'currencies.view', 'bank_reconciliation.view', 'bank_accounts.view', 'tax.view', 'audit.view'])
                     @php
                         $acctActive =
                             request()->routeIs('journals.*') ||
@@ -417,7 +417,8 @@
                             request()->routeIs('currency-revaluations.*') ||
                             request()->routeIs('bank-reconciliation.*') ||
                             request()->routeIs('bank-accounts.*') ||
-                            request()->routeIs('tax.*');
+                            request()->routeIs('tax.*') ||
+                            request()->routeIs('audit.*');
                     @endphp
                     <li class="nav-item {{ $acctActive ? 'menu-is-opening menu-open' : '' }}">
                         <a href="#" class="nav-link {{ $acctActive ? 'active' : '' }}">
@@ -529,6 +530,15 @@
                                         class="nav-link {{ request()->routeIs('tax.*') ? 'active' : '' }}">
                                         <i class="far fa-circle nav-icon"></i>
                                         <p>Tax Compliance</p>
+                                    </a>
+                                </li>
+                            @endcan
+                            @can('audit.view')
+                                <li class="nav-item">
+                                    <a href="{{ route('audit.index') }}"
+                                        class="nav-link {{ request()->routeIs('audit.*') ? 'active' : '' }}">
+                                        <i class="fas fa-shield-alt nav-icon"></i>
+                                        <p>Audit Data</p>
                                     </a>
                                 </li>
                             @endcan
