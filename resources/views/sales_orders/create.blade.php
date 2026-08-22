@@ -289,9 +289,6 @@
                                             <i class="fas fa-list-ul mr-1"></i>
                                             Order Lines
                                         </h3>
-                                        <button type="button" class="btn btn-xs btn-primary float-right" id="add-line">
-                                            <i class="fas fa-plus"></i> Add Line
-                                        </button>
                                     </div>
                                     <div class="card-body p-0">
                                         <div class="table-responsive">
@@ -373,6 +370,50 @@
 
     <!-- Include Item Selection Modal -->
     @include('components.item-selection-modal')
+
+    <style>
+        #add-line.so-add-line-fab {
+            position: fixed;
+            bottom: 1.5rem;
+            right: 1.5rem;
+            z-index: 1040;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.875rem 1.25rem;
+            border: none;
+            border-radius: 50px;
+            background-color: #007bff;
+            color: #fff;
+            font-size: 0.875rem;
+            font-weight: 500;
+            line-height: 1;
+            box-shadow: 0 4px 14px rgba(0, 123, 255, 0.45), 0 2px 6px rgba(0, 0, 0, 0.18);
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+        }
+
+        #add-line.so-add-line-fab:hover {
+            background-color: #0069d9;
+            color: #fff;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 123, 255, 0.55), 0 4px 10px rgba(0, 0, 0, 0.22);
+        }
+
+        #add-line.so-add-line-fab:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 8px rgba(0, 123, 255, 0.4);
+        }
+
+        #add-line.so-add-line-fab:focus {
+            outline: none;
+            box-shadow: 0 4px 14px rgba(0, 123, 255, 0.45), 0 0 0 0.2rem rgba(0, 123, 255, 0.35);
+        }
+    </style>
+
+    <button type="button" id="add-line" class="so-add-line-fab">
+        <i class="fas fa-plus"></i> Add Line
+    </button>
 @endsection
 
 @push('scripts')
