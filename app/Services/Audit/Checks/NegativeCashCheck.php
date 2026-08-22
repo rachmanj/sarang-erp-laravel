@@ -20,8 +20,8 @@ class NegativeCashCheck extends AuditCheck
             ->whereNotNull('journals.posted_at')
             ->where('accounts.code', 'like', '1.1.1%')
             ->groupBy('accounts.id', 'accounts.code')
-            ->selectRaw('accounts.code, COALESCE(SUM(journal_lines.credit), 0) - COALESCE(SUM(journal_lines.debit), 0) as balance')
-            ->havingRaw('COALESCE(SUM(journal_lines.credit), 0) - COALESCE(SUM(journal_lines.debit), 0) < 0')
+            ->selectRaw('accounts.code, COALESCE(SUM(journal_lines.debit), 0) - COALESCE(SUM(journal_lines.credit), 0) as balance')
+            ->havingRaw('COALESCE(SUM(journal_lines.debit), 0) - COALESCE(SUM(journal_lines.credit), 0) < 0')
             ->orderBy('accounts.code')
             ->get();
 

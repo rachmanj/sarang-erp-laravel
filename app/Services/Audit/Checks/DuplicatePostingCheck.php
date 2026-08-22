@@ -22,15 +22,15 @@ class DuplicatePostingCheck extends AuditCheck
                 $query->whereNull('description')
                     ->orWhere('description', 'not like', '%Reversal%');
             })
-            ->groupBy('source_type', 'source_id')
-            ->selectRaw('source_type, source_id, COUNT(*) as count')
+            ->groupBy('source_type', 'source_id', 'description')
+            ->selectRaw('source_type, source_id, description, COUNT(*) as count')
             ->havingRaw('COUNT(*) > 1')
             ->get();
 
         $issues = [];
 
         foreach ($rows as $row) {
-            $issues[] = "source_type={$row->source_type}, source_id={$row->source_id}, count={$row->count}";
+            $issues[] = "source_type={$row->source_type}, source_id={$row->source_id}, description={$row->description}, count={$row->count}";
         }
 
         return $issues === [] ? AuditCheckResult::pass() : AuditCheckResult::fail($issues);
