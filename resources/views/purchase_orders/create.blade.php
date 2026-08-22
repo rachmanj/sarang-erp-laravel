@@ -311,9 +311,6 @@
                                             <i class="fas fa-list-ul mr-1"></i>
                                             Order Lines
                                         </h3>
-                                        <button type="button" class="btn btn-xs btn-primary float-right" id="add-line">
-                                            <i class="fas fa-plus"></i> Add Line
-                                        </button>
                                     </div>
                                     <div class="card-body p-0">
                                         <div class="table-responsive">
@@ -448,6 +445,52 @@
 
     <!-- Include Item Selection Modal -->
     @include('components.item-selection-modal')
+
+    <style>
+        #add-line.po-add-line-fab {
+            position: fixed;
+            bottom: 1.5rem;
+            right: 1.5rem;
+            z-index: 1040;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.65rem 1.25rem;
+            border: none;
+            border-radius: 50px;
+            background-color: #007bff;
+            color: #fff;
+            font-size: 0.875rem;
+            font-weight: 500;
+            line-height: 1.5;
+            box-shadow: 0 4px 12px rgba(0, 123, 255, 0.4), 0 2px 4px rgba(0, 0, 0, 0.15);
+            transition: background-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out, transform 0.15s ease-in-out;
+            cursor: pointer;
+        }
+
+        #add-line.po-add-line-fab:hover {
+            background-color: #0069d9;
+            color: #fff;
+            box-shadow: 0 6px 16px rgba(0, 123, 255, 0.45), 0 3px 6px rgba(0, 0, 0, 0.2);
+            transform: translateY(-1px);
+        }
+
+        #add-line.po-add-line-fab:active {
+            background-color: #0062cc;
+            box-shadow: 0 2px 8px rgba(0, 123, 255, 0.35), 0 1px 3px rgba(0, 0, 0, 0.15);
+            transform: translateY(0);
+        }
+
+        #add-line.po-add-line-fab:focus {
+            outline: none;
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(0, 123, 255, 0.4), 0 2px 4px rgba(0, 0, 0, 0.15), 0 0 0 0.2rem rgba(0, 123, 255, 0.5);
+        }
+    </style>
+
+    <button type="button" id="add-line" class="po-add-line-fab">
+        <i class="fas fa-plus"></i> Add Line
+    </button>
 @endsection
 
 @push('scripts')
