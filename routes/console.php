@@ -10,3 +10,4 @@ Artisan::command('inspire', function () {
 
 Schedule::command('whatsapp:poll-messages')->everyMinute();
 Schedule::command('whatsapp:send-daily-report')->dailyAt(config('whatsapp.daily_report_time'));
+Schedule::command('audit:run')->dailyAt('06:00');

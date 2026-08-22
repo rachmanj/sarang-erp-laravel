@@ -36,6 +36,7 @@ class Kernel extends BaseKernel
         \App\Console\Commands\RepairParentAccountPostingsCommand::class,
         \App\Console\Commands\RepairInventoryReserveJournalAccountsCommand::class,
         \App\Console\Commands\SeedCapitalAndFixedAssetsCommand::class,
+        \App\Console\Commands\RunAuditCommand::class,
     ];
 
     /**
