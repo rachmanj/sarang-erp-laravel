@@ -1,19 +1,11 @@
-@extends('layouts.app')
+@extends('layouts.main')
 
-@section('title', 'Tax Compliance Logs')
+@section('title_page', 'Tax Compliance Logs')
+
+@section('breadcrumb_title')
+@endsection
 
 @section('content')
-    <div class="content-header">
-        <div class="container-fluid">
-            <div class="row mb-2">
-                <div class="col-sm-6">
-                    <h1 class="m-0">Tax Compliance Logs</h1>
-                </div>
-            </div>
-        </div>
-    </div>
-    <section class="content">
-        <div class="container-fluid">
             <div class="card">
                 <div class="card-body p-0">
                     <table class="table table-striped mb-0">
@@ -45,6 +37,4 @@
                     <div class="card-footer">{{ $logs->links() }}</div>
                 @endif
             </div>
-        </div>
-    </section>
 @endsection

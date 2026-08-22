@@ -1,19 +1,11 @@
-@extends('layouts.app')
+@extends('layouts.main')
 
-@section('title', 'Tax Report')
+@section('title_page', 'Tax Report')
+
+@section('breadcrumb_title')
+@endsection
 
 @section('content')
-    <div class="content-header">
-        <div class="container-fluid">
-            <div class="row mb-2">
-                <div class="col-sm-6">
-                    <h1 class="m-0">{{ $report->report_name ?? 'Tax Report' }}</h1>
-                </div>
-            </div>
-        </div>
-    </div>
-    <section class="content">
-        <div class="container-fluid">
             <div class="card">
                 <div class="card-body">
                     <p><strong>Type:</strong> {{ $report->report_type }}</p>
@@ -38,6 +30,4 @@
                     @endcan
                 </div>
             </div>
-        </div>
-    </section>
 @endsection

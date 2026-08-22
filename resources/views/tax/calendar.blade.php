@@ -1,19 +1,11 @@
-@extends('layouts.app')
+@extends('layouts.main')
 
-@section('title', 'Tax Calendar')
+@section('title_page', 'Tax Calendar')
+
+@section('breadcrumb_title')
+@endsection
 
 @section('content')
-    <div class="content-header">
-        <div class="container-fluid">
-            <div class="row mb-2">
-                <div class="col-sm-6">
-                    <h1 class="m-0">Tax Calendar</h1>
-                </div>
-            </div>
-        </div>
-    </div>
-    <section class="content">
-        <div class="container-fluid">
             <div class="card">
                 <div class="card-body p-0">
                     <table class="table table-striped mb-0">
@@ -42,6 +34,4 @@
                     </table>
                 </div>
             </div>
-        </div>
-    </section>
 @endsection

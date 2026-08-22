@@ -1,27 +1,14 @@
-@extends('layouts.app')
+@extends('layouts.main')
 
-@section('title', 'Tax Periods')
+@section('title_page', 'Tax Periods')
+
+@section('breadcrumb_title')
+    <li class="breadcrumb-item"><a href="{{ route('dashboard') }}">Home</a></li>
+    <li class="breadcrumb-item"><a href="{{ route('tax.index') }}">Tax Compliance</a></li>
+    <li class="breadcrumb-item active">Periods</li>
+@endsection
 
 @section('content')
-    <div class="content-header">
-        <div class="container-fluid">
-            <div class="row mb-2">
-                <div class="col-sm-6">
-                    <h1 class="m-0">Tax Periods</h1>
-                </div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-right">
-                        <li class="breadcrumb-item"><a href="{{ route('dashboard') }}">Home</a></li>
-                        <li class="breadcrumb-item"><a href="{{ route('tax.index') }}">Tax Compliance</a></li>
-                        <li class="breadcrumb-item active">Periods</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <section class="content">
-        <div class="container-fluid">
             <div class="row">
                 <div class="col-12">
                     <div class="card">
@@ -123,8 +110,6 @@
                     </div>
                 </div>
             </div>
-        </div>
-    </section>
 
     <!-- Close Period Modal -->
     <div class="modal fade" id="closePeriodModal" tabindex="-1" role="dialog">

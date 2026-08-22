@@ -1,31 +1,17 @@
-@extends('layouts.app')
+@extends('layouts.main')
 
-@section('title', 'Open Items - ' . ($documentTypeLabels[$documentType] ?? ucwords(str_replace('_', ' ',
+@section('title_page', 'Open Items - ' . ($documentTypeLabels[$documentType] ?? ucwords(str_replace('_', ' ',
     $documentType))))
 
-@section('content')
-    <div class="content-header">
-        <div class="container-fluid">
-            <div class="row mb-2">
-                <div class="col-sm-6">
-                    <h1 class="m-0">Open Items -
-                        {{ $documentTypeLabels[$documentType] ?? ucwords(str_replace('_', ' ', $documentType)) }}</h1>
-                </div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-right">
-                        <li class="breadcrumb-item"><a href="{{ route('dashboard') }}">Home</a></li>
-                        <li class="breadcrumb-item"><a href="{{ route('reports.trial-balance') }}">Reports</a></li>
-                        <li class="breadcrumb-item"><a href="{{ route('reports.open-items.index') }}">Open Items</a></li>
-                        <li class="breadcrumb-item active">
-                            {{ $documentTypeLabels[$documentType] ?? ucwords(str_replace('_', ' ', $documentType)) }}</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
+@section('breadcrumb_title')
+    <li class="breadcrumb-item"><a href="{{ route('dashboard') }}">Home</a></li>
+    <li class="breadcrumb-item"><a href="{{ route('reports.trial-balance') }}">Reports</a></li>
+    <li class="breadcrumb-item"><a href="{{ route('reports.open-items.index') }}">Open Items</a></li>
+    <li class="breadcrumb-item active">
+        {{ $documentTypeLabels[$documentType] ?? ucwords(str_replace('_', ' ', $documentType)) }}</li>
+@endsection
 
-    <div class="content">
-        <div class="container-fluid">
+@section('content')
             <!-- Filters -->
             <div class="card">
                 <div class="card-header">
@@ -278,8 +264,6 @@
                     @endif
                 </div>
             </div>
-        </div>
-    </div>
 @endsection
 
 @push('scripts')

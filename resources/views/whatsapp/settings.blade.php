@@ -1,26 +1,13 @@
-@extends('layouts.app')
+@extends('layouts.main')
 
-@section('title', 'Pengaturan WhatsApp')
+@section('title_page', 'Pengaturan WhatsApp')
+
+@section('breadcrumb_title')
+    <li class="breadcrumb-item"><a href="{{ route('dashboard') }}">Beranda</a></li>
+    <li class="breadcrumb-item active">Pengaturan WhatsApp</li>
+@endsection
 
 @section('content')
-<div class="content-header">
-    <div class="container-fluid">
-        <div class="row mb-2">
-            <div class="col-sm-6">
-                <h1 class="m-0">Pengaturan WhatsApp</h1>
-            </div>
-            <div class="col-sm-6">
-                <ol class="breadcrumb float-sm-right">
-                    <li class="breadcrumb-item"><a href="{{ route('dashboard') }}">Beranda</a></li>
-                    <li class="breadcrumb-item active">Pengaturan WhatsApp</li>
-                </ol>
-            </div>
-        </div>
-    </div>
-</div>
-
-<section class="content">
-    <div class="container-fluid">
         @if (session('success'))
             <div class="alert alert-success alert-dismissible">
                 <button type="button" class="close" data-dismiss="alert">&times;</button>
@@ -177,6 +164,4 @@
                 </div>
             </div>
         </div>
-    </div>
-</section>
 @endsection
