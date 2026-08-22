@@ -104,7 +104,7 @@
                 },
                 columns: [{
                         data: 'period_display',
-                        name: 'period_display'
+                        name: 'period'
                     },
                     {
                         data: 'status_badge',
