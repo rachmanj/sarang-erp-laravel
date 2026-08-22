@@ -3,6 +3,7 @@
 namespace App\Console;
 
 use Illuminate\Console\Application as Artisan;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as BaseKernel;
 
 class Kernel extends BaseKernel
@@ -72,5 +73,10 @@ class Kernel extends BaseKernel
         }
 
         return $this->artisan;
+    }
+
+    protected function schedule(Schedule $schedule): void
+    {
+        $schedule->command('audit:run')->dailyAt('06:00');
     }
 }
