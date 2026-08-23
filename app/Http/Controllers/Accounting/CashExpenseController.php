@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Accounting;
 
 use App\Http\Controllers\Controller;
 use App\Models\Accounting\CashExpense;
+use App\Models\Accounting\CashExpenseLine;
 use App\Services\Accounting\PostingService;
 use App\Services\CompanyEntityService;
 use App\Services\DocumentNumberingService;
@@ -41,49 +42,76 @@ class CashExpenseController extends Controller
     {
         $data = $request->validate([
             'date' => ['required', 'date'],
-            'expense_account_id' => ['required', 'integer', 'exists:accounts,id'],
             'cash_account_id' => ['required', 'integer', 'exists:accounts,id'],
-            'amount' => ['required', 'numeric', 'min:0.01'],
-            'amount_raw' => ['nullable', 'numeric', 'min:0.01'],
             'description' => ['nullable', 'string', 'max:255'],
-            'project_id' => ['nullable', 'integer'],
-            'fund_id' => ['nullable', 'integer'],
-            'dept_id' => ['nullable', 'integer'],
+            'amount_raw' => ['nullable', 'numeric', 'min:0.01'],
+            'lines' => ['required', 'array', 'min:1'],
+            'lines.*.expense_account_id' => ['required', 'integer', 'exists:accounts,id'],
+            'lines.*.amount' => ['required', 'numeric', 'min:0.01'],
+            'lines.*.amount_raw' => ['nullable', 'numeric', 'min:0.01'],
+            'lines.*.description' => ['nullable', 'string', 'max:255'],
+            'lines.*.project_id' => ['nullable', 'integer', 'exists:projects,id'],
+            'lines.*.dept_id' => ['nullable', 'integer', 'exists:departments,id'],
         ]);
 
-        // Use amount_raw if available (from formatted input), otherwise use amount
-        $amount = $data['amount_raw'] ?? $data['amount'];
+        $totalAmount = isset($data['amount_raw'])
+            ? (float) $data['amount_raw']
+            : collect($data['lines'])->sum(fn (array $line) => (float) ($line['amount_raw'] ?? $line['amount']));
 
-        return DB::transaction(function () use ($data, $amount) {
-            // Use default entity for cash expenses
+        return DB::transaction(function () use ($data, $totalAmount) {
             $entity = $this->companyEntityService->getDefaultEntity();
 
             $exp = CashExpense::create([
                 'date' => $data['date'],
                 'description' => $data['description'] ?? null,
-                'account_id' => $data['expense_account_id'],
-                'amount' => $amount,
+                'cash_account_id' => $data['cash_account_id'],
+                'total_amount' => $totalAmount,
                 'status' => 'posted',
                 'created_by' => Auth::id(),
                 'company_entity_id' => $entity->id,
             ]);
 
-            // Generate expense number with entity context
             $expenseNo = $this->documentNumberingService->generateNumber('cash_expense', $data['date'], [
                 'company_entity_id' => $entity->id,
             ]);
             $exp->update(['expense_no' => $expenseNo]);
 
-            // Post journal: Debit Expense, Credit Cash
+            $journalLines = [];
+            foreach ($data['lines'] as $line) {
+                $lineAmount = (float) ($line['amount_raw'] ?? $line['amount']);
+
+                CashExpenseLine::create([
+                    'cash_expense_id' => $exp->id,
+                    'account_id' => $line['expense_account_id'],
+                    'amount' => $lineAmount,
+                    'description' => $line['description'] ?? null,
+                    'project_id' => $line['project_id'] ?? null,
+                    'dept_id' => $line['dept_id'] ?? null,
+                ]);
+
+                $journalLines[] = [
+                    'account_id' => (int) $line['expense_account_id'],
+                    'debit' => $lineAmount,
+                    'credit' => 0,
+                    'project_id' => $line['project_id'] ?? null,
+                    'dept_id' => $line['dept_id'] ?? null,
+                    'memo' => $line['description'] ?? null,
+                ];
+            }
+
+            $journalLines[] = [
+                'account_id' => (int) $data['cash_account_id'],
+                'debit' => 0,
+                'credit' => $totalAmount,
+                'memo' => $data['description'] ?? null,
+            ];
+
             $this->posting->postJournal([
                 'date' => $exp->date,
                 'description' => 'Cash Expense '.$expenseNo,
                 'source_type' => 'cash_expense',
                 'source_id' => $exp->id,
-                'lines' => [
-                    ['account_id' => (int) $data['expense_account_id'], 'debit' => (float) $amount, 'credit' => 0, 'project_id' => $data['project_id'] ?? null, 'fund_id' => $data['fund_id'] ?? null, 'dept_id' => $data['dept_id'] ?? null, 'memo' => $data['description'] ?? null],
-                    ['account_id' => (int) $data['cash_account_id'], 'debit' => 0, 'credit' => (float) $amount, 'project_id' => $data['project_id'] ?? null, 'fund_id' => $data['fund_id'] ?? null, 'dept_id' => $data['dept_id'] ?? null, 'memo' => $data['description'] ?? null],
-                ],
+                'lines' => $journalLines,
             ]);
 
             return redirect()->route('cash-expenses.index')->with('success', 'Cash expense posted');
@@ -93,18 +121,18 @@ class CashExpenseController extends Controller
     public function data(Request $request)
     {
         $q = DB::table('cash_expenses as ce')
-            ->leftJoin('accounts as a', 'a.id', '=', 'ce.account_id')
+            ->leftJoin('cash_expense_lines as cel', function ($join) {
+                $join->on('cel.cash_expense_id', '=', 'ce.id')
+                    ->whereIn('cel.id', function ($query) {
+                        $query->selectRaw('MIN(id)')
+                            ->from('cash_expense_lines')
+                            ->groupBy('cash_expense_id');
+                    });
+            })
+            ->leftJoin('accounts as a', 'a.id', '=', 'cel.account_id')
+            ->leftJoin('accounts as ca', 'ca.id', '=', 'ce.cash_account_id')
             ->leftJoin('users as u', 'u.id', '=', 'ce.created_by')
-            ->leftJoin('journals as j', function ($join) {
-                $join->on('j.source_type', '=', DB::raw("'cash_expense'"))
-                    ->on('j.source_id', '=', 'ce.id');
-            })
-            ->leftJoin('journal_lines as jl', function ($join) {
-                $join->on('jl.journal_id', '=', 'j.id')
-                    ->where('jl.credit', '>', 0);
-            })
-            ->leftJoin('accounts as ca', 'ca.id', '=', 'jl.account_id')
-            ->select('ce.id', 'ce.date', 'ce.description', 'a.code as expense_code', 'a.name as expense_name', 'ce.amount', 'u.name as creator_name', 'ca.code as cash_code', 'ca.name as cash_name');
+            ->select('ce.id', 'ce.date', 'ce.description', 'a.code as expense_code', 'a.name as expense_name', 'ce.total_amount as amount', 'u.name as creator_name', 'ca.code as cash_code', 'ca.name as cash_name');
 
         if ($request->filled('from')) {
             $q->whereDate('ce.date', '>=', $request->input('from'));
@@ -133,27 +161,16 @@ class CashExpenseController extends Controller
 
     public function print(CashExpense $cashExpense)
     {
-        // Load necessary relationships
         $cashExpense->load([
-            'expenseAccount',
+            'lines.account',
+            'lines.project',
+            'lines.department',
+            'cashAccount',
             'creator',
-            'project',
-            'fund',
-            'department',
         ]);
 
-        // Get cash account from journal lines
-        $cashAccount = DB::table('journals as j')
-            ->join('journal_lines as jl', 'jl.journal_id', '=', 'j.id')
-            ->join('accounts as a', 'a.id', '=', 'jl.account_id')
-            ->where('j.source_type', 'cash_expense')
-            ->where('j.source_id', $cashExpense->id)
-            ->where('jl.credit', '>', 0)
-            ->select('a.id', 'a.code', 'a.name')
-            ->first();
-
-        // Convert amount to words (Indonesian)
-        $terbilang = $this->convertToWords($cashExpense->amount);
+        $cashAccount = $cashExpense->cashAccount;
+        $terbilang = $this->convertToWords($cashExpense->total_amount);
 
         return view('cash_expenses.print', compact('cashExpense', 'cashAccount', 'terbilang'));
     }

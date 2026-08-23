@@ -24,17 +24,27 @@ class CashExpenseListTest extends TestCase
     {
         $entityId = (int) DB::table('company_entities')->orderBy('id')->value('id');
         $accountId = (int) DB::table('accounts')->where('is_postable', 1)->value('id');
+        $cashAccountId = (int) DB::table('accounts')->where('code', 'like', '1.1.1%')->where('is_postable', 1)->value('id');
         $userId = (int) DB::table('users')->orderBy('id')->value('id');
 
         $inRangeId = DB::table('cash_expenses')->insertGetId([
             'expense_no' => 'CE-FILTER-IN',
             'date' => '2025-06-15',
             'description' => 'In range',
-            'account_id' => $accountId,
-            'amount' => 100,
+            'cash_account_id' => $cashAccountId,
+            'total_amount' => 100,
             'status' => 'posted',
             'created_by' => $userId,
             'company_entity_id' => $entityId,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('cash_expense_lines')->insert([
+            'cash_expense_id' => $inRangeId,
+            'account_id' => $accountId,
+            'amount' => 100,
+            'description' => 'In range',
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -43,11 +53,20 @@ class CashExpenseListTest extends TestCase
             'expense_no' => 'CE-FILTER-OUT',
             'date' => '2024-01-10',
             'description' => 'Out of range',
-            'account_id' => $accountId,
-            'amount' => 200,
+            'cash_account_id' => $cashAccountId,
+            'total_amount' => 200,
             'status' => 'posted',
             'created_by' => $userId,
             'company_entity_id' => $entityId,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('cash_expense_lines')->insert([
+            'cash_expense_id' => $outOfRangeId,
+            'account_id' => $accountId,
+            'amount' => 200,
+            'description' => 'Out of range',
             'created_at' => now(),
             'updated_at' => now(),
         ]);
