@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Prasasta ERP | Cash Expense</title>
+    <title>Prasasta ERP | Pengeluaran Kas</title>
 
     <!-- Font Awesome -->
     <link rel="stylesheet" href="{{ asset('adminlte/plugins/fontawesome-free/css/all.min.css') }}">
@@ -86,9 +86,7 @@
 
 <body>
     <div class="wrapper mx-4">
-        <!-- Main content -->
         <section class="invoice">
-            <!-- title row -->
             <div class="row invoice-header">
                 <div class="col-12 company-info">
                     @php
@@ -114,7 +112,7 @@
                         @endif
                         @if ($companyPhone || $companyEmail)
                             @if ($companyPhone)
-                                Phone: {{ $companyPhone }}
+                                Telepon: {{ $companyPhone }}
                             @endif
                             @if ($companyPhone && $companyEmail)
                                 |
@@ -125,128 +123,119 @@
                             <br>
                         @endif
                         @if ($companyTaxNumber)
-                            Tax Number: {{ $companyTaxNumber }}
+                            NPWP: {{ $companyTaxNumber }}
                         @endif
                     </div>
                 </div>
             </div>
 
-            <!-- info row -->
             <div class="row invoice-info">
                 <div class="col-sm-4 invoice-col">
-                    <strong>Cash Expense Details</strong>
+                    <strong>Detail Pengeluaran Kas</strong>
                     <address>
-                        <strong>Expense ID: #{{ $cashExpense->id }}</strong><br>
-                        Date: <b>{{ \Carbon\Carbon::parse($cashExpense->date)->format('d M Y') }}</b><br>
+                        <strong>No. Pengeluaran: {{ $cashExpense->expense_no ?? 'CE-' . str_pad($cashExpense->id, 6, '0', STR_PAD_LEFT) }}</strong><br>
+                        Tanggal: <b>{{ \Carbon\Carbon::parse($cashExpense->date)->format('d M Y') }}</b><br>
+                        Akun Kas/Bank: <b>{{ $cashAccount ? $cashAccount->code . ' - ' . $cashAccount->name : 'N/A' }}</b><br>
                         Status: <b>{{ ucfirst($cashExpense->status) }}</b><br>
                         @if ($cashExpense->creator)
-                            Created by: <b>{{ $cashExpense->creator->name }}</b><br>
+                            Dibuat oleh: <b>{{ $cashExpense->creator->name }}</b><br>
                         @endif
                     </address>
                 </div>
                 <div class="col-sm-4 text-center">
-                    <h3>Cash Expense Voucher</h3>
+                    <h3>Bukti Pengeluaran Kas</h3>
+                    @if ($cashExpense->description)
+                        <p class="mb-0"><em>{{ $cashExpense->description }}</em></p>
+                    @endif
                 </div>
                 <div class="col-sm-4 invoice-col text-right">
-                    Document No: <b>CE-{{ str_pad($cashExpense->id, 6, '0', STR_PAD_LEFT) }}</b><br>
-                    Print Date: <b>{{ now()->format('d M Y H:i') }}</b><br>
-                    Amount: <b>Rp {{ number_format($cashExpense->amount, 2, ',', '.') }}</b><br>
+                    ID Dokumen: <b>#{{ $cashExpense->id }}</b><br>
+                    Tanggal Cetak: <b>{{ now()->format('d M Y H:i') }}</b><br>
+                    Total: <b>Rp {{ number_format($cashExpense->total_amount, 2, ',', '.') }}</b><br>
                 </div>
             </div>
-            <!-- /.row -->
 
-            <!-- Table row -->
             <div class="row">
                 <div class="col-12 table-responsive">
                     <table class="table table-bordered" style="border: 1px solid black;">
                         <thead>
                             <tr>
-                                <th style="border: 1px solid black;">No</th>
-                                <th style="border: 1px solid black;">Description</th>
-                                <th style="border: 1px solid black;">Account</th>
-                                <th class="text-right" style="border: 1px solid black;">Amount (IDR)</th>
+                                <th style="border: 1px solid black; width: 5%">No</th>
+                                <th style="border: 1px solid black; width: 30%">Akun Biaya</th>
+                                <th style="border: 1px solid black;">Keterangan</th>
+                                <th class="text-right" style="border: 1px solid black; width: 18%">Nominal (IDR)</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <tr>
-                                <td style="border: 1px solid black;">1</td>
-                                <td style="border: 1px solid black;">
-                                    {{ $cashExpense->description ?: 'Cash Expense' }}
-                                    @if ($cashExpense->project)
-                                        <br><small>Project: {{ $cashExpense->project->code }} -
-                                            {{ $cashExpense->project->name }}</small>
-                                    @endif
-                                    @if ($cashExpense->fund)
-                                        <br><small>Fund: {{ $cashExpense->fund->code }} -
-                                            {{ $cashExpense->fund->name }}</small>
-                                    @endif
-                                    @if ($cashExpense->department)
-                                        <br><small>Department: {{ $cashExpense->department->code }} -
-                                            {{ $cashExpense->department->name }}</small>
-                                    @endif
-                                </td>
-                                <td style="border: 1px solid black;">
-                                    <strong>Expense Account:</strong><br>
-                                    {{ $cashExpense->expenseAccount->code }} -
-                                    {{ $cashExpense->expenseAccount->name }}<br><br>
-                                    <strong>Cash Account:</strong><br>
-                                    {{ $cashAccount ? $cashAccount->code . ' - ' . $cashAccount->name : 'N/A' }}
-                                </td>
-                                <td class="text-right" style="border: 1px solid black;">
-                                    {{ number_format($cashExpense->amount, 2, ',', '.') }}
-                                </td>
-                            </tr>
+                            @foreach ($cashExpense->lines as $index => $line)
+                                <tr>
+                                    <td style="border: 1px solid black;">{{ $index + 1 }}</td>
+                                    <td style="border: 1px solid black;">
+                                        {{ $line->account->code }} - {{ $line->account->name }}
+                                        @if ($line->project)
+                                            <br><small>Project: {{ $line->project->code }} - {{ $line->project->name }}</small>
+                                        @endif
+                                        @if ($line->department)
+                                            <br><small>Dept: {{ $line->department->code }} - {{ $line->department->name }}</small>
+                                        @endif
+                                    </td>
+                                    <td style="border: 1px solid black;">
+                                        {{ $line->description ?: '-' }}
+                                    </td>
+                                    <td class="text-right" style="border: 1px solid black;">
+                                        {{ number_format($line->amount, 2, ',', '.') }}
+                                    </td>
+                                </tr>
+                            @endforeach
                         </tbody>
                         <tfoot>
                             <tr>
                                 <th colspan="3" class="text-right" style="border: 1px solid black;">TOTAL</th>
                                 <th class="text-right" style="border: 1px solid black;">
-                                    {{ number_format($cashExpense->amount, 2, ',', '.') }}
+                                    {{ number_format($cashExpense->total_amount, 2, ',', '.') }}
                                 </th>
                             </tr>
                             <tr>
-                                <th class="text-right" style="border: 1px solid black;">Say</th>
+                                <th class="text-right" style="border: 1px solid black;">Terbilang</th>
                                 <td colspan="3" style="border: 1px solid black;">{{ ucfirst($terbilang) }}</td>
                             </tr>
                         </tfoot>
                     </table>
                 </div>
             </div>
-            <!-- /.row -->
 
-            <!-- Journal Entry Details -->
             <div class="row mt-3">
                 <div class="col-12">
-                    <h5>Journal Entry:</h5>
+                    <h5>Jurnal:</h5>
                     <table class="table table-bordered table-sm">
                         <thead>
                             <tr>
-                                <th>Account</th>
+                                <th>Akun</th>
                                 <th class="text-right">Debit</th>
-                                <th class="text-right">Credit</th>
+                                <th class="text-right">Kredit</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <tr>
-                                <td>{{ $cashExpense->expenseAccount->code }} -
-                                    {{ $cashExpense->expenseAccount->name }}</td>
-                                <td class="text-right">{{ number_format($cashExpense->amount, 2, ',', '.') }}</td>
-                                <td class="text-right">-</td>
-                            </tr>
+                            @foreach ($cashExpense->lines as $line)
+                                <tr>
+                                    <td>{{ $line->account->code }} - {{ $line->account->name }}</td>
+                                    <td class="text-right">{{ number_format($line->amount, 2, ',', '.') }}</td>
+                                    <td class="text-right">-</td>
+                                </tr>
+                            @endforeach
                             <tr>
                                 <td>{{ $cashAccount ? $cashAccount->code . ' - ' . $cashAccount->name : 'N/A' }}</td>
                                 <td class="text-right">-</td>
-                                <td class="text-right">{{ number_format($cashExpense->amount, 2, ',', '.') }}</td>
+                                <td class="text-right">{{ number_format($cashExpense->total_amount, 2, ',', '.') }}</td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
             </div>
 
-            <!-- Signature row -->
             <div class="row invoice-info mt-4">
                 <div class="col-sm-3 invoice-col">
-                    <b>Prepared by</b><br>
+                    <b>Dibuat oleh</b><br>
                     <br>
                     <br>
                     <br>
@@ -256,7 +245,7 @@
                 </div>
 
                 <div class="col-sm-3 invoice-col">
-                    <b>Approved by</b><br>
+                    <b>Disetujui oleh</b><br>
                     <br>
                     <br>
                     <br>
@@ -266,7 +255,7 @@
                 </div>
 
                 <div class="col-sm-3 invoice-col">
-                    <b>Received by</b><br>
+                    <b>Diterima oleh</b><br>
                     <br>
                     <br>
                     <br>
@@ -276,7 +265,7 @@
                 </div>
 
                 <div class="col-sm-3 invoice-col">
-                    <b>Cashier</b><br>
+                    <b>Kasir</b><br>
                     <br>
                     <br>
                     <br>
@@ -285,24 +274,12 @@
                     (....................................)<br>
                 </div>
             </div>
-            <!-- /.row -->
         </section>
-        <!-- /.content -->
     </div>
-    <!-- ./wrapper -->
 
-    <!-- Floating Print Button -->
-    <button class="print-button no-print" onclick="window.print()" title="Print Document">
+    <button class="print-button no-print" onclick="window.print()" title="Cetak Dokumen">
         <i class="fas fa-print"></i>
     </button>
-
-    <!-- Page specific script -->
-    <script>
-        // Commented out automatic print - user must click the print button
-        // window.addEventListener("load", function() {
-        //     window.print();
-        // });
-    </script>
 </body>
 
 </html>
