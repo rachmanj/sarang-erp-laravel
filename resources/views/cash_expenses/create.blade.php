@@ -47,30 +47,33 @@
                         </div>
 
                         <hr>
-                        <h5 class="mb-3">Rincian Biaya</h5>
+                        <h5 class="mb-3">
+    Rincian Biaya
+    <span class="ml-3" style="font-weight: normal; font-size: 0.85rem;">
+        <input type="checkbox" id="toggle-dims">
+        <label for="toggle-dims" class="mb-0">Tampilkan kolom Project &amp; Dept</label>
+    </span>
+</h5>
 
                         <div class="table-responsive">
-                            <table class="table table-bordered table-sm" id="lines-table">
+                            <table class="table table-bordered table-sm dims-hidden" id="lines-table">
                                 <thead>
                                     <tr>
                                         <th style="width: 22%">Akun Biaya <span class="text-danger">*</span></th>
                                         <th style="width: 14%">Nominal <span class="text-danger">*</span></th>
                                         <th style="width: 22%">Keterangan</th>
-                                        <th style="width: 16%">Project</th>
-                                        <th style="width: 16%">Dept</th>
+                                        <th style="width: 16%" class="dim-col">Project</th>
+                                        <th style="width: 16%" class="dim-col">Dept</th>
                                         <th style="width: 5%"></th>
                                     </tr>
                                 </thead>
                                 <tbody id="lines-tbody">
                                 </tbody>
-                                <tfoot>
-                                    <tr>
-                                        <th colspan="1" class="text-right">Total</th>
-                                        <th class="text-right" id="lines-total">0</th>
-                                        <th colspan="4"></th>
-                                    </tr>
-                                </tfoot>
                             </table>
+                        </div>
+
+                        <div class="text-right mt-2">
+                            <strong>Total: <span id="lines-total">0</span></strong>
                         </div>
 
                         <button type="button" class="btn btn-sm btn-success" id="add-line-btn">
@@ -90,6 +93,11 @@
 @section('styles')
     <link rel="stylesheet" href="{{ asset('adminlte/plugins/select2/css/select2.min.css') }}">
     <link rel="stylesheet" href="{{ asset('adminlte/plugins/select2-bootstrap4-theme/select2-bootstrap4.min.css') }}">
+    <style>
+        .dims-hidden .dim-col {
+            display: none;
+        }
+    </style>
 @endsection
 
 @section('scripts')
@@ -173,12 +181,12 @@
                         <td>
                             <input type="text" name="lines[${idx}][description]" class="form-control" placeholder="Keterangan baris">
                         </td>
-                        <td>
+                        <td class="dim-col">
                             <select name="lines[${idx}][project_id]" class="form-control select2bs4 line-project">
                                 ${buildOptions(projects, '-- Pilih Project (Opsional) --')}
                             </select>
                         </td>
-                        <td>
+                        <td class="dim-col">
                             <select name="lines[${idx}][dept_id]" class="form-control select2bs4 line-dept">
                                 ${buildOptions(departments, '-- Pilih Dept (Opsional) --')}
                             </select>
@@ -209,6 +217,14 @@
 
             $('#add-line-btn').on('click', function() {
                 addLineRow();
+            });
+
+            $('#toggle-dims').on('change', function() {
+                const show = $(this).is(':checked');
+                $('#lines-table').toggleClass('dims-hidden', !show);
+                if (show) {
+                    $(window).trigger('resize');
+                }
             });
 
             $(document).on('click', '.remove-line-btn', function() {
