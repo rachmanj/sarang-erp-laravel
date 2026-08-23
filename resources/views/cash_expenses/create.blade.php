@@ -48,12 +48,12 @@
 
                         <hr>
                         <h5 class="mb-3">
-    Rincian Biaya
-    <span class="ml-3" style="font-weight: normal; font-size: 0.85rem;">
-        <input type="checkbox" id="toggle-dims">
-        <label for="toggle-dims" class="mb-0">Tampilkan kolom Project &amp; Dept</label>
-    </span>
-</h5>
+                            Rincian Biaya
+                            <span class="ml-3" style="font-weight: normal; font-size: 0.85rem;">
+                                <input type="checkbox" id="toggle-dims">
+                                <label for="toggle-dims" class="mb-0">Tampilkan kolom Project &amp; Dept</label>
+                            </span>
+                        </h5>
 
                         <div class="table-responsive">
                             <table class="table table-bordered table-sm dims-hidden" id="lines-table">
@@ -223,7 +223,7 @@
                 const show = $(this).is(':checked');
                 $('#lines-table').toggleClass('dims-hidden', !show);
                 if (show) {
-                    $(window).trigger('resize');
+                    $('#lines-table .line-project, #lines-table .line-dept').next('.select2-container').css('width', '100%');
                 }
             });
 
