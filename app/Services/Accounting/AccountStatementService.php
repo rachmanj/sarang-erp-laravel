@@ -265,13 +265,15 @@ class AccountStatementService
      */
     protected function calculateOpeningBalance(int $accountId, Carbon $fromDate, ?int $projectId = null, ?int $deptId = null): float
     {
-        $query = JournalLine::where('account_id', $accountId)
-            ->where('created_at', '<', $fromDate->startOfDay())
-            ->when($projectId, fn($q) => $q->where('project_id', $projectId))
-            ->when($deptId, fn($q) => $q->where('dept_id', $deptId));
+        $query = JournalLine::query()
+            ->join('journals', 'journal_lines.journal_id', '=', 'journals.id')
+            ->where('journal_lines.account_id', $accountId)
+            ->where('journals.date', '<', $fromDate->startOfDay())
+            ->when($projectId, fn($q) => $q->where('journal_lines.project_id', $projectId))
+            ->when($deptId, fn($q) => $q->where('journal_lines.dept_id', $deptId));
 
-        $totalDebits = $query->sum('debit');
-        $totalCredits = $query->sum('credit');
+        $totalDebits = $query->sum('journal_lines.debit');
+        $totalCredits = $query->sum('journal_lines.credit');
 
         return $totalDebits - $totalCredits;
     }
