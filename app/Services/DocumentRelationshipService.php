@@ -713,7 +713,11 @@ class DocumentRelationshipService
             || $document instanceof SalesInvoice
             || $document instanceof SalesReceipt
             || $document instanceof SalesCreditMemo
-            || $document instanceof SalesQuotation;
+            || $document instanceof SalesQuotation
+            || $document instanceof PurchaseOrder
+            || $document instanceof GoodsReceiptPO
+            || $document instanceof PurchaseInvoice
+            || $document instanceof PurchasePayment;
     }
 
     /**
@@ -793,7 +797,11 @@ class DocumentRelationshipService
             || $document instanceof DeliveryOrder
             || $document instanceof SalesInvoice
             || $document instanceof SalesReceipt
-            || $document instanceof SalesQuotation;
+            || $document instanceof SalesQuotation
+            || $document instanceof PurchaseOrder
+            || $document instanceof GoodsReceiptPO
+            || $document instanceof PurchaseInvoice
+            || $document instanceof PurchasePayment;
     }
 
     private function canUserViewDocument(?Model $document, ?User $user): bool
@@ -947,6 +955,53 @@ class DocumentRelationshipService
                 if ($si && $this->canUserViewDocument($si, $user)) {
                     $models[$stableKey($si)] = $si;
                     $addEdge($si, $model);
+                }
+            }
+        }
+
+        if ($model instanceof GoodsReceiptPO) {
+            if ($model->purchase_order_id) {
+                $po = PurchaseOrder::query()->find($model->purchase_order_id);
+                if ($po && $this->canUserViewDocument($po, $user)) {
+                    $models[$stableKey($po)] = $po;
+                    $addEdge($po, $model);
+                }
+            }
+
+            $invoiceIds = DB::table('goods_receipt_po_purchase_invoice')
+                ->where('grpo_id', $model->id)
+                ->pluck('purchase_invoice_id');
+            foreach ($invoiceIds as $invoiceId) {
+                $pi = PurchaseInvoice::query()->find($invoiceId);
+                if ($pi && $this->canUserViewDocument($pi, $user)) {
+                    $models[$stableKey($pi)] = $pi;
+                    $addEdge($model, $pi);
+                }
+            }
+        }
+
+        if ($model instanceof PurchaseInvoice) {
+            $paymentIds = DB::table('purchase_payment_allocations')
+                ->where('invoice_id', $model->id)
+                ->pluck('payment_id');
+            foreach ($paymentIds as $paymentId) {
+                $payment = PurchasePayment::query()->find($paymentId);
+                if ($payment && $this->canUserViewDocument($payment, $user)) {
+                    $models[$stableKey($payment)] = $payment;
+                    $addEdge($model, $payment);
+                }
+            }
+        }
+
+        if ($model instanceof PurchasePayment) {
+            $invoiceIds = DB::table('purchase_payment_allocations')
+                ->where('payment_id', $model->id)
+                ->pluck('invoice_id');
+            foreach ($invoiceIds as $invoiceId) {
+                $pi = PurchaseInvoice::query()->find($invoiceId);
+                if ($pi && $this->canUserViewDocument($pi, $user)) {
+                    $models[$stableKey($pi)] = $pi;
+                    $addEdge($pi, $model);
                 }
             }
         }
