@@ -185,6 +185,29 @@ class BusinessPartner extends Model
         return $addr ? $addr->full_address : null;
     }
 
+    public function getBillingAddressAttribute()
+    {
+        // Invoices Bill To must use billing marked primary (is_primary=1), not the lowest-id billing row.
+        $primaryBilling = $this->addresses()->where('address_type', 'billing')->where('is_primary', true)->first();
+        if ($primaryBilling) {
+            return $primaryBilling;
+        }
+
+        $firstBilling = $this->addresses()->where('address_type', 'billing')->orderBy('id')->first();
+        if ($firstBilling) {
+            return $firstBilling;
+        }
+
+        return $this->primaryAddress;
+    }
+
+    public function getDefaultBillingAddressAttribute()
+    {
+        $addr = $this->billingAddress;
+
+        return $addr ? $addr->full_address : null;
+    }
+
     public function getWarehouseAddressAttribute()
     {
         return $this->getAddressByType('warehouse') ?? $this->getAddressByType('shipping') ?? $this->primaryAddress;

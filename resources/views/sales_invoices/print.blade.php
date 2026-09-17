@@ -260,8 +260,8 @@
                     @if ($invoice->businessPartner && $invoice->businessPartner->tax_id)
                         <span style="color:#666;">Tax ID: {{ $invoice->businessPartner->tax_id }}</span><br>
                     @endif
-                    @if ($invoice->businessPartner && $invoice->businessPartner->officeAddress)
-                        @php $addr = $invoice->businessPartner->officeAddress; @endphp
+                    @if ($invoice->businessPartner && $invoice->businessPartner->billingAddress)
+                        @php $addr = $invoice->businessPartner->billingAddress; @endphp
                         @if ($addr->address_line_1)
                             {{ $addr->address_line_1 }}<br>
                         @endif

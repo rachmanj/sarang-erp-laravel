@@ -155,8 +155,8 @@
                                     @if ($invoice->businessPartner && $invoice->businessPartner->tax_id)
                                         <br><span class="text-muted small">Tax ID: {{ $invoice->businessPartner->tax_id }}</span>
                                     @endif
-                                    @if ($invoice->businessPartner && $invoice->businessPartner->primaryAddress && $invoice->businessPartner->primaryAddress->full_address)
-                                        <br><span class="text-muted small">{{ $invoice->businessPartner->primaryAddress->full_address }}</span>
+                                    @if ($invoice->businessPartner && $invoice->businessPartner->billingAddress && $invoice->businessPartner->billingAddress->full_address)
+                                        <br><span class="text-muted small">{{ $invoice->businessPartner->billingAddress->full_address }}</span>
                                     @endif
                                 </div>
                             </div>

@@ -1,7 +1,15 @@
 **Purpose**: AI's persistent knowledge base for project context and learnings
-**Last Updated**: 2026-08-06 (AR/AP payment rounding tolerance)
+**Last Updated**: 2026-09-17 (Sales Invoice Bill To address)
 
 ## Project Memory Entries
+
+### [137] Sales Invoice Bill To address mismatch screen vs print (2026-09-17) ✅ COMPLETE
+
+**Challenge**: SI show page used `primaryAddress` (any type with `is_primary=1`) while print layouts used `officeAddress`, which falls back to lowest-id `billing` row — e.g. invoice 1749 showed Bandung on screen but Subang on PT CSJ print for partner DIRGANTARA YUDHA ARTHA.
+
+**Solution**: Added `BusinessPartner::billingAddress` / `default_billing_address` accessor (primary billing → first billing by id → primaryAddress). SI show + all three print layouts (`print`, `print_pt_csj`, `print_cv_saranghae`) now resolve Bill To from `billingAddress`.
+
+**Key Learning**: For invoice Bill To, prefer explicit `billing` + `is_primary` resolution — do not reuse `officeAddress` or unscoped `getAddressByType('billing')` which picks lowest id.
 
 ### [136] AR/AP payment rounding tolerance (2026-08-06) ✅ COMPLETE
 
