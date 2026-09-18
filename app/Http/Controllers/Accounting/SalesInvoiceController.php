@@ -827,8 +827,9 @@ class SalesInvoiceController extends Controller
         }
 
         $invoiceFooter = SalesInvoicePostingMath::invoiceFooterTotals($invoice);
+        $showItemCode = $request->boolean('show_item_code', true);
 
-        return view($view, compact('invoice', 'entity', 'invoiceFooter'));
+        return view($view, compact('invoice', 'entity', 'invoiceFooter', 'showItemCode'));
     }
 
     public function pdf(int $id)
@@ -838,6 +839,7 @@ class SalesInvoiceController extends Controller
         $pdf = app(\App\Services\PdfService::class)->renderViewToString('sales_invoices.print', [
             'invoice' => $invoice,
             'invoiceFooter' => $invoiceFooter,
+            'showItemCode' => true,
         ]);
 
         return response($pdf, 200, [
@@ -854,6 +856,7 @@ class SalesInvoiceController extends Controller
         \App\Jobs\GeneratePdfJob::dispatch('sales_invoices.print', [
             'invoice' => $invoice,
             'invoiceFooter' => $invoiceFooter,
+            'showItemCode' => true,
         ], $path);
         $url = \Illuminate\Support\Facades\Storage::url($path);
 

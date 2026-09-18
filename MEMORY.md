@@ -1,7 +1,15 @@
 **Purpose**: AI's persistent knowledge base for project context and learnings
-**Last Updated**: 2026-09-17 (Sales Invoice Bill To address)
+**Last Updated**: 2026-09-18 (Sales Invoice print Item Code toggle)
 
 ## Project Memory Entries
+
+### [138] Sales Invoice print-time Item Code column toggle (2026-09-18) ✅ COMPLETE
+
+**Challenge**: Users sometimes need Sales Invoice printouts without the Item Code column (customer-facing copies), but the column was always shown on all three A4 print layouts.
+
+**Solution**: Added `show_item_code` query param (default visible) read in `SalesInvoiceController::print()` and passed as `$showItemCode` to A4 views only. Print dropdown on SI show page has "Sembunyikan Item Code" checkbox (persisted in `localStorage`) that appends `show_item_code=0` to all print links. Three A4 views conditionally render Item Code header/cells and use dynamic `$totalLabelColspan` for footer rows. PDF/queuePdf unchanged (always show Item Code).
+
+**Files**: `SalesInvoiceController.php`, `sales_invoices/show.blade.php`, `print.blade.php`, `print_pt_csj.blade.php`, `print_cv_saranghae.blade.php`, `tests/Feature/SalesInvoicePrintItemCodeTest.php`.
 
 ### [137] Sales Invoice Bill To address mismatch screen vs print (2026-09-17) ✅ COMPLETE
 

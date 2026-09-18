@@ -97,11 +97,19 @@
         </div>
     </div>
 
+    @php
+        $showItemCode = $showItemCode ?? true;
+        $lineColumnCount = $showItemCode ? 8 : 7;
+        $totalLabelColspan = $lineColumnCount - 1;
+    @endphp
+
     <table>
         <thead>
             <tr>
                 <th class="text-center" style="width: 40px;">No</th>
+                @if ($showItemCode)
                 <th>Item Code</th>
+                @endif
                 <th>Part No.</th>
                 <th>Description</th>
                 <th class="text-right" style="width: 80px;">Qty</th>
@@ -114,7 +122,9 @@
             @foreach ($invoice->lines as $num => $l)
             <tr>
                 <td class="text-center">{{ $num + 1 }}</td>
+                @if ($showItemCode)
                 <td>{{ $l->item_code ?? optional($l->inventoryItem)->code ?? '—' }}</td>
+                @endif
                 <td>{{ $l->partNumber?->part_number ?? $l->deliveryOrderLine?->partNumber?->part_number ?? '—' }}</td>
                 <td>{{ $l->item_name ?? $l->description ?? optional($l->inventoryItem)->name ?? optional($l->account)->name ?? '—' }}</td>
                 <td class="text-right">{{ number_format($l->qty, 2) }}</td>
@@ -129,33 +139,33 @@
                 $invoiceFooter ??= \App\Services\Accounting\SalesInvoicePostingMath::invoiceFooterTotals($invoice);
             @endphp
             <tr>
-                <td colspan="7" class="text-right">Subtotal (ex. PPN)</td>
+                <td colspan="{{ $totalLabelColspan }}" class="text-right">Subtotal (ex. PPN)</td>
                 <td class="text-right">{{ number_format($invoiceFooter['exclusive_subtotal'], 2) }}</td>
             </tr>
             @if ($invoiceFooter['total_vat'] != 0)
             <tr>
-                <td colspan="7" class="text-right">PPN / VAT</td>
+                <td colspan="{{ $totalLabelColspan }}" class="text-right">PPN / VAT</td>
                 <td class="text-right">{{ number_format($invoiceFooter['total_vat'], 2) }}</td>
             </tr>
             @endif
             @if ($invoiceFooter['total_wtax'] != 0)
             <tr>
-                <td colspan="7" class="text-right">WTax (on DPP)</td>
+                <td colspan="{{ $totalLabelColspan }}" class="text-right">WTax (on DPP)</td>
                 <td class="text-right">({{ number_format($invoiceFooter['total_wtax'], 2) }})</td>
             </tr>
             @endif
             @if (($invoiceFooter['header_discount_total'] ?? 0) > 0)
             <tr>
-                <td colspan="7" class="text-right">Gross total (incl. tax)</td>
+                <td colspan="{{ $totalLabelColspan }}" class="text-right">Gross total (incl. tax)</td>
                 <td class="text-right">{{ number_format($invoiceFooter['gross_total'], 2) }}</td>
             </tr>
             <tr>
-                <td colspan="7" class="text-right">Header discount</td>
+                <td colspan="{{ $totalLabelColspan }}" class="text-right">Header discount</td>
                 <td class="text-right">({{ number_format($invoiceFooter['header_discount_total'], 2) }})</td>
             </tr>
             @endif
             <tr>
-                <td colspan="7" class="text-right"><strong>Amount due</strong></td>
+                <td colspan="{{ $totalLabelColspan }}" class="text-right"><strong>Amount due</strong></td>
                 <td class="text-right"><strong>{{ number_format($invoiceFooter['amount_due'], 2) }}</strong></td>
             </tr>
         </tfoot>
