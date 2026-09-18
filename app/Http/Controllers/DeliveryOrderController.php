@@ -542,6 +542,7 @@ class DeliveryOrderController extends Controller
         ]);
 
         $layout = $request->get('layout', 'standard');
+        $showItemCode = $request->boolean('show_item_code', true);
         $isCvEntity = $deliveryOrder->companyEntity?->name === 'CV Cahaya Saranghae';
         $forceCv = in_array($layout, ['cv_saranghae', 'cv_saranghae_dotmatrix']);
         $useCvTemplate = $isCvEntity || $forceCv;
@@ -552,12 +553,12 @@ class DeliveryOrderController extends Controller
             $useDotMatrix = $layout === 'dotmatrix' || $layout === 'cv_saranghae_dotmatrix';
             $view = $useDotMatrix ? 'delivery_orders.print_dotmatrix_cv_saranghae' : 'delivery_orders.print_cv_saranghae';
 
-            return view($view, compact('deliveryOrder', 'entity'));
+            return view($view, compact('deliveryOrder', 'entity', 'showItemCode'));
         }
 
         $view = $layout === 'dotmatrix' ? 'delivery_orders.print_dotmatrix' : 'delivery_orders.print';
 
-        return view($view, compact('deliveryOrder'));
+        return view($view, compact('deliveryOrder', 'showItemCode'));
     }
 
     /**

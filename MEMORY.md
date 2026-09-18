@@ -1,7 +1,15 @@
 **Purpose**: AI's persistent knowledge base for project context and learnings
-**Last Updated**: 2026-09-18 (Sales Invoice print Item Code toggle)
+**Last Updated**: 2026-09-18 (Delivery Order print Item Code toggle)
 
 ## Project Memory Entries
+
+### [139] Delivery Order print-time Item Code column toggle (2026-09-18) ✅ COMPLETE
+
+**Challenge**: Same customer-facing need as Sales Invoice — hide Item Code on DO printouts without changing screen views or dotmatrix layouts.
+
+**Solution**: Mirrored SI pattern: `show_item_code` query param (default visible) in `DeliveryOrderController::print()` passed as `$showItemCode` to all print views (dotmatrix receives but ignores). Print dropdown on DO show page has "Sembunyikan Item Code" checkbox (`localStorage` key `do_print_hide_item_code`) appending `show_item_code=0` to all print links. A4 views `print.blade.php` and `print_cv_saranghae.blade.php` conditionally render Item Code header/cells with dynamic `$lineColumnCount`.
+
+**Files**: `DeliveryOrderController.php`, `delivery_orders/show.blade.php`, `print.blade.php`, `print_cv_saranghae.blade.php`, `tests/Feature/DeliveryOrderPrintItemCodeTest.php`.
 
 ### [138] Sales Invoice print-time Item Code column toggle (2026-09-18) ✅ COMPLETE
 

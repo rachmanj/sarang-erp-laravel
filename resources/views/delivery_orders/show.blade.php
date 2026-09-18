@@ -34,22 +34,29 @@
                                         <i class="fas fa-print"></i> Print
                                     </button>
                                     <div class="dropdown-menu">
-                                        <a class="dropdown-item" href="{{ route('delivery-orders.print', $deliveryOrder) }}"
+                                        <div class="dropdown-item-text px-3 py-2" id="do-print-options">
+                                            <div class="custom-control custom-checkbox">
+                                                <input type="checkbox" class="custom-control-input" id="do-print-hide-item-code">
+                                                <label class="custom-control-label" for="do-print-hide-item-code">Sembunyikan Item Code</label>
+                                            </div>
+                                        </div>
+                                        <div class="dropdown-divider"></div>
+                                        <a class="dropdown-item do-print-link" href="{{ route('delivery-orders.print', $deliveryOrder) }}"
                                             target="_blank">
                                             <i class="fas fa-file-alt mr-1"></i> Standard (A4/Laser)
                                         </a>
-                                        <a class="dropdown-item"
+                                        <a class="dropdown-item do-print-link"
                                             href="{{ route('delivery-orders.print', [$deliveryOrder, 'layout' => 'dotmatrix']) }}"
                                             target="_blank">
                                             <i class="fas fa-print mr-1"></i> Dot Matrix
                                         </a>
                                         <div class="dropdown-divider"></div>
-                                        <a class="dropdown-item"
+                                        <a class="dropdown-item do-print-link"
                                             href="{{ route('delivery-orders.print', [$deliveryOrder, 'layout' => 'cv_saranghae']) }}"
                                             target="_blank">
                                             <i class="fas fa-file-alt mr-1"></i> CV Cahaya Saranghae (A4)
                                         </a>
-                                        <a class="dropdown-item"
+                                        <a class="dropdown-item do-print-link"
                                             href="{{ route('delivery-orders.print', [$deliveryOrder, 'layout' => 'cv_saranghae_dotmatrix']) }}"
                                             target="_blank">
                                             <i class="fas fa-print mr-1"></i> CV Cahaya Saranghae (Dot Matrix)
@@ -368,6 +375,37 @@
 
 @push('scripts')
     <script>
+        $(function () {
+            var storageKey = 'do_print_hide_item_code';
+
+            function updatePrintLinks(hideItemCode) {
+                $('.do-print-link').each(function () {
+                    var url = new URL(this.href, window.location.origin);
+                    if (hideItemCode) {
+                        url.searchParams.set('show_item_code', '0');
+                    } else {
+                        url.searchParams.delete('show_item_code');
+                    }
+                    this.href = url.toString();
+                });
+            }
+
+            $('#do-print-options, #do-print-hide-item-code, label[for="do-print-hide-item-code"]').on('click', function (e) {
+                e.stopPropagation();
+            });
+
+            var hideItemCode = localStorage.getItem(storageKey) === '1';
+            $('#do-print-hide-item-code').prop('checked', hideItemCode);
+            updatePrintLinks(hideItemCode);
+
+            $('#do-print-hide-item-code').on('change', function (e) {
+                e.stopPropagation();
+                hideItemCode = $(this).is(':checked');
+                localStorage.setItem(storageKey, hideItemCode ? '1' : '0');
+                updatePrintLinks(hideItemCode);
+            });
+        });
+
         function showRejectModal() {
             $('#rejectModal').modal('show');
         }
