@@ -180,7 +180,17 @@ class RemoveDuplicateSaleTransactions extends Command
             $sorted = $group->sortBy('id')->values();
             $keep = $sorted->first();
             $toDelete = $sorted->slice(1);
-            $unitsRestored = $toDelete->sum(fn (InventoryTransaction $transaction) => abs((int) $transaction->quantity));
+            $unitsRestored = 0;
+            $aksiParts = [];
+
+            foreach ($toDelete as $transaction) {
+                if ($transaction->warehouse_id !== null) {
+                    $unitsRestored += abs((int) $transaction->quantity);
+                    $aksiParts[] = "restore wh {$transaction->warehouse_id} +".abs((int) $transaction->quantity);
+                } else {
+                    $aksiParts[] = 'delete txn '.$transaction->id.' (no stock restore: warehouse_id NULL)';
+                }
+            }
 
             $this->duplicateGroupCount++;
             $this->rowsDeleted += $toDelete->count();
@@ -193,7 +203,7 @@ class RemoveDuplicateSaleTransactions extends Command
                 'kept_id' => $keep->id,
                 'deleted_ids' => $toDelete->pluck('id')->implode(', '),
                 'units_restored' => $unitsRestored,
-                'aksi' => $this->option('execute') ? 'DELETE' : 'DRY-RUN',
+                'aksi' => $aksiParts !== [] ? implode('; ', $aksiParts) : ($this->option('execute') ? 'DELETE' : 'DRY-RUN'),
             ];
         }
     }
@@ -218,12 +228,14 @@ class RemoveDuplicateSaleTransactions extends Command
                 $sorted = $group->sortBy('id')->values();
                 foreach ($sorted->slice(1) as $transaction) {
                     $deleteIds->push($transaction->id);
-                    $qty = abs((int) $transaction->quantity);
-                    $warehouseId = $transaction->warehouse_id
-                        ?? $inventoryService->resolveWarehouseId($item, null);
+
+                    if ($transaction->warehouse_id === null) {
+                        continue;
+                    }
+
                     $restoreDeltas[] = [
-                        'warehouse_id' => $warehouseId,
-                        'qty' => $qty,
+                        'warehouse_id' => (int) $transaction->warehouse_id,
+                        'qty' => abs((int) $transaction->quantity),
                     ];
                 }
             }
@@ -237,7 +249,7 @@ class RemoveDuplicateSaleTransactions extends Command
                 $deleteIds,
                 $restoreDeltas,
                 $warehouseStockService,
-                $inventoryService
+                $inventoryService,
             ): void {
                 InventoryTransaction::query()->whereIn('id', $deleteIds)->delete();
 

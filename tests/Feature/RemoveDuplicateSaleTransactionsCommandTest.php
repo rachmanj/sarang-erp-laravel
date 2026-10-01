@@ -287,4 +287,97 @@ class RemoveDuplicateSaleTransactionsCommandTest extends TestCase
         $this->assertNotNull(InventoryTransaction::query()->find($saleId));
         $this->assertStringContainsString('No duplicate sale transactions', Artisan::output());
     }
+
+    public function test_duplicate_sale_with_null_warehouse_id_deletes_without_restoring_stock(): void
+    {
+        $warehouse = Warehouse::query()->firstOrFail();
+        $category = ProductCategory::query()->firstOrFail();
+        $currencyId = (int) DB::table('currencies')->value('id');
+        $userId = (int) DB::table('users')->orderBy('id')->value('id');
+
+        $item = InventoryItem::query()->create([
+            'code' => 'T-DUP-NULL-WH-'.uniqid(),
+            'name' => 'Duplicate sale null warehouse item',
+            'category_id' => $category->id,
+            'default_warehouse_id' => $warehouse->id,
+            'unit_of_measure' => 'pcs',
+            'purchase_currency_id' => $currencyId,
+            'selling_currency_id' => $currencyId,
+            'purchase_price' => 1000,
+            'selling_price' => 1200,
+            'valuation_method' => 'fifo',
+            'item_type' => 'item',
+            'is_active' => true,
+        ]);
+
+        $date = now()->toDateString();
+        $referenceId = 700001 + random_int(1, 99999);
+        $saleQty = 4;
+
+        InventoryTransaction::query()->create([
+            'item_id' => $item->id,
+            'warehouse_id' => $warehouse->id,
+            'transaction_type' => 'purchase',
+            'quantity' => 40,
+            'unit_cost' => 1000,
+            'total_cost' => 40000,
+            'reference_type' => null,
+            'reference_id' => null,
+            'transaction_date' => $date,
+            'created_by' => $userId,
+        ]);
+
+        $keepId = InventoryTransaction::query()->create([
+            'item_id' => $item->id,
+            'warehouse_id' => null,
+            'transaction_type' => 'sale',
+            'quantity' => -$saleQty,
+            'unit_cost' => 1000,
+            'total_cost' => $saleQty * 1000,
+            'reference_type' => 'delivery_order_line',
+            'reference_id' => $referenceId,
+            'transaction_date' => $date,
+            'created_by' => $userId,
+        ])->id;
+
+        $duplicateId = InventoryTransaction::query()->create([
+            'item_id' => $item->id,
+            'warehouse_id' => null,
+            'transaction_type' => 'sale',
+            'quantity' => -$saleQty,
+            'unit_cost' => 1000,
+            'total_cost' => $saleQty * 1000,
+            'reference_type' => 'delivery_order_line',
+            'reference_id' => $referenceId,
+            'transaction_date' => $date,
+            'created_by' => $userId,
+        ])->id;
+
+        $warehouseQty = 40;
+        InventoryWarehouseStock::query()->create([
+            'item_id' => $item->id,
+            'warehouse_id' => $warehouse->id,
+            'quantity_on_hand' => $warehouseQty,
+            'reserved_quantity' => 0,
+            'available_quantity' => $warehouseQty,
+            'min_stock_level' => 0,
+            'max_stock_level' => 0,
+            'reorder_point' => 0,
+        ]);
+
+        $exitCode = Artisan::call('inventory:remove-duplicate-sale-transactions', [
+            '--item' => $item->code,
+            '--execute' => true,
+            '--force' => true,
+        ]);
+
+        $this->assertSame(0, $exitCode);
+        $this->assertNull(InventoryTransaction::query()->find($duplicateId));
+        $this->assertNotNull(InventoryTransaction::query()->find($keepId));
+        $this->assertSame($warehouseQty, $this->warehouseStockSum($item->id));
+
+        $output = Artisan::output();
+        $this->assertStringContainsString('no stock restore', $output);
+        $this->assertStringContainsString('Total units restored to warehouse stock: 0', $output);
+    }
 }

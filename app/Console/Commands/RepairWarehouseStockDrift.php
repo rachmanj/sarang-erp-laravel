@@ -6,6 +6,7 @@ use App\Models\InventoryItem;
 use App\Models\InventoryTransaction;
 use App\Models\InventoryWarehouseStock;
 use App\Models\Warehouse;
+use App\Services\InventoryService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -16,7 +17,8 @@ class RepairWarehouseStockDrift extends Command
     protected $signature = 'inventory:repair-warehouse-stock-drift
                             {--item= : Limit to a single item code}
                             {--limit= : Maximum number of drifting items to process}
-                            {--mode=per-warehouse : Repair mode: per-warehouse or zero-empty-ledger}
+                            {--mode=per-warehouse : Repair mode: per-warehouse, zero-empty-ledger, or fill-dominant-warehouse}
+                            {--delta-max=100 : Skip items whose absolute ledger vs warehouse gap exceeds this (fill-dominant-warehouse)}
                             {--execute : Apply changes (requires --force)}
                             {--force : Confirm writing changes together with --execute}';
 
@@ -25,6 +27,13 @@ class RepairWarehouseStockDrift extends Command
     private int $itemsProcessed = 0;
 
     private int $itemsSkippedLedgerNonZero = 0;
+
+    private int $itemsSkippedLedgerZero = 0;
+
+    private int $itemsSkippedDeltaMax = 0;
+
+    /** @var list<string> */
+    private array $skippedDeltaMaxItemCodes = [];
 
     private int $rowsUpdated = 0;
 
@@ -39,11 +48,13 @@ class RepairWarehouseStockDrift extends Command
     {
         $mode = (string) $this->option('mode');
 
-        if (! in_array($mode, ['per-warehouse', 'zero-empty-ledger'], true)) {
-            $this->error("Invalid --mode '{$mode}'. Allowed: per-warehouse, zero-empty-ledger.");
+        if (! in_array($mode, ['per-warehouse', 'zero-empty-ledger', 'fill-dominant-warehouse'], true)) {
+            $this->error("Invalid --mode '{$mode}'. Allowed: per-warehouse, zero-empty-ledger, fill-dominant-warehouse.");
 
             return self::FAILURE;
         }
+
+        $deltaMax = max(0, (int) $this->option('delta-max'));
 
         $execute = (bool) $this->option('execute');
         $force = (bool) $this->option('force');
@@ -54,7 +65,7 @@ class RepairWarehouseStockDrift extends Command
             return self::FAILURE;
         }
 
-        $items = $this->resolveItemsToProcess();
+        $items = $this->resolveItemsToProcess($mode);
 
         if ($items === null) {
             return self::FAILURE;
@@ -78,15 +89,19 @@ class RepairWarehouseStockDrift extends Command
         foreach ($items as $item) {
             try {
                 if ($execute) {
-                    DB::transaction(function () use ($item, $mode): void {
+                    DB::transaction(function () use ($item, $mode, $deltaMax): void {
                         if ($mode === 'zero-empty-ledger') {
                             $this->repairItemZeroEmptyLedger($item, true);
+                        } elseif ($mode === 'fill-dominant-warehouse') {
+                            $this->repairItemFillDominantWarehouse($item, true, $deltaMax);
                         } else {
                             $this->repairItem($item, true);
                         }
                     });
                 } elseif ($mode === 'zero-empty-ledger') {
                     $this->repairItemZeroEmptyLedger($item, false);
+                } elseif ($mode === 'fill-dominant-warehouse') {
+                    $this->repairItemFillDominantWarehouse($item, false, $deltaMax);
                 } else {
                     $this->repairItem($item, false);
                 }
@@ -105,6 +120,19 @@ class RepairWarehouseStockDrift extends Command
                         $row['code'],
                         $row['name'],
                         $row['old_wh_total'],
+                        $row['aksi'],
+                    ], $this->reportRows)
+                );
+            } elseif ($mode === 'fill-dominant-warehouse') {
+                $this->table(
+                    ['Code', 'Name', 'Buku Besar', 'Old WH Stock', 'New WH Stock', 'Selisih', 'Aksi'],
+                    array_map(static fn (array $row): array => [
+                        $row['code'],
+                        $row['name'],
+                        $row['ledger_total'],
+                        $row['old_wh_total'],
+                        $row['new_wh_total'],
+                        $row['selisih'],
                         $row['aksi'],
                     ], $this->reportRows)
                 );
@@ -133,6 +161,15 @@ class RepairWarehouseStockDrift extends Command
             $this->line("Items skipped (ledger total not zero): {$this->itemsSkippedLedgerNonZero}");
             $this->line("Warehouse stock rows updated: {$this->rowsUpdated}");
             $this->line("Total units removed from warehouse stock: {$this->totalUnitDelta}");
+        } elseif ($mode === 'fill-dominant-warehouse') {
+            $this->line("Items skipped (ledger total zero): {$this->itemsSkippedLedgerZero}");
+            $this->line("Items skipped (gap exceeds delta-max): {$this->itemsSkippedDeltaMax}");
+            if ($this->skippedDeltaMaxItemCodes !== []) {
+                $this->line('Skipped item codes (delta-max): '.implode(', ', $this->skippedDeltaMaxItemCodes));
+            }
+            $this->line("Warehouse stock rows updated: {$this->rowsUpdated}");
+            $this->line("Warehouse stock rows created: {$this->rowsCreated}");
+            $this->line("Total units added: {$this->totalUnitDelta}");
         } else {
             $this->line("Warehouse stock rows updated: {$this->rowsUpdated}");
             $this->line("Warehouse stock rows created: {$this->rowsCreated}");
@@ -149,7 +186,7 @@ class RepairWarehouseStockDrift extends Command
     /**
      * @return Collection<int, InventoryItem>|null null when --item code was not found
      */
-    private function resolveItemsToProcess(): ?Collection
+    private function resolveItemsToProcess(string $mode): ?Collection
     {
         $itemCode = $this->option('item');
 
@@ -188,6 +225,10 @@ class RepairWarehouseStockDrift extends Command
                     return null;
                 }
 
+                if ($mode === 'fill-dominant-warehouse' && $warehouseTotal >= $ledgerStock) {
+                    return null;
+                }
+
                 return [
                     'item' => $item,
                     'abs_diff' => abs($ledgerStock - $warehouseTotal),
@@ -208,9 +249,15 @@ class RepairWarehouseStockDrift extends Command
     {
         $suffix = now()->format('Ymd_His');
         $tableName = 'inventory_warehouse_stock_bak_'.$suffix;
+        $attempt = 0;
 
-        if (Schema::hasTable($tableName)) {
-            throw new \RuntimeException("Backup table already exists: {$tableName}");
+        while (Schema::hasTable($tableName)) {
+            $attempt++;
+            $tableName = 'inventory_warehouse_stock_bak_'.$suffix.'_'.$attempt;
+
+            if ($attempt > 99) {
+                throw new \RuntimeException("Unable to allocate unique backup table name for suffix {$suffix}");
+            }
         }
 
         DB::statement("CREATE TABLE `{$tableName}` AS SELECT * FROM `inventory_warehouse_stock`");
@@ -423,5 +470,105 @@ class RepairWarehouseStockDrift extends Command
         }
 
         return true;
+    }
+
+    private function repairItemFillDominantWarehouse(InventoryItem $item, bool $persist, int $deltaMax): void
+    {
+        $ledgerTotal = $this->ledgerTotalFromTransactions($item);
+
+        if ($ledgerTotal === 0) {
+            $this->itemsSkippedLedgerZero++;
+
+            return;
+        }
+
+        $existingStocks = InventoryWarehouseStock::query()
+            ->where('item_id', $item->id)
+            ->get();
+
+        $oldWhTotal = (int) $existingStocks->sum('quantity_on_hand');
+        $gap = abs($ledgerTotal - $oldWhTotal);
+
+        if ($gap > $deltaMax) {
+            $this->itemsSkippedDeltaMax++;
+            $this->skippedDeltaMaxItemCodes[] = $item->code;
+
+            return;
+        }
+
+        if ($oldWhTotal === $ledgerTotal) {
+            return;
+        }
+
+        if ($oldWhTotal > $ledgerTotal) {
+            return;
+        }
+
+        $this->itemsProcessed++;
+
+        $newWhTotal = $ledgerTotal;
+        $actions = [];
+
+        if ($existingStocks->isEmpty()) {
+            $warehouseId = app(InventoryService::class)->resolveWarehouseId($item, null);
+            $actions[] = "create wh {$warehouseId} => {$ledgerTotal}";
+
+            if ($persist) {
+                $warehouseStock = InventoryWarehouseStock::query()->create([
+                    'item_id' => $item->id,
+                    'warehouse_id' => $warehouseId,
+                    'quantity_on_hand' => $ledgerTotal,
+                    'reserved_quantity' => 0,
+                    'available_quantity' => $ledgerTotal,
+                    'min_stock_level' => 0,
+                    'max_stock_level' => 0,
+                    'reorder_point' => 0,
+                ]);
+                $warehouseStock->updateAvailableQuantity();
+                $warehouseStock->save();
+            }
+
+            $this->rowsCreated++;
+            $this->totalUnitDelta += $ledgerTotal - $oldWhTotal;
+        } else {
+            $dominant = $existingStocks->sortByDesc(static fn (InventoryWarehouseStock $row): int => abs((int) $row->quantity_on_hand))->first();
+
+            if ($dominant === null) {
+                return;
+            }
+
+            $othersSum = (int) $existingStocks
+                ->reject(static fn (InventoryWarehouseStock $row): bool => $row->id === $dominant->id)
+                ->sum('quantity_on_hand');
+
+            $newDominantQty = $ledgerTotal - $othersSum;
+            $oldDominantQty = (int) $dominant->quantity_on_hand;
+
+            if ($oldDominantQty !== $newDominantQty) {
+                $actions[] = "update wh {$dominant->warehouse_id}: {$oldDominantQty} => {$newDominantQty}";
+
+                if ($persist) {
+                    $dominant->quantity_on_hand = $newDominantQty;
+                    $dominant->updateAvailableQuantity();
+                    $dominant->save();
+                }
+
+                $this->rowsUpdated++;
+                $unitsAdded = $newWhTotal - $oldWhTotal;
+                if ($unitsAdded > 0) {
+                    $this->totalUnitDelta += $unitsAdded;
+                }
+            }
+        }
+
+        $this->reportRows[] = [
+            'code' => $item->code,
+            'name' => $item->name,
+            'ledger_total' => $ledgerTotal,
+            'old_wh_total' => $oldWhTotal,
+            'new_wh_total' => $newWhTotal,
+            'selisih' => $newWhTotal - $oldWhTotal,
+            'aksi' => $actions !== [] ? implode('; ', $actions) : 'no row changes',
+        ];
     }
 }
