@@ -17,6 +17,8 @@ use App\Services\InventoryService;
 use Database\Seeders\UnitOfMeasureSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Mockery;
 use Tests\TestCase;
 
 class InventoryStockConsistencyTest extends TestCase
@@ -391,5 +393,125 @@ class InventoryStockConsistencyTest extends TestCase
         $this->assertSame(0.0, $this->ledgerStockSum($item->id));
         $this->assertSame(0.0, $this->warehouseStockSum($item->id));
         $this->assertStockConsistent($item->id);
+    }
+
+    public function test_process_sale_logs_warning_when_physical_warehouse_stock_is_below_sale_quantity_but_ledger_allows(): void
+    {
+        Log::spy();
+
+        ['item' => $item, 'warehouse' => $warehouse] = $this->createInventoryItemWithWarehouse();
+        $inventoryService = app(InventoryService::class);
+
+        $inventoryService->processPurchaseTransaction(
+            $item->id,
+            10,
+            1000.0,
+            'purchase_invoice',
+            501,
+            'Ledger stock for physical drift observation',
+            $warehouse->id
+        );
+
+        DB::table('inventory_warehouse_stock')
+            ->where('item_id', $item->id)
+            ->where('warehouse_id', $warehouse->id)
+            ->update([
+                'quantity_on_hand' => 2,
+                'available_quantity' => 2,
+            ]);
+
+        $saleQty = 5;
+        $transaction = $inventoryService->processSaleTransaction(
+            $item->id,
+            $saleQty,
+            1000.0,
+            'delivery_order',
+            901,
+            'Sale with physical stock drift',
+            $warehouse->id
+        );
+
+        $this->assertInstanceOf(InventoryTransaction::class, $transaction);
+        $this->assertSame('sale', $transaction->transaction_type);
+        $this->assertSame(-$saleQty, (int) $transaction->quantity);
+
+        Log::shouldHaveReceived('warning')
+            ->with(
+                'inventory.sale_exceeds_physical_stock',
+                Mockery::on(function (array $context) use ($item, $warehouse, $saleQty): bool {
+                    return ($context['item_id'] ?? null) === $item->id
+                        && ($context['item_code'] ?? null) === $item->code
+                        && ($context['quantity_dijual'] ?? null) === $saleQty
+                        && ($context['physical_stock_sebelum'] ?? null) === 2.0
+                        && ($context['warehouse_id'] ?? null) === $warehouse->id
+                        && ($context['reference_type'] ?? null) === 'delivery_order'
+                        && ($context['reference_id'] ?? null) === 901
+                        && ($context['user_id'] ?? null) === $this->actor->id
+                        && ($context['ledger_current_stock'] ?? null) === 5.0;
+                })
+            );
+    }
+
+    public function test_process_sale_does_not_log_physical_exceeds_warning_when_stock_is_aligned(): void
+    {
+        Log::spy();
+
+        ['item' => $item, 'warehouse' => $warehouse] = $this->createInventoryItemWithWarehouse();
+        $inventoryService = app(InventoryService::class);
+
+        $inventoryService->processPurchaseTransaction(
+            $item->id,
+            10,
+            1000.0,
+            'purchase_invoice',
+            502,
+            'Aligned stock before sale',
+            $warehouse->id
+        );
+
+        $inventoryService->processSaleTransaction(
+            $item->id,
+            3,
+            1000.0,
+            'delivery_order',
+            902,
+            'Normal sale within physical stock',
+            $warehouse->id
+        );
+
+        Log::shouldNotHaveReceived('warning', [
+            'inventory.sale_exceeds_physical_stock',
+            Mockery::any(),
+        ]);
+    }
+
+    public function test_process_sale_returns_inventory_transaction_instance(): void
+    {
+        ['item' => $item, 'warehouse' => $warehouse] = $this->createInventoryItemWithWarehouse();
+        $inventoryService = app(InventoryService::class);
+
+        $inventoryService->processPurchaseTransaction(
+            $item->id,
+            4,
+            1000.0,
+            'purchase_invoice',
+            503,
+            'Stock for return type check',
+            $warehouse->id
+        );
+
+        $result = $inventoryService->processSaleTransaction(
+            $item->id,
+            1,
+            1000.0,
+            'delivery_order',
+            903,
+            'Return type check',
+            $warehouse->id
+        );
+
+        $this->assertInstanceOf(InventoryTransaction::class, $result);
+        $this->assertSame($item->id, $result->item_id);
+        $this->assertSame(-1, (int) $result->quantity);
     }
 }

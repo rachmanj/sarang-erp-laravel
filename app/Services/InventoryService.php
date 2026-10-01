@@ -8,6 +8,7 @@ use App\Models\InventoryValuation;
 use App\Models\Warehouse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use RuntimeException;
 
 class InventoryService
@@ -82,6 +83,22 @@ class InventoryService
                 'notes' => $notes ?? 'Sale transaction',
                 'created_by' => Auth::id(),
             ]);
+
+            try {
+                $this->logSalePhysicalStockObservations(
+                    $item,
+                    $warehouseId,
+                    $quantity,
+                    $referenceType,
+                    $referenceId
+                );
+            } catch (\Throwable $e) {
+                Log::debug('inventory.sale_physical_stock_observation_failed', [
+                    'item_id' => $itemId,
+                    'warehouse_id' => $warehouseId,
+                    'error' => $e->getMessage(),
+                ]);
+            }
 
             $this->updateWarehouseStock($itemId, $warehouseId, -$quantity);
 
@@ -717,6 +734,48 @@ class InventoryService
         }
 
         return (int) $resolved;
+    }
+
+    private function logSalePhysicalStockObservations(
+        InventoryItem $item,
+        int $warehouseId,
+        int $quantitySold,
+        ?string $referenceType,
+        ?int $referenceId
+    ): void {
+        $physicalAtWarehouse = (float) (DB::table('inventory_warehouse_stock')
+            ->where('item_id', $item->id)
+            ->where('warehouse_id', $warehouseId)
+            ->value('quantity_on_hand') ?? 0);
+
+        $ledgerCurrentStock = (float) $item->fresh()->current_stock;
+        $physicalStockTotal = (float) DB::table('inventory_warehouse_stock')
+            ->where('item_id', $item->id)
+            ->sum('quantity_on_hand');
+
+        if ($physicalAtWarehouse < $quantitySold) {
+            Log::warning('inventory.sale_exceeds_physical_stock', [
+                'item_id' => $item->id,
+                'item_code' => $item->code,
+                'quantity_dijual' => $quantitySold,
+                'ledger_current_stock' => $ledgerCurrentStock,
+                'physical_stock_sebelum' => $physicalAtWarehouse,
+                'warehouse_id' => $warehouseId,
+                'reference_type' => $referenceType,
+                'reference_id' => $referenceId,
+                'user_id' => Auth::id(),
+            ]);
+        }
+
+        if (abs($physicalStockTotal - $ledgerCurrentStock) > 0.0001) {
+            Log::warning('inventory.sale_ledger_physical_mismatch', [
+                'item_id' => $item->id,
+                'item_code' => $item->code,
+                'ledger_current_stock' => $ledgerCurrentStock,
+                'physical_stock_total' => $physicalStockTotal,
+                'selisih' => $ledgerCurrentStock - $physicalStockTotal,
+            ]);
+        }
     }
 
     private function updateWarehouseStock(int $itemId, int $warehouseId, int $quantityChange)
