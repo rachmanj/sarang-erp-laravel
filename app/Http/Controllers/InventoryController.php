@@ -17,6 +17,7 @@ use App\Models\UnitOfMeasure;
 use App\Models\Warehouse;
 use App\Services\AuditLogService;
 use App\Services\InventoryService;
+use App\Services\InventoryWarehouseStockService;
 use App\Services\PriceLevelService;
 use App\Services\PurchaseInvoiceService;
 use App\Services\UnitConversionService;
@@ -644,9 +645,8 @@ class InventoryController extends Controller
                 'created_by' => Auth::id(),
             ]);
 
-            // Update warehouse stock if warehouse is specified
             if ($warehouseId) {
-                $this->updateWarehouseStock($item->id, $warehouseId, $quantity);
+                app(InventoryWarehouseStockService::class)->applyDelta($item->id, $warehouseId, $quantity);
             }
 
             // Update valuation
@@ -661,30 +661,6 @@ class InventoryController extends Controller
 
             return back()->with('success', 'Stock adjustment recorded successfully');
         });
-    }
-
-    /**
-     * Update warehouse stock for an item
-     */
-    private function updateWarehouseStock(int $itemId, int $warehouseId, int $quantityChange)
-    {
-        $warehouseStock = InventoryWarehouseStock::firstOrCreate(
-            ['item_id' => $itemId, 'warehouse_id' => $warehouseId],
-            [
-                'quantity_on_hand' => 0,
-                'reserved_quantity' => 0,
-                'available_quantity' => 0,
-                'min_stock_level' => 0,
-                'max_stock_level' => 0,
-                'reorder_point' => 0,
-            ]
-        );
-
-        $warehouseStock->quantity_on_hand += $quantityChange;
-        $warehouseStock->updateAvailableQuantity();
-        $warehouseStock->save();
-
-        return $warehouseStock;
     }
 
     /**

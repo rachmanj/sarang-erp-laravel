@@ -5,9 +5,10 @@ namespace App\Services;
 use App\Models\InventoryItem;
 use App\Models\InventoryTransaction;
 use App\Models\InventoryValuation;
-use App\Models\InventoryWarehouseStock;
+use App\Models\Warehouse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use RuntimeException;
 
 class InventoryService
 {
@@ -17,10 +18,7 @@ class InventoryService
             $item = InventoryItem::query()->whereKey($itemId)->lockForUpdate()->firstOrFail();
             $totalCost = $quantity * $unitCost;
 
-            // Use default warehouse if not specified
-            if (! $warehouseId) {
-                $warehouseId = $item->default_warehouse_id;
-            }
+            $warehouseId = $this->resolveWarehouseId($item, $warehouseId);
 
             // Create purchase transaction
             $transaction = InventoryTransaction::create([
@@ -38,10 +36,7 @@ class InventoryService
                 'created_by' => Auth::id(),
             ]);
 
-            // Update warehouse stock
-            if ($warehouseId) {
-                $this->updateWarehouseStock($itemId, $warehouseId, $quantity);
-            }
+            $this->updateWarehouseStock($itemId, $warehouseId, $quantity);
 
             // Update valuation
             $this->updateItemValuation($item);
@@ -72,9 +67,7 @@ class InventoryService
 
             $totalCost = $quantity * $unitCost;
 
-            if (! $warehouseId) {
-                $warehouseId = $item->default_warehouse_id;
-            }
+            $warehouseId = $this->resolveWarehouseId($item, $warehouseId);
 
             $transaction = InventoryTransaction::create([
                 'item_id' => $itemId,
@@ -90,9 +83,7 @@ class InventoryService
                 'created_by' => Auth::id(),
             ]);
 
-            if ($warehouseId) {
-                $this->updateWarehouseStock($itemId, $warehouseId, -$quantity);
-            }
+            $this->updateWarehouseStock($itemId, $warehouseId, -$quantity);
 
             $this->updateItemValuation($item);
 
@@ -100,9 +91,9 @@ class InventoryService
         });
     }
 
-    public function processAdjustmentTransaction(int $itemId, int $quantity, float $unitCost, ?string $notes = null)
+    public function processAdjustmentTransaction(int $itemId, int $quantity, float $unitCost, ?string $notes = null, ?int $warehouseId = null)
     {
-        return DB::transaction(function () use ($itemId, $quantity, $unitCost, $notes) {
+        return DB::transaction(function () use ($itemId, $quantity, $unitCost, $notes, $warehouseId) {
             $item = InventoryItem::findOrFail($itemId);
 
             if ($quantity < 0) {
@@ -111,9 +102,12 @@ class InventoryService
 
             $totalCost = $quantity * $unitCost;
 
+            $warehouseId = $this->resolveWarehouseId($item, $warehouseId);
+
             // Create adjustment transaction
             $transaction = InventoryTransaction::create([
                 'item_id' => $itemId,
+                'warehouse_id' => $warehouseId,
                 'transaction_type' => 'adjustment',
                 'quantity' => $quantity,
                 'unit_cost' => $unitCost,
@@ -124,6 +118,8 @@ class InventoryService
                 'notes' => $notes ?? 'Stock adjustment',
                 'created_by' => Auth::id(),
             ]);
+
+            $this->updateWarehouseStock($itemId, $warehouseId, $quantity);
 
             // Update valuation
             $this->updateItemValuation($item);
@@ -147,9 +143,13 @@ class InventoryService
 
             $totalCost = $quantity * $unitCost;
 
+            $fromWarehouseId = $this->resolveWarehouseId($fromItem, null);
+            $toWarehouseId = $this->resolveWarehouseId($toItem, null);
+
             // Create outgoing transaction
             InventoryTransaction::create([
                 'item_id' => $fromItemId,
+                'warehouse_id' => $fromWarehouseId,
                 'transaction_type' => 'transfer',
                 'quantity' => -$quantity,
                 'unit_cost' => $unitCost,
@@ -164,6 +164,7 @@ class InventoryService
             // Create incoming transaction
             InventoryTransaction::create([
                 'item_id' => $toItemId,
+                'warehouse_id' => $toWarehouseId,
                 'transaction_type' => 'transfer',
                 'quantity' => $quantity,
                 'unit_cost' => $unitCost,
@@ -174,6 +175,9 @@ class InventoryService
                 'notes' => $notes ?? "Transfer from {$fromItem->name}",
                 'created_by' => Auth::id(),
             ]);
+
+            $this->updateWarehouseStock($fromItemId, $fromWarehouseId, -$quantity);
+            $this->updateWarehouseStock($toItemId, $toWarehouseId, $quantity);
 
             // Update valuations for both items
             $this->updateItemValuationSafely($fromItem);
@@ -698,27 +702,23 @@ class InventoryService
         return $openingIn - $openingOut;
     }
 
-    /**
-     * Update warehouse stock for an item
-     */
+    private function resolveWarehouseId(InventoryItem $item, ?int $warehouseId = null): int
+    {
+        if ($warehouseId) {
+            return $warehouseId;
+        }
+
+        $resolved = $item->default_warehouse_id ?? Warehouse::query()->min('id');
+
+        if (! $resolved) {
+            throw new RuntimeException("Cannot resolve warehouse for inventory item {$item->code}.");
+        }
+
+        return (int) $resolved;
+    }
+
     private function updateWarehouseStock(int $itemId, int $warehouseId, int $quantityChange)
     {
-        $warehouseStock = InventoryWarehouseStock::firstOrCreate(
-            ['item_id' => $itemId, 'warehouse_id' => $warehouseId],
-            [
-                'quantity_on_hand' => 0,
-                'reserved_quantity' => 0,
-                'available_quantity' => 0,
-                'min_stock_level' => 0,
-                'max_stock_level' => 0,
-                'reorder_point' => 0,
-            ]
-        );
-
-        $warehouseStock->quantity_on_hand += $quantityChange;
-        $warehouseStock->updateAvailableQuantity();
-        $warehouseStock->save();
-
-        return $warehouseStock;
+        return app(InventoryWarehouseStockService::class)->applyDelta($itemId, $warehouseId, $quantityChange);
     }
 }
