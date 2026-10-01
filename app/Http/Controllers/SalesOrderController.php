@@ -527,8 +527,13 @@ class SalesOrderController extends Controller
                 ];
             })->toArray(),
         ];
+        $entities = $this->companyEntityService->getActiveEntities();
+        $defaultEntity = $order->company_entity_id
+            ? $this->companyEntityService->getEntity($order->company_entity_id)
+            : $this->companyEntityService->getDefaultEntity();
+        $prefill['company_entity_id'] = $order->company_entity_id ?? $defaultEntity->id;
 
-        return view('sales_invoices.create', compact('accounts', 'customers', 'taxCodes', 'projects', 'departments') + ['prefill' => $prefill, 'sales_order_id' => $order->id]);
+        return view('sales_invoices.create', compact('accounts', 'customers', 'taxCodes', 'projects', 'departments', 'entities', 'defaultEntity') + ['prefill' => $prefill, 'sales_order_id' => $order->id]);
     }
 
     public function checkCreditLimit(Request $request)
