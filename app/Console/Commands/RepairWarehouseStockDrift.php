@@ -16,12 +16,15 @@ class RepairWarehouseStockDrift extends Command
     protected $signature = 'inventory:repair-warehouse-stock-drift
                             {--item= : Limit to a single item code}
                             {--limit= : Maximum number of drifting items to process}
+                            {--mode=per-warehouse : Repair mode: per-warehouse or zero-empty-ledger}
                             {--execute : Apply changes (requires --force)}
                             {--force : Confirm writing changes together with --execute}';
 
     protected $description = 'Repair inventory_warehouse_stock to match inventory transaction totals per warehouse (ledger is source of truth)';
 
     private int $itemsProcessed = 0;
+
+    private int $itemsSkippedLedgerNonZero = 0;
 
     private int $rowsUpdated = 0;
 
@@ -34,6 +37,14 @@ class RepairWarehouseStockDrift extends Command
 
     public function handle(): int
     {
+        $mode = (string) $this->option('mode');
+
+        if (! in_array($mode, ['per-warehouse', 'zero-empty-ledger'], true)) {
+            $this->error("Invalid --mode '{$mode}'. Allowed: per-warehouse, zero-empty-ledger.");
+
+            return self::FAILURE;
+        }
+
         $execute = (bool) $this->option('execute');
         $force = (bool) $this->option('force');
 
@@ -67,9 +78,15 @@ class RepairWarehouseStockDrift extends Command
         foreach ($items as $item) {
             try {
                 if ($execute) {
-                    DB::transaction(function () use ($item): void {
-                        $this->repairItem($item, true);
+                    DB::transaction(function () use ($item, $mode): void {
+                        if ($mode === 'zero-empty-ledger') {
+                            $this->repairItemZeroEmptyLedger($item, true);
+                        } else {
+                            $this->repairItem($item, true);
+                        }
                     });
+                } elseif ($mode === 'zero-empty-ledger') {
+                    $this->repairItemZeroEmptyLedger($item, false);
                 } else {
                     $this->repairItem($item, false);
                 }
@@ -81,27 +98,46 @@ class RepairWarehouseStockDrift extends Command
         }
 
         if ($this->reportRows !== []) {
-            $this->table(
-                ['Code', 'Name', 'Old WH Stock', 'New WH Stock', 'Selisih', 'Aksi'],
-                array_map(static fn (array $row): array => [
-                    $row['code'],
-                    $row['name'],
-                    $row['old_wh_total'],
-                    $row['new_wh_total'],
-                    $row['selisih'],
-                    $row['aksi'],
-                ], $this->reportRows)
-            );
+            if ($mode === 'zero-empty-ledger') {
+                $this->table(
+                    ['Code', 'Name', 'Old WH Stock', 'Aksi'],
+                    array_map(static fn (array $row): array => [
+                        $row['code'],
+                        $row['name'],
+                        $row['old_wh_total'],
+                        $row['aksi'],
+                    ], $this->reportRows)
+                );
+            } else {
+                $this->table(
+                    ['Code', 'Name', 'Old WH Stock', 'New WH Stock', 'Selisih', 'Aksi'],
+                    array_map(static fn (array $row): array => [
+                        $row['code'],
+                        $row['name'],
+                        $row['old_wh_total'],
+                        $row['new_wh_total'],
+                        $row['selisih'],
+                        $row['aksi'],
+                    ], $this->reportRows)
+                );
+            }
         }
 
         $modeLabel = $execute ? 'EXECUTE' : 'DRY-RUN';
 
         $this->newLine();
-        $this->info("Summary ({$modeLabel}):");
+        $this->info("Summary ({$modeLabel}, mode={$mode}):");
         $this->line("Items processed: {$this->itemsProcessed}");
-        $this->line("Warehouse stock rows updated: {$this->rowsUpdated}");
-        $this->line("Warehouse stock rows created: {$this->rowsCreated}");
-        $this->line("Total unit change (sum of |delta| per row): {$this->totalUnitDelta}");
+
+        if ($mode === 'zero-empty-ledger') {
+            $this->line("Items skipped (ledger total not zero): {$this->itemsSkippedLedgerNonZero}");
+            $this->line("Warehouse stock rows updated: {$this->rowsUpdated}");
+            $this->line("Total units removed from warehouse stock: {$this->totalUnitDelta}");
+        } else {
+            $this->line("Warehouse stock rows updated: {$this->rowsUpdated}");
+            $this->line("Warehouse stock rows created: {$this->rowsCreated}");
+            $this->line("Total unit change (sum of |delta| per row): {$this->totalUnitDelta}");
+        }
 
         if ($backupTable !== null) {
             $this->line("Backup table: {$backupTable}");
@@ -180,6 +216,64 @@ class RepairWarehouseStockDrift extends Command
         DB::statement("CREATE TABLE `{$tableName}` AS SELECT * FROM `inventory_warehouse_stock`");
 
         return $tableName;
+    }
+
+    private function ledgerTotalFromTransactions(InventoryItem $item): int
+    {
+        return (int) InventoryTransaction::query()
+            ->where('item_id', $item->id)
+            ->sum('quantity');
+    }
+
+    private function repairItemZeroEmptyLedger(InventoryItem $item, bool $persist): void
+    {
+        $ledgerTotal = $this->ledgerTotalFromTransactions($item);
+
+        if ($ledgerTotal !== 0) {
+            $this->itemsSkippedLedgerNonZero++;
+
+            return;
+        }
+
+        $existingStocks = InventoryWarehouseStock::query()
+            ->where('item_id', $item->id)
+            ->get();
+
+        $oldWhTotal = (int) $existingStocks->sum('quantity_on_hand');
+
+        if ($oldWhTotal === 0) {
+            return;
+        }
+
+        $this->itemsProcessed++;
+
+        $actions = [];
+
+        foreach ($existingStocks as $warehouseStock) {
+            $oldQty = (int) $warehouseStock->quantity_on_hand;
+
+            if ($oldQty === 0) {
+                continue;
+            }
+
+            $actions[] = "set wh {$warehouseStock->warehouse_id}: {$oldQty} => 0";
+
+            if ($persist) {
+                $warehouseStock->quantity_on_hand = 0;
+                $warehouseStock->updateAvailableQuantity();
+                $warehouseStock->save();
+            }
+
+            $this->rowsUpdated++;
+            $this->totalUnitDelta += $oldQty;
+        }
+
+        $this->reportRows[] = [
+            'code' => $item->code,
+            'name' => $item->name,
+            'old_wh_total' => $oldWhTotal,
+            'aksi' => $actions !== [] ? implode('; ', $actions) : 'no row changes',
+        ];
     }
 
     /**

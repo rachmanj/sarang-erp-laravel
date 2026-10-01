@@ -191,4 +191,200 @@ class RepairWarehouseStockDriftCommandTest extends TestCase
         $this->assertGreaterThan(0, $backupCount);
         $this->assertSame($liveCount, $backupCount);
     }
+
+    /**
+     * @return array{item: InventoryItem, warehouse: Warehouse}
+     */
+    private function createZeroLedgerItemWithWarehouseStock(int $warehouseQty): array
+    {
+        $warehouse = Warehouse::query()->firstOrFail();
+        $category = ProductCategory::query()->firstOrFail();
+        $currencyId = (int) DB::table('currencies')->value('id');
+        $userId = (int) DB::table('users')->orderBy('id')->value('id');
+
+        $item = InventoryItem::query()->create([
+            'code' => 'T-ZERO-LED-'.uniqid(),
+            'name' => 'Zero ledger warehouse drift item',
+            'category_id' => $category->id,
+            'default_warehouse_id' => $warehouse->id,
+            'unit_of_measure' => 'pcs',
+            'purchase_currency_id' => $currencyId,
+            'selling_currency_id' => $currencyId,
+            'purchase_price' => 1000,
+            'selling_price' => 1200,
+            'valuation_method' => 'fifo',
+            'item_type' => 'item',
+            'is_active' => true,
+        ]);
+
+        $date = now()->toDateString();
+
+        InventoryTransaction::query()->create([
+            'item_id' => $item->id,
+            'warehouse_id' => $warehouse->id,
+            'transaction_type' => 'purchase',
+            'quantity' => $warehouseQty,
+            'unit_cost' => 1000,
+            'total_cost' => $warehouseQty * 1000,
+            'reference_type' => null,
+            'reference_id' => null,
+            'transaction_date' => $date,
+            'notes' => 'Test purchase',
+            'created_by' => $userId,
+        ]);
+
+        InventoryTransaction::query()->create([
+            'item_id' => $item->id,
+            'warehouse_id' => $warehouse->id,
+            'transaction_type' => 'sale',
+            'quantity' => -$warehouseQty,
+            'unit_cost' => 1000,
+            'total_cost' => $warehouseQty * 1000,
+            'reference_type' => null,
+            'reference_id' => null,
+            'transaction_date' => $date,
+            'notes' => 'Test sale',
+            'created_by' => $userId,
+        ]);
+
+        InventoryWarehouseStock::query()->create([
+            'item_id' => $item->id,
+            'warehouse_id' => $warehouse->id,
+            'quantity_on_hand' => $warehouseQty,
+            'reserved_quantity' => 0,
+            'available_quantity' => $warehouseQty,
+            'min_stock_level' => 0,
+            'max_stock_level' => 0,
+            'reorder_point' => 0,
+        ]);
+
+        $this->assertSame(0, $this->ledgerStockSum($item->id));
+        $this->assertSame($warehouseQty, $this->warehouseStockSum($item->id));
+
+        return ['item' => $item, 'warehouse' => $warehouse];
+    }
+
+    public function test_zero_empty_ledger_mode_zeros_warehouse_stock_when_ledger_total_is_zero(): void
+    {
+        ['item' => $item] = $this->createZeroLedgerItemWithWarehouseStock(warehouseQty: 120);
+
+        $exitCode = Artisan::call('inventory:repair-warehouse-stock-drift', [
+            '--item' => $item->code,
+            '--mode' => 'zero-empty-ledger',
+            '--execute' => true,
+            '--force' => true,
+        ]);
+
+        $this->assertSame(0, $exitCode);
+        $this->assertSame(0, $this->ledgerStockSum($item->id));
+        $this->assertSame(0, $this->warehouseStockSum($item->id));
+        $this->assertEquals($this->ledgerStockSum($item->id), $this->warehouseStockSum($item->id));
+        $this->assertStringContainsString('Items processed: 1', Artisan::output());
+    }
+
+    public function test_zero_empty_ledger_mode_skips_item_when_ledger_total_is_not_zero(): void
+    {
+        ['item' => $item] = $this->createStockItem(ledgerQty: 50, wrongWarehouseQty: 80);
+
+        $beforeQty = $this->warehouseStockSum($item->id);
+
+        $exitCode = Artisan::call('inventory:repair-warehouse-stock-drift', [
+            '--item' => $item->code,
+            '--mode' => 'zero-empty-ledger',
+            '--execute' => true,
+            '--force' => true,
+        ]);
+
+        $this->assertSame(0, $exitCode);
+        $this->assertSame($beforeQty, $this->warehouseStockSum($item->id));
+        $output = Artisan::output();
+        $this->assertStringContainsString('Items skipped (ledger total not zero): 1', $output);
+        $this->assertStringContainsString('Items processed: 0', $output);
+    }
+
+    public function test_zero_empty_ledger_mode_does_not_create_new_warehouse_stock_rows(): void
+    {
+        ['item' => $item, 'warehouse' => $warehouse] = $this->createZeroLedgerItemWithWarehouseStock(warehouseQty: 75);
+
+        $secondWarehouse = Warehouse::query()->where('id', '!=', $warehouse->id)->first();
+
+        if ($secondWarehouse !== null) {
+            InventoryTransaction::query()->create([
+                'item_id' => $item->id,
+                'warehouse_id' => $secondWarehouse->id,
+                'transaction_type' => 'purchase',
+                'quantity' => 10,
+                'unit_cost' => 1000,
+                'total_cost' => 10000,
+                'reference_type' => null,
+                'reference_id' => null,
+                'transaction_date' => now()->toDateString(),
+                'notes' => 'Extra purchase on other wh',
+                'created_by' => (int) DB::table('users')->orderBy('id')->value('id'),
+            ]);
+
+            InventoryTransaction::query()->create([
+                'item_id' => $item->id,
+                'warehouse_id' => $secondWarehouse->id,
+                'transaction_type' => 'sale',
+                'quantity' => -10,
+                'unit_cost' => 1000,
+                'total_cost' => 10000,
+                'reference_type' => null,
+                'reference_id' => null,
+                'transaction_date' => now()->toDateString(),
+                'notes' => 'Offset sale on other wh',
+                'created_by' => (int) DB::table('users')->orderBy('id')->value('id'),
+            ]);
+        }
+
+        $rowCountBefore = InventoryWarehouseStock::query()->where('item_id', $item->id)->count();
+
+        $exitCode = Artisan::call('inventory:repair-warehouse-stock-drift', [
+            '--item' => $item->code,
+            '--mode' => 'zero-empty-ledger',
+            '--execute' => true,
+            '--force' => true,
+        ]);
+
+        $this->assertSame(0, $exitCode);
+        $rowCountAfter = InventoryWarehouseStock::query()->where('item_id', $item->id)->count();
+        $this->assertSame($rowCountBefore, $rowCountAfter);
+        $this->assertStringNotContainsString('create wh', Artisan::output());
+    }
+
+    public function test_zero_empty_ledger_dry_run_does_not_change_database(): void
+    {
+        ['item' => $item] = $this->createZeroLedgerItemWithWarehouseStock(warehouseQty: 60);
+
+        $before = DB::table('inventory_warehouse_stock')->get()->map(fn ($row) => (array) $row)->all();
+
+        $exitCode = Artisan::call('inventory:repair-warehouse-stock-drift', [
+            '--item' => $item->code,
+            '--mode' => 'zero-empty-ledger',
+        ]);
+
+        $this->assertSame(0, $exitCode);
+        $after = DB::table('inventory_warehouse_stock')->get()->map(fn ($row) => (array) $row)->all();
+        $this->assertSame($before, $after);
+        $output = Artisan::output();
+        $this->assertStringContainsString('DRY-RUN', $output);
+        $this->assertStringContainsString('mode=zero-empty-ledger', $output);
+    }
+
+    public function test_default_per_warehouse_mode_still_repairs_warehouse_to_match_ledger(): void
+    {
+        ['item' => $item] = $this->createStockItem(ledgerQty: 55, wrongWarehouseQty: 90);
+
+        $exitCode = Artisan::call('inventory:repair-warehouse-stock-drift', [
+            '--item' => $item->code,
+            '--execute' => true,
+            '--force' => true,
+        ]);
+
+        $this->assertSame(0, $exitCode);
+        $this->assertEquals($this->ledgerStockSum($item->id), $this->warehouseStockSum($item->id));
+        $this->assertSame(55, $this->warehouseStockSum($item->id));
+        $this->assertStringContainsString('mode=per-warehouse', Artisan::output());
+    }
 }
