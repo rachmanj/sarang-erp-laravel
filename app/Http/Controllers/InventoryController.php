@@ -292,9 +292,13 @@ class InventoryController extends Controller
                 // Create initial stock transaction if initial stock is provided
                 if ($request->has('initial_stock') && $request->initial_stock > 0) {
                     $initialStock = $request->initial_stock;
+                    $warehouseId = $this->inventoryService->resolveWarehouseId(
+                        $item,
+                        $item->default_warehouse_id ? (int) $item->default_warehouse_id : null
+                    );
                     $transaction = InventoryTransaction::create([
                         'item_id' => $item->id,
-                        'warehouse_id' => $item->default_warehouse_id,
+                        'warehouse_id' => $warehouseId,
                         'transaction_type' => 'adjustment',
                         'quantity' => $initialStock,
                         'unit_cost' => $data['purchase_price'] ?? 0,
@@ -314,6 +318,8 @@ class InventoryController extends Controller
                         $transaction->getAttributes(),
                         "Initial stock entry: {$initialStock} units"
                     );
+
+                    app(InventoryWarehouseStockService::class)->applyDelta($item->id, $warehouseId, (int) $initialStock);
 
                     // Create initial valuation
                     InventoryValuation::create([
@@ -627,8 +633,10 @@ class InventoryController extends Controller
 
             $totalCost = $quantity * $data['unit_cost'];
 
-            // Determine warehouse - use provided warehouse or default warehouse
-            $warehouseId = $data['warehouse_id'] ?? $item->default_warehouse_id;
+            $warehouseId = app(InventoryService::class)->resolveWarehouseId(
+                $item,
+                isset($data['warehouse_id']) ? (int) $data['warehouse_id'] : null
+            );
 
             // Create adjustment transaction
             $transaction = InventoryTransaction::create([
@@ -645,9 +653,7 @@ class InventoryController extends Controller
                 'created_by' => Auth::id(),
             ]);
 
-            if ($warehouseId) {
-                app(InventoryWarehouseStockService::class)->applyDelta($item->id, $warehouseId, $quantity);
-            }
+            app(InventoryWarehouseStockService::class)->applyDelta($item->id, $warehouseId, $quantity);
 
             // Update valuation
             $this->updateValuation($item);

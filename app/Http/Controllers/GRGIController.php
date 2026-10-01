@@ -13,6 +13,7 @@ use App\Models\ProductCategory;
 use App\Models\Warehouse;
 use App\Services\GRGIService;
 use App\Services\InventoryService;
+use App\Services\InventoryWarehouseStockService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -438,6 +439,16 @@ class GRGIController extends Controller
                             'notes' => "GR/GI: {$grGi->document_number}",
                             'created_by' => Auth::id(),
                         ]);
+
+                        $resolvedWarehouseId = $inventoryService->resolveWarehouseId(
+                            $item,
+                            $grGi->warehouse_id ? (int) $grGi->warehouse_id : null
+                        );
+                        app(InventoryWarehouseStockService::class)->applyDelta(
+                            $line->item_id,
+                            $resolvedWarehouseId,
+                            (int) $quantityChange
+                        );
 
                         // Update item valuation
                         $inventoryService->updateItemValuationAfterDataRepair($item);

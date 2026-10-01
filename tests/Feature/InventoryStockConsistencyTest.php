@@ -9,10 +9,12 @@ use App\Models\InventoryTransaction;
 use App\Models\ProductCategory;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderLine;
+use App\Models\UnitOfMeasure;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\DeliveryService;
 use App\Services\InventoryService;
+use Database\Seeders\UnitOfMeasureSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -311,5 +313,83 @@ class InventoryStockConsistencyTest extends TestCase
 
         $this->assertStockConsistent($fromItem->id);
         $this->assertStockConsistent($toItem->id);
+    }
+
+    public function test_store_with_initial_stock_via_http_keeps_ledger_and_warehouse_aligned(): void
+    {
+        $this->seed(UnitOfMeasureSeeder::class);
+
+        $user = User::query()->where('username', 'superadmin')->firstOrFail();
+        $categoryId = (int) DB::table('product_categories')->value('id');
+        $warehouseId = (int) Warehouse::query()->value('id');
+        $baseUnitId = UnitOfMeasure::query()->where('is_active', true)->value('id');
+
+        $code = 'T-INIT-STK-'.uniqid();
+
+        $response = $this->actingAs($user)->post(route('inventory.store'), [
+            'code' => $code,
+            'name' => 'Initial Stock HTTP Test Item',
+            'category_id' => $categoryId,
+            'default_warehouse_id' => $warehouseId,
+            'base_unit_id' => $baseUnitId,
+            'purchase_price' => 5000,
+            'selling_price' => 6000,
+            'item_type' => 'item',
+            'valuation_method' => 'fifo',
+            'is_active' => 'on',
+            'initial_stock' => 15,
+        ]);
+
+        $item = InventoryItem::query()->where('code', $code)->firstOrFail();
+        $response->assertRedirect(route('inventory.show', $item->id));
+
+        $this->assertSame(15.0, $this->ledgerStockSum($item->id));
+        $this->assertStockConsistent($item->id);
+    }
+
+    public function test_adjust_stock_without_warehouse_id_uses_default_warehouse_and_stays_consistent(): void
+    {
+        $user = User::query()->where('username', 'superadmin')->firstOrFail();
+        ['item' => $item, 'warehouse' => $warehouse] = $this->createInventoryItemWithWarehouse();
+
+        $response = $this->actingAs($user)->post(route('inventory.adjust-stock', $item->id), [
+            'adjustment_type' => 'increase',
+            'quantity' => 7,
+            'unit_cost' => 1000,
+            'notes' => 'Adjust without explicit warehouse',
+        ]);
+
+        $response->assertRedirect();
+        $this->assertSame(7.0, $this->ledgerStockSum($item->id));
+        $this->assertSame(7.0, (float) DB::table('inventory_warehouse_stock')
+            ->where('item_id', $item->id)
+            ->where('warehouse_id', $warehouse->id)
+            ->value('quantity_on_hand'));
+        $this->assertStockConsistent($item->id);
+    }
+
+    public function test_remove_purchase_inventory_transaction_reduces_ledger_and_warehouse_stock(): void
+    {
+        ['item' => $item, 'warehouse' => $warehouse] = $this->createInventoryItemWithWarehouse();
+        $inventoryService = app(InventoryService::class);
+
+        $transaction = $inventoryService->processPurchaseTransaction(
+            $item->id,
+            12,
+            1000.0,
+            'purchase_invoice',
+            99,
+            'Purchase to remove',
+            $warehouse->id
+        );
+
+        $this->assertSame(12.0, $this->ledgerStockSum($item->id));
+        $this->assertStockConsistent($item->id);
+
+        $inventoryService->removePurchaseInventoryTransaction($transaction);
+
+        $this->assertSame(0.0, $this->ledgerStockSum($item->id));
+        $this->assertSame(0.0, $this->warehouseStockSum($item->id));
+        $this->assertStockConsistent($item->id);
     }
 }

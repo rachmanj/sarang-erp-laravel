@@ -457,9 +457,11 @@ class InventoryService
         $item = InventoryItem::query()->findOrFail($transaction->item_id);
         $quantity = (int) round((float) $transaction->quantity);
 
-        if ($transaction->warehouse_id) {
-            $this->updateWarehouseStock((int) $transaction->item_id, (int) $transaction->warehouse_id, -$quantity);
-        }
+        $warehouseId = $this->resolveWarehouseId(
+            $item,
+            $transaction->warehouse_id ? (int) $transaction->warehouse_id : null
+        );
+        $this->updateWarehouseStock((int) $transaction->item_id, $warehouseId, -$quantity);
 
         $transaction->delete();
 
@@ -702,7 +704,7 @@ class InventoryService
         return $openingIn - $openingOut;
     }
 
-    private function resolveWarehouseId(InventoryItem $item, ?int $warehouseId = null): int
+    public function resolveWarehouseId(InventoryItem $item, ?int $warehouseId = null): int
     {
         if ($warehouseId) {
             return $warehouseId;
