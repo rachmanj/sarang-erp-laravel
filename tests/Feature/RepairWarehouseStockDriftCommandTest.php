@@ -615,4 +615,54 @@ class RepairWarehouseStockDriftCommandTest extends TestCase
 
         $this->assertSame(0, $this->warehouseStockSum($zeroItem->id));
     }
+
+    public function test_fill_dominant_warehouse_scan_without_item_includes_understock_and_excludes_overstock(): void
+    {
+        ['item' => $underItem] = $this->createUnderStockItem(ledgerQty: 80, wrongWarehouseQty: 50);
+        ['item' => $overItem] = $this->createStockItem(ledgerQty: 50, wrongWarehouseQty: 80);
+
+        $overQtyBefore = $this->warehouseStockSum($overItem->id);
+
+        $exitCode = Artisan::call('inventory:repair-warehouse-stock-drift', [
+            '--mode' => 'fill-dominant-warehouse',
+        ]);
+
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exitCode);
+        $this->assertStringNotContainsString('Undefined variable', $output);
+        $this->assertStringContainsString($underItem->code, $output);
+        $this->assertSame($overQtyBefore, $this->warehouseStockSum($overItem->id));
+        $this->assertStringNotContainsString($overItem->code, $output);
+    }
+
+    public function test_zero_empty_ledger_scan_without_item_completes_without_undefined_variable(): void
+    {
+        $this->createZeroLedgerItemWithWarehouseStock(warehouseQty: 95);
+
+        $exitCode = Artisan::call('inventory:repair-warehouse-stock-drift', [
+            '--mode' => 'zero-empty-ledger',
+        ]);
+
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exitCode);
+        $this->assertStringNotContainsString('Undefined variable', $output);
+        $this->assertStringContainsString('mode=zero-empty-ledger', $output);
+    }
+
+    public function test_per_warehouse_scan_without_item_completes_without_undefined_variable(): void
+    {
+        $this->createStockItem(ledgerQty: 47, wrongWarehouseQty: 62);
+
+        $exitCode = Artisan::call('inventory:repair-warehouse-stock-drift', [
+            '--mode' => 'per-warehouse',
+        ]);
+
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exitCode);
+        $this->assertStringNotContainsString('Undefined variable', $output);
+        $this->assertStringContainsString('mode=per-warehouse', $output);
+    }
 }

@@ -215,7 +215,7 @@ class RepairWarehouseStockDrift extends Command
             ->where('item_type', '!=', 'service')
             ->orderBy('id')
             ->get()
-            ->map(function (InventoryItem $item): ?array {
+            ->map(function (InventoryItem $item) use ($mode): ?array {
                 $ledgerStock = (int) $item->current_stock;
                 $warehouseTotal = (int) InventoryWarehouseStock::query()
                     ->where('item_id', $item->id)
