@@ -485,6 +485,87 @@ class InventoryStockConsistencyTest extends TestCase
         ]);
     }
 
+    public function test_process_sale_logs_no_warnings_when_ledger_and_physical_stock_are_aligned(): void
+    {
+        Log::spy();
+
+        ['item' => $item, 'warehouse' => $warehouse] = $this->createInventoryItemWithWarehouse();
+        $inventoryService = app(InventoryService::class);
+
+        $inventoryService->processPurchaseTransaction(
+            $item->id,
+            10,
+            1000.0,
+            'purchase_invoice',
+            504,
+            'Aligned ledger and warehouse before sale',
+            $warehouse->id
+        );
+
+        $inventoryService->processSaleTransaction(
+            $item->id,
+            3,
+            1000.0,
+            'delivery_order',
+            904,
+            'Balanced sale observation',
+            $warehouse->id
+        );
+
+        Log::shouldNotHaveReceived('warning');
+    }
+
+    public function test_process_sale_logs_ledger_physical_mismatch_when_warehouse_stock_drifts_from_ledger(): void
+    {
+        Log::spy();
+
+        ['item' => $item, 'warehouse' => $warehouse] = $this->createInventoryItemWithWarehouse();
+        $inventoryService = app(InventoryService::class);
+
+        $inventoryService->processPurchaseTransaction(
+            $item->id,
+            10,
+            1000.0,
+            'purchase_invoice',
+            505,
+            'Ledger stock before intentional physical drift',
+            $warehouse->id
+        );
+
+        DB::table('inventory_warehouse_stock')
+            ->where('item_id', $item->id)
+            ->where('warehouse_id', $warehouse->id)
+            ->update([
+                'quantity_on_hand' => 8,
+                'available_quantity' => 8,
+            ]);
+
+        $saleQty = 3;
+        $expectedSelisih = 2.0;
+
+        $inventoryService->processSaleTransaction(
+            $item->id,
+            $saleQty,
+            1000.0,
+            'delivery_order',
+            905,
+            'Sale with ledger vs physical mismatch',
+            $warehouse->id
+        );
+
+        Log::shouldHaveReceived('warning')
+            ->with(
+                'inventory.sale_ledger_physical_mismatch',
+                Mockery::on(function (array $context) use ($item, $expectedSelisih): bool {
+                    return ($context['item_id'] ?? null) === $item->id
+                        && ($context['item_code'] ?? null) === $item->code
+                        && ($context['ledger_current_stock'] ?? null) === 7.0
+                        && ($context['physical_stock_total'] ?? null) === 5.0
+                        && ($context['selisih'] ?? null) === $expectedSelisih;
+                })
+            );
+    }
+
     public function test_process_sale_returns_inventory_transaction_instance(): void
     {
         ['item' => $item, 'warehouse' => $warehouse] = $this->createInventoryItemWithWarehouse();

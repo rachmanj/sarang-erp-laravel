@@ -84,6 +84,8 @@ class InventoryService
                 'created_by' => Auth::id(),
             ]);
 
+            $this->updateWarehouseStock($itemId, $warehouseId, -$quantity);
+
             try {
                 $this->logSalePhysicalStockObservations(
                     $item,
@@ -99,8 +101,6 @@ class InventoryService
                     'error' => $e->getMessage(),
                 ]);
             }
-
-            $this->updateWarehouseStock($itemId, $warehouseId, -$quantity);
 
             $this->updateItemValuation($item);
 
@@ -743,23 +743,25 @@ class InventoryService
         ?string $referenceType,
         ?int $referenceId
     ): void {
-        $physicalAtWarehouse = (float) (DB::table('inventory_warehouse_stock')
+        $physicalAtWarehouseAfter = (float) (DB::table('inventory_warehouse_stock')
             ->where('item_id', $item->id)
             ->where('warehouse_id', $warehouseId)
             ->value('quantity_on_hand') ?? 0);
+
+        $physicalAtWarehouseBefore = $physicalAtWarehouseAfter + $quantitySold;
 
         $ledgerCurrentStock = (float) $item->fresh()->current_stock;
         $physicalStockTotal = (float) DB::table('inventory_warehouse_stock')
             ->where('item_id', $item->id)
             ->sum('quantity_on_hand');
 
-        if ($physicalAtWarehouse < $quantitySold) {
+        if ($physicalAtWarehouseBefore < $quantitySold) {
             Log::warning('inventory.sale_exceeds_physical_stock', [
                 'item_id' => $item->id,
                 'item_code' => $item->code,
                 'quantity_dijual' => $quantitySold,
                 'ledger_current_stock' => $ledgerCurrentStock,
-                'physical_stock_sebelum' => $physicalAtWarehouse,
+                'physical_stock_sebelum' => $physicalAtWarehouseBefore,
                 'warehouse_id' => $warehouseId,
                 'reference_type' => $referenceType,
                 'reference_id' => $referenceId,
