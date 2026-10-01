@@ -576,8 +576,9 @@ class RepairWarehouseStockDriftCommandTest extends TestCase
         $this->assertSame(0, $exitCode);
         $after = DB::table('inventory_warehouse_stock')->get()->map(fn ($row) => (array) $row)->all();
         $this->assertSame($before, $after);
-        $this->assertStringContainsString('DRY-RUN', Artisan::output());
-        $this->assertStringContainsString('mode=fill-dominant-warehouse', Artisan::output());
+        $output = Artisan::output();
+        $this->assertStringContainsString('DRY-RUN', $output);
+        $this->assertStringContainsString('mode=fill-dominant-warehouse', $output);
     }
 
     public function test_fill_dominant_warehouse_rejects_unknown_mode(): void
