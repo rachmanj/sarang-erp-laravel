@@ -40,6 +40,7 @@ class Kernel extends BaseKernel
         \App\Console\Commands\RemoveDuplicateSaleTransactions::class,
         \App\Console\Commands\SeedCapitalAndFixedAssetsCommand::class,
         \App\Console\Commands\RunAuditCommand::class,
+        \App\Console\Commands\WriteOffPhysicalCount::class,
     ];
 
     /**
