@@ -665,4 +665,249 @@ class RepairWarehouseStockDriftCommandTest extends TestCase
         $this->assertStringNotContainsString('Undefined variable', $output);
         $this->assertStringContainsString('mode=per-warehouse', $output);
     }
+
+    /**
+     * @return array{item: InventoryItem, warehouse: Warehouse}
+     */
+    private function createOverStockItem(int $ledgerQty, int $wrongWarehouseQty): array
+    {
+        return $this->createStockItem(ledgerQty: $ledgerQty, wrongWarehouseQty: $wrongWarehouseQty);
+    }
+
+    public function test_reduce_to_ledger_mode_reduces_overstock_to_match_ledger(): void
+    {
+        ['item' => $item] = $this->createOverStockItem(ledgerQty: 50, wrongWarehouseQty: 80);
+
+        $exitCode = Artisan::call('inventory:repair-warehouse-stock-drift', [
+            '--item' => $item->code,
+            '--mode' => 'reduce-to-ledger',
+            '--execute' => true,
+            '--force' => true,
+        ]);
+
+        $this->assertSame(0, $exitCode);
+        $this->assertSame(50, $this->warehouseStockSum($item->id));
+        $this->assertEquals($this->ledgerStockSum($item->id), $this->warehouseStockSum($item->id));
+        $this->assertStringContainsString('Total units removed from warehouse stock: 30', Artisan::output());
+    }
+
+    public function test_reduce_to_ledger_mode_reduces_largest_warehouse_rows_first(): void
+    {
+        $warehouseA = Warehouse::query()->firstOrFail();
+        $warehouseB = Warehouse::query()->where('id', '!=', $warehouseA->id)->firstOrFail();
+        $category = ProductCategory::query()->firstOrFail();
+        $currencyId = (int) DB::table('currencies')->value('id');
+        $userId = (int) DB::table('users')->orderBy('id')->value('id');
+
+        $item = InventoryItem::query()->create([
+            'code' => 'T-REDUCE-LED-'.uniqid(),
+            'name' => 'Reduce to ledger multi-wh item',
+            'category_id' => $category->id,
+            'default_warehouse_id' => $warehouseA->id,
+            'unit_of_measure' => 'pcs',
+            'purchase_currency_id' => $currencyId,
+            'selling_currency_id' => $currencyId,
+            'purchase_price' => 1000,
+            'selling_price' => 1200,
+            'valuation_method' => 'fifo',
+            'item_type' => 'item',
+            'is_active' => true,
+        ]);
+
+        InventoryTransaction::query()->create([
+            'item_id' => $item->id,
+            'warehouse_id' => $warehouseA->id,
+            'transaction_type' => 'purchase',
+            'quantity' => 100,
+            'unit_cost' => 1000,
+            'total_cost' => 100000,
+            'reference_type' => null,
+            'reference_id' => null,
+            'transaction_date' => now()->toDateString(),
+            'notes' => 'Test purchase',
+            'created_by' => $userId,
+        ]);
+
+        $stockA = InventoryWarehouseStock::query()->create([
+            'item_id' => $item->id,
+            'warehouse_id' => $warehouseA->id,
+            'quantity_on_hand' => 20,
+            'reserved_quantity' => 0,
+            'available_quantity' => 20,
+            'min_stock_level' => 0,
+            'max_stock_level' => 0,
+            'reorder_point' => 0,
+        ]);
+
+        $stockB = InventoryWarehouseStock::query()->create([
+            'item_id' => $item->id,
+            'warehouse_id' => $warehouseB->id,
+            'quantity_on_hand' => 90,
+            'reserved_quantity' => 0,
+            'available_quantity' => 90,
+            'min_stock_level' => 0,
+            'max_stock_level' => 0,
+            'reorder_point' => 0,
+        ]);
+
+        $stockABefore = $stockA->quantity_on_hand;
+
+        $exitCode = Artisan::call('inventory:repair-warehouse-stock-drift', [
+            '--item' => $item->code,
+            '--mode' => 'reduce-to-ledger',
+            '--execute' => true,
+            '--force' => true,
+        ]);
+
+        $this->assertSame(0, $exitCode);
+        $stockA->refresh();
+        $stockB->refresh();
+
+        $this->assertSame($stockABefore, $stockA->quantity_on_hand);
+        $this->assertSame(80, $stockB->quantity_on_hand);
+        $this->assertSame(100, $this->warehouseStockSum($item->id));
+    }
+
+    public function test_reduce_to_ledger_mode_skips_item_when_warehouse_equals_ledger(): void
+    {
+        ['item' => $item] = $this->createOverStockItem(ledgerQty: 40, wrongWarehouseQty: 40);
+
+        $qtyBefore = $this->warehouseStockSum($item->id);
+
+        $exitCode = Artisan::call('inventory:repair-warehouse-stock-drift', [
+            '--item' => $item->code,
+            '--mode' => 'reduce-to-ledger',
+            '--execute' => true,
+            '--force' => true,
+        ]);
+
+        $this->assertSame(0, $exitCode);
+        $this->assertSame($qtyBefore, $this->warehouseStockSum($item->id));
+        $output = Artisan::output();
+        $this->assertStringContainsString('Items skipped (warehouse total not greater than ledger): 1', $output);
+        $this->assertStringContainsString('Items processed: 0', $output);
+    }
+
+    public function test_reduce_to_ledger_mode_skips_item_when_warehouse_below_ledger(): void
+    {
+        ['item' => $item] = $this->createUnderStockItem(ledgerQty: 80, wrongWarehouseQty: 50);
+
+        $qtyBefore = $this->warehouseStockSum($item->id);
+
+        $exitCode = Artisan::call('inventory:repair-warehouse-stock-drift', [
+            '--item' => $item->code,
+            '--mode' => 'reduce-to-ledger',
+            '--execute' => true,
+            '--force' => true,
+        ]);
+
+        $this->assertSame(0, $exitCode);
+        $this->assertSame($qtyBefore, $this->warehouseStockSum($item->id));
+        $output = Artisan::output();
+        $this->assertStringContainsString('Items skipped (warehouse total not greater than ledger): 1', $output);
+        $this->assertStringContainsString('Items processed: 0', $output);
+    }
+
+    public function test_reduce_to_ledger_dry_run_does_not_change_database(): void
+    {
+        ['item' => $item] = $this->createOverStockItem(ledgerQty: 30, wrongWarehouseQty: 45);
+
+        $before = DB::table('inventory_warehouse_stock')->get()->map(fn ($row) => (array) $row)->all();
+
+        $exitCode = Artisan::call('inventory:repair-warehouse-stock-drift', [
+            '--item' => $item->code,
+            '--mode' => 'reduce-to-ledger',
+        ]);
+
+        $this->assertSame(0, $exitCode);
+        $after = DB::table('inventory_warehouse_stock')->get()->map(fn ($row) => (array) $row)->all();
+        $this->assertSame($before, $after);
+        $output = Artisan::output();
+        $this->assertStringContainsString('DRY-RUN', $output);
+        $this->assertStringContainsString('mode=reduce-to-ledger', $output);
+    }
+
+    public function test_reduce_to_ledger_execute_without_force_is_rejected(): void
+    {
+        ['item' => $item] = $this->createOverStockItem(ledgerQty: 20, wrongWarehouseQty: 35);
+
+        $beforeQty = $this->warehouseStockSum($item->id);
+
+        $exitCode = Artisan::call('inventory:repair-warehouse-stock-drift', [
+            '--item' => $item->code,
+            '--mode' => 'reduce-to-ledger',
+            '--execute' => true,
+        ]);
+
+        $this->assertSame(1, $exitCode);
+        $this->assertSame($beforeQty, $this->warehouseStockSum($item->id));
+        $this->assertStringContainsString('--force', Artisan::output());
+    }
+
+    public function test_reduce_to_ledger_execute_creates_backup_table(): void
+    {
+        ['item' => $item] = $this->createOverStockItem(ledgerQty: 10, wrongWarehouseQty: 25);
+
+        Artisan::call('inventory:repair-warehouse-stock-drift', [
+            '--item' => $item->code,
+            '--mode' => 'reduce-to-ledger',
+            '--execute' => true,
+            '--force' => true,
+        ]);
+
+        $output = Artisan::output();
+        $this->assertMatchesRegularExpression('/inventory_warehouse_stock_bak_\d{8}_\d{6}/', $output);
+
+        preg_match('/inventory_warehouse_stock_bak_\d{8}_\d{6}/', $output, $matches);
+        $this->assertNotEmpty($matches);
+        $backupTable = $matches[0];
+
+        $this->assertTrue(Schema::hasTable($backupTable));
+    }
+
+    public function test_reduce_to_ledger_scan_without_item_completes_without_undefined_variable(): void
+    {
+        $this->createOverStockItem(ledgerQty: 60, wrongWarehouseQty: 95);
+        $this->createUnderStockItem(ledgerQty: 80, wrongWarehouseQty: 50);
+
+        $exitCode = Artisan::call('inventory:repair-warehouse-stock-drift', [
+            '--mode' => 'reduce-to-ledger',
+        ]);
+
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exitCode);
+        $this->assertStringNotContainsString('Undefined variable', $output);
+        $this->assertStringContainsString('mode=reduce-to-ledger', $output);
+    }
+
+    public function test_reduce_to_ledger_does_not_touch_transactions_or_valuations(): void
+    {
+        ['item' => $item] = $this->createOverStockItem(ledgerQty: 55, wrongWarehouseQty: 90);
+
+        $txnCountBefore = (int) DB::table('inventory_transactions')->count();
+        $valuationsBefore = DB::table('inventory_valuations')->get()->map(fn ($row) => (array) $row)->all();
+
+        $exitCode = Artisan::call('inventory:repair-warehouse-stock-drift', [
+            '--item' => $item->code,
+            '--mode' => 'reduce-to-ledger',
+            '--execute' => true,
+            '--force' => true,
+        ]);
+
+        $this->assertSame(0, $exitCode);
+        $this->assertSame($txnCountBefore, (int) DB::table('inventory_transactions')->count());
+        $valuationsAfter = DB::table('inventory_valuations')->get()->map(fn ($row) => (array) $row)->all();
+        $this->assertSame($valuationsBefore, $valuationsAfter);
+    }
+
+    public function test_reduce_to_ledger_rejects_unknown_mode_message_includes_new_mode(): void
+    {
+        $exitCode = Artisan::call('inventory:repair-warehouse-stock-drift', [
+            '--mode' => 'not-a-real-mode',
+        ]);
+
+        $this->assertSame(1, $exitCode);
+        $this->assertStringContainsString('reduce-to-ledger', Artisan::output());
+    }
 }

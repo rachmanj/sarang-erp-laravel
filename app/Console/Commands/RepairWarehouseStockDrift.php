@@ -17,7 +17,7 @@ class RepairWarehouseStockDrift extends Command
     protected $signature = 'inventory:repair-warehouse-stock-drift
                             {--item= : Limit to a single item code}
                             {--limit= : Maximum number of drifting items to process}
-                            {--mode=per-warehouse : Repair mode: per-warehouse, zero-empty-ledger, or fill-dominant-warehouse}
+                            {--mode=per-warehouse : Repair mode: per-warehouse, zero-empty-ledger, fill-dominant-warehouse, or reduce-to-ledger}
                             {--delta-max=100 : Skip items whose absolute ledger vs warehouse gap exceeds this (fill-dominant-warehouse)}
                             {--execute : Apply changes (requires --force)}
                             {--force : Confirm writing changes together with --execute}';
@@ -31,6 +31,8 @@ class RepairWarehouseStockDrift extends Command
     private int $itemsSkippedLedgerZero = 0;
 
     private int $itemsSkippedDeltaMax = 0;
+
+    private int $itemsSkippedWhNotGreaterThanLedger = 0;
 
     /** @var list<string> */
     private array $skippedDeltaMaxItemCodes = [];
@@ -48,8 +50,8 @@ class RepairWarehouseStockDrift extends Command
     {
         $mode = (string) $this->option('mode');
 
-        if (! in_array($mode, ['per-warehouse', 'zero-empty-ledger', 'fill-dominant-warehouse'], true)) {
-            $this->error("Invalid --mode '{$mode}'. Allowed: per-warehouse, zero-empty-ledger, fill-dominant-warehouse.");
+        if (! in_array($mode, ['per-warehouse', 'zero-empty-ledger', 'fill-dominant-warehouse', 'reduce-to-ledger'], true)) {
+            $this->error("Invalid --mode '{$mode}'. Allowed: per-warehouse, zero-empty-ledger, fill-dominant-warehouse, reduce-to-ledger.");
 
             return self::FAILURE;
         }
@@ -94,6 +96,8 @@ class RepairWarehouseStockDrift extends Command
                             $this->repairItemZeroEmptyLedger($item, true);
                         } elseif ($mode === 'fill-dominant-warehouse') {
                             $this->repairItemFillDominantWarehouse($item, true, $deltaMax);
+                        } elseif ($mode === 'reduce-to-ledger') {
+                            $this->repairItemReduceToLedger($item, true);
                         } else {
                             $this->repairItem($item, true);
                         }
@@ -102,6 +106,8 @@ class RepairWarehouseStockDrift extends Command
                     $this->repairItemZeroEmptyLedger($item, false);
                 } elseif ($mode === 'fill-dominant-warehouse') {
                     $this->repairItemFillDominantWarehouse($item, false, $deltaMax);
+                } elseif ($mode === 'reduce-to-ledger') {
+                    $this->repairItemReduceToLedger($item, false);
                 } else {
                     $this->repairItem($item, false);
                 }
@@ -123,7 +129,7 @@ class RepairWarehouseStockDrift extends Command
                         $row['aksi'],
                     ], $this->reportRows)
                 );
-            } elseif ($mode === 'fill-dominant-warehouse') {
+            } elseif ($mode === 'fill-dominant-warehouse' || $mode === 'reduce-to-ledger') {
                 $this->table(
                     ['Code', 'Name', 'Buku Besar', 'Old WH Stock', 'New WH Stock', 'Selisih', 'Aksi'],
                     array_map(static fn (array $row): array => [
@@ -170,6 +176,10 @@ class RepairWarehouseStockDrift extends Command
             $this->line("Warehouse stock rows updated: {$this->rowsUpdated}");
             $this->line("Warehouse stock rows created: {$this->rowsCreated}");
             $this->line("Total units added: {$this->totalUnitDelta}");
+        } elseif ($mode === 'reduce-to-ledger') {
+            $this->line("Items skipped (warehouse total not greater than ledger): {$this->itemsSkippedWhNotGreaterThanLedger}");
+            $this->line("Warehouse stock rows updated: {$this->rowsUpdated}");
+            $this->line("Total units removed from warehouse stock: {$this->totalUnitDelta}");
         } else {
             $this->line("Warehouse stock rows updated: {$this->rowsUpdated}");
             $this->line("Warehouse stock rows created: {$this->rowsCreated}");
@@ -226,6 +236,10 @@ class RepairWarehouseStockDrift extends Command
                 }
 
                 if ($mode === 'fill-dominant-warehouse' && $warehouseTotal >= $ledgerStock) {
+                    return null;
+                }
+
+                if ($mode === 'reduce-to-ledger' && $warehouseTotal <= $ledgerStock) {
                     return null;
                 }
 
@@ -559,6 +573,74 @@ class RepairWarehouseStockDrift extends Command
                     $this->totalUnitDelta += $unitsAdded;
                 }
             }
+        }
+
+        $this->reportRows[] = [
+            'code' => $item->code,
+            'name' => $item->name,
+            'ledger_total' => $ledgerTotal,
+            'old_wh_total' => $oldWhTotal,
+            'new_wh_total' => $newWhTotal,
+            'selisih' => $newWhTotal - $oldWhTotal,
+            'aksi' => $actions !== [] ? implode('; ', $actions) : 'no row changes',
+        ];
+    }
+
+    private function repairItemReduceToLedger(InventoryItem $item, bool $persist): void
+    {
+        $ledgerTotal = $this->ledgerTotalFromTransactions($item);
+
+        $existingStocks = InventoryWarehouseStock::query()
+            ->where('item_id', $item->id)
+            ->get();
+
+        $oldWhTotal = (int) $existingStocks->sum('quantity_on_hand');
+
+        if ($oldWhTotal <= $ledgerTotal) {
+            $this->itemsSkippedWhNotGreaterThanLedger++;
+
+            return;
+        }
+
+        $this->itemsProcessed++;
+
+        $excess = $oldWhTotal - $ledgerTotal;
+        $newWhTotal = $ledgerTotal;
+        $actions = [];
+
+        $sortedStocks = $existingStocks
+            ->sortByDesc(static fn (InventoryWarehouseStock $row): int => (int) $row->quantity_on_hand)
+            ->values();
+
+        foreach ($sortedStocks as $warehouseStock) {
+            if ($excess <= 0) {
+                break;
+            }
+
+            $oldQty = (int) $warehouseStock->quantity_on_hand;
+
+            if ($oldQty === 0) {
+                continue;
+            }
+
+            $reduceBy = min($oldQty, $excess);
+            $newQty = $oldQty - $reduceBy;
+
+            if ($newQty === $oldQty) {
+                continue;
+            }
+
+            $actions[] = "update wh {$warehouseStock->warehouse_id}: {$oldQty} => {$newQty}";
+
+            if ($persist) {
+                $warehouseStock->quantity_on_hand = $newQty;
+                $warehouseStock->updateAvailableQuantity();
+                $warehouseStock->save();
+            }
+
+            $this->rowsUpdated++;
+            $this->totalUnitDelta += $reduceBy;
+            $excess -= $reduceBy;
         }
 
         $this->reportRows[] = [
