@@ -269,9 +269,8 @@ class InventoryService
 
         return match ($item->valuation_method) {
             'fifo' => $this->calculateFIFOCost($transactions, strict: false),
-            'weighted_average' => $this->calculateWeightedAverageCost(
-                $transactions->where('transaction_type', 'purchase')
-            ) ?: (float) $item->purchase_price,
+            'weighted_average' => $this->calculateMovingAverageCost($transactions)
+                ?: (float) $item->purchase_price,
             default => (float) $item->purchase_price,
         };
     }
@@ -500,9 +499,7 @@ class InventoryService
             case 'fifo':
                 return $this->calculateFIFOCost($transactions);
             case 'weighted_average':
-                return $this->calculateWeightedAverageCost(
-                    $transactions->where('transaction_type', 'purchase')
-                );
+                return $this->calculateMovingAverageCost($transactions);
             default:
                 return $item->purchase_price;
         }
@@ -620,6 +617,28 @@ class InventoryService
         }
 
         return $remaining;
+    }
+
+    private function calculateMovingAverageCost($transactions): float
+    {
+        $quantity = 0.0;
+        $totalCost = 0.0;
+
+        foreach ($transactions as $transaction) {
+            $qty = (float) $transaction->quantity;
+
+            if ($qty > 0) {
+                $quantity += $qty;
+                $totalCost += (float) $transaction->total_cost;
+            } elseif ($qty < 0) {
+                $average = $quantity > 0 ? $totalCost / $quantity : 0.0;
+                $outQty = abs($qty);
+                $totalCost -= $outQty * $average;
+                $quantity -= $outQty;
+            }
+        }
+
+        return $quantity > 0 ? $totalCost / $quantity : 0.0;
     }
 
     private function calculateWeightedAverageCost($transactions)
