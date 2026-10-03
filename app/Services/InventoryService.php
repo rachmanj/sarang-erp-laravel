@@ -6,6 +6,8 @@ use App\Models\InventoryItem;
 use App\Models\InventoryTransaction;
 use App\Models\InventoryValuation;
 use App\Models\Warehouse;
+use App\Services\Accounting\JournalBuilders\InventoryAdjustmentJournalBuilder;
+use App\Services\Accounting\PostingService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -108,9 +110,16 @@ class InventoryService
         });
     }
 
-    public function processAdjustmentTransaction(int $itemId, int $quantity, float $unitCost, ?string $notes = null, ?int $warehouseId = null)
-    {
-        return DB::transaction(function () use ($itemId, $quantity, $unitCost, $notes, $warehouseId) {
+    public function processAdjustmentTransaction(
+        int $itemId,
+        int $quantity,
+        float $unitCost,
+        ?string $notes = null,
+        ?int $warehouseId = null,
+        bool $postJournal = false,
+        ?int $counterAccountId = null,
+    ) {
+        return DB::transaction(function () use ($itemId, $quantity, $unitCost, $notes, $warehouseId, $postJournal, $counterAccountId) {
             $item = InventoryItem::findOrFail($itemId);
 
             if ($quantity < 0) {
@@ -141,8 +150,45 @@ class InventoryService
             // Update valuation
             $this->updateItemValuation($item);
 
+            if ($postJournal) {
+                $this->postInventoryAdjustmentJournal($transaction, $counterAccountId);
+            }
+
             return $transaction;
         });
+    }
+
+    private function postInventoryAdjustmentJournal(InventoryTransaction $transaction, ?int $counterAccountId = null): void
+    {
+        if (abs((float) $transaction->total_cost) < 0.005) {
+            return;
+        }
+
+        $alreadyPosted = DB::table('journals')
+            ->where('source_type', 'inventory_adjustment')
+            ->where('source_id', $transaction->id)
+            ->exists();
+
+        if ($alreadyPosted) {
+            return;
+        }
+
+        $transaction->loadMissing(['item']);
+
+        $builder = app(InventoryAdjustmentJournalBuilder::class);
+        $draft = $builder->build($transaction, $counterAccountId);
+
+        $payload = [
+            'date' => $draft->date ?? now()->toDateString(),
+            'description' => $draft->description,
+            'source_type' => 'inventory_adjustment',
+            'source_id' => $transaction->id,
+            'posted_by' => Auth::id() ?? $transaction->created_by,
+            'company_entity_id' => app(CompanyEntityService::class)->getDefaultEntity()->id,
+            'lines' => $draft->lines,
+        ];
+
+        app(PostingService::class)->postJournal($payload);
     }
 
     public function processTransferTransaction(int $fromItemId, int $toItemId, int $quantity, float $unitCost, ?string $notes = null)

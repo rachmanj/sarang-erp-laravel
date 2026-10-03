@@ -131,7 +131,7 @@ class WriteOffPhysicalCount extends Command
 
             if ($execute) {
                 try {
-                    DB::transaction(function () use ($item, $delta, $unitCost, $notes, $date, $physical, &$actions): void {
+                    DB::transaction(function () use ($item, $delta, $unitCost, $notes, $physical, &$actions): void {
                         $warehouseId = app(InventoryService::class)->resolveWarehouseId($item, null);
 
                         app(InventoryService::class)->processAdjustmentTransaction(
@@ -139,7 +139,8 @@ class WriteOffPhysicalCount extends Command
                             (int) $delta,
                             (float) $unitCost,
                             $notes,
-                            $warehouseId
+                            $warehouseId,
+                            true
                         );
 
                         $actions = array_merge($actions, $this->forceWarehouseTotalTo($item, $physical));

@@ -628,35 +628,22 @@ class InventoryController extends Controller
             }
 
             $quantity = $data['adjustment_type'] === 'increase'
-                ? $data['quantity']
-                : -$data['quantity'];
-
-            $totalCost = $quantity * $data['unit_cost'];
+                ? (int) $data['quantity']
+                : -(int) $data['quantity'];
 
             $warehouseId = app(InventoryService::class)->resolveWarehouseId(
                 $item,
                 isset($data['warehouse_id']) ? (int) $data['warehouse_id'] : null
             );
 
-            // Create adjustment transaction
-            $transaction = InventoryTransaction::create([
-                'item_id' => $item->id,
-                'warehouse_id' => $warehouseId,
-                'transaction_type' => 'adjustment',
-                'quantity' => $quantity,
-                'unit_cost' => $data['unit_cost'],
-                'total_cost' => $totalCost,
-                'reference_type' => 'stock_adjustment',
-                'reference_id' => null,
-                'transaction_date' => now()->toDateString(),
-                'notes' => $data['notes'] ?? 'Stock adjustment',
-                'created_by' => Auth::id(),
-            ]);
-
-            app(InventoryWarehouseStockService::class)->applyDelta($item->id, $warehouseId, $quantity);
-
-            // Update valuation
-            $this->updateValuation($item);
+            app(InventoryService::class)->processAdjustmentTransaction(
+                (int) $item->id,
+                $quantity,
+                (float) $data['unit_cost'],
+                $data['notes'] ?? 'Stock adjustment',
+                $warehouseId,
+                true
+            );
 
             if ($request->ajax()) {
                 return response()->json([
@@ -1038,95 +1025,6 @@ class InventoryController extends Controller
         $summary = $priceLevelService->getItemPriceLevelSummary($itemId);
 
         return response()->json($summary);
-    }
-
-    private function updateValuation(InventoryItem $item)
-    {
-        $currentStock = $item->current_stock;
-        $valuationDate = now()->toDateString();
-
-        // Calculate new valuation based on method
-        $unitCost = $this->calculateUnitCost($item);
-        $totalValue = $currentStock * $unitCost;
-
-        // Use updateOrCreate to handle existing valuations for the same date
-        InventoryValuation::updateOrCreate(
-            [
-                'item_id' => $item->id,
-                'valuation_date' => $valuationDate,
-            ],
-            [
-                'quantity_on_hand' => $currentStock,
-                'unit_cost' => $unitCost,
-                'total_value' => $totalValue,
-                'valuation_method' => $item->valuation_method,
-            ]
-        );
-    }
-
-    private function calculateUnitCost(InventoryItem $item)
-    {
-        $transactions = $item->transactions()
-            ->where('transaction_type', 'purchase')
-            ->orderBy('transaction_date', 'asc')
-            ->get();
-
-        if ($transactions->isEmpty()) {
-            return $item->purchase_price;
-        }
-
-        switch ($item->valuation_method) {
-            case 'fifo':
-                return app(\App\Services\InventoryService::class)->calculateUnitCost($item);
-            case 'weighted_average':
-                return $this->calculateWeightedAverageCost($transactions);
-            default:
-                return $item->purchase_price;
-        }
-    }
-
-    private function calculateFIFOCost($transactions)
-    {
-        $totalCost = 0;
-        $totalQuantity = 0;
-
-        foreach ($transactions as $transaction) {
-            $totalCost += $transaction->total_cost;
-            $totalQuantity += $transaction->quantity;
-        }
-
-        return $totalQuantity > 0 ? $totalCost / $totalQuantity : 0;
-    }
-
-    private function calculateLIFOCost($transactions)
-    {
-        $remainingStock = $transactions->sum('quantity');
-        $totalCost = 0;
-
-        foreach ($transactions->reverse() as $transaction) {
-            if ($remainingStock <= 0) {
-                break;
-            }
-
-            $quantityToUse = min($remainingStock, $transaction->quantity);
-            $totalCost += $quantityToUse * $transaction->unit_cost;
-            $remainingStock -= $quantityToUse;
-        }
-
-        return $remainingStock > 0 ? $totalCost / $remainingStock : 0;
-    }
-
-    private function calculateWeightedAverageCost($transactions)
-    {
-        $totalCost = 0;
-        $totalQuantity = 0;
-
-        foreach ($transactions as $transaction) {
-            $totalCost += $transaction->total_cost;
-            $totalQuantity += $transaction->quantity;
-        }
-
-        return $totalQuantity > 0 ? $totalCost / $totalQuantity : 0;
     }
 
     // Unit Management Methods
