@@ -116,6 +116,36 @@ class DocumentOpenStateFilterTest extends TestCase
         $this->assertNotContains($openPoId, $closedRows);
     }
 
+    public function test_sales_invoice_empty_open_state_matches_omitted_filter(): void
+    {
+        $openId = $this->createPostedSalesInvoice(500000, allocated: 0);
+        $closedId = $this->createPostedSalesInvoice(300000, allocated: 300000);
+
+        $withoutFilter = $this->fetchSalesInvoiceDataIdsFromParams([]);
+        $withEmptyFilter = $this->fetchSalesInvoiceDataIdsFromParams(['open_state' => '']);
+
+        $this->assertSame($withoutFilter, $withEmptyFilter);
+        $this->assertContains($openId, $withEmptyFilter);
+        $this->assertNotContains($closedId, $withEmptyFilter);
+    }
+
+    public function test_sales_invoice_closed_and_all_open_state_filters_still_work(): void
+    {
+        $openId = $this->createPostedSalesInvoice(500000, allocated: 0);
+        $closedId = $this->createPostedSalesInvoice(300000, allocated: 300000);
+
+        $openRows = $this->fetchSalesInvoiceDataIds('open');
+        $closedRows = $this->fetchSalesInvoiceDataIds('closed');
+        $allRows = $this->fetchSalesInvoiceDataIds('all');
+
+        $this->assertNotSame($openRows, $closedRows);
+        $this->assertGreaterThan(count($openRows), count($allRows));
+        $this->assertContains($openId, $openRows);
+        $this->assertContains($closedId, $closedRows);
+        $this->assertContains($openId, $allRows);
+        $this->assertContains($closedId, $allRows);
+    }
+
     public function test_sales_order_open_filter_excludes_fully_delivered_lines(): void
     {
         $customerId = (int) DB::table('business_partners')->where('partner_type', 'customer')->value('id');
@@ -138,14 +168,23 @@ class DocumentOpenStateFilterTest extends TestCase
     }
 
     /**
+     * @param  array<string, string>  $extra
+     * @return array<int, int>
+     */
+    private function fetchSalesInvoiceDataIdsFromParams(array $extra): array
+    {
+        $response = $this->getJson('/sales-invoices/data?'.$this->dataTableParams($extra));
+        $response->assertOk();
+
+        return array_map('intval', array_column($response->json('data') ?? [], 'id'));
+    }
+
+    /**
      * @return array<int, int>
      */
     private function fetchSalesInvoiceDataIds(string $openState): array
     {
-        $response = $this->getJson('/sales-invoices/data?'.$this->dataTableParams(['open_state' => $openState]));
-        $response->assertOk();
-
-        return array_map('intval', array_column($response->json('data') ?? [], 'id'));
+        return $this->fetchSalesInvoiceDataIdsFromParams(['open_state' => $openState]);
     }
 
     /**

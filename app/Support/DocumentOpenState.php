@@ -22,11 +22,29 @@ final class DocumentOpenState
         'purchase_payment',
     ];
 
+    public static function stateFromInput(mixed $value): string
+    {
+        if ($value === null || $value === '') {
+            return self::DEFAULT_STATE;
+        }
+
+        return is_string($value) ? $value : self::DEFAULT_STATE;
+    }
+
     public static function normalizeState(?string $state): string
     {
-        $state = strtolower(trim((string) $state));
+        if ($state === null) {
+            return self::DEFAULT_STATE;
+        }
 
-        if ($state === '' || $state === 'all') {
+        $state = strtolower(trim($state));
+
+        // DataTables may send open_state=; treat as default "open", not "all".
+        if ($state === '') {
+            return self::DEFAULT_STATE;
+        }
+
+        if ($state === 'all') {
             return 'all';
         }
 
@@ -37,7 +55,7 @@ final class DocumentOpenState
         return $state;
     }
 
-    public static function applyToQuery(Builder $query, string $type, string $alias, string $state): void
+    public static function applyToQuery(Builder $query, string $type, string $alias, ?string $state = null): void
     {
         $state = self::normalizeState($state);
 

@@ -1118,7 +1118,7 @@ class PurchaseInvoiceController extends Controller
             $query,
             'purchase_invoice',
             'pi',
-            $request->input('open_state', DocumentOpenState::DEFAULT_STATE)
+            DocumentOpenState::stateFromInput($request->input('open_state'))
         );
     }
 

@@ -1082,7 +1082,7 @@ class SalesInvoiceController extends Controller
             $query,
             'sales_invoice',
             'si',
-            $request->input('open_state', DocumentOpenState::DEFAULT_STATE)
+            DocumentOpenState::stateFromInput($request->input('open_state'))
         );
     }
 }

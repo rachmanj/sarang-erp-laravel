@@ -56,7 +56,7 @@ Route::prefix('sales-orders')->group(function () {
             $q,
             'sales_order',
             'so',
-            request('open_state', DocumentOpenState::DEFAULT_STATE)
+            DocumentOpenState::stateFromInput(request('open_state'))
         );
 
         return Yajra\DataTables\Facades\DataTables::of($q)
@@ -305,7 +305,7 @@ Route::prefix('delivery-orders')->group(function () {
             $q,
             'delivery_order',
             'do',
-            request('open_state', DocumentOpenState::DEFAULT_STATE)
+            DocumentOpenState::stateFromInput(request('open_state'))
         );
 
         return Yajra\DataTables\Facades\DataTables::of($q)
@@ -394,7 +394,7 @@ Route::prefix('purchase-orders')->group(function () {
             $q,
             'purchase_order',
             'po',
-            request('open_state', DocumentOpenState::DEFAULT_STATE)
+            DocumentOpenState::stateFromInput(request('open_state'))
         );
 
         return Yajra\DataTables\Facades\DataTables::of($q)
@@ -536,7 +536,7 @@ Route::prefix('goods-receipt-pos')->group(function () {
             $q,
             'grpo',
             'grpo',
-            request('open_state', DocumentOpenState::DEFAULT_STATE)
+            DocumentOpenState::stateFromInput(request('open_state'))
         );
 
         return Yajra\DataTables\Facades\DataTables::of($q)

@@ -397,7 +397,7 @@ class PurchasePaymentController extends Controller
             $q,
             'purchase_payment',
             'pp',
-            $request->input('open_state', DocumentOpenState::DEFAULT_STATE)
+            DocumentOpenState::stateFromInput($request->input('open_state'))
         );
 
         return DataTables::of($q)
