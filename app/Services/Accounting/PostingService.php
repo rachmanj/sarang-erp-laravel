@@ -28,6 +28,7 @@ class PostingService
         unset($payload['skip_postable_validation']);
 
         $this->validatePayload($payload, $skipPostableValidation);
+        AccountingStartDateGuard::validateJournalPayload($payload);
         $this->assertBalanced($payload['lines']);
         $this->validateMultiCurrency($payload['lines']);
 

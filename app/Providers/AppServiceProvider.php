@@ -2,7 +2,19 @@
 
 namespace App\Providers;
 
+use App\Models\Accounting\CashExpense;
+use App\Models\Accounting\Journal;
+use App\Models\Accounting\PurchaseInvoice;
+use App\Models\Accounting\PurchasePayment;
+use App\Models\Accounting\SalesInvoice;
+use App\Models\Accounting\SalesReceipt;
 use App\Models\AssistantConversation;
+use App\Models\DeliveryOrder;
+use App\Models\GoodsReceiptPO;
+use App\Models\GRGIHeader;
+use App\Models\PurchaseOrder;
+use App\Models\SalesOrder;
+use App\Observers\AccountingStartDateObserver;
 use App\Observers\AuditLogObserver;
 use App\Services\Assistant\DomainAssistantOpenRouterClient;
 use App\Services\Bank\BankReconciliationOpenRouterClient;
@@ -60,6 +72,7 @@ class AppServiceProvider extends ServiceProvider
         });
 
         $this->registerAuditLogObservers();
+        $this->registerAccountingStartDateGuard();
     }
 
     /**
@@ -77,6 +90,27 @@ class AppServiceProvider extends ServiceProvider
             if (class_exists($model)) {
                 $model::observe(AuditLogObserver::class);
             }
+        }
+    }
+
+    protected function registerAccountingStartDateGuard(): void
+    {
+        $models = [
+            PurchaseInvoice::class,
+            SalesInvoice::class,
+            Journal::class,
+            PurchasePayment::class,
+            SalesReceipt::class,
+            CashExpense::class,
+            GRGIHeader::class,
+            GoodsReceiptPO::class,
+            DeliveryOrder::class,
+            PurchaseOrder::class,
+            SalesOrder::class,
+        ];
+
+        foreach ($models as $model) {
+            $model::observe(AccountingStartDateObserver::class);
         }
     }
 }
