@@ -3,6 +3,8 @@
 namespace App\Services\Accounting;
 
 use App\Models\Accounting\Journal;
+use App\Models\Accounting\PurchaseInvoice;
+use App\Models\Accounting\SalesInvoice;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\ValidationException;
@@ -46,6 +48,10 @@ class AccountingStartDateGuard
 
         $date = $payload['date'] ?? null;
         if ($date === null || $date === '') {
+            return;
+        }
+
+        if (self::journalPayloadIsExempt($payload)) {
             return;
         }
 
@@ -101,5 +107,43 @@ class AccountingStartDateGuard
     private static function isTruthyOpeningBalance(mixed $value): bool
     {
         return $value === true || $value === 1 || $value === '1';
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private static function journalPayloadIsExempt(array $payload): bool
+    {
+        if (array_key_exists('is_opening_balance', $payload)
+            && self::isTruthyOpeningBalance($payload['is_opening_balance'])) {
+            return true;
+        }
+
+        $sourceType = $payload['source_type'] ?? null;
+        $sourceId = $payload['source_id'] ?? null;
+        if (! is_string($sourceType) || $sourceId === null || $sourceId === '') {
+            return false;
+        }
+
+        return self::sourceDocumentIsOpeningBalance($sourceType, (int) $sourceId);
+    }
+
+    private static function sourceDocumentIsOpeningBalance(string $sourceType, int $sourceId): bool
+    {
+        if ($sourceId <= 0) {
+            return false;
+        }
+
+        $model = match ($sourceType) {
+            'purchase_invoice' => PurchaseInvoice::query()->find($sourceId),
+            'sales_invoice' => SalesInvoice::query()->find($sourceId),
+            default => null,
+        };
+
+        if ($model === null) {
+            return false;
+        }
+
+        return self::isTruthyOpeningBalance($model->getAttribute('is_opening_balance'));
     }
 }
