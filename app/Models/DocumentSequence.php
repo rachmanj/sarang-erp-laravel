@@ -54,6 +54,7 @@ class DocumentSequence extends Model
     public function incrementSequence(): int
     {
         $this->increment('last_sequence');
+
         return $this->last_sequence;
     }
 
@@ -61,6 +62,15 @@ class DocumentSequence extends Model
     {
         $this->increment('current_number');
         $this->last_sequence = $this->current_number;
+        $this->save();
+
+        return $this->current_number;
+    }
+
+    public function setEntitySequence(int $sequence): int
+    {
+        $this->current_number = $sequence;
+        $this->last_sequence = $sequence;
         $this->save();
 
         return $this->current_number;

@@ -6,6 +6,7 @@ use App\Services\CompanyEntityService;
 use App\Services\ControlAccountService;
 use App\Services\DocumentNumberingService;
 use App\Services\ExchangeRateService;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -62,11 +63,7 @@ class PostingService
                 'updated_at' => now(),
             ]);
 
-            // Generate journal number using centralized service with entity context
-            $journalNo = $this->documentNumberingService->generateNumber('journal', $payload['date'], [
-                'company_entity_id' => $entityId,
-            ]);
-            DB::table('journals')->where('id', $journalId)->update(['journal_no' => $journalNo]);
+            $this->assignJournalNumber($entityId, $payload['date'], $journalId);
 
             $linesInsert = [];
             foreach ($payload['lines'] as $l) {
@@ -407,5 +404,49 @@ class PostingService
             'goods_receipt_po' => \App\Models\GoodsReceiptPO::class,
             default => $sourceType,
         };
+    }
+
+    private function assignJournalNumber(int $entityId, string $date, int $journalId): string
+    {
+        $maxAttempts = 5;
+
+        for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+            $journalNo = $this->documentNumberingService->generateNumber('journal', $date, [
+                'company_entity_id' => $entityId,
+            ]);
+
+            try {
+                DB::table('journals')->where('id', $journalId)->update(['journal_no' => $journalNo]);
+
+                return $journalNo;
+            } catch (QueryException $exception) {
+                if (! $this->isDuplicateJournalNumberException($exception)) {
+                    throw $exception;
+                }
+
+                if ($attempt === $maxAttempts) {
+                    throw new \RuntimeException(
+                        'Nomor jurnal tidak dapat dibuat karena konflik penomoran. Silakan coba lagi atau hubungi administrator.'
+                    );
+                }
+            }
+        }
+
+        throw new \RuntimeException(
+            'Nomor jurnal tidak dapat dibuat karena konflik penomoran. Silakan coba lagi atau hubungi administrator.'
+        );
+    }
+
+    private function isDuplicateJournalNumberException(QueryException $exception): bool
+    {
+        $sqlState = $exception->errorInfo[0] ?? '';
+        $driverCode = (int) ($exception->errorInfo[1] ?? 0);
+
+        if ($driverCode !== 1062 && $sqlState !== '23000') {
+            return false;
+        }
+
+        return str_contains($exception->getMessage(), 'journals_journal_no_unique')
+            || str_contains($exception->getMessage(), 'journal_no');
     }
 }
