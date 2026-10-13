@@ -22,6 +22,7 @@ use App\Services\Help\HelpOpenRouterClient;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -58,6 +59,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        $host = request()->getHost();
+        if (filter_var($host, FILTER_VALIDATE_IP)) {
+            URL::forceRootUrl('http://'.$host.':3008');
+            URL::forceScheme('http');
+        }
+
         Paginator::useBootstrapFour();
 
         Route::bind('conversation', function (string $value) {
