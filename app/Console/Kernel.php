@@ -41,6 +41,7 @@ class Kernel extends BaseKernel
         \App\Console\Commands\SeedCapitalAndFixedAssetsCommand::class,
         \App\Console\Commands\RunAuditCommand::class,
         \App\Console\Commands\WriteOffPhysicalCount::class,
+        \App\Console\Commands\AuditCashAccountSync::class,
     ];
 
     /**
