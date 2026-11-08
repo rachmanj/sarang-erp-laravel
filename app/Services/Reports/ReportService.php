@@ -985,6 +985,12 @@ class ReportService
             ->when(! empty($options['company_entity_id']), function ($query) use ($options) {
                 $query->where('pi.company_entity_id', (int) $options['company_entity_id']);
             })
+            ->when(empty($options['include_direct_purchase']), function ($query) {
+                $query->where(function ($q) {
+                    $q->where('pi.is_direct_purchase', false)
+                        ->orWhereNull('pi.is_direct_purchase');
+                });
+            })
             ->whereDate(DB::raw('COALESCE(pi.due_date, pi.date)'), '<=', $asOfDate)
             ->leftJoin('purchase_payment_allocations as ppa', 'ppa.invoice_id', '=', 'pi.id')
             ->leftJoin('purchase_payments as pp', function ($join) use ($asOfDate) {

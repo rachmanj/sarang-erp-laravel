@@ -427,6 +427,65 @@ class ReportsTest extends TestCase
         $this->assertEqualsWithDelta($baseApAll + $apAmountPt + $apAmountCv, (float) $reports->getApAging($asOf)['totals']['total'], 0.01);
     }
 
+    public function test_ap_aging_excludes_direct_cash_purchase_unless_opted_in(): void
+    {
+        $asOf = now()->toDateString();
+        $reports = app(ReportService::class);
+        $entityId = (int) DB::table('company_entities')->where('code', '71')->value('id');
+        $this->assertNotNull($entityId);
+        $currencyId = (int) DB::table('currencies')->orderBy('id')->value('id');
+        $vendorId = (int) DB::table('business_partners')->where('partner_type', 'supplier')->value('id');
+
+        $directAmount = 5555.55;
+        $creditAmount = 6666.66;
+
+        $baseTotal = (float) ($reports->getApAging($asOf, ['company_entity_id' => $entityId])['totals']['total'] ?? 0);
+        $baseBalance = (float) ($reports->getApBalances($asOf)['totals']['balance'] ?? 0);
+
+        $row = [
+            'date' => $asOf,
+            'business_partner_id' => $vendorId,
+            'company_entity_id' => $entityId,
+            'currency_id' => $currencyId,
+            'exchange_rate' => 1,
+            'status' => 'posted',
+            'posted_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ];
+
+        DB::table('purchase_invoices')->insert(array_merge($row, [
+            'invoice_no' => 'PI-DIRECT-AGING-'.uniqid(),
+            'total_amount' => $directAmount,
+            'total_amount_foreign' => $directAmount,
+            'is_direct_purchase' => 1,
+            'payment_method' => 'cash',
+        ]));
+        DB::table('purchase_invoices')->insert(array_merge($row, [
+            'invoice_no' => 'PI-CREDIT-AGING-'.uniqid(),
+            'total_amount' => $creditAmount,
+            'total_amount_foreign' => $creditAmount,
+            'is_direct_purchase' => 0,
+            'payment_method' => 'credit',
+        ]));
+
+        $defaultAging = $reports->getApAging($asOf, ['company_entity_id' => $entityId]);
+        $this->assertEqualsWithDelta($baseTotal + $creditAmount, (float) $defaultAging['totals']['total'], 0.01);
+
+        $includedDirectAging = $reports->getApAging($asOf, [
+            'company_entity_id' => $entityId,
+            'include_direct_purchase' => true,
+        ]);
+        $this->assertEqualsWithDelta(
+            $baseTotal + $creditAmount + $directAmount,
+            (float) $includedDirectAging['totals']['total'],
+            0.01
+        );
+
+        $balances = $reports->getApBalances($asOf);
+        $this->assertEqualsWithDelta($baseBalance + $creditAmount, (float) $balances['totals']['balance'], 0.01);
+    }
+
     public function test_subledger_reconciliation_uses_entity_filtered_aging(): void
     {
         $asOf = now()->toDateString();
