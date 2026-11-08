@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use App\Services\Reports\ReportService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -336,5 +337,125 @@ class ReportsTest extends TestCase
         foreach ($data['sections'] as $section) {
             $this->assertArrayHasKey('prior_total', $section);
         }
+    }
+
+    public function test_ar_ap_aging_respects_company_entity_id_filter(): void
+    {
+        $asOf = now()->toDateString();
+        $reports = app(ReportService::class);
+        $entityPt = (int) DB::table('company_entities')->where('code', '71')->value('id');
+        $entityCv = (int) DB::table('company_entities')->where('code', '72')->value('id');
+        $currencyId = (int) DB::table('currencies')->orderBy('id')->value('id');
+        $customerId = (int) DB::table('business_partners')->where('partner_type', 'customer')->value('id');
+        $vendorId = (int) DB::table('business_partners')->where('partner_type', 'supplier')->value('id');
+
+        $baseArPt = (float) ($reports->getArAging($asOf, ['company_entity_id' => $entityPt])['totals']['total'] ?? 0);
+        $baseArCv = (float) ($reports->getArAging($asOf, ['company_entity_id' => $entityCv])['totals']['total'] ?? 0);
+        $baseArAll = (float) ($reports->getArAging($asOf)['totals']['total'] ?? 0);
+        $baseApPt = (float) ($reports->getApAging($asOf, ['company_entity_id' => $entityPt])['totals']['total'] ?? 0);
+        $baseApCv = (float) ($reports->getApAging($asOf, ['company_entity_id' => $entityCv])['totals']['total'] ?? 0);
+        $baseApAll = (float) ($reports->getApAging($asOf)['totals']['total'] ?? 0);
+
+        $arAmountPt = 1111.11;
+        $arAmountCv = 2222.22;
+        $apAmountPt = 3333.33;
+        $apAmountCv = 4444.44;
+
+        DB::table('sales_invoices')->insert([
+            'invoice_no' => 'SI-AGING-PT-'.uniqid(),
+            'date' => $asOf,
+            'business_partner_id' => $customerId,
+            'company_entity_id' => $entityPt,
+            'currency_id' => $currencyId,
+            'exchange_rate' => 1,
+            'total_amount' => $arAmountPt,
+            'total_amount_foreign' => $arAmountPt,
+            'status' => 'posted',
+            'posted_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('sales_invoices')->insert([
+            'invoice_no' => 'SI-AGING-CV-'.uniqid(),
+            'date' => $asOf,
+            'business_partner_id' => $customerId,
+            'company_entity_id' => $entityCv,
+            'currency_id' => $currencyId,
+            'exchange_rate' => 1,
+            'total_amount' => $arAmountCv,
+            'total_amount_foreign' => $arAmountCv,
+            'status' => 'posted',
+            'posted_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('purchase_invoices')->insert([
+            'invoice_no' => 'PI-AGING-PT-'.uniqid(),
+            'date' => $asOf,
+            'business_partner_id' => $vendorId,
+            'company_entity_id' => $entityPt,
+            'currency_id' => $currencyId,
+            'exchange_rate' => 1,
+            'total_amount' => $apAmountPt,
+            'total_amount_foreign' => $apAmountPt,
+            'status' => 'posted',
+            'posted_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('purchase_invoices')->insert([
+            'invoice_no' => 'PI-AGING-CV-'.uniqid(),
+            'date' => $asOf,
+            'business_partner_id' => $vendorId,
+            'company_entity_id' => $entityCv,
+            'currency_id' => $currencyId,
+            'exchange_rate' => 1,
+            'total_amount' => $apAmountCv,
+            'total_amount_foreign' => $apAmountCv,
+            'status' => 'posted',
+            'posted_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->assertEqualsWithDelta($baseArPt + $arAmountPt, (float) $reports->getArAging($asOf, ['company_entity_id' => $entityPt])['totals']['total'], 0.01);
+        $this->assertEqualsWithDelta($baseArCv + $arAmountCv, (float) $reports->getArAging($asOf, ['company_entity_id' => $entityCv])['totals']['total'], 0.01);
+        $this->assertEqualsWithDelta($baseArAll + $arAmountPt + $arAmountCv, (float) $reports->getArAging($asOf)['totals']['total'], 0.01);
+
+        $this->assertEqualsWithDelta($baseApPt + $apAmountPt, (float) $reports->getApAging($asOf, ['company_entity_id' => $entityPt])['totals']['total'], 0.01);
+        $this->assertEqualsWithDelta($baseApCv + $apAmountCv, (float) $reports->getApAging($asOf, ['company_entity_id' => $entityCv])['totals']['total'], 0.01);
+        $this->assertEqualsWithDelta($baseApAll + $apAmountPt + $apAmountCv, (float) $reports->getApAging($asOf)['totals']['total'], 0.01);
+    }
+
+    public function test_subledger_reconciliation_uses_entity_filtered_aging(): void
+    {
+        $asOf = now()->toDateString();
+        $reports = app(ReportService::class);
+        $entityPt = (int) DB::table('company_entities')->where('code', '71')->value('id');
+        $currencyId = (int) DB::table('currencies')->orderBy('id')->value('id');
+        $customerId = (int) DB::table('business_partners')->where('partner_type', 'customer')->value('id');
+
+        DB::table('sales_invoices')->insert([
+            'invoice_no' => 'SI-SUBLEDGER-PT-'.uniqid(),
+            'date' => $asOf,
+            'business_partner_id' => $customerId,
+            'company_entity_id' => $entityPt,
+            'currency_id' => $currencyId,
+            'exchange_rate' => 1,
+            'total_amount' => 1500,
+            'total_amount_foreign' => 1500,
+            'status' => 'posted',
+            'posted_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $filters = ['company_entity_id' => $entityPt];
+        $expectedAr = (float) $reports->getArAging($asOf, $filters)['totals']['total'];
+        $recon = $reports->getSubledgerReconciliation($asOf, true, $filters);
+        $arSection = collect($recon['sections'])->firstWhere('control_type', 'ar');
+
+        $this->assertNotNull($arSection);
+        $this->assertEqualsWithDelta($expectedAr, (float) $arSection['subledger_total'], 0.01);
     }
 }
