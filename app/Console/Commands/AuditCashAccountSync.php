@@ -24,6 +24,14 @@ class AuditCashAccountSync extends Command
 
     private const NET_EFFECTIVE_TOLERANCE = 0.5;
 
+    private const KLASIFIKASI_COCOK = 'cocok';
+
+    private const KLASIFIKASI_SELISIH = 'selisih';
+
+    private const KLASIFIKASI_MULTI_SUMBER = 'multi-sumber';
+
+    private const KLASIFIKASI_TANPA_AKUN_DOKUMEN = 'tanpa-akun-dokumen';
+
     /** @var array<int, true> */
     private array $cashAccountIdSet = [];
 
@@ -36,40 +44,35 @@ class AuditCashAccountSync extends Command
         $this->loadCashAccounts();
 
         $checked = 0;
-        $discrepancies = [];
-        /** @var array<string, array{checked: int, selisih: int}> */
+        /** @var list<array<string, mixed>> */
+        $displayRows = [];
+        /** @var list<array<string, mixed>> */
+        $selisihRows = [];
+        /** @var array<string, array{checked: int, selisih: int, multi_sumber: int, tanpa_akun_dokumen: int}> */
         $statsByJenis = [];
 
         foreach ($this->auditPurchasePayments($from, $to) as $item) {
             $checked++;
             $this->incrementJenisStats($statsByJenis, $item);
-            if ($item['is_mismatch']) {
-                $discrepancies[] = $item;
-            }
+            $this->bucketAuditItem($item, $displayRows, $selisihRows);
         }
 
         foreach ($this->auditSalesReceipts($from, $to) as $item) {
             $checked++;
             $this->incrementJenisStats($statsByJenis, $item);
-            if ($item['is_mismatch']) {
-                $discrepancies[] = $item;
-            }
+            $this->bucketAuditItem($item, $displayRows, $selisihRows);
         }
 
         foreach ($this->auditDirectPurchaseInvoices($from, $to) as $item) {
             $checked++;
             $this->incrementJenisStats($statsByJenis, $item);
-            if ($item['is_mismatch']) {
-                $discrepancies[] = $item;
-            }
+            $this->bucketAuditItem($item, $displayRows, $selisihRows);
         }
 
         foreach ($this->auditCashExpenses($from, $to) as $item) {
             $checked++;
             $this->incrementJenisStats($statsByJenis, $item);
-            if ($item['is_mismatch']) {
-                $discrepancies[] = $item;
-            }
+            $this->bucketAuditItem($item, $displayRows, $selisihRows);
         }
 
         $tableRows = array_map(
@@ -79,22 +82,26 @@ class AuditCashAccountSync extends Command
                 $d['tanggal'],
                 $this->formatAccountSet($d['doc_account_ids']),
                 $this->formatAccountSet($d['journal_account_ids']),
+                $d['klasifikasi'],
                 $d['selisih'],
             ],
-            $discrepancies
+            $displayRows
         );
 
         if ($tableRows !== []) {
-            $this->table(['Jenis', 'Dokumen', 'Tanggal', 'Akun dokumen', 'Akun jurnal', 'Selisih'], $tableRows);
+            $this->table(
+                ['Jenis', 'Dokumen', 'Tanggal', 'Akun dokumen', 'Akun jurnal', 'Klasifikasi', 'Selisih'],
+                $tableRows
+            );
         } else {
             $this->info('Tidak ada selisih akun kas/bank pada rentang tanggal ini.');
         }
 
         $this->newLine();
-        $this->printJenisSummaryTable($statsByJenis, $checked, count($discrepancies));
+        $this->printJenisSummaryTable($statsByJenis, $checked);
         $this->newLine();
         $this->line("Dokumen diperiksa: {$checked}");
-        $this->line('Selisih ditemukan: '.count($discrepancies));
+        $this->line('Selisih ditemukan: '.count($selisihRows));
 
         $doFix = (bool) $this->option('fix');
         if (! $doFix) {
@@ -103,7 +110,7 @@ class AuditCashAccountSync extends Command
             return self::SUCCESS;
         }
 
-        if ($discrepancies === []) {
+        if ($selisihRows === []) {
             return self::SUCCESS;
         }
 
@@ -111,8 +118,8 @@ class AuditCashAccountSync extends Command
         $fixedCount = 0;
 
         try {
-            DB::transaction(function () use ($discrepancies, $periodClose, $force, &$fixedCount): void {
-                foreach ($discrepancies as $doc) {
+            DB::transaction(function () use ($selisihRows, $periodClose, $force, &$fixedCount): void {
+                foreach ($selisihRows as $doc) {
                     $result = $this->fixDocument($doc, $periodClose, $force);
                     if ($result !== null) {
                         $fixedCount++;
@@ -193,34 +200,84 @@ class AuditCashAccountSync extends Command
     }
 
     /**
-     * @param  array<string, array{checked: int, selisih: int}>  $statsByJenis
+     * @param  list<array<string, mixed>>  $displayRows
+     * @param  list<array<string, mixed>>  $selisihRows
+     * @param  array<string, mixed>  $item
+     */
+    private function bucketAuditItem(array $item, array &$displayRows, array &$selisihRows): void
+    {
+        if ($item['klasifikasi'] === self::KLASIFIKASI_COCOK) {
+            return;
+        }
+
+        $displayRows[] = $item;
+        if ($item['klasifikasi'] === self::KLASIFIKASI_SELISIH) {
+            $selisihRows[] = $item;
+        }
+    }
+
+    /**
+     * @param  array<string, array{checked: int, selisih: int, multi_sumber: int, tanpa_akun_dokumen: int}>  $statsByJenis
      * @param  array<string, mixed>  $item
      */
     private function incrementJenisStats(array &$statsByJenis, array $item): void
     {
         $jenis = (string) $item['jenis'];
         if (! isset($statsByJenis[$jenis])) {
-            $statsByJenis[$jenis] = ['checked' => 0, 'selisih' => 0];
+            $statsByJenis[$jenis] = [
+                'checked' => 0,
+                'selisih' => 0,
+                'multi_sumber' => 0,
+                'tanpa_akun_dokumen' => 0,
+            ];
         }
         $statsByJenis[$jenis]['checked']++;
-        if ($item['is_mismatch']) {
-            $statsByJenis[$jenis]['selisih']++;
+        $key = match ($item['klasifikasi']) {
+            self::KLASIFIKASI_SELISIH => 'selisih',
+            self::KLASIFIKASI_MULTI_SUMBER => 'multi_sumber',
+            self::KLASIFIKASI_TANPA_AKUN_DOKUMEN => 'tanpa_akun_dokumen',
+            default => null,
+        };
+        if ($key !== null) {
+            $statsByJenis[$jenis][$key]++;
         }
     }
 
     /**
-     * @param  array<string, array{checked: int, selisih: int}>  $statsByJenis
+     * @param  array<string, array{checked: int, selisih: int, multi_sumber: int, tanpa_akun_dokumen: int}>  $statsByJenis
      */
-    private function printJenisSummaryTable(array $statsByJenis, int $totalChecked, int $totalSelisih): void
+    private function printJenisSummaryTable(array $statsByJenis, int $totalChecked): void
     {
+        $totalSelisih = 0;
+        $totalMulti = 0;
+        $totalTanpa = 0;
+
         $rows = [];
         foreach ($statsByJenis as $jenis => $stats) {
-            $rows[] = [$jenis, (string) $stats['checked'], (string) $stats['selisih']];
+            $totalSelisih += $stats['selisih'];
+            $totalMulti += $stats['multi_sumber'];
+            $totalTanpa += $stats['tanpa_akun_dokumen'];
+            $rows[] = [
+                $jenis,
+                (string) $stats['checked'],
+                (string) $stats['selisih'],
+                (string) $stats['multi_sumber'],
+                (string) $stats['tanpa_akun_dokumen'],
+            ];
         }
         usort($rows, fn (array $a, array $b) => strcmp($a[0], $b[0]));
-        $rows[] = ['Total', (string) $totalChecked, (string) $totalSelisih];
+        $rows[] = [
+            'Total',
+            (string) $totalChecked,
+            (string) $totalSelisih,
+            (string) $totalMulti,
+            (string) $totalTanpa,
+        ];
 
-        $this->table(['Jenis', 'Dokumen diperiksa', 'Selisih'], $rows);
+        $this->table(
+            ['Jenis', 'Diperiksa', 'Selisih', 'Multi-sumber', 'Tanpa akun dokumen'],
+            $rows
+        );
     }
 
     /**
@@ -363,14 +420,7 @@ class AuditCashAccountSync extends Command
             ->where('source_id', $sourceId)
             ->exists();
 
-        $noCashCreditInJournal = $journalAccountIds === [];
-        $isMismatch = $docAccountIds !== []
-            && ($noCashCreditInJournal || $this->setsDiffer($docAccountIds, $journalAccountIds));
-
-        $selisih = 'akun kas/bank tidak sesuai';
-        if ($noCashCreditInJournal && $docAccountIds !== []) {
-            $selisih = 'jurnal tidak ditemukan';
-        }
+        $klasifikasi = $this->classifyAccountSets($docAccountIds, $journalAccountIds, $hasJournal);
 
         return [
             'jenis' => 'Pengeluaran Kas',
@@ -378,8 +428,8 @@ class AuditCashAccountSync extends Command
             'tanggal' => $tanggal,
             'doc_account_ids' => $docAccountIds,
             'journal_account_ids' => $journalAccountIds,
-            'selisih' => $selisih,
-            'is_mismatch' => $isMismatch,
+            'klasifikasi' => $klasifikasi,
+            'selisih' => $this->selisihLabelForKlasifikasi($klasifikasi, $hasJournal),
             'source_type' => 'cash_expense',
             'source_id' => $sourceId,
             'journal_side' => 'credit',
@@ -496,12 +546,7 @@ class AuditCashAccountSync extends Command
             ->where('source_id', $sourceId)
             ->exists();
 
-        $isMismatch = $this->setsDiffer($docAccountIds, $journalAccountIds) || ! $hasJournal;
-
-        $selisih = 'akun kas/bank tidak sesuai';
-        if (! $hasJournal) {
-            $selisih = 'jurnal tidak ditemukan';
-        }
+        $klasifikasi = $this->classifyAccountSets($docAccountIds, $journalAccountIds, $hasJournal);
 
         return [
             'jenis' => $jenis,
@@ -509,8 +554,8 @@ class AuditCashAccountSync extends Command
             'tanggal' => $tanggal,
             'doc_account_ids' => $docAccountIds,
             'journal_account_ids' => $journalAccountIds,
-            'selisih' => $selisih,
-            'is_mismatch' => $isMismatch,
+            'klasifikasi' => $klasifikasi,
+            'selisih' => $this->selisihLabelForKlasifikasi($klasifikasi, $hasJournal),
             'source_type' => $sourceType,
             'source_id' => $sourceId,
             'journal_side' => $journalSide,
@@ -519,12 +564,46 @@ class AuditCashAccountSync extends Command
     }
 
     /**
-     * @param  array<int>  $a
-     * @param  array<int>  $b
+     * @param  array<int>  $docAccountIds
+     * @param  array<int>  $journalAccountIds
      */
-    private function setsDiffer(array $a, array $b): bool
+    private function classifyAccountSets(array $docAccountIds, array $journalAccountIds, bool $hasJournal): string
     {
-        return array_values($a) !== array_values($b);
+        $doc = array_values($docAccountIds);
+        $journal = array_values($journalAccountIds);
+
+        if ($doc === $journal) {
+            return self::KLASIFIKASI_COCOK;
+        }
+
+        if ($doc === []) {
+            return self::KLASIFIKASI_TANPA_AKUN_DOKUMEN;
+        }
+
+        if (! $hasJournal || $journal === []) {
+            return self::KLASIFIKASI_SELISIH;
+        }
+
+        foreach ($doc as $accountId) {
+            if (! in_array($accountId, $journal, true)) {
+                return self::KLASIFIKASI_SELISIH;
+            }
+        }
+
+        return self::KLASIFIKASI_MULTI_SUMBER;
+    }
+
+    private function selisihLabelForKlasifikasi(string $klasifikasi, bool $hasJournal): string
+    {
+        if ($klasifikasi !== self::KLASIFIKASI_SELISIH) {
+            return '';
+        }
+
+        if (! $hasJournal) {
+            return 'jurnal tidak ditemukan';
+        }
+
+        return 'akun kas/bank tidak sesuai';
     }
 
     /**
