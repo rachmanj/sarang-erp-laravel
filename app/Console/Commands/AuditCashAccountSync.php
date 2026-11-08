@@ -22,6 +22,8 @@ class AuditCashAccountSync extends Command
 
     private const IMBALANCE_TOLERANCE = 0.01;
 
+    private const NET_EFFECTIVE_TOLERANCE = 0.5;
+
     /** @var array<int, true> */
     private array $cashAccountIdSet = [];
 
@@ -35,9 +37,12 @@ class AuditCashAccountSync extends Command
 
         $checked = 0;
         $discrepancies = [];
+        /** @var array<string, array{checked: int, selisih: int}> */
+        $statsByJenis = [];
 
         foreach ($this->auditPurchasePayments($from, $to) as $item) {
             $checked++;
+            $this->incrementJenisStats($statsByJenis, $item);
             if ($item['is_mismatch']) {
                 $discrepancies[] = $item;
             }
@@ -45,6 +50,7 @@ class AuditCashAccountSync extends Command
 
         foreach ($this->auditSalesReceipts($from, $to) as $item) {
             $checked++;
+            $this->incrementJenisStats($statsByJenis, $item);
             if ($item['is_mismatch']) {
                 $discrepancies[] = $item;
             }
@@ -52,6 +58,7 @@ class AuditCashAccountSync extends Command
 
         foreach ($this->auditDirectPurchaseInvoices($from, $to) as $item) {
             $checked++;
+            $this->incrementJenisStats($statsByJenis, $item);
             if ($item['is_mismatch']) {
                 $discrepancies[] = $item;
             }
@@ -59,6 +66,7 @@ class AuditCashAccountSync extends Command
 
         foreach ($this->auditCashExpenses($from, $to) as $item) {
             $checked++;
+            $this->incrementJenisStats($statsByJenis, $item);
             if ($item['is_mismatch']) {
                 $discrepancies[] = $item;
             }
@@ -82,6 +90,8 @@ class AuditCashAccountSync extends Command
             $this->info('Tidak ada selisih akun kas/bank pada rentang tanggal ini.');
         }
 
+        $this->newLine();
+        $this->printJenisSummaryTable($statsByJenis, $checked, count($discrepancies));
         $this->newLine();
         $this->line("Dokumen diperiksa: {$checked}");
         $this->line('Selisih ditemukan: '.count($discrepancies));
@@ -183,6 +193,37 @@ class AuditCashAccountSync extends Command
     }
 
     /**
+     * @param  array<string, array{checked: int, selisih: int}>  $statsByJenis
+     * @param  array<string, mixed>  $item
+     */
+    private function incrementJenisStats(array &$statsByJenis, array $item): void
+    {
+        $jenis = (string) $item['jenis'];
+        if (! isset($statsByJenis[$jenis])) {
+            $statsByJenis[$jenis] = ['checked' => 0, 'selisih' => 0];
+        }
+        $statsByJenis[$jenis]['checked']++;
+        if ($item['is_mismatch']) {
+            $statsByJenis[$jenis]['selisih']++;
+        }
+    }
+
+    /**
+     * @param  array<string, array{checked: int, selisih: int}>  $statsByJenis
+     */
+    private function printJenisSummaryTable(array $statsByJenis, int $totalChecked, int $totalSelisih): void
+    {
+        $rows = [];
+        foreach ($statsByJenis as $jenis => $stats) {
+            $rows[] = [$jenis, (string) $stats['checked'], (string) $stats['selisih']];
+        }
+        usort($rows, fn (array $a, array $b) => strcmp($a[0], $b[0]));
+        $rows[] = ['Total', (string) $totalChecked, (string) $totalSelisih];
+
+        $this->table(['Jenis', 'Dokumen diperiksa', 'Selisih'], $rows);
+    }
+
+    /**
      * @return \Generator<int, array<string, mixed>>
      */
     private function auditPurchasePayments(string $from, string $to): \Generator
@@ -199,7 +240,7 @@ class AuditCashAccountSync extends Command
             $docIds = $this->uniqueCashIdsFromLineAccounts(
                 $payment->lines->pluck('account_id')->all()
             );
-            $journalIds = $this->journalCashAccountIds('purchase_payment', (int) $payment->id, 'credit');
+            $journalIds = $this->journalEffectiveCashAccountIds('purchase_payment', (int) $payment->id);
             yield $this->buildAuditRow(
                 jenis: 'Pembayaran Pembelian',
                 dokumen: $payment->payment_no ?: '#'.$payment->id,
@@ -230,7 +271,7 @@ class AuditCashAccountSync extends Command
             $docIds = $this->uniqueCashIdsFromLineAccounts(
                 $receipt->lines->pluck('account_id')->all()
             );
-            $journalIds = $this->journalCashAccountIds('sales_receipt', (int) $receipt->id, 'debit');
+            $journalIds = $this->journalEffectiveCashAccountIds('sales_receipt', (int) $receipt->id);
             yield $this->buildAuditRow(
                 jenis: 'Penerimaan Penjualan',
                 dokumen: $receipt->receipt_no ?: '#'.$receipt->id,
@@ -261,7 +302,7 @@ class AuditCashAccountSync extends Command
         foreach ($invoices as $invoice) {
             $cashId = (int) $invoice->cash_account_id;
             $docIds = isset($this->cashAccountIdSet[$cashId]) ? [$cashId] : [];
-            $journalIds = $this->journalCashAccountIds('purchase_invoice', (int) $invoice->id, 'credit');
+            $journalIds = $this->journalEffectiveCashAccountIds('purchase_invoice', (int) $invoice->id);
             yield $this->buildAuditRow(
                 jenis: 'Faktur Pembelian Tunai',
                 dokumen: $invoice->invoice_no ?: '#'.$invoice->id,
@@ -284,26 +325,66 @@ class AuditCashAccountSync extends Command
             ->where('status', 'posted')
             ->whereDate('date', '>=', $from)
             ->whereDate('date', '<=', $to)
-            ->with('lines')
             ->orderBy('id')
             ->get();
 
         foreach ($expenses as $expense) {
-            $docIds = $this->uniqueCashIdsFromLineAccounts(
-                $expense->lines->pluck('account_id')->all()
-            );
-            $journalIds = $this->journalCashAccountIds('cash_expense', (int) $expense->id, 'credit');
-            yield $this->buildAuditRow(
-                jenis: 'Pengeluaran Kas',
+            if ($expense->cash_account_id === null) {
+                continue;
+            }
+
+            $cashId = (int) $expense->cash_account_id;
+            $docIds = isset($this->cashAccountIdSet[$cashId]) ? [$cashId] : [];
+            $journalIds = $this->journalEffectiveCashAccountIds('cash_expense', (int) $expense->id);
+            yield $this->buildCashExpenseAuditRow(
                 dokumen: $expense->expense_no ?: '#'.$expense->id,
                 tanggal: Carbon::parse($expense->date)->toDateString(),
                 docAccountIds: $docIds,
                 journalAccountIds: $journalIds,
-                sourceType: 'cash_expense',
                 sourceId: (int) $expense->id,
-                journalSide: 'credit',
             );
         }
+    }
+
+    /**
+     * @param  array<int>  $docAccountIds
+     * @param  array<int>  $journalAccountIds
+     * @return array<string, mixed>
+     */
+    private function buildCashExpenseAuditRow(
+        string $dokumen,
+        string $tanggal,
+        array $docAccountIds,
+        array $journalAccountIds,
+        int $sourceId,
+    ): array {
+        $hasJournal = DB::table('journals')
+            ->where('source_type', 'cash_expense')
+            ->where('source_id', $sourceId)
+            ->exists();
+
+        $noCashCreditInJournal = $journalAccountIds === [];
+        $isMismatch = $docAccountIds !== []
+            && ($noCashCreditInJournal || $this->setsDiffer($docAccountIds, $journalAccountIds));
+
+        $selisih = 'akun kas/bank tidak sesuai';
+        if ($noCashCreditInJournal && $docAccountIds !== []) {
+            $selisih = 'jurnal tidak ditemukan';
+        }
+
+        return [
+            'jenis' => 'Pengeluaran Kas',
+            'dokumen' => $dokumen,
+            'tanggal' => $tanggal,
+            'doc_account_ids' => $docAccountIds,
+            'journal_account_ids' => $journalAccountIds,
+            'selisih' => $selisih,
+            'is_mismatch' => $isMismatch,
+            'source_type' => 'cash_expense',
+            'source_id' => $sourceId,
+            'journal_side' => 'credit',
+            'has_journal' => $hasJournal,
+        ];
     }
 
     /**
@@ -329,28 +410,70 @@ class AuditCashAccountSync extends Command
     /**
      * @return array<int>
      */
-    private function journalCashAccountIds(string $sourceType, int $sourceId, string $side): array
+    private function journalEffectiveCashAccountIds(string $sourceType, int $sourceId): array
     {
         if (! DB::table('journals')->where('source_type', $sourceType)->where('source_id', $sourceId)->exists()) {
             return [];
         }
 
-        $query = DB::table('journal_lines as jl')
-            ->join('journals as j', 'j.id', '=', 'jl.journal_id')
-            ->where('j.source_type', $sourceType)
-            ->where('j.source_id', $sourceId)
-            ->whereIn('jl.account_id', array_keys($this->cashAccountIdSet));
-
-        if ($side === 'credit') {
-            $query->where('jl.credit', '>', 0);
-        } else {
-            $query->where('jl.debit', '>', 0);
+        $nets = $this->cashAccountNetsForSource($sourceType, $sourceId);
+        $ids = [];
+        foreach ($nets as $accountId => $net) {
+            if (abs($net) > self::NET_EFFECTIVE_TOLERANCE) {
+                $ids[] = $accountId;
+            }
         }
-
-        $ids = $query->distinct()->pluck('jl.account_id')->map(fn ($id) => (int) $id)->all();
         sort($ids);
 
         return $ids;
+    }
+
+    /**
+     * @return array<int, float>
+     */
+    private function cashAccountNetsForSource(string $sourceType, int $sourceId): array
+    {
+        $rows = DB::table('journal_lines as jl')
+            ->join('journals as j', 'j.id', '=', 'jl.journal_id')
+            ->where('j.source_type', $sourceType)
+            ->where('j.source_id', $sourceId)
+            ->whereIn('jl.account_id', array_keys($this->cashAccountIdSet))
+            ->groupBy('jl.account_id')
+            ->selectRaw('jl.account_id as account_id, COALESCE(SUM(jl.debit), 0) - COALESCE(SUM(jl.credit), 0) as net')
+            ->get();
+
+        $nets = [];
+        foreach ($rows as $row) {
+            $nets[(int) $row->account_id] = (float) $row->net;
+        }
+
+        return $nets;
+    }
+
+    /**
+     * @param  list<object{id: int|string, debit: float|string, credit: float|string}>  $linesChronological
+     * @return list<int>
+     */
+    private function aliveJournalLineIds(array $linesChronological): array
+    {
+        /** @var list{array{id: int, amount: float}>} $open */
+        $open = [];
+        foreach ($linesChronological as $line) {
+            $amount = (float) $line->debit - (float) $line->credit;
+            $paired = false;
+            foreach ($open as $idx => $entry) {
+                if (abs($entry['amount'] + $amount) <= self::NET_EFFECTIVE_TOLERANCE) {
+                    array_splice($open, $idx, 1);
+                    $paired = true;
+                    break;
+                }
+            }
+            if (! $paired) {
+                $open[] = ['id' => (int) $line->id, 'amount' => $amount];
+            }
+        }
+
+        return array_map(fn (array $entry): int => $entry['id'], $open);
     }
 
     /**
@@ -442,26 +565,87 @@ class AuditCashAccountSync extends Command
             }
         }
 
-        $linesQuery = DB::table('journal_lines as jl')
+        $allCashLines = DB::table('journal_lines as jl')
             ->join('journals as j', 'j.id', '=', 'jl.journal_id')
             ->where('j.source_type', $doc['source_type'])
             ->where('j.source_id', $doc['source_id'])
             ->whereIn('jl.account_id', array_keys($this->cashAccountIdSet))
-            ->where('jl.account_id', '!=', $targetAccountId);
+            ->orderBy('j.id')
+            ->orderBy('jl.id')
+            ->get(['jl.id', 'jl.journal_id', 'jl.account_id', 'jl.debit', 'jl.credit']);
 
-        if ($side === 'credit') {
-            $linesQuery->where('jl.credit', '>', 0);
-        } else {
-            $linesQuery->where('jl.debit', '>', 0);
+        $netsByAccount = $this->cashAccountNetsForSource($doc['source_type'], $doc['source_id']);
+
+        /** @var array<int, list<object>> $linesByAccount */
+        $linesByAccount = [];
+        foreach ($allCashLines as $line) {
+            $linesByAccount[(int) $line->account_id][] = $line;
         }
 
-        $lines = $linesQuery->get(['jl.id', 'jl.account_id', 'jl.debit', 'jl.credit']);
+        $linesToMove = [];
+        $wrongAccountsWithAlive = [];
 
-        if ($lines->isEmpty()) {
+        foreach ($linesByAccount as $accountId => $accountLines) {
+            if ($accountId === $targetAccountId) {
+                continue;
+            }
+
+            $accountNet = $netsByAccount[$accountId] ?? 0.0;
+            if (abs($accountNet) <= self::NET_EFFECTIVE_TOLERANCE) {
+                continue;
+            }
+
+            $aliveIds = $this->aliveJournalLineIds($accountLines);
+            $aliveIdSet = array_flip($aliveIds);
+
+            $aliveOnDocSide = [];
+            $aliveNetOnSide = 0.0;
+            foreach ($accountLines as $line) {
+                if (! isset($aliveIdSet[(int) $line->id])) {
+                    continue;
+                }
+
+                $onSide = $side === 'credit'
+                    ? (float) $line->credit > 0
+                    : (float) $line->debit > 0;
+
+                if (! $onSide) {
+                    continue;
+                }
+
+                $aliveOnDocSide[] = $line;
+                $aliveNetOnSide += $side === 'credit' ? (float) $line->credit : (float) $line->debit;
+            }
+
+            if ($aliveOnDocSide === []) {
+                continue;
+            }
+
+            if (abs($aliveNetOnSide - abs($accountNet)) > self::NET_EFFECTIVE_TOLERANCE) {
+                $this->warn("{$doc['jenis']} {$doc['dokumen']}: dilewati — perlu manual (baris hidup tidak jelas untuk akun ".($this->accountLabels[$accountId] ?? $accountId).').');
+
+                return null;
+            }
+
+            $wrongAccountsWithAlive[$accountId] = true;
+            foreach ($aliveOnDocSide as $line) {
+                $linesToMove[] = $line;
+            }
+        }
+
+        if (count($wrongAccountsWithAlive) > 1) {
+            $this->warn("{$doc['jenis']} {$doc['dokumen']}: dilewati — perlu manual (lebih dari satu akun kas/bank bersisa di jurnal).");
+
+            return null;
+        }
+
+        if ($linesToMove === []) {
             $this->warn("{$doc['jenis']} {$doc['dokumen']}: tidak ada baris jurnal kas/bank untuk dipindah (mungkin sudah diperbaiki).");
 
             return null;
         }
+
+        $lines = collect($linesToMove);
 
         $linesMoved = 0;
         $oldDeltaByAccount = [];
