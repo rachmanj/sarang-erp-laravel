@@ -57,6 +57,72 @@ class ReportAccuracyTest extends TestCase
         );
     }
 
+    public function test_balance_sheet_total_assets_subtracts_contra_asset_display_amounts(): void
+    {
+        $contraId = (int) DB::table('accounts')->where('code', '1.2.1.07')->value('id');
+        $fixedAssetId = (int) DB::table('accounts')->where('code', '1.2.1.06')->value('id');
+        $cashId = (int) DB::table('accounts')->where('code', '1.1.1.01')->value('id');
+        $this->assertGreaterThan(0, $contraId);
+        $this->assertGreaterThan(0, $fixedAssetId);
+        $this->assertGreaterThan(0, $cashId);
+
+        $grossAsset = 10_000_000.0;
+        $accumDep = 2_500_000.0;
+
+        $journalId = DB::table('journals')->insertGetId([
+            'date' => now()->toDateString(),
+            'description' => 'ReportAccuracy contra asset balance sheet total test',
+            'source_type' => 'test',
+            'source_id' => 99002,
+            'posted_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('journal_lines')->insert([
+            [
+                'journal_id' => $journalId,
+                'account_id' => $fixedAssetId,
+                'debit' => $grossAsset,
+                'credit' => 0,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'journal_id' => $journalId,
+                'account_id' => $contraId,
+                'debit' => 0,
+                'credit' => $accumDep,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'journal_id' => $journalId,
+                'account_id' => $cashId,
+                'debit' => 0,
+                'credit' => $grossAsset - $accumDep,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        ]);
+
+        $date = now()->toDateString();
+        $tb = $this->reports->getTrialBalance($date);
+        $sumAssetsFromTb = 0.0;
+        foreach ($tb['rows'] as $r) {
+            if ($r['type'] === 'asset') {
+                $sumAssetsFromTb += $r['debit'] - $r['credit'];
+            }
+        }
+
+        $bs = $this->reports->getBalanceSheet($date, true, false);
+        $this->assertEqualsWithDelta(round($sumAssetsFromTb, 2), $bs['totals']['assets'], 0.05);
+        $this->assertEqualsWithDelta(
+            (float) $bs['totals']['difference'],
+            (float) $bs['totals']['unclosed_pnl_cumulative'],
+            0.05
+        );
+    }
+
     public function test_cash_flow_cash_change_matches_prefix_delta_from_tb(): void
     {
         $from = now()->startOfMonth()->toDateString();

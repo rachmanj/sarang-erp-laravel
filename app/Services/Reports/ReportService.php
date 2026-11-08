@@ -235,7 +235,11 @@ class ReportService
             $amount = $row['display_amount'];
             $ownById[$row['account_id']] = round($amount, 2);
             if ($row['type'] === 'asset') {
-                $totalAssets += $amount;
+                if ($this->isContraAssetAccount($row['code'], $row['name'], $row['report_group'] ?? null)) {
+                    $totalAssets -= $amount;
+                } else {
+                    $totalAssets += $amount;
+                }
             } elseif ($row['type'] === 'liability') {
                 $totalLiabilities += $amount;
             } else {
