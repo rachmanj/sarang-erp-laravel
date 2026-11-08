@@ -510,11 +510,70 @@ class ReportsTest extends TestCase
         ]);
 
         $filters = ['company_entity_id' => $entityPt];
-        $expectedAr = (float) $reports->getArAging($asOf, $filters)['totals']['total'];
         $recon = $reports->getSubledgerReconciliation($asOf, true, $filters);
+        $expectedAr = (float) $reports->getArAging($asOf, array_merge($filters, ['include_not_due' => true]))['totals']['total'];
         $arSection = collect($recon['sections'])->firstWhere('control_type', 'ar');
 
         $this->assertNotNull($arSection);
         $this->assertEqualsWithDelta($expectedAr, (float) $arSection['subledger_total'], 0.01);
+    }
+
+    public function test_subledger_reconciliation_includes_not_yet_due_invoices_excluded_from_aging(): void
+    {
+        $asOf = now()->toDateString();
+        $dueAfterAsOf = now()->addDays(30)->toDateString();
+        $reports = app(ReportService::class);
+        $entityPt = (int) DB::table('company_entities')->where('code', '71')->value('id');
+        $currencyId = (int) DB::table('currencies')->orderBy('id')->value('id');
+        $customerId = (int) DB::table('business_partners')->where('partner_type', 'customer')->value('id');
+        $vendorId = (int) DB::table('business_partners')->where('partner_type', 'supplier')->value('id');
+
+        $arAmount = 1777.77;
+        $apAmount = 1888.88;
+        $filters = ['company_entity_id' => $entityPt];
+
+        $baseArAging = (float) ($reports->getArAging($asOf, $filters)['totals']['total'] ?? 0);
+        $baseApAging = (float) ($reports->getApAging($asOf, $filters)['totals']['total'] ?? 0);
+        $baseArSubledger = (float) (collect($reports->getSubledgerReconciliation($asOf, true, $filters)['sections'])
+            ->firstWhere('control_type', 'ar')['subledger_total'] ?? 0);
+        $baseApSubledger = (float) (collect($reports->getSubledgerReconciliation($asOf, true, $filters)['sections'])
+            ->firstWhere('control_type', 'ap')['subledger_total'] ?? 0);
+
+        $shared = [
+            'date' => $asOf,
+            'due_date' => $dueAfterAsOf,
+            'company_entity_id' => $entityPt,
+            'currency_id' => $currencyId,
+            'exchange_rate' => 1,
+            'status' => 'posted',
+            'posted_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ];
+
+        DB::table('sales_invoices')->insert(array_merge($shared, [
+            'invoice_no' => 'SI-NOT-DUE-'.uniqid(),
+            'business_partner_id' => $customerId,
+            'total_amount' => $arAmount,
+            'total_amount_foreign' => $arAmount,
+        ]));
+        DB::table('purchase_invoices')->insert(array_merge($shared, [
+            'invoice_no' => 'PI-NOT-DUE-'.uniqid(),
+            'business_partner_id' => $vendorId,
+            'total_amount' => $apAmount,
+            'total_amount_foreign' => $apAmount,
+            'is_direct_purchase' => 0,
+            'payment_method' => 'credit',
+        ]));
+
+        $this->assertEqualsWithDelta($baseArAging, (float) $reports->getArAging($asOf, $filters)['totals']['total'], 0.01);
+        $this->assertEqualsWithDelta($baseApAging, (float) $reports->getApAging($asOf, $filters)['totals']['total'], 0.01);
+
+        $recon = $reports->getSubledgerReconciliation($asOf, true, $filters);
+        $arSection = collect($recon['sections'])->firstWhere('control_type', 'ar');
+        $apSection = collect($recon['sections'])->firstWhere('control_type', 'ap');
+
+        $this->assertEqualsWithDelta($baseArSubledger + $arAmount, (float) $arSection['subledger_total'], 0.01);
+        $this->assertEqualsWithDelta($baseApSubledger + $apAmount, (float) $apSection['subledger_total'], 0.01);
     }
 }

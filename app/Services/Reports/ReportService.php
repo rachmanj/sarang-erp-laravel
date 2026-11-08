@@ -647,7 +647,9 @@ class ReportService
         $sections = [];
 
         $normalized = $this->journalQuery->normalizeFilters($filters);
-        $agingOptions = [];
+        $agingOptions = [
+            'include_not_due' => true,
+        ];
         if ($normalized['company_entity_id']) {
             $agingOptions['company_entity_id'] = $normalized['company_entity_id'];
         }
@@ -953,7 +955,9 @@ class ReportService
             ->when(! empty($options['company_entity_id']), function ($query) use ($options) {
                 $query->where('si.company_entity_id', (int) $options['company_entity_id']);
             })
-            ->whereDate(DB::raw('COALESCE(si.due_date, si.date)'), '<=', $asOfDate)
+            ->when(empty($options['include_not_due']), function ($query) use ($asOfDate) {
+                $query->whereDate(DB::raw('COALESCE(si.due_date, si.date)'), '<=', $asOfDate);
+            })
             ->leftJoin('sales_receipt_allocations as sra', 'sra.invoice_id', '=', 'si.id')
             ->leftJoin('sales_receipts as sr', function ($join) use ($asOfDate) {
                 $join->on('sr.id', '=', 'sra.receipt_id')
@@ -991,7 +995,9 @@ class ReportService
                         ->orWhereNull('pi.is_direct_purchase');
                 });
             })
-            ->whereDate(DB::raw('COALESCE(pi.due_date, pi.date)'), '<=', $asOfDate)
+            ->when(empty($options['include_not_due']), function ($query) use ($asOfDate) {
+                $query->whereDate(DB::raw('COALESCE(pi.due_date, pi.date)'), '<=', $asOfDate);
+            })
             ->leftJoin('purchase_payment_allocations as ppa', 'ppa.invoice_id', '=', 'pi.id')
             ->leftJoin('purchase_payments as pp', function ($join) use ($asOfDate) {
                 $join->on('pp.id', '=', 'ppa.payment_id')
