@@ -504,17 +504,33 @@ class SalesReceiptController extends Controller
 
         $draft = $this->salesReceiptJournalBuilder->build($receipt);
 
-        DB::transaction(function () use ($receipt, $draft) {
-            $this->posting->postJournal([
-                'date' => $draft->date ?? $receipt->date->toDateString(),
-                'description' => $draft->description,
-                'source_type' => 'sales_receipt',
-                'source_id' => $receipt->id,
-                'lines' => $draft->lines,
-            ]);
+        try {
+            DB::transaction(function () use ($receipt, $draft) {
+                $this->posting->postJournal([
+                    'date' => $draft->date ?? $receipt->date->toDateString(),
+                    'description' => $draft->description,
+                    'source_type' => 'sales_receipt',
+                    'source_id' => $receipt->id,
+                    'lines' => $draft->lines,
+                ]);
 
-            $receipt->update(['status' => 'posted', 'posted_at' => now()]);
-        });
+                $receipt->update(['status' => 'posted', 'posted_at' => now()]);
+            });
+        } catch (\RuntimeException $e) {
+            $message = $e->getMessage();
+            if (stripos($message, 'closed period') !== false) {
+                $periodLabel = $receipt->date->copy()->locale('id')->translatedFormat('F Y');
+                $pesan = "Tidak bisa memposting: periode {$periodLabel} sudah ditutup. Minta admin membuka periode tersebut lebih dulu, lalu posting ulang.";
+            } else {
+                $pesan = 'Tidak bisa memposting: '.$message;
+            }
+
+            return back()->with('error', $pesan);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return back()->with('error', 'Terjadi kesalahan saat memposting receipt. Silakan hubungi tim support dengan menyebut nomor receipt ini.');
+        }
 
         return back()->with('success', 'Receipt posted');
     }
