@@ -633,7 +633,7 @@
             const roundingInfo = $('#rounding-info-message');
             const roundingSelect = $('#rounding_account_id');
 
-            if (Math.abs(roundingAmount) > 0.01) {
+            if (Math.round(Math.abs(roundingAmount) * 100) >= 1) {
                 roundingCard.slideDown();
                 const direction = roundingAmount > 0 ? 'Loss' : 'Gain';
                 roundingInfo
@@ -679,7 +679,7 @@
                 return false;
             }
 
-            if (diff > 0.01 && !$('#rounding_account_id').val()) {
+            if (Math.round(Math.abs(diff) * 100) >= 1 && !$('#rounding_account_id').val()) {
                 validationMsg.text('Select a rounding account for the cash/allocation difference');
                 submitBtn.prop('disabled', true);
                 return false;
