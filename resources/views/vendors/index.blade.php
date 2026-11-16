@@ -20,11 +20,6 @@
                         <button class="btn btn-sm btn-primary float-right" id="btnNewVendor">Create</button>
                     @endcan
                 </div>
-                @if (session('success'))
-                    <script>
-                        toastr.success(@json(session('success')));
-                    </script>
-                @endif
                 <div class="card-body">
                     <table class="table table-striped table-sm mb-0" id="vendor-table">
                         <thead>

@@ -61,13 +61,6 @@
                                     </div>
                                 </div>
                             </div>
-
-                            @if (session('success'))
-                                <script>
-                                    toastr.success(@json(session('success')));
-                                </script>
-                            @endif
-
                             <table class="table table-bordered table-striped table-sm" id="journals-table">
                                 <thead>
                                     <tr>

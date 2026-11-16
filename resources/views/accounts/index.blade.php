@@ -48,11 +48,6 @@
                     </form>
                 </div>
             </div>
-            @if (session('success'))
-                <script>
-                    toastr.success(@json(session('success')));
-                </script>
-            @endif
             <table class="table table-striped table-sm">
                 <thead>
                     <tr>

@@ -23,11 +23,6 @@
                 </div>
             </div>
             <div class="card-body">
-                @if (session('success'))
-                    <script>
-                        toastr.success(@json(session('success')));
-                    </script>
-                @endif
                 @if (session('new_api_token'))
                     <div class="alert alert-warning">
                         <strong>Copy this token now.</strong> It will not be shown again.<br>

@@ -16,16 +16,6 @@
         <div class="container-fluid">
             <div class="row">
                 <div class="col-12">
-                    @if (session('success'))
-                        <script>
-                            toastr.success(@json(session('success')));
-                        </script>
-                    @endif
-                    @if (session('error'))
-                        <script>
-                            toastr.error(@json(session('error')));
-                        </script>
-                    @endif
                     <div class="card card-outline card-primary">
                         <div class="card-header">
                             <div class="d-flex flex-wrap justify-content-between align-items-center">

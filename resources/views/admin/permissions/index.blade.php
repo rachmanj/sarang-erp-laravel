@@ -20,16 +20,6 @@
                 </div>
             </div>
             <div class="card-body">
-                @if (session('success'))
-                    <script>
-                        toastr.success(@json(session('success')));
-                    </script>
-                @endif
-                @if (session('error'))
-                    <script>
-                        toastr.error(@json(session('error')));
-                    </script>
-                @endif
                 <table class="table table-bordered table-striped table-sm" id="perms-table">
                     <thead>
                         <tr>

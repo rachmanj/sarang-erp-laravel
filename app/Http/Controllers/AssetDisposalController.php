@@ -5,12 +5,12 @@ namespace App\Http\Controllers;
 use App\Models\Asset;
 use App\Models\AssetDisposal;
 use App\Services\Accounting\FixedAssetService;
-use App\Services\DocumentNumberingService;
 use App\Services\CompanyEntityService;
+use App\Services\DocumentNumberingService;
+use App\Support\PostingErrorPresenter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Carbon\Carbon;
 
 class AssetDisposalController extends Controller
 {
@@ -42,7 +42,7 @@ class AssetDisposalController extends Controller
                 'asset_disposals.*',
                 'assets.code as asset_code',
                 'assets.name as asset_name',
-                'asset_categories.name as category_name'
+                'asset_categories.name as category_name',
             ])
             ->join('assets', 'asset_disposals.asset_id', '=', 'assets.id')
             ->join('asset_categories', 'assets.category_id', '=', 'asset_categories.id');
@@ -100,7 +100,7 @@ class AssetDisposalController extends Controller
             $asset = Asset::with(['category', 'project', 'department'])
                 ->findOrFail($assetId);
 
-            if (!$asset->canBeDisposed()) {
+            if (! $asset->canBeDisposed()) {
                 return redirect()->route('assets.index')
                     ->with('error', 'This asset cannot be disposed.');
             }
@@ -129,7 +129,7 @@ class AssetDisposalController extends Controller
 
         $asset = Asset::with('purchaseInvoice')->findOrFail($request->asset_id);
 
-        if (!$asset->canBeDisposed()) {
+        if (! $asset->canBeDisposed()) {
             return back()->with('error', 'This asset cannot be disposed.');
         }
 
@@ -139,8 +139,8 @@ class AssetDisposalController extends Controller
             if ($asset->purchase_invoice_id && $asset->purchaseInvoice) {
                 $entityId = $asset->purchaseInvoice->company_entity_id;
             }
-            
-            if (!$entityId) {
+
+            if (! $entityId) {
                 $entityId = $this->companyEntityService->getDefaultEntity()->id;
             }
 
@@ -195,7 +195,7 @@ class AssetDisposalController extends Controller
     {
         $this->authorize('assets.disposal.update');
 
-        if (!$disposal->isDraft()) {
+        if (! $disposal->isDraft()) {
             return redirect()->route('assets.disposals.show', $disposal)
                 ->with('error', 'Only draft disposals can be edited.');
         }
@@ -212,7 +212,7 @@ class AssetDisposalController extends Controller
     {
         $this->authorize('assets.disposal.update');
 
-        if (!$disposal->isDraft()) {
+        if (! $disposal->isDraft()) {
             return back()->with('error', 'Only draft disposals can be updated.');
         }
 
@@ -252,7 +252,7 @@ class AssetDisposalController extends Controller
     {
         $this->authorize('assets.disposal.post');
 
-        if (!$disposal->canBePosted()) {
+        if (! $disposal->canBePosted()) {
             return back()->with('error', 'This disposal cannot be posted.');
         }
 
@@ -261,8 +261,8 @@ class AssetDisposalController extends Controller
 
             return redirect()->route('assets.disposals.show', $disposal)
                 ->with('success', 'Asset disposal posted successfully.');
-        } catch (\Exception $e) {
-            return back()->with('error', 'Error posting disposal: ' . $e->getMessage());
+        } catch (\Throwable $e) {
+            return back()->with('error', PostingErrorPresenter::present($e, $disposal->disposal_date?->toDateString()));
         }
     }
 
@@ -273,7 +273,7 @@ class AssetDisposalController extends Controller
     {
         $this->authorize('assets.disposal.reverse');
 
-        if (!$disposal->canBeReversed()) {
+        if (! $disposal->canBeReversed()) {
             return back()->with('error', 'This disposal cannot be reversed.');
         }
 
@@ -283,7 +283,7 @@ class AssetDisposalController extends Controller
             return redirect()->route('assets.disposals.show', $disposal)
                 ->with('success', 'Asset disposal reversed successfully.');
         } catch (\Exception $e) {
-            return back()->with('error', 'Error reversing disposal: ' . $e->getMessage());
+            return back()->with('error', 'Error reversing disposal: '.$e->getMessage());
         }
     }
 
@@ -294,7 +294,7 @@ class AssetDisposalController extends Controller
     {
         $this->authorize('assets.disposal.delete');
 
-        if (!$disposal->isDraft()) {
+        if (! $disposal->isDraft()) {
             return back()->with('error', 'Only draft disposals can be deleted.');
         }
 

@@ -2,9 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\CurrencyRevaluation;
 use App\Models\Currency;
+use App\Models\CurrencyRevaluation;
 use App\Services\CurrencyRevaluationService;
+use App\Support\PostingErrorPresenter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Yajra\DataTables\Facades\DataTables;
@@ -25,6 +26,7 @@ class CurrencyRevaluationController extends Controller
     public function index()
     {
         $currencies = Currency::where('is_active', true)->where('is_base_currency', false)->orderBy('code')->get();
+
         return view('currency_revaluations.index', compact('currencies'));
     }
 
@@ -41,14 +43,14 @@ class CurrencyRevaluationController extends Controller
                 return $revaluation->createdBy->name ?? '';
             })
             ->addColumn('actions', function ($revaluation) {
-                $actions = '<a class="btn btn-xs btn-info" href="' . route('currency-revaluations.show', $revaluation->id) . '">View</a>';
+                $actions = '<a class="btn btn-xs btn-info" href="'.route('currency-revaluations.show', $revaluation->id).'">View</a>';
 
                 if ($revaluation->status === 'draft' && Auth::user()->can('currency-revaluations.post')) {
-                    $actions .= ' <button class="btn btn-xs btn-success" onclick="postRevaluation(' . $revaluation->id . ')">Post</button>';
+                    $actions .= ' <button class="btn btn-xs btn-success" onclick="postRevaluation('.$revaluation->id.')">Post</button>';
                 }
 
                 if ($revaluation->status === 'posted' && Auth::user()->can('currency-revaluations.reverse')) {
-                    $actions .= ' <button class="btn btn-xs btn-warning" onclick="reverseRevaluation(' . $revaluation->id . ')">Reverse</button>';
+                    $actions .= ' <button class="btn btn-xs btn-warning" onclick="reverseRevaluation('.$revaluation->id.')">Reverse</button>';
                 }
 
                 return $actions;
@@ -59,14 +61,15 @@ class CurrencyRevaluationController extends Controller
                     'posted' => '<span class="badge badge-success">Posted</span>',
                     'cancelled' => '<span class="badge badge-danger">Cancelled</span>',
                 ];
+
                 return $badges[$revaluation->status] ?? '<span class="badge badge-secondary">Unknown</span>';
             })
             ->addColumn('net_effect', function ($revaluation) {
                 $net = $revaluation->total_unrealized_gain - $revaluation->total_unrealized_loss;
                 if ($net > 0) {
-                    return '<span class="text-success">+' . number_format($net, 2) . '</span>';
+                    return '<span class="text-success">+'.number_format($net, 2).'</span>';
                 } elseif ($net < 0) {
-                    return '<span class="text-danger">' . number_format($net, 2) . '</span>';
+                    return '<span class="text-danger">'.number_format($net, 2).'</span>';
                 } else {
                     return '<span class="text-muted">0.00</span>';
                 }
@@ -78,6 +81,7 @@ class CurrencyRevaluationController extends Controller
     public function create()
     {
         $currencies = Currency::where('is_active', true)->where('is_base_currency', false)->orderBy('code')->get();
+
         return view('currency_revaluations.create', compact('currencies'));
     }
 
@@ -97,7 +101,7 @@ class CurrencyRevaluationController extends Controller
 
             return response()->json($calculation);
         } catch (\Exception $e) {
-            return response()->json(['error' => 'Error calculating revaluation: ' . $e->getMessage()], 500);
+            return response()->json(['error' => 'Error calculating revaluation: '.$e->getMessage()], 500);
         }
     }
 
@@ -119,7 +123,7 @@ class CurrencyRevaluationController extends Controller
             return redirect()->route('currency-revaluations.show', $revaluation->id)
                 ->with('success', 'Currency revaluation created successfully');
         } catch (\Exception $e) {
-            return back()->withInput()->with('error', 'Error creating revaluation: ' . $e->getMessage());
+            return back()->withInput()->with('error', 'Error creating revaluation: '.$e->getMessage());
         }
     }
 
@@ -132,7 +136,7 @@ class CurrencyRevaluationController extends Controller
             'lines.businessPartner',
             'journal',
             'createdBy',
-            'postedBy'
+            'postedBy',
         ])->findOrFail($id);
 
         return view('currency_revaluations.show', compact('revaluation'));
@@ -142,13 +146,18 @@ class CurrencyRevaluationController extends Controller
     {
         try {
             $journal = $this->revaluationService->postRevaluation($id);
+
             return response()->json([
                 'success' => 'Revaluation posted successfully',
                 'journal_id' => $journal->id,
-                'journal_no' => $journal->journal_no
+                'journal_no' => $journal->journal_no,
             ]);
-        } catch (\Exception $e) {
-            return response()->json(['error' => 'Error posting revaluation: ' . $e->getMessage()], 500);
+        } catch (\Throwable $e) {
+            $revaluation = CurrencyRevaluation::find($id);
+
+            return response()->json([
+                'error' => PostingErrorPresenter::present($e, $revaluation?->revaluation_date),
+            ], 422);
         }
     }
 
@@ -156,9 +165,10 @@ class CurrencyRevaluationController extends Controller
     {
         try {
             $revaluation = $this->revaluationService->reverseRevaluation($id);
+
             return response()->json(['success' => 'Revaluation reversed successfully']);
         } catch (\Exception $e) {
-            return response()->json(['error' => 'Error reversing revaluation: ' . $e->getMessage()], 500);
+            return response()->json(['error' => 'Error reversing revaluation: '.$e->getMessage()], 500);
         }
     }
 
@@ -168,7 +178,7 @@ class CurrencyRevaluationController extends Controller
             'baseCurrency',
             'lines.account',
             'lines.originalCurrency',
-            'lines.businessPartner'
+            'lines.businessPartner',
         ])->findOrFail($id);
 
         return view('currency_revaluations.preview', compact('revaluation'));

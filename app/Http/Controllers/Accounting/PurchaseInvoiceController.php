@@ -28,6 +28,7 @@ use App\Services\PurchaseWorkflowAuditService;
 use App\Services\TaxService;
 use App\Services\UnitConversionService;
 use App\Support\DocumentOpenState;
+use App\Support\PostingErrorPresenter;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -779,6 +780,9 @@ class PurchaseInvoiceController extends Controller
 
     public function post(int $id)
     {
+        $invoiceForDate = PurchaseInvoice::findOrFail($id);
+        $docDate = $invoiceForDate->date->toDateString();
+
         try {
             $outcome = DB::transaction(function () use ($id) {
                 $invoice = PurchaseInvoice::with(['lines.inventoryItem', 'lines.warehouse'])
@@ -830,14 +834,14 @@ class PurchaseInvoiceController extends Controller
             }
 
             return back()->with('success', 'Purchase invoice posted successfully');
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             \Log::error('Failed to post Purchase Invoice', [
                 'invoice_id' => $id,
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
 
-            return back()->with('error', 'Failed to post invoice: '.$e->getMessage());
+            return back()->with('error', PostingErrorPresenter::present($e, $docDate));
         }
     }
 

@@ -19,6 +19,7 @@ use App\Services\DocumentRelationshipService;
 use App\Services\Documents\DocumentType;
 use App\Services\PurchaseWorkflowAuditService;
 use App\Support\DocumentOpenState;
+use App\Support\PostingErrorPresenter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -351,17 +352,21 @@ class PurchasePaymentController extends Controller
 
         $draft = $this->purchasePaymentJournalBuilder->build($payment);
 
-        DB::transaction(function () use ($payment, $draft) {
-            $this->posting->postJournal([
-                'date' => $draft->date ?? $payment->date->toDateString(),
-                'description' => $draft->description,
-                'source_type' => 'purchase_payment',
-                'source_id' => $payment->id,
-                'lines' => $draft->lines,
-            ]);
+        try {
+            DB::transaction(function () use ($payment, $draft) {
+                $this->posting->postJournal([
+                    'date' => $draft->date ?? $payment->date->toDateString(),
+                    'description' => $draft->description,
+                    'source_type' => 'purchase_payment',
+                    'source_id' => $payment->id,
+                    'lines' => $draft->lines,
+                ]);
 
-            $payment->update(['status' => 'posted', 'posted_at' => now()]);
-        });
+                $payment->update(['status' => 'posted', 'posted_at' => now()]);
+            });
+        } catch (\Throwable $e) {
+            return back()->with('error', PostingErrorPresenter::present($e, $payment->date->toDateString()));
+        }
 
         return back()->with('success', 'Payment posted');
     }

@@ -17,11 +17,6 @@
         <div class="container-fluid">
             <div class="row">
                 <div class="col-12">
-                    @if (session('success'))
-                        <script>
-                            toastr.success(@json(session('success')));
-                        </script>
-                    @endif
                     @if (session('pdf_url'))
                         <div class="alert alert-info">PDF ready: <a href="{{ session('pdf_url') }}"
                                 target="_blank">Download</a></div>

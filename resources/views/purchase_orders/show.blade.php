@@ -220,11 +220,6 @@
                             @endif
                         </div>
                     @endif
-                    @if (session('success'))
-                        <script>
-                            toastr.success(@json(session('success')));
-                        </script>
-                    @endif
                     @php
                         $orderedQty = (float) DB::table('purchase_order_lines')
                             ->where('order_id', $order->id)

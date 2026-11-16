@@ -18,11 +18,6 @@
             @endcan
         </div>
         <div class="card-body">
-            @if (session('success'))
-                <script>
-                    toastr.success(@json(session('success')));
-                </script>
-            @endif
             <table class="table table-striped table-sm" id="bank-accounts-table">
                 <thead>
                     <tr>

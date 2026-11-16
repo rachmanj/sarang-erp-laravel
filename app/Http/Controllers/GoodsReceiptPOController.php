@@ -19,6 +19,7 @@ use App\Services\GrpoLinePurchaseOrderPricingService;
 use App\Services\InventoryService;
 use App\Services\PurchaseInvoiceGrpoAggregationService;
 use App\Services\PurchaseWorkflowAuditService;
+use App\Support\PostingErrorPresenter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -190,8 +191,8 @@ class GoodsReceiptPOController extends Controller
                 $this->grpoJournalService->createJournalEntries($grpo);
 
                 return redirect()->route('goods-receipt-pos.index')->with('success', 'Goods Receipt PO created, goods received, and journal entries posted');
-            } catch (\Exception $e) {
-                return redirect()->route('goods-receipt-pos.index')->with('error', 'Goods Receipt PO created but journal posting failed: '.$e->getMessage());
+            } catch (\Throwable $e) {
+                return redirect()->route('goods-receipt-pos.index')->with('error', PostingErrorPresenter::present($e, $grpo->date->toDateString()));
             }
         });
     }
@@ -260,8 +261,11 @@ class GoodsReceiptPOController extends Controller
             });
 
             return back()->with('success', 'Goods Receipt PO marked as received and journal entries created');
-        } catch (\Exception $e) {
-            return back()->with('error', 'Error processing GRPO: '.$e->getMessage());
+        } catch (\Throwable $e) {
+            $grpo = GoodsReceiptPO::find($id);
+            $context = $grpo?->date?->toDateString();
+
+            return back()->with('error', PostingErrorPresenter::present($e, $context));
         }
     }
 
@@ -470,8 +474,8 @@ class GoodsReceiptPOController extends Controller
             $journal = $this->grpoJournalService->createJournalEntries($grpo);
 
             return back()->with('success', "Journal entries created successfully. Journal #{$journal->journal_no}");
-        } catch (\Exception $e) {
-            return back()->with('error', 'Error creating journal entries: '.$e->getMessage());
+        } catch (\Throwable $e) {
+            return back()->with('error', PostingErrorPresenter::present($e, $grpo->date->toDateString()));
         }
     }
 

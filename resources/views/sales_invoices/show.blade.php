@@ -15,16 +15,6 @@
 @section('content')
     <section class="content">
         <div class="container-fluid">
-            @if (session('success'))
-                <script>
-                    toastr.success(@json(session('success')));
-                </script>
-            @endif
-            @if (session('error'))
-                <script>
-                    toastr.error(@json(session('error')));
-                </script>
-            @endif
             @if (session('pdf_url'))
                 <div class="alert alert-info">PDF ready: <a href="{{ session('pdf_url') }}"
                         target="_blank">Download</a></div>

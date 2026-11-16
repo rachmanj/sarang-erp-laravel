@@ -16,11 +16,6 @@
                 <div class="card-header">
                     <h3 class="card-title">Update Your Password</h3>
                 </div>
-                @if (session('success'))
-                    <script>
-                        toastr.success(@json(session('success')));
-                    </script>
-                @endif
                 <form method="POST" action="{{ route('password.update') }}">
                     @csrf
                     @method('PUT')

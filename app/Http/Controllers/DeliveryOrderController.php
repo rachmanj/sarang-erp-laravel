@@ -13,6 +13,7 @@ use App\Services\DocumentClosureService;
 use App\Services\DocumentNumberingService;
 use App\Services\Documents\DocumentType;
 use App\Services\SalesWorkflowAuditService;
+use App\Support\PostingErrorPresenter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -580,9 +581,9 @@ class DeliveryOrderController extends Controller
 
             return redirect()->route('delivery-orders.show', $deliveryOrder->id)
                 ->with('success', 'Delivery Order marked as delivered and revenue recognized successfully');
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             return redirect()->back()
-                ->with('error', $e->getMessage());
+                ->with('error', PostingErrorPresenter::present($e, $data['delivered_at']));
         }
     }
 

@@ -8,6 +8,7 @@ use App\Models\Accounting\CashExpenseLine;
 use App\Services\Accounting\PostingService;
 use App\Services\CompanyEntityService;
 use App\Services\DocumentNumberingService;
+use App\Support\PostingErrorPresenter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -58,64 +59,68 @@ class CashExpenseController extends Controller
             ? (float) $data['amount_raw']
             : collect($data['lines'])->sum(fn (array $line) => (float) ($line['amount_raw'] ?? $line['amount']));
 
-        return DB::transaction(function () use ($data, $totalAmount) {
-            $entity = $this->companyEntityService->getDefaultEntity();
+        try {
+            return DB::transaction(function () use ($data, $totalAmount) {
+                $entity = $this->companyEntityService->getDefaultEntity();
 
-            $exp = CashExpense::create([
-                'date' => $data['date'],
-                'description' => $data['description'] ?? null,
-                'cash_account_id' => $data['cash_account_id'],
-                'total_amount' => $totalAmount,
-                'status' => 'posted',
-                'created_by' => Auth::id(),
-                'company_entity_id' => $entity->id,
-            ]);
-
-            $expenseNo = $this->documentNumberingService->generateNumber('cash_expense', $data['date'], [
-                'company_entity_id' => $entity->id,
-            ]);
-            $exp->update(['expense_no' => $expenseNo]);
-
-            $journalLines = [];
-            foreach ($data['lines'] as $line) {
-                $lineAmount = (float) ($line['amount_raw'] ?? $line['amount']);
-
-                CashExpenseLine::create([
-                    'cash_expense_id' => $exp->id,
-                    'account_id' => $line['expense_account_id'],
-                    'amount' => $lineAmount,
-                    'description' => $line['description'] ?? null,
-                    'project_id' => $line['project_id'] ?? null,
-                    'dept_id' => $line['dept_id'] ?? null,
+                $exp = CashExpense::create([
+                    'date' => $data['date'],
+                    'description' => $data['description'] ?? null,
+                    'cash_account_id' => $data['cash_account_id'],
+                    'total_amount' => $totalAmount,
+                    'status' => 'posted',
+                    'created_by' => Auth::id(),
+                    'company_entity_id' => $entity->id,
                 ]);
 
+                $expenseNo = $this->documentNumberingService->generateNumber('cash_expense', $data['date'], [
+                    'company_entity_id' => $entity->id,
+                ]);
+                $exp->update(['expense_no' => $expenseNo]);
+
+                $journalLines = [];
+                foreach ($data['lines'] as $line) {
+                    $lineAmount = (float) ($line['amount_raw'] ?? $line['amount']);
+
+                    CashExpenseLine::create([
+                        'cash_expense_id' => $exp->id,
+                        'account_id' => $line['expense_account_id'],
+                        'amount' => $lineAmount,
+                        'description' => $line['description'] ?? null,
+                        'project_id' => $line['project_id'] ?? null,
+                        'dept_id' => $line['dept_id'] ?? null,
+                    ]);
+
+                    $journalLines[] = [
+                        'account_id' => (int) $line['expense_account_id'],
+                        'debit' => $lineAmount,
+                        'credit' => 0,
+                        'project_id' => $line['project_id'] ?? null,
+                        'dept_id' => $line['dept_id'] ?? null,
+                        'memo' => $line['description'] ?? null,
+                    ];
+                }
+
                 $journalLines[] = [
-                    'account_id' => (int) $line['expense_account_id'],
-                    'debit' => $lineAmount,
-                    'credit' => 0,
-                    'project_id' => $line['project_id'] ?? null,
-                    'dept_id' => $line['dept_id'] ?? null,
-                    'memo' => $line['description'] ?? null,
+                    'account_id' => (int) $data['cash_account_id'],
+                    'debit' => 0,
+                    'credit' => $totalAmount,
+                    'memo' => $data['description'] ?? null,
                 ];
-            }
 
-            $journalLines[] = [
-                'account_id' => (int) $data['cash_account_id'],
-                'debit' => 0,
-                'credit' => $totalAmount,
-                'memo' => $data['description'] ?? null,
-            ];
+                $this->posting->postJournal([
+                    'date' => $exp->date,
+                    'description' => 'Cash Expense '.$expenseNo,
+                    'source_type' => 'cash_expense',
+                    'source_id' => $exp->id,
+                    'lines' => $journalLines,
+                ]);
 
-            $this->posting->postJournal([
-                'date' => $exp->date,
-                'description' => 'Cash Expense '.$expenseNo,
-                'source_type' => 'cash_expense',
-                'source_id' => $exp->id,
-                'lines' => $journalLines,
-            ]);
-
-            return redirect()->route('cash-expenses.index')->with('success', 'Cash expense posted');
-        });
+                return redirect()->route('cash-expenses.index')->with('success', 'Cash expense posted');
+            });
+        } catch (\Throwable $e) {
+            return back()->withInput()->with('error', PostingErrorPresenter::present($e, $data['date']));
+        }
     }
 
     public function data(Request $request)

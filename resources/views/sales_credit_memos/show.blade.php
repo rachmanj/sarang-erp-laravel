@@ -15,17 +15,6 @@
 @section('content')
     <section class="content">
         <div class="container-fluid">
-            @if (session('success'))
-                <script>
-                    toastr.success(@json(session('success')));
-                </script>
-            @endif
-            @if (session('error'))
-                <script>
-                    toastr.error(@json(session('error')));
-                </script>
-            @endif
-
             <div class="card card-warning card-outline">
                 <div class="card-header d-flex flex-wrap justify-content-between align-items-center">
                     <h3 class="card-title mb-0">

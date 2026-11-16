@@ -33,13 +33,6 @@
                         <a href="{{ route('cash-expenses.create') }}" class="btn btn-sm btn-primary">New Expense</a>
                     </div>
                 </div>
-
-                @if (session('success'))
-                    <script>
-                        toastr.success(@json(session('success')));
-                    </script>
-                @endif
-
                 <div class="card-body">
                     <table class="table table-striped table-sm mb-0" id="ce-table">
                         <thead>

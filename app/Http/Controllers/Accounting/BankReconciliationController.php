@@ -24,6 +24,7 @@ use App\Services\Bank\ReconciliationAdjustmentService;
 use App\Services\Bank\ReconciliationBalanceService;
 use App\Services\Bank\ReconciliationMatchingService;
 use App\Services\Bank\ReconciliationSnapshotIntegrityService;
+use App\Support\PostingErrorPresenter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\Response;
@@ -477,8 +478,8 @@ class BankReconciliationController extends Controller
                 (int) $request->validated('counter_account_id'),
                 $request->validated('memo'),
             );
-        } catch (\RuntimeException $e) {
-            return back()->withErrors(['error' => $e->getMessage()]);
+        } catch (\Throwable $e) {
+            return back()->with('error', PostingErrorPresenter::present($e, $line->transaction_date?->toDateString()));
         }
 
         return back()->with('success', "Adjusting journal #{$journalId} posted and matched.");

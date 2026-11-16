@@ -21,6 +21,7 @@ use App\Services\InventoryWarehouseStockService;
 use App\Services\PriceLevelService;
 use App\Services\PurchaseInvoiceService;
 use App\Services\UnitConversionService;
+use App\Support\PostingErrorPresenter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -622,38 +623,49 @@ class InventoryController extends Controller
             'notes' => ['nullable', 'string', 'max:500'],
         ]);
 
-        return DB::transaction(function () use ($data, $item, $request) {
-            if ($data['adjustment_type'] === 'decrease') {
-                app(InventoryService::class)->assertCanConsumeFifoLayers($item, (float) $data['quantity']);
-            }
+        try {
+            return DB::transaction(function () use ($data, $item, $request) {
+                if ($data['adjustment_type'] === 'decrease') {
+                    app(InventoryService::class)->assertCanConsumeFifoLayers($item, (float) $data['quantity']);
+                }
 
-            $quantity = $data['adjustment_type'] === 'increase'
-                ? (int) $data['quantity']
-                : -(int) $data['quantity'];
+                $quantity = $data['adjustment_type'] === 'increase'
+                    ? (int) $data['quantity']
+                    : -(int) $data['quantity'];
 
-            $warehouseId = app(InventoryService::class)->resolveWarehouseId(
-                $item,
-                isset($data['warehouse_id']) ? (int) $data['warehouse_id'] : null
-            );
+                $warehouseId = app(InventoryService::class)->resolveWarehouseId(
+                    $item,
+                    isset($data['warehouse_id']) ? (int) $data['warehouse_id'] : null
+                );
 
-            app(InventoryService::class)->processAdjustmentTransaction(
-                (int) $item->id,
-                $quantity,
-                (float) $data['unit_cost'],
-                $data['notes'] ?? 'Stock adjustment',
-                $warehouseId,
-                true
-            );
+                app(InventoryService::class)->processAdjustmentTransaction(
+                    (int) $item->id,
+                    $quantity,
+                    (float) $data['unit_cost'],
+                    $data['notes'] ?? 'Stock adjustment',
+                    $warehouseId,
+                    true
+                );
+
+                if ($request->ajax()) {
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Stock adjustment recorded successfully',
+                    ]);
+                }
+
+                return back()->with('success', 'Stock adjustment recorded successfully');
+            });
+        } catch (\Throwable $e) {
+            $context = now()->toDateString();
+            $message = PostingErrorPresenter::present($e, $context);
 
             if ($request->ajax()) {
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Stock adjustment recorded successfully',
-                ]);
+                return response()->json(['message' => $message], 422);
             }
 
-            return back()->with('success', 'Stock adjustment recorded successfully');
-        });
+            return back()->with('error', $message);
+        }
     }
 
     /**

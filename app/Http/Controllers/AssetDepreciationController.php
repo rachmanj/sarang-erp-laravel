@@ -2,13 +2,13 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use App\Models\AssetDepreciationRun;
-use App\Models\AssetDepreciationEntry;
 use App\Models\Asset;
+use App\Models\AssetDepreciationEntry;
+use App\Models\AssetDepreciationRun;
 use App\Services\Accounting\FixedAssetService;
+use App\Support\PostingErrorPresenter;
+use Illuminate\Http\Request;
 use Yajra\DataTables\Facades\DataTables;
-use Carbon\Carbon;
 
 class AssetDepreciationController extends Controller
 {
@@ -96,12 +96,12 @@ class AssetDepreciationController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Depreciation run created successfully.',
-                'data' => $run
+                'data' => $run,
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 422);
         }
     }
@@ -130,13 +130,13 @@ class AssetDepreciationController extends Controller
                 'data' => [
                     'entries' => $entries,
                     'total_depreciation' => $run->total_depreciation,
-                    'asset_count' => $run->asset_count
-                ]
+                    'asset_count' => $run->asset_count,
+                ],
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 422);
         }
     }
@@ -149,12 +149,12 @@ class AssetDepreciationController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Depreciation entries created successfully.',
-                'data' => $run
+                'data' => $run,
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 422);
         }
     }
@@ -167,12 +167,12 @@ class AssetDepreciationController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Depreciation run posted successfully.',
-                'data' => $run->fresh()
+                'data' => $run->fresh(),
             ]);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage()
+                'message' => PostingErrorPresenter::present($e, $run->period_end_date?->toDateString()),
             ], 422);
         }
     }
@@ -185,12 +185,12 @@ class AssetDepreciationController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Depreciation run reversed successfully.',
-                'data' => $run->fresh()
+                'data' => $run->fresh(),
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 422);
         }
     }
@@ -241,7 +241,7 @@ class AssetDepreciationController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $schedule
+            'data' => $schedule,
         ]);
     }
 }

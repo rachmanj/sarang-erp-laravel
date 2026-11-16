@@ -20,6 +20,7 @@ use App\Services\DocumentRelationshipService;
 use App\Services\Documents\DocumentType;
 use App\Services\SalesWorkflowAuditService;
 use App\Support\DocumentOpenState;
+use App\Support\PostingErrorPresenter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -516,20 +517,8 @@ class SalesReceiptController extends Controller
 
                 $receipt->update(['status' => 'posted', 'posted_at' => now()]);
             });
-        } catch (\RuntimeException $e) {
-            $message = $e->getMessage();
-            if (stripos($message, 'closed period') !== false) {
-                $periodLabel = $receipt->date->copy()->locale('id')->translatedFormat('F Y');
-                $pesan = "Tidak bisa memposting: periode {$periodLabel} sudah ditutup. Minta admin membuka periode tersebut lebih dulu, lalu posting ulang.";
-            } else {
-                $pesan = 'Tidak bisa memposting: '.$message;
-            }
-
-            return back()->with('error', $pesan);
         } catch (\Throwable $e) {
-            report($e);
-
-            return back()->with('error', 'Terjadi kesalahan saat memposting receipt. Silakan hubungi tim support dengan menyebut nomor receipt ini.');
+            return back()->with('error', PostingErrorPresenter::present($e, $receipt->date->toDateString()));
         }
 
         return back()->with('success', 'Receipt posted');

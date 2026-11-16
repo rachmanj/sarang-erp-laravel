@@ -26,6 +26,7 @@ use App\Services\DocumentRelationshipService;
 use App\Services\Documents\DocumentType;
 use App\Services\SalesWorkflowAuditService;
 use App\Support\DocumentOpenState;
+use App\Support\PostingErrorPresenter;
 use Carbon\Carbon;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Http\Request;
@@ -870,6 +871,8 @@ class SalesInvoiceController extends Controller
             return back()->with('success', 'Already posted');
         }
 
+        $docDate = $invoice->date->toDateString();
+
         try {
             DB::transaction(function () use ($invoice) {
                 if ($invoice->is_direct_sale) {
@@ -889,13 +892,13 @@ class SalesInvoiceController extends Controller
 
                 app(\App\Services\TaxService::class)->syncPostedSalesInvoice($invoice->fresh(['lines', 'businessPartner']));
             });
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Log::error('Failed to post Sales Invoice', [
                 'invoice_id' => $id,
                 'error' => $e->getMessage(),
             ]);
 
-            return back()->with('error', 'Failed to post invoice: '.$e->getMessage());
+            return back()->with('error', PostingErrorPresenter::present($e, $docDate));
         }
 
         return back()->with('success', 'Invoice posted');

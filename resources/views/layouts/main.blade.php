@@ -77,6 +77,7 @@
     <!-- REQUIRED SCRIPTS -->
 
     @include('layouts.partials.scripts')
+    @include('layouts.partials.flash')
 
     <!-- Modals Stack -->
     @stack('modals')

@@ -16,19 +16,9 @@
         <div class="container-fluid">
             <div class="row">
                 <div class="col-12">
-                    @if (session('success'))
-                        <script>
-                            toastr.success(@json(session('success')));
-                        </script>
-                    @endif
                     @if (session('info'))
                         <script>
                             toastr.info(@json(session('info')));
-                        </script>
-                    @endif
-                    @if (session('error'))
-                        <script>
-                            toastr.error(@json(session('error')));
                         </script>
                     @endif
                     <div class="card card-outline card-primary">

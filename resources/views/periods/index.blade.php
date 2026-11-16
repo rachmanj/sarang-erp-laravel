@@ -14,11 +14,6 @@
         <div class="container-fluid">
             <div class="row">
                 <div class="col-6">
-                    @if (session('success'))
-                        <script>
-                            toastr.success(@json(session('success')));
-                        </script>
-                    @endif
                     <div class="card">
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <h3 class="card-title">Period Close ({{ $year }})</h3>

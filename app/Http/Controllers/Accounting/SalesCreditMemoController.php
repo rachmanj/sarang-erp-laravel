@@ -11,6 +11,7 @@ use App\Services\Accounting\PostingService;
 use App\Services\Accounting\SalesInvoicePostingMath;
 use App\Services\DocumentNumberingService;
 use App\Services\Documents\DocumentType;
+use App\Support\PostingErrorPresenter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -288,18 +289,22 @@ class SalesCreditMemoController extends Controller
             ];
         }
 
-        DB::transaction(function () use ($memo, $lines) {
-            $this->posting->postJournal([
-                'date' => $memo->date->toDateString(),
-                'description' => 'Post AR Credit Memo #'.$memo->memo_no,
-                'source_type' => 'sales_credit_memo',
-                'source_id' => $memo->id,
-                'posted_by' => Auth::id(),
-                'lines' => $lines,
-            ]);
+        try {
+            DB::transaction(function () use ($memo, $lines) {
+                $this->posting->postJournal([
+                    'date' => $memo->date->toDateString(),
+                    'description' => 'Post AR Credit Memo #'.$memo->memo_no,
+                    'source_type' => 'sales_credit_memo',
+                    'source_id' => $memo->id,
+                    'posted_by' => Auth::id(),
+                    'lines' => $lines,
+                ]);
 
-            $memo->update(['status' => 'posted', 'posted_at' => now()]);
-        });
+                $memo->update(['status' => 'posted', 'posted_at' => now()]);
+            });
+        } catch (\Throwable $e) {
+            return back()->with('error', PostingErrorPresenter::present($e, $memo->date->toDateString()));
+        }
 
         return back()->with('success', 'Credit memo posted');
     }

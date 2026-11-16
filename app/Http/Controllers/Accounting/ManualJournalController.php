@@ -8,6 +8,7 @@ use App\Services\Accounting\JournalSourceUrlResolver;
 use App\Services\Accounting\PostingService;
 use App\Services\CurrencyService;
 use App\Services\ExchangeRateService;
+use App\Support\PostingErrorPresenter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -72,7 +73,11 @@ class ManualJournalController extends Controller
             'lines' => $lines,
         ];
 
-        $journalId = $this->service->postJournal($payload);
+        try {
+            $journalId = $this->service->postJournal($payload);
+        } catch (\Throwable $e) {
+            return back()->withInput()->with('error', PostingErrorPresenter::present($e, $data['date']));
+        }
 
         return redirect()->route('journals.manual.create')->with('status', "Journal #{$journalId} posted");
     }
