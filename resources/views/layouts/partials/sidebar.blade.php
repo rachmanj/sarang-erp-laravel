@@ -145,6 +145,7 @@
                             request()->routeIs('purchase.dashboard') ||
                             request()->routeIs('purchase-invoices.*') ||
                             request()->routeIs('purchase-payments.*') ||
+                            request()->routeIs('purchase-advances.*') ||
                             request()->routeIs('purchase-orders.*') ||
                             request()->routeIs('goods-receipt-pos.*');
                     @endphp
@@ -183,6 +184,22 @@
                                         class="nav-link {{ request()->routeIs('purchase-invoices.*') ? 'active' : '' }}">
                                         <i class="far fa-circle nav-icon"></i>
                                         <p>Purchase Invoices</p>
+                                    </a>
+                                </li>
+                            @endcan
+                            @can('ap.payments.view')
+                                <li class="nav-item">
+                                    <a href="{{ route('purchase-advances.index') }}"
+                                        class="nav-link {{ request()->routeIs('purchase-advances.*') && !request()->routeIs('purchase-advances.report') ? 'active' : '' }}">
+                                        <i class="far fa-circle nav-icon"></i>
+                                        <p>Uang Muka Pembelian</p>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a href="{{ route('purchase-advances.report') }}"
+                                        class="nav-link {{ request()->routeIs('purchase-advances.report') ? 'active' : '' }}">
+                                        <i class="far fa-circle nav-icon"></i>
+                                        <p>Laporan Uang Muka Pembelian</p>
                                     </a>
                                 </li>
                             @endcan

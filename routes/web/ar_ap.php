@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\Accounting\PurchaseAdvanceController;
+use App\Http\Controllers\Accounting\PurchaseAdvanceReportController;
 use App\Http\Controllers\Accounting\PurchaseInvoiceController;
 use App\Http\Controllers\Accounting\PurchasePaymentController;
 use App\Http\Controllers\Accounting\SalesCreditMemoController;
@@ -92,6 +94,20 @@ Route::prefix('sales-receipts')->group(function () {
     })->middleware('permission:ar.receipts.view')->name('sales-receipts.print');
     Route::get('/{id}/pdf', [SalesReceiptController::class, 'pdf'])->middleware('permission:ar.receipts.view')->name('sales-receipts.pdf');
     Route::post('/{id}/queue-pdf', [SalesReceiptController::class, 'queuePdf'])->middleware('permission:ar.receipts.view')->name('sales-receipts.queuePdf');
+});
+
+// AP - Purchase Advances (DP)
+Route::prefix('purchase-advances')->group(function () {
+    Route::get('/', [PurchaseAdvanceController::class, 'index'])->middleware('permission:ap.payments.view')->name('purchase-advances.index');
+    Route::get('/data', [PurchaseAdvanceController::class, 'data'])->middleware('permission:ap.payments.view')->name('purchase-advances.data');
+    Route::get('/report', [PurchaseAdvanceReportController::class, 'report'])->middleware('permission:ap.payments.view')->name('purchase-advances.report');
+    Route::get('/create', [PurchaseAdvanceController::class, 'create'])->middleware('permission:ap.payments.create')->name('purchase-advances.create');
+    Route::get('/api/document-number', [PurchaseAdvanceController::class, 'getDocumentNumber'])->middleware('permission:ap.payments.create')->name('purchase-advances.api.document-number');
+    Route::post('/', [PurchaseAdvanceController::class, 'store'])->middleware('permission:ap.payments.create')->name('purchase-advances.store');
+    Route::get('/{id}', [PurchaseAdvanceController::class, 'show'])->middleware('permission:ap.payments.view')->name('purchase-advances.show');
+    Route::post('/{id}/post', [PurchaseAdvanceController::class, 'post'])->middleware('permission:ap.payments.post')->name('purchase-advances.post');
+    Route::post('/{id}/cancel', [PurchaseAdvanceController::class, 'cancel'])->middleware('permission:ap.payments.post')->name('purchase-advances.cancel');
+    Route::post('/{id}/apply', [PurchaseAdvanceController::class, 'applyToInvoice'])->middleware('permission:ap.payments.post')->name('purchase-advances.apply');
 });
 
 // AP - Purchase Payments
