@@ -184,13 +184,21 @@
 
             function refreshPoOptions() {
                 var vendorId = $('#business_partner_id').val();
+                var entityId = $('#company_entity_id').val();
                 var $po = $('#purchase_order_id');
                 var selected = '{{ old('purchase_order_id') }}';
                 $po.find('option:not(:first)').remove();
-                if (!vendorId || !poByVendor[vendorId]) {
+                if (!vendorId || !entityId) {
                     return;
                 }
-                poByVendor[vendorId].forEach(function(po) {
+                var vendorPos = poByVendor[vendorId] || poByVendor[String(vendorId)] || [];
+                vendorPos.forEach(function(po) {
+                    if (po.company_entity_id == null || po.company_entity_id === '') {
+                        return;
+                    }
+                    if (String(po.company_entity_id) !== String(entityId)) {
+                        return;
+                    }
                     var label = (po.order_no || '#' + po.id) + ' — ' + parseFloat(po.total_amount).toLocaleString('id-ID', {
                         minimumFractionDigits: 2
                     });
@@ -200,6 +208,10 @@
                     }
                     $po.append(opt);
                 });
+                if (selected && !$po.find('option[value="' + selected + '"]').length) {
+                    $po.val('');
+                }
+                toggleDescriptionRequired();
             }
 
             function toggleDescriptionRequired() {
@@ -219,7 +231,7 @@
                 }));
             }
 
-            $('#business_partner_id').on('change', refreshPoOptions);
+            $('#business_partner_id, #company_entity_id').on('change', refreshPoOptions);
             $('#purchase_order_id').on('change', toggleDescriptionRequired);
             $(document).on('input', '.line-amount', recalcTotal);
 

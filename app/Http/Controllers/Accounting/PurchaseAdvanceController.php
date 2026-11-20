@@ -36,7 +36,7 @@ class PurchaseAdvanceController extends Controller
         $this->middleware(['auth']);
         $this->middleware('permission:ap.payments.view')->only(['index', 'data', 'show']);
         $this->middleware('permission:ap.payments.create')->only(['create', 'store', 'getDocumentNumber']);
-        $this->middleware('permission:ap.payments.post')->only(['post', 'cancel', 'applyToInvoice']);
+        $this->middleware('permission:ap.payments.post')->only(['post', 'cancel', 'applyToInvoice', 'linkPurchaseOrder']);
     }
 
     public function index()
@@ -55,10 +55,11 @@ class PurchaseAdvanceController extends Controller
         $defaultEntity = $this->companyEntityService->getDefaultEntity();
 
         $purchaseOrdersByVendor = DB::table('purchase_orders')
-            ->whereNotIn('status', ['cancelled', 'draft'])
+            ->where('status', 'ordered')
+            ->whereNotNull('company_entity_id')
             ->orderByDesc('date')
             ->limit(1000)
-            ->get(['id', 'order_no', 'business_partner_id', 'total_amount', 'date'])
+            ->get(['id', 'order_no', 'business_partner_id', 'company_entity_id', 'total_amount', 'date'])
             ->groupBy('business_partner_id');
 
         return view('purchase_advances.create', compact(
@@ -108,8 +109,13 @@ class PurchaseAdvanceController extends Controller
 
         if (! empty($data['purchase_order_id'])) {
             $po = PurchaseOrder::find($data['purchase_order_id']);
-            if ($po && (int) $po->business_partner_id !== (int) $data['business_partner_id']) {
-                return back()->withErrors(['purchase_order_id' => 'Purchase order tidak sesuai dengan supplier yang dipilih.'])->withInput();
+            $poError = $this->purchaseOrderEligibilityError(
+                $po,
+                (int) $data['business_partner_id'],
+                (int) $data['company_entity_id']
+            );
+            if ($poError !== null) {
+                return back()->withErrors(['purchase_order_id' => $poError])->withInput();
             }
         }
 
@@ -211,7 +217,95 @@ class PurchaseAdvanceController extends Controller
                 ->get();
         }
 
-        return view('purchase_advances.show', compact('advance', 'remainingAdvance', 'usedAmount', 'availableInvoices'));
+        $linkablePurchaseOrders = collect();
+        if (! $advance->purchase_order_id && $advance->applications->isEmpty()) {
+            $linkablePurchaseOrders = DB::table('purchase_orders')
+                ->where('status', 'ordered')
+                ->where('business_partner_id', $advance->business_partner_id)
+                ->where('company_entity_id', $advance->company_entity_id)
+                ->whereNotNull('company_entity_id')
+                ->orderByDesc('date')
+                ->limit(100)
+                ->get(['id', 'order_no', 'total_amount', 'date']);
+        }
+
+        return view('purchase_advances.show', compact(
+            'advance',
+            'remainingAdvance',
+            'usedAmount',
+            'availableInvoices',
+            'linkablePurchaseOrders',
+        ));
+    }
+
+    public function linkPurchaseOrder(Request $request, int $id)
+    {
+        $advance = PurchaseAdvance::with(['purchaseOrder', 'applications'])->find($id);
+        if (! $advance) {
+            return back()->with('error', 'Uang muka tidak ditemukan.');
+        }
+
+        if ($advance->purchase_order_id !== null) {
+            $orderNo = optional($advance->purchaseOrder)->order_no ?? '#'.$advance->purchase_order_id;
+
+            return back()->with('error', 'Uang muka ini sudah tertaut ke PO '.$orderNo.'.');
+        }
+
+        $applicationCount = $advance->applications->count();
+        if ($applicationCount > 0) {
+            return back()->with(
+                'error',
+                sprintf('Uang muka tidak dapat ditautkan karena sudah memiliki %d pemakaian.', $applicationCount)
+            );
+        }
+
+        $data = $request->validate([
+            'purchase_order_id' => ['required', 'integer', 'exists:purchase_orders,id'],
+        ]);
+
+        $po = PurchaseOrder::find((int) $data['purchase_order_id']);
+        $poError = $this->purchaseOrderEligibilityError(
+            $po,
+            (int) $advance->business_partner_id,
+            (int) $advance->company_entity_id
+        );
+        if ($poError !== null) {
+            return back()->with('error', $poError);
+        }
+
+        $poId = (int) $data['purchase_order_id'];
+        $advance->update(['purchase_order_id' => $poId]);
+
+        app(\App\Services\AuditLogService::class)->log(
+            'update',
+            'purchase_advance',
+            $id,
+            ['purchase_order_id' => null],
+            ['purchase_order_id' => $poId],
+            sprintf(
+                'Tautkan PO %s ke uang muka %s',
+                $po->order_no,
+                $advance->advance_no ?? '#'.$advance->id
+            )
+        );
+
+        return back()->with('success', 'Purchase order berhasil ditautkan ke uang muka.');
+    }
+
+    /** @return string|null Error message when PO cannot be used */
+    private function purchaseOrderEligibilityError(?PurchaseOrder $po, int $businessPartnerId, int $companyEntityId): ?string
+    {
+        if (! $po || $po->status !== 'ordered' || $po->company_entity_id === null) {
+            return 'Purchase order tidak tersedia atau belum berstatus ordered.';
+        }
+        if ((int) $po->business_partner_id !== $businessPartnerId) {
+            return 'Purchase order tidak sesuai dengan supplier yang dipilih.';
+        }
+        if ((int) $po->company_entity_id !== $companyEntityId) {
+            return 'Purchase order milik entitas lain.';
+        }
+
+        return null;
     }
 
     public function post(int $id)

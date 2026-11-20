@@ -108,6 +108,7 @@ Route::prefix('purchase-advances')->group(function () {
     Route::post('/{id}/post', [PurchaseAdvanceController::class, 'post'])->middleware('permission:ap.payments.post')->name('purchase-advances.post');
     Route::post('/{id}/cancel', [PurchaseAdvanceController::class, 'cancel'])->middleware('permission:ap.payments.post')->name('purchase-advances.cancel');
     Route::post('/{id}/apply', [PurchaseAdvanceController::class, 'applyToInvoice'])->middleware('permission:ap.payments.post')->name('purchase-advances.apply');
+    Route::post('/{id}/link-po', [PurchaseAdvanceController::class, 'linkPurchaseOrder'])->middleware('permission:ap.payments.post')->name('purchase-advances.link-po');
 });
 
 // AP - Purchase Payments

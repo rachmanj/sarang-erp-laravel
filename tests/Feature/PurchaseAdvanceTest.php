@@ -205,6 +205,100 @@ class PurchaseAdvanceTest extends TestCase
         $resp->assertSessionHas('error');
     }
 
+    public function test_create_form_payload_includes_ordered_pos_with_company_entity_id(): void
+    {
+        $entity2Id = (int) DB::table('company_entities')->where('code', '72')->value('id');
+        $this->assertGreaterThan(0, $entity2Id);
+
+        $this->createPurchaseOrderForEntity($this->entityId, 50_000_000, 'PO-ENT1-');
+        $poEntity2 = $this->createPurchaseOrderForEntity($entity2Id, 60_000_000, 'PO-ENT2-');
+
+        $po2OrderNo = (string) DB::table('purchase_orders')->where('id', $poEntity2)->value('order_no');
+
+        $resp = $this->get('/purchase-advances/create');
+        $resp->assertOk();
+        $resp->assertSee($po2OrderNo, false);
+        $resp->assertSee('"company_entity_id"', false);
+        $resp->assertSee((string) $entity2Id, false);
+    }
+
+    public function test_store_rejects_purchase_order_from_other_entity(): void
+    {
+        $entity2Id = (int) DB::table('company_entities')->where('code', '72')->value('id');
+        $poEntity1 = $this->createPurchaseOrderForEntity($this->entityId, 10_000_000, 'PO-WRONG-');
+
+        $countBefore = (int) DB::table('purchase_advances')->count();
+
+        $resp = $this->post('/purchase-advances', [
+            'date' => now()->toDateString(),
+            'business_partner_id' => $this->vendorId,
+            'company_entity_id' => $entity2Id,
+            'purchase_order_id' => $poEntity1,
+            'lines' => [
+                ['account_id' => $this->cashAccountId, 'description' => 'DP', 'amount' => 1_000_000],
+            ],
+        ]);
+
+        $resp->assertRedirect();
+        $resp->assertSessionHasErrors('purchase_order_id');
+        $this->assertSame($countBefore, (int) DB::table('purchase_advances')->count());
+    }
+
+    public function test_link_purchase_order_success(): void
+    {
+        $poId = $this->createPurchaseOrder(20_000_000);
+        $advanceId = $this->createAndPostAdvance(null, 5_000_000);
+
+        $this->assertNull(DB::table('purchase_advances')->where('id', $advanceId)->value('purchase_order_id'));
+
+        $resp = $this->post('/purchase-advances/'.$advanceId.'/link-po', [
+            'purchase_order_id' => $poId,
+        ]);
+        $resp->assertRedirect();
+        $resp->assertSessionHasNoErrors();
+
+        $this->assertSame($poId, (int) DB::table('purchase_advances')->where('id', $advanceId)->value('purchase_order_id'));
+        $this->assertDatabaseHas('audit_logs', [
+            'entity_type' => 'purchase_advance',
+            'entity_id' => $advanceId,
+            'action' => 'update',
+        ]);
+    }
+
+    public function test_link_purchase_order_rejected_when_already_linked(): void
+    {
+        $poId = $this->createPurchaseOrder(15_000_000);
+        $advanceId = $this->createAndPostAdvance($poId, 3_000_000);
+        $otherPoId = $this->createPurchaseOrder(12_000_000);
+
+        $resp = $this->post('/purchase-advances/'.$advanceId.'/link-po', [
+            'purchase_order_id' => $otherPoId,
+        ]);
+        $resp->assertRedirect();
+        $resp->assertSessionHas('error');
+        $this->assertSame($poId, (int) DB::table('purchase_advances')->where('id', $advanceId)->value('purchase_order_id'));
+    }
+
+    public function test_link_purchase_order_rejected_when_advance_has_applications(): void
+    {
+        $advanceId = $this->createAndPostAdvance(null, 4_000_000);
+        $invoiceId = $this->createAndPostInvoice(null, 10_000_000);
+        $this->post('/purchase-advances/'.$advanceId.'/apply', [
+            'invoice_id' => $invoiceId,
+            'amount' => 2_000_000,
+            'date' => now()->toDateString(),
+        ])->assertRedirect();
+
+        $poId = $this->createPurchaseOrder(8_000_000);
+
+        $resp = $this->post('/purchase-advances/'.$advanceId.'/link-po', [
+            'purchase_order_id' => $poId,
+        ]);
+        $resp->assertRedirect();
+        $resp->assertSessionHas('error');
+        $this->assertNull(DB::table('purchase_advances')->where('id', $advanceId)->value('purchase_order_id'));
+    }
+
     public function test_advance_with_applications_cannot_be_cancelled(): void
     {
         $advanceId = $this->createAndPostAdvance(null, 6_000_000);
@@ -225,15 +319,20 @@ class PurchaseAdvanceTest extends TestCase
         $this->assertDatabaseMissing('purchase_advances', ['id' => $advanceId, 'status' => 'cancelled']);
     }
 
-    private function createPurchaseOrder(float $total): int
+    private function createPurchaseOrder(float $total, ?int $entityId = null): int
+    {
+        return $this->createPurchaseOrderForEntity($entityId ?? $this->entityId, $total, 'PO-DP-');
+    }
+
+    private function createPurchaseOrderForEntity(int $entityId, float $total, string $orderPrefix = 'PO-DP-'): int
     {
         $currencyId = (int) DB::table('currencies')->orderBy('id')->value('id');
 
         return (int) DB::table('purchase_orders')->insertGetId([
-            'order_no' => 'PO-DP-'.uniqid(),
+            'order_no' => $orderPrefix.uniqid(),
             'date' => now()->toDateString(),
             'business_partner_id' => $this->vendorId,
-            'company_entity_id' => $this->entityId,
+            'company_entity_id' => $entityId,
             'currency_id' => $currencyId,
             'total_amount' => $total,
             'status' => 'ordered',

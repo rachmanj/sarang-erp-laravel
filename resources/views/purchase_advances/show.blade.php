@@ -191,6 +191,36 @@
                             @endif
 
                             @can('ap.payments.post')
+                                @if ($advance->purchase_order_id)
+                                    <p class="text-muted small mt-3 mb-0">
+                                        <i class="fas fa-link mr-1"></i> Uang muka sudah tertaut ke purchase order.
+                                    </p>
+                                @elseif ($advance->applications->isNotEmpty())
+                                    <p class="text-muted small mt-3 mb-0">
+                                        <i class="fas fa-info-circle mr-1"></i>
+                                        Tautan PO tidak tersedia karena uang muka sudah memiliki {{ $advance->applications->count() }} pemakaian.
+                                    </p>
+                                @elseif (isset($linkablePurchaseOrders) && $linkablePurchaseOrders->isNotEmpty())
+                                    <h5 class="mt-4 mb-2"><i class="fas fa-link mr-1"></i> Tautkan ke Purchase Order</h5>
+                                    <form method="post" action="{{ route('purchase-advances.link-po', $advance->id) }}" class="form-inline">
+                                        @csrf
+                                        <div class="form-group mr-2 mb-2">
+                                            <select name="purchase_order_id" class="form-control form-control-sm" required>
+                                                <option value="">— Pilih PO —</option>
+                                                @foreach ($linkablePurchaseOrders as $po)
+                                                    <option value="{{ $po->id }}">
+                                                        {{ $po->order_no }} ({{ number_format((float) $po->total_amount, 2) }})
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                        <button type="submit" class="btn btn-sm btn-outline-primary mb-2"
+                                            onclick="return confirm('Tautkan PO terpilih ke uang muka ini?')">Tautkan PO</button>
+                                    </form>
+                                @endif
+                            @endcan
+
+                            @can('ap.payments.post')
                                 @if ($advance->status === 'posted' && ($remainingAdvance ?? 0) > 0.009 && isset($availableInvoices) && $availableInvoices->isNotEmpty())
                                     <h5 class="mt-4 mb-2"><i class="fas fa-hand-holding-usd mr-1"></i> Gunakan Uang Muka</h5>
                                     <form method="post" action="{{ route('purchase-advances.apply', $advance->id) }}" class="form-inline">
