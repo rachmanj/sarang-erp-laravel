@@ -874,17 +874,17 @@ class InventoryController extends Controller
         // Apply filters
         if ($request->filled('q')) {
             $query->where(function ($q) use ($request) {
-                $q->where('name', 'like', '%'.$request->q.'%')
-                    ->orWhere('code', 'like', '%'.$request->q.'%');
+                $q->where('inventory_items.name', 'like', '%'.$request->q.'%')
+                    ->orWhere('inventory_items.code', 'like', '%'.$request->q.'%');
             });
         }
 
         if ($request->filled('category')) {
-            $query->where('category_id', $request->category);
+            $query->where('inventory_items.category_id', $request->category);
         }
 
         if ($request->filled('valuation_method')) {
-            $query->where('valuation_method', $request->valuation_method);
+            $query->where('inventory_items.valuation_method', $request->valuation_method);
         }
 
         if ($request->filled('stock_status')) {
