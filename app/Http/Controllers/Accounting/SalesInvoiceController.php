@@ -866,15 +866,25 @@ class SalesInvoiceController extends Controller
 
     public function post(int $id)
     {
-        $invoice = SalesInvoice::with('lines.inventoryItem')->findOrFail($id);
-        if ($invoice->status === 'posted') {
-            return back()->with('success', 'Already posted');
-        }
-
-        $docDate = $invoice->date->toDateString();
+        $invoiceForDate = SalesInvoice::findOrFail($id);
+        $docDate = $invoiceForDate->date->toDateString();
 
         try {
-            DB::transaction(function () use ($invoice) {
+            $outcome = DB::transaction(function () use ($id) {
+                $invoice = SalesInvoice::with('lines.inventoryItem')
+                    ->whereKey($id)
+                    ->lockForUpdate()
+                    ->firstOrFail();
+
+                if ($invoice->status === 'posted') {
+                    return 'already_posted';
+                }
+
+                $effectiveTotal = round((float) $invoice->total_amount, 2);
+                if ($effectiveTotal <= 0) {
+                    return 'zero_total';
+                }
+
                 if ($invoice->is_direct_sale) {
                     $this->directSalesPostingService->post($invoice);
                 } else {
@@ -891,7 +901,19 @@ class SalesInvoiceController extends Controller
                 $invoice->update(['status' => 'posted', 'posted_at' => now()]);
 
                 app(\App\Services\TaxService::class)->syncPostedSalesInvoice($invoice->fresh(['lines', 'businessPartner']));
+
+                return 'posted';
             });
+
+            if ($outcome === 'already_posted') {
+                return back()->with('success', 'Already posted');
+            }
+
+            if ($outcome === 'zero_total') {
+                return back()->with('error', PostingErrorPresenter::zeroTotalInvoiceMessage());
+            }
+
+            return back()->with('success', 'Invoice posted');
         } catch (\Throwable $e) {
             Log::error('Failed to post Sales Invoice', [
                 'invoice_id' => $id,
@@ -900,8 +922,6 @@ class SalesInvoiceController extends Controller
 
             return back()->with('error', PostingErrorPresenter::present($e, $docDate));
         }
-
-        return back()->with('success', 'Invoice posted');
     }
 
     private function validateDirectSaleRequest(Request $request, array $data): ?string

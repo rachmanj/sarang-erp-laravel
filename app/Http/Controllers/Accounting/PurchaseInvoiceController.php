@@ -794,6 +794,11 @@ class PurchaseInvoiceController extends Controller
                     return 'already_posted';
                 }
 
+                $effectiveTotal = round((float) $invoice->total_amount, 2);
+                if ($effectiveTotal <= 0) {
+                    return 'zero_total';
+                }
+
                 // Create inventory transactions for direct purchases (but NOT for opening balance invoices)
                 if ($invoice->is_direct_purchase && ! $invoice->is_opening_balance) {
                     foreach ($invoice->lines as $line) {
@@ -831,6 +836,10 @@ class PurchaseInvoiceController extends Controller
 
             if ($outcome === 'already_posted') {
                 return back()->with('success', 'Already posted');
+            }
+
+            if ($outcome === 'zero_total') {
+                return back()->with('error', PostingErrorPresenter::zeroTotalInvoiceMessage());
             }
 
             return back()->with('success', 'Purchase invoice posted successfully');
