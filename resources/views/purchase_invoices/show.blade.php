@@ -206,21 +206,23 @@
                                                 <td>{{ $invoice->companyEntity->name }} ({{ $invoice->companyEntity->code }})</td>
                                             </tr>
                                         @endif
-                                        @if ($invoice->payment_method)
-                                            <tr>
-                                                <th class="text-nowrap text-muted">
-                                                    <i class="fas fa-money-bill-wave mr-1"></i> Payment Method
-                                                </th>
-                                                <td>
-                                                    <span class="badge badge-{{ $invoice->payment_method === 'cash' ? 'success' : 'info' }}">
-                                                        {{ strtoupper($invoice->payment_method) }}
-                                                    </span>
-                                                    @if ($invoice->payment_method === 'cash' && $cashAccount)
-                                                        <br><small class="text-muted">{{ $cashAccount->code }} - {{ $cashAccount->name }}</small>
+                                        <tr>
+                                            <th class="text-nowrap text-muted">
+                                                <i class="fas fa-money-bill-wave mr-1"></i> Metode Pembayaran
+                                            </th>
+                                            <td>
+                                                @if ($invoice->payment_method === 'cash')
+                                                    Cash
+                                                    @if ($cashAccount)
+                                                        <br><small class="text-muted">{{ $cashAccount->code }} — {{ $cashAccount->name }}</small>
                                                     @endif
-                                                </td>
-                                            </tr>
-                                        @endif
+                                                @elseif ($invoice->payment_method === 'credit')
+                                                    Kredit
+                                                @else
+                                                    —
+                                                @endif
+                                            </td>
+                                        </tr>
                                         @if ($invoice->description)
                                             <tr>
                                                 <th class="text-nowrap text-muted">

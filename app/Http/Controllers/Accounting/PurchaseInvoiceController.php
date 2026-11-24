@@ -944,16 +944,28 @@ class PurchaseInvoiceController extends Controller
         $invoice = PurchaseInvoice::with(['lines.taxCode', 'businessPartner'])->findOrFail($id);
         $invoiceFooter = PurchaseInvoiceFooterMath::invoiceFooterTotals($invoice);
 
-        return view('purchase_invoices.print', compact('invoice', 'invoiceFooter'));
+        $piCashAccount = null;
+        if ($invoice->cash_account_id) {
+            $piCashAccount = DB::table('accounts')->find($invoice->cash_account_id);
+        }
+
+        return view('purchase_invoices.print', compact('invoice', 'invoiceFooter', 'piCashAccount'));
     }
 
     public function pdf(int $id)
     {
         $invoice = PurchaseInvoice::with(['lines.taxCode', 'businessPartner'])->findOrFail($id);
         $invoiceFooter = PurchaseInvoiceFooterMath::invoiceFooterTotals($invoice);
+
+        $piCashAccount = null;
+        if ($invoice->cash_account_id) {
+            $piCashAccount = DB::table('accounts')->find($invoice->cash_account_id);
+        }
+
         $pdf = app(\App\Services\PdfService::class)->renderViewToString('purchase_invoices.print', [
             'invoice' => $invoice,
             'invoiceFooter' => $invoiceFooter,
+            'piCashAccount' => $piCashAccount,
         ]);
 
         return response($pdf, 200, [

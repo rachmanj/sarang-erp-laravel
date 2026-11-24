@@ -63,6 +63,7 @@
 <body>
     <div class="company-header">
         @php
+            $piCashAccount = $piCashAccount ?? null;
             $companyName = \App\Models\ErpParameter::get('company_name', 'Company Name');
             $companyAddress = \App\Models\ErpParameter::get('company_address', '');
             $companyPhone = \App\Models\ErpParameter::get('company_phone', '');
@@ -106,6 +107,22 @@
         <div>
             <h3>Purchase Invoice #{{ $invoice->id }}</h3>
             <div>Date: {{ $invoice->date }}</div>
+            @if ($invoice->terms_days !== null)
+                <div>Terms: {{ $invoice->terms_days }} days</div>
+            @endif
+            <div>
+                Metode Pembayaran:
+                @if ($invoice->payment_method === 'cash')
+                    Cash
+                    @if ($piCashAccount)
+                        ({{ $piCashAccount->code }} — {{ $piCashAccount->name }})
+                    @endif
+                @elseif ($invoice->payment_method === 'credit')
+                    Kredit
+                @else
+                    —
+                @endif
+            </div>
         </div>
         <div>
             <div>Vendor: {{ optional($invoice->businessPartner)->name ?? '—' }}</div>
