@@ -43,19 +43,38 @@
     <button class="no-print print-btn" onclick="window.print()">Print</button>
 
     @php
-        $companyName = \App\Models\ErpParameter::get('company_name', 'Company Name');
-        $companyAddress = \App\Models\ErpParameter::get('company_address', '');
-        $companyPhone = \App\Models\ErpParameter::get('company_phone', '');
-        $companyEmail = \App\Models\ErpParameter::get('company_email', '');
+        $entity = $invoice->companyEntity;
+        $useCsjLetterhead = false;
+        if ($entity) {
+            if ($entity->name === 'PT Cahaya Sarange Jaya' || $entity->code === \App\Models\CompanyEntity::DEFAULT_CODE) {
+                $useCsjLetterhead = true;
+            } else {
+                $csjEntityId = \App\Models\CompanyEntity::query()
+                    ->where('code', \App\Models\CompanyEntity::DEFAULT_CODE)
+                    ->value('id');
+                $useCsjLetterhead = $csjEntityId && (int) $invoice->company_entity_id === (int) $csjEntityId;
+            }
+        }
     @endphp
 
-    <div class="company-header">
-        @if (file_exists(public_path('logo_pt_csj_transparan.jpeg')))
-        <img src="{{ asset('logo_pt_csj_transparan.jpeg') }}" alt="Logo" class="logo">
-        @endif
-        <div class="company-name">{{ $companyName }}</div>
-        <div class="company-details">{{ $companyAddress }}@if ($companyPhone || $companyEmail) | {{ $companyPhone }}{{ $companyPhone && $companyEmail ? ' | ' : '' }}{{ $companyEmail }}@endif</div>
-    </div>
+    @if ($useCsjLetterhead)
+        @include('partials.letterhead_pt_csj', ['entity' => $entity, 'letterheadVariant' => 'dotmatrix'])
+    @else
+        @php
+            $companyName = \App\Models\ErpParameter::get('company_name', 'Company Name');
+            $companyAddress = \App\Models\ErpParameter::get('company_address', '');
+            $companyPhone = \App\Models\ErpParameter::get('company_phone', '');
+            $companyEmail = \App\Models\ErpParameter::get('company_email', '');
+        @endphp
+
+        <div class="company-header">
+            @if (file_exists(public_path('logo_pt_csj_transparan.jpeg')))
+            <img src="{{ asset('logo_pt_csj_transparan.jpeg') }}" alt="Logo" class="logo">
+            @endif
+            <div class="company-name">{{ $companyName }}</div>
+            <div class="company-details">{{ $companyAddress }}@if ($companyPhone || $companyEmail) | {{ $companyPhone }}{{ $companyPhone && $companyEmail ? ' | ' : '' }}{{ $companyEmail }}@endif</div>
+        </div>
+    @endif
 
     <div class="header">
         <h1>SALES INVOICE</h1>
