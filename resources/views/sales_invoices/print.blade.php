@@ -284,7 +284,7 @@
 
     @php
         $showItemCode = $showItemCode ?? true;
-        $lineColumnCount = $showItemCode ? 8 : 7;
+        $lineColumnCount = $showItemCode ? 9 : 8;
         $totalLabelColspan = $lineColumnCount - 1;
     @endphp
 
@@ -297,8 +297,9 @@
                 @endif
                 <th>Part No.</th>
                 <th>Description</th>
-                <th class="text-right" style="width: 80px;">Qty</th>
-                <th class="text-right" style="width: 100px;">Unit Price</th>
+                <th class="text-right" style="width: 70px;">Qty</th>
+                <th style="width: 48px;">Unit</th>
+                <th class="text-right" style="width: 90px;">Unit Price</th>
                 <th class="text-right" style="width: 90px;">Discount</th>
                 <th class="text-right" style="width: 110px;">Amount</th>
             </tr>
@@ -313,6 +314,7 @@
                     <td>{{ $l->partNumber?->part_number ?? $l->deliveryOrderLine?->partNumber?->part_number ?? '—' }}</td>
                     <td>{{ $l->item_name ?? $l->description ?? optional($l->inventoryItem)->name ?? optional($l->account)->name ?? '—' }}</td>
                     <td class="text-right">{{ number_format($l->qty, 2) }}</td>
+                    <td>{{ optional($l->inventoryItem)->unit_of_measure ?: '—' }}</td>
                     <td class="text-right">{{ number_format($l->unit_price, 2) }}</td>
                     <td class="text-right">{{ (float) ($l->discount_amount ?? 0) > 0 ? number_format($l->discount_amount, 2) : '—' }}</td>
                     <td class="text-right">{{ number_format($l->exclusiveAmountAfterDiscount(), 2) }}</td>

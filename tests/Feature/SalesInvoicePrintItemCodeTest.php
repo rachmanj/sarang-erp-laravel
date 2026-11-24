@@ -246,7 +246,13 @@ class SalesInvoicePrintItemCodeTest extends TestCase
         ['invoice' => $invoice, 'itemCode' => $itemCode] = $this->createInvoiceWithLine();
         $invoiceFooter = SalesInvoicePostingMath::invoiceFooterTotals($invoice);
 
-        foreach (['sales_invoices.print', 'sales_invoices.print_pt_csj', 'sales_invoices.print_cv_saranghae'] as $viewName) {
+        $expectedColsWithItemCode = [
+            'sales_invoices.print' => 9,
+            'sales_invoices.print_pt_csj' => 9,
+            'sales_invoices.print_cv_saranghae' => 8,
+        ];
+
+        foreach (array_keys($expectedColsWithItemCode) as $viewName) {
             $html = view($viewName, [
                 'invoice' => $invoice,
                 'invoiceFooter' => $invoiceFooter,
@@ -258,7 +264,8 @@ class SalesInvoicePrintItemCodeTest extends TestCase
             $this->assertFooterTotalsPresent($html, $invoiceFooter);
 
             $counts = $this->extractLineTableColumnCounts($html);
-            $this->assertSame(8, $counts['headerCols'], "{$viewName} should render 8 columns with Item Code.");
+            $expectedCols = $expectedColsWithItemCode[$viewName];
+            $this->assertSame($expectedCols, $counts['headerCols'], "{$viewName} should render {$expectedCols} columns with Item Code.");
             $this->assertSame($counts['headerCols'], $counts['bodyCols']);
             $this->assertSame($counts['headerCols'], $counts['footerCols']);
         }
@@ -269,7 +276,13 @@ class SalesInvoicePrintItemCodeTest extends TestCase
         ['invoice' => $invoice, 'itemCode' => $itemCode] = $this->createInvoiceWithLine();
         $invoiceFooter = SalesInvoicePostingMath::invoiceFooterTotals($invoice);
 
-        foreach (['sales_invoices.print', 'sales_invoices.print_pt_csj', 'sales_invoices.print_cv_saranghae'] as $viewName) {
+        $expectedColsWithoutItemCode = [
+            'sales_invoices.print' => 8,
+            'sales_invoices.print_pt_csj' => 8,
+            'sales_invoices.print_cv_saranghae' => 7,
+        ];
+
+        foreach (array_keys($expectedColsWithoutItemCode) as $viewName) {
             $html = view($viewName, [
                 'invoice' => $invoice,
                 'invoiceFooter' => $invoiceFooter,
@@ -282,7 +295,8 @@ class SalesInvoicePrintItemCodeTest extends TestCase
             $this->assertFooterTotalsPresent($html, $invoiceFooter);
 
             $counts = $this->extractLineTableColumnCounts($html);
-            $this->assertSame(7, $counts['headerCols'], "{$viewName} should render 7 columns without Item Code.");
+            $expectedCols = $expectedColsWithoutItemCode[$viewName];
+            $this->assertSame($expectedCols, $counts['headerCols'], "{$viewName} should render {$expectedCols} columns without Item Code.");
             $this->assertSame($counts['headerCols'], $counts['bodyCols']);
             $this->assertSame($counts['headerCols'], $counts['footerCols']);
         }
