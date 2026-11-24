@@ -61,47 +61,66 @@
 </head>
 
 <body>
-    <div class="company-header">
-        @php
-            $piCashAccount = $piCashAccount ?? null;
-            $companyName = \App\Models\ErpParameter::get('company_name', 'Company Name');
-            $companyAddress = \App\Models\ErpParameter::get('company_address', '');
-            $companyPhone = \App\Models\ErpParameter::get('company_phone', '');
-            $companyEmail = \App\Models\ErpParameter::get('company_email', '');
-            $companyTaxNumber = \App\Models\ErpParameter::get('company_tax_number', '');
-            $companyLogo = \App\Models\ErpParameter::get('company_logo_path', '');
-        @endphp
+    @php
+        $piCashAccount = $piCashAccount ?? null;
+        $entity = $invoice->companyEntity;
+        $useCsjLetterhead = false;
+        if ($entity) {
+            if ($entity->name === 'PT Cahaya Sarange Jaya' || $entity->code === \App\Models\CompanyEntity::DEFAULT_CODE) {
+                $useCsjLetterhead = true;
+            } else {
+                $csjEntityId = \App\Models\CompanyEntity::query()
+                    ->where('code', \App\Models\CompanyEntity::DEFAULT_CODE)
+                    ->value('id');
+                $useCsjLetterhead = $csjEntityId && (int) $invoice->company_entity_id === (int) $csjEntityId;
+            }
+        }
+    @endphp
 
-        @if ($companyLogo && file_exists(public_path('storage/' . $companyLogo)))
-            <div class="company-logo">
-                <img src="{{ public_path('storage/' . $companyLogo) }}" alt="Logo" style="height: 60px;">
-            </div>
-        @endif
+    @if ($useCsjLetterhead)
+        @include('partials.letterhead_pt_csj', ['entity' => $entity])
+    @else
+        <div class="company-header">
+            @php
+                $companyName = \App\Models\ErpParameter::get('company_name', 'Company Name');
+                $companyAddress = \App\Models\ErpParameter::get('company_address', '');
+                $companyPhone = \App\Models\ErpParameter::get('company_phone', '');
+                $companyEmail = \App\Models\ErpParameter::get('company_email', '');
+                $companyTaxNumber = \App\Models\ErpParameter::get('company_tax_number', '');
+                $companyLogo = \App\Models\ErpParameter::get('company_logo_path', '');
+            @endphp
 
-        <div class="company-info">
-            <div class="company-name">{{ $companyName }}</div>
-            <div class="company-details">
-                @if ($companyAddress)
-                    {{ $companyAddress }}<br>
-                @endif
-                @if ($companyPhone || $companyEmail)
-                    @if ($companyPhone)
-                        Phone: {{ $companyPhone }}
+            @if ($companyLogo && file_exists(public_path('storage/' . $companyLogo)))
+                <div class="company-logo">
+                    <img src="{{ public_path('storage/' . $companyLogo) }}" alt="Logo" style="height: 60px;">
+                </div>
+            @endif
+
+            <div class="company-info">
+                <div class="company-name">{{ $companyName }}</div>
+                <div class="company-details">
+                    @if ($companyAddress)
+                        {{ $companyAddress }}<br>
                     @endif
-                    @if ($companyPhone && $companyEmail)
-                        |
+                    @if ($companyPhone || $companyEmail)
+                        @if ($companyPhone)
+                            Phone: {{ $companyPhone }}
+                        @endif
+                        @if ($companyPhone && $companyEmail)
+                            |
+                        @endif
+                        @if ($companyEmail)
+                            Email: {{ $companyEmail }}
+                        @endif
+                        <br>
                     @endif
-                    @if ($companyEmail)
-                        Email: {{ $companyEmail }}
+                    @if ($companyTaxNumber)
+                        Tax Number: {{ $companyTaxNumber }}
                     @endif
-                    <br>
-                @endif
-                @if ($companyTaxNumber)
-                    Tax Number: {{ $companyTaxNumber }}
-                @endif
+                </div>
             </div>
         </div>
-    </div>
+    @endif
 
     <div class="document-header">
         <div>

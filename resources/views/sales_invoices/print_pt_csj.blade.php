@@ -39,29 +39,7 @@
 <body>
     <button class="no-print print-float-btn" onclick="window.print()">Print</button>
 
-    <div class="company-header">
-        @php
-            $entity = $entity ?? \App\Models\CompanyEntity::where('name', 'PT Cahaya Sarange Jaya')->first();
-            $companyName = $entity?->name ?? 'PT Cahaya Sarange Jaya';
-            $companyAddress = $entity?->address ?? \App\Models\ErpParameter::get('company_address', '');
-            $companyPhone = $entity?->phone ?? \App\Models\ErpParameter::get('company_phone', '');
-            $companyEmail = $entity?->email ?? \App\Models\ErpParameter::get('company_email', '');
-            $companyTaxNumber = $entity?->tax_number ?? \App\Models\ErpParameter::get('company_tax_number', '');
-        @endphp
-        @if (file_exists(public_path('logo_pt_csj_transparan.jpeg')))
-            <div class="company-logo">
-                <img src="{{ asset('logo_pt_csj_transparan.jpeg') }}" alt="{{ $companyName }}">
-            </div>
-        @endif
-        <div class="company-info">
-            <div class="company-name">{{ $companyName }}</div>
-            <div class="company-details">
-                @if ($companyAddress){{ $companyAddress }}<br>@endif
-                @if ($companyPhone || $companyEmail){{ $companyPhone }}{{ $companyPhone && $companyEmail ? ' | ' : '' }}{{ $companyEmail }}@endif
-                @if ($companyTaxNumber)<br>Tax ID: {{ $companyTaxNumber }}@endif
-            </div>
-        </div>
-    </div>
+    @include('partials.letterhead_pt_csj', ['entity' => $entity ?? null])
 
     <div class="document-section">
         <div class="document-header">

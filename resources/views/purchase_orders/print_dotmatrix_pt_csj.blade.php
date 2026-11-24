@@ -6,7 +6,9 @@
         @page { size: 9.5in; margin: 0.25in; }
         body { font-family: 'Courier New', monospace; font-size: 11px; margin: 0; padding: 8px; max-width: 9.5in; }
         .company-header { text-align: center; margin-bottom: 8px; border-bottom: 1px solid #000; }
+        .company-header .logo { max-height: 48px; margin-bottom: 4px; }
         .company-name { font-size: 12px; font-weight: bold; }
+        .company-details { font-size: 9px; line-height: 1.3; }
         .header { text-align: center; margin: 8px 0; }
         table { width: 100%; border-collapse: collapse; margin-bottom: 8px; font-size: 10px; }
         th, td { border: 1px solid #000; padding: 3px 4px; }
@@ -19,13 +21,7 @@
 </head>
 <body>
     <button class="no-print print-btn" onclick="window.print()">Print</button>
-    @php
-        $entity = $entity ?? \App\Models\CompanyEntity::where('name', 'PT Cahaya Sarange Jaya')->first();
-        $companyName = $entity?->name ?? 'PT Cahaya Sarange Jaya';
-    @endphp
-    <div class="company-header">
-        <div class="company-name">{{ $companyName }}</div>
-    </div>
+    @include('partials.letterhead_pt_csj', ['entity' => $entity ?? null, 'letterheadVariant' => 'dotmatrix'])
     <div class="header">
         <h1>PURCHASE ORDER</h1>
         <div>{{ $order->order_no ?? '#' . $order->id }}</div>

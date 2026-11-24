@@ -34,21 +34,7 @@
 <body>
     <button class="no-print print-btn" onclick="window.print()">Print</button>
 
-    @php
-        $entity = $entity ?? \App\Models\CompanyEntity::where('name', 'PT Cahaya Sarange Jaya')->first();
-        $companyName = $entity?->name ?? 'PT Cahaya Sarange Jaya';
-        $companyAddress = $entity?->address ?? \App\Models\ErpParameter::get('company_address', '');
-        $companyPhone = $entity?->phone ?? \App\Models\ErpParameter::get('company_phone', '');
-        $companyEmail = $entity?->email ?? \App\Models\ErpParameter::get('company_email', '');
-    @endphp
-
-    <div class="company-header">
-        @if (file_exists(public_path('logo_pt_csj_transparan.jpeg')))
-        <img src="{{ asset('logo_pt_csj_transparan.jpeg') }}" alt="Logo" class="logo">
-        @endif
-        <div class="company-name">{{ $companyName }}</div>
-        <div class="company-details">{{ $companyAddress }}@if ($companyPhone || $companyEmail) | {{ $companyPhone }}{{ $companyPhone && $companyEmail ? ' | ' : '' }}{{ $companyEmail }}@endif</div>
-    </div>
+    @include('partials.letterhead_pt_csj', ['entity' => $entity ?? null, 'letterheadVariant' => 'dotmatrix'])
 
     <div class="header">
         <h1>SALES INVOICE</h1>

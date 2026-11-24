@@ -220,43 +220,12 @@
     <button class="no-print print-float-btn" onclick="window.print()">Print</button>
 
     @php
-        $entity = $entity ?? \App\Models\CompanyEntity::where('name', 'PT Cahaya Sarange Jaya')->first();
-        $companyName = $entity?->name ?? 'PT Cahaya Sarange Jaya';
-        $officeBalikpapan = \App\Models\ErpParameter::get(
-            'pt_csj_office_balikpapan',
-            'Mal Fantasi Balikpapan Baru, Ruko Puri Blok A35, Balikpapan Baru, Kal-Tim 76114',
-        );
-        $officeJakarta = \App\Models\ErpParameter::get(
-            'pt_csj_office_jakarta',
-            'Jl. Raya Cilandak KKO, Komplek Vico Kav.12, Jakarta Selatan, 12560',
-        );
-        $tagline = \App\Models\ErpParameter::get('pt_csj_tagline', 'General Supplier');
-        $logoPath = $entity?->logo_path ?? 'logo_pt_csj.png';
         $vendorAddress =
             optional($order->businessPartner)->primaryAddress?->full_address ??
             (optional($order->businessPartner)->addresses->first()?->full_address ?? '-');
     @endphp
 
-    <div class="company-header">
-        <div class="company-left">
-            @if (file_exists(public_path($logoPath)))
-                <div class="company-logo">
-                    <img src="{{ asset($logoPath) }}" alt="Logo">
-                </div>
-            @endif
-            <div>
-                {{-- <div class="company-name">Cahaya Sarange Jaya</div> --}}
-                <div class="company-legal">{{ $companyName }}</div>
-                <div class="company-tagline">{{ $tagline }}</div>
-            </div>
-        </div>
-        <div class="company-offices">
-            <strong>Office Balikpapan:</strong>
-            {{ $officeBalikpapan }}<br>
-            <strong>Office Jakarta:</strong>
-            {{ $officeJakarta }}
-        </div>
-    </div>
+    @include('partials.letterhead_pt_csj', ['entity' => $entity ?? null, 'letterheadVariant' => 'purchase_order'])
 
     <div class="title-block">
         <h1>PURCHASE ORDER</h1>
@@ -303,8 +272,8 @@
                     <strong>Contact :</strong> {{ $order->warehouse->phone ?? '' }}<br>
                     <strong>Attn :</strong> {{ $order->warehouse->contact_person ?? '' }}
                 @else
-                    {{ $officeBalikpapan }}<br>
-                    <strong>Contact :</strong> {{ $entity?->phone ?? '' }}<br>
+                    {{ $csjHeadOfficeDisplay }}<br>
+                    <strong>Contact :</strong> {{ $companyPhone ?? ($entity?->phone ?? '') }}<br>
                     <strong>Attn :</strong> {{ $order->createdBy->name ?? '' }}
                 @endif
             </div>
