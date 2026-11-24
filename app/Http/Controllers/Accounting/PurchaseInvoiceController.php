@@ -1051,7 +1051,7 @@ class PurchaseInvoiceController extends Controller
         $rows = $q->clone()->orderByDesc('pi.date')->orderByDesc('pi.id')->get();
 
         $sheet = [
-            ['Date', 'Invoice No', 'Vendor', 'Total', 'VAT', 'Amount After VAT', 'Status'],
+            ['Date', 'Invoice No', 'Vendor', 'Total', 'VAT', 'Amount After VAT', 'Payment Method', 'Status'],
         ];
 
         foreach ($rows as $row) {
@@ -1062,6 +1062,7 @@ class PurchaseInvoiceController extends Controller
                 round((float) $row->total_amount, 2),
                 round((float) $row->total_vat, 2),
                 round((float) $row->total_amount_after_vat, 2),
+                $this->formatPurchaseInvoiceListPaymentMethodLabel($row->payment_method ?? null),
                 strtoupper((string) $row->status),
             ];
         }
@@ -1075,6 +1076,7 @@ class PurchaseInvoiceController extends Controller
             round((float) $totalsRow->sum_vat, 2),
             round((float) $totalsRow->sum_amount_after_vat, 2),
             '',
+            '',
         ];
 
         $filename = 'purchase-invoices-'.now()->format('Y-m-d_His').'.xlsx';
@@ -1086,6 +1088,7 @@ class PurchaseInvoiceController extends Controller
     {
         return DB::table('purchase_invoices as pi')
             ->leftJoin('business_partners as v', 'v.id', '=', 'pi.business_partner_id')
+            ->leftJoin('accounts as ca', 'ca.id', '=', 'pi.cash_account_id')
             ->leftJoin('purchase_invoice_lines as pil', 'pil.invoice_id', '=', 'pi.id')
             ->select(
                 'pi.id',
@@ -1095,6 +1098,10 @@ class PurchaseInvoiceController extends Controller
                 'v.name as vendor_name',
                 'pi.total_amount',
                 'pi.status',
+                'pi.payment_method',
+                'pi.cash_account_id',
+                'ca.code as cash_account_code',
+                'ca.name as cash_account_name',
                 DB::raw('COALESCE(SUM(pil.vat_amount), 0) as total_vat'),
                 DB::raw('CASE 
                     WHEN COALESCE(SUM(pil.amount_after_vat), 0) = 0 AND COALESCE(SUM(pil.amount), 0) > 0 
@@ -1104,7 +1111,28 @@ class PurchaseInvoiceController extends Controller
                     ELSE pi.total_amount
                 END as total_amount_after_vat')
             )
-            ->groupBy('pi.id', 'pi.date', 'pi.invoice_no', 'pi.business_partner_id', 'v.name', 'pi.total_amount', 'pi.status');
+            ->groupBy(
+                'pi.id',
+                'pi.date',
+                'pi.invoice_no',
+                'pi.business_partner_id',
+                'v.name',
+                'pi.total_amount',
+                'pi.status',
+                'pi.payment_method',
+                'pi.cash_account_id',
+                'ca.code',
+                'ca.name'
+            );
+    }
+
+    private function formatPurchaseInvoiceListPaymentMethodLabel(?string $paymentMethod): string
+    {
+        return match ($paymentMethod) {
+            'cash' => 'Cash',
+            'credit' => 'Kredit',
+            default => '—',
+        };
     }
 
     private function formatPurchaseInvoiceListDate(mixed $date): string

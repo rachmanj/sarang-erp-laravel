@@ -84,6 +84,7 @@
                                         <th>Total</th>
                                         <th>VAT</th>
                                         <th>Amount After VAT</th>
+                                        <th>Payment Method</th>
                                         <th>Status</th>
                                         <th>Actions</th>
                                     </tr>
@@ -95,7 +96,7 @@
                                         <th class="text-right font-weight-bold" id="pi-sum-total">—</th>
                                         <th></th>
                                         <th class="text-right font-weight-bold" id="pi-sum-after-vat">—</th>
-                                        <th colspan="2"></th>
+                                        <th colspan="3"></th>
                                     </tr>
                                 </tfoot>
                             </table>
@@ -193,6 +194,29 @@
                             className: 'text-right',
                             orderable: false,
                             searchable: false
+                        },
+                        {
+                            data: 'payment_method',
+                            name: 'pi.payment_method',
+                            orderable: false,
+                            searchable: false,
+                            render: function(data, type) {
+                                if (type !== 'display' && type !== 'filter') {
+                                    return data ?? '';
+                                }
+                                if (data === 'cash') {
+                                    return 'Cash';
+                                }
+                                if (data === 'credit') {
+                                    return 'Kredit';
+                                }
+                                return '—';
+                            },
+                            createdCell: function(td, cellData, rowData) {
+                                if (rowData.payment_method === 'cash' && rowData.cash_account_code && rowData.cash_account_name) {
+                                    $(td).attr('title', rowData.cash_account_code + ' — ' + rowData.cash_account_name);
+                                }
+                            }
                         },
                         {
                             data: 'status',
