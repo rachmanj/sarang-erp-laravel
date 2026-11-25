@@ -200,22 +200,37 @@
                             name: 'pi.payment_method',
                             orderable: false,
                             searchable: false,
-                            render: function(data, type) {
+                            render: function(data, type, row) {
                                 if (type !== 'display' && type !== 'filter') {
                                     return data ?? '';
                                 }
+                                var label = '—';
                                 if (data === 'cash') {
-                                    return 'Cash';
+                                    label = 'Cash';
+                                } else if (data === 'credit') {
+                                    label = 'Kredit';
                                 }
-                                if (data === 'credit') {
-                                    return 'Kredit';
+                                var account = row.payment_accounts;
+                                if (!account) {
+                                    return label;
                                 }
-                                return '—';
-                            },
-                            createdCell: function(td, cellData, rowData) {
-                                if (rowData.payment_method === 'cash' && rowData.cash_account_code && rowData.cash_account_name) {
-                                    $(td).attr('title', rowData.cash_account_code + ' — ' + rowData.cash_account_name);
-                                }
+                                var esc = function(s) {
+                                    return String(s)
+                                        .replace(/&/g, '&amp;')
+                                        .replace(/</g, '&lt;')
+                                        .replace(/>/g, '&gt;')
+                                        .replace(/"/g, '&quot;');
+                                };
+                                var accountNamesOnly = String(account).split('; ').map(function(part) {
+                                    part = part.trim();
+                                    var sep = part.indexOf(' — ');
+                                    if (sep !== -1) {
+                                        return part.substring(sep + 3);
+                                    }
+                                    return part;
+                                }).join('; ');
+                                return label + '<div class="small text-muted" title="' + esc(account) +
+                                    '" style="line-height:1.15">' + esc(accountNamesOnly) + '</div>';
                             }
                         },
                         {

@@ -1028,6 +1028,9 @@ class PurchaseInvoiceController extends Controller
             ->addColumn('vendor', function ($row) {
                 return $row->vendor_name ?: ('#'.$row->business_partner_id);
             })
+            ->addColumn('payment_accounts', function ($row) {
+                return $this->resolvePurchaseInvoiceListPaymentAccounts($row);
+            })
             ->addColumn('actions', function ($row) {
                 $url = route('purchase-invoices.show', $row->id);
 
@@ -1051,7 +1054,7 @@ class PurchaseInvoiceController extends Controller
         $rows = $q->clone()->orderByDesc('pi.date')->orderByDesc('pi.id')->get();
 
         $sheet = [
-            ['Date', 'Invoice No', 'Vendor', 'Total', 'VAT', 'Amount After VAT', 'Payment Method', 'Status'],
+            ['Date', 'Invoice No', 'Vendor', 'Total', 'VAT', 'Amount After VAT', 'Payment Method', 'Payment Account', 'Status'],
         ];
 
         foreach ($rows as $row) {
@@ -1063,6 +1066,7 @@ class PurchaseInvoiceController extends Controller
                 round((float) $row->total_vat, 2),
                 round((float) $row->total_amount_after_vat, 2),
                 $this->formatPurchaseInvoiceListPaymentMethodLabel($row->payment_method ?? null),
+                $this->resolvePurchaseInvoiceListPaymentAccounts($row),
                 strtoupper((string) $row->status),
             ];
         }
@@ -1075,6 +1079,7 @@ class PurchaseInvoiceController extends Controller
             round((float) $totalsRow->sum_total_amount, 2),
             round((float) $totalsRow->sum_vat, 2),
             round((float) $totalsRow->sum_amount_after_vat, 2),
+            '',
             '',
             '',
         ];
@@ -1109,7 +1114,22 @@ class PurchaseInvoiceController extends Controller
                     WHEN COALESCE(SUM(pil.amount_after_vat), 0) > 0 
                     THEN SUM(pil.amount_after_vat)
                     ELSE pi.total_amount
-                END as total_amount_after_vat')
+                END as total_amount_after_vat'),
+                DB::raw(<<<'SQL'
+(
+    SELECT GROUP_CONCAT(
+        DISTINCT CONCAT(a.code, ' — ', a.name)
+        ORDER BY a.code
+        SEPARATOR '; '
+    )
+    FROM purchase_payment_allocations ppa
+    INNER JOIN purchase_payments pp ON pp.id = ppa.payment_id AND pp.status = 'posted'
+    INNER JOIN purchase_payment_lines ppl ON ppl.payment_id = pp.id
+    INNER JOIN accounts a ON a.id = ppl.account_id
+    WHERE ppa.invoice_id = pi.id
+      AND (a.code LIKE '1.1.1.%' OR a.code LIKE '1.1.2.%')
+) as payment_accounts
+SQL)
             )
             ->groupBy(
                 'pi.id',
@@ -1133,6 +1153,19 @@ class PurchaseInvoiceController extends Controller
             'credit' => 'Kredit',
             default => '—',
         };
+    }
+
+    private function resolvePurchaseInvoiceListPaymentAccounts(object $row): string
+    {
+        if (($row->payment_method ?? '') === 'cash') {
+            if (! empty($row->cash_account_code) && ! empty($row->cash_account_name)) {
+                return $row->cash_account_code.' — '.$row->cash_account_name;
+            }
+
+            return '';
+        }
+
+        return trim((string) ($row->payment_accounts ?? ''));
     }
 
     private function formatPurchaseInvoiceListDate(mixed $date): string

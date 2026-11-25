@@ -21,6 +21,7 @@ class PurchaseInvoiceListPaymentMethodTest extends TestCase
         'VAT',
         'Amount After VAT',
         'Payment Method',
+        'Payment Account',
         'Status',
     ];
 
@@ -87,11 +88,13 @@ class PurchaseInvoiceListPaymentMethodTest extends TestCase
         $this->assertSame(self::EXPECTED_HEADERS, $header);
 
         $paymentMethodIndex = array_search('Payment Method', $header, true);
+        $paymentAccountIndex = array_search('Payment Account', $header, true);
         $amountAfterVatIndex = array_search('Amount After VAT', $header, true);
         $statusIndex = array_search('Status', $header, true);
 
         $this->assertSame($amountAfterVatIndex + 1, $paymentMethodIndex);
-        $this->assertSame($paymentMethodIndex + 1, $statusIndex);
+        $this->assertSame($paymentMethodIndex + 1, $paymentAccountIndex);
+        $this->assertSame($paymentAccountIndex + 1, $statusIndex);
 
         $dataByInvoiceNo = [];
         foreach (array_slice($rows, 1) as $row) {
@@ -121,6 +124,7 @@ class PurchaseInvoiceListPaymentMethodTest extends TestCase
         $this->assertSame(0.0, (float) $totalsRow[$vatIndex]);
         $this->assertSame(200000.0, (float) $totalsRow[$amountAfterVatIndex]);
         $this->assertSame('', trim((string) ($totalsRow[$paymentMethodIndex] ?? '')));
+        $this->assertSame('', trim((string) ($totalsRow[$paymentAccountIndex] ?? '')));
         $this->assertSame('', trim((string) ($totalsRow[$statusIndex] ?? '')));
     }
 
