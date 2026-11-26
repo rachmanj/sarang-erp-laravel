@@ -1013,8 +1013,12 @@ class SalesInvoiceController extends Controller
 
     public function export(Request $request)
     {
+        $openState = $request->filled('open_state')
+            ? DocumentOpenState::stateFromInput($request->input('open_state'))
+            : 'all';
+
         $q = $this->buildSalesInvoiceListQuery();
-        $this->applySalesInvoiceListFilters($q, $request);
+        $this->applySalesInvoiceListFilters($q, $request, $openState);
 
         $totalsRow = DB::query()->fromSub($q->clone(), 'inv')
             ->selectRaw('COALESCE(SUM(inv.total_amount), 0) as sum_total_amount')
@@ -1077,7 +1081,7 @@ class SalesInvoiceController extends Controller
         return Carbon::parse($date)->format('d-M-Y');
     }
 
-    private function applySalesInvoiceListFilters(Builder $query, Request $request): void
+    private function applySalesInvoiceListFilters(Builder $query, Request $request, ?string $stateOverride = null): void
     {
         if ($request->filled('status')) {
             $query->where('si.status', $request->input('status'));
@@ -1101,11 +1105,13 @@ class SalesInvoiceController extends Controller
             $query->where('si.company_entity_id', (int) $request->company_entity_id);
         }
 
+        $state = $stateOverride ?? DocumentOpenState::stateFromInput($request->input('open_state'));
+
         DocumentOpenState::applyToQuery(
             $query,
             'sales_invoice',
             'si',
-            DocumentOpenState::stateFromInput($request->input('open_state'))
+            $state
         );
     }
 }

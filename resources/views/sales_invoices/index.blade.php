@@ -132,6 +132,7 @@
                     if (q) p.set('q', q);
                     if (status) p.set('status', status);
                     if (entity) p.set('company_entity_id', entity);
+                    p.set('open_state', $('input[name="open_state"]:checked').val() || 'open');
                     return '{{ route('sales-invoices.export') }}' + (p.toString() ? '?' + p.toString() : '');
                 }
 
